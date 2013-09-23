@@ -176,21 +176,16 @@ AC_OUTPUT(Makefile
 	  apps/config/Makefile 
 	  apps/netconf/Makefile
 	  apps/dbctrl/Makefile
-	  apps/logbuf/Makefile 
-	  apps/tools/Makefile
-          script/Makefile
 	  include/Makefile
 	  etc/Makefile
 	  etc/cliconrc
-	  appdir/Makefile
-	  appdir/hello/Makefile
-	  appdir/hello/clicon.conf
-	  appdir/ntp/Makefile
-	  appdir/ntp/clicon.conf
-	  appdir/datamodel/Makefile
-	  appdir/datamodel/clicon.conf
-	  test/Makefile
+	  examples/Makefile
+	  examples/hello/Makefile
+	  examples/hello/clicon.conf
+	  examples/ntp/Makefile
+	  examples/ntp/clicon.conf
+	  examples/datamodel/Makefile
+	  examples/datamodel/clicon.conf
 	  doc/Makefile 
-	  doc/man/Makefile 
 )
 

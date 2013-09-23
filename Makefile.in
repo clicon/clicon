@@ -39,7 +39,7 @@ LIBS    	= @LIBS@
 INCLUDES 	= -I. -I@srcdir@ @INCLUDES@
 SHELL		= /bin/sh
 
-SUBDIRS = lib apps script include test doc etc 
+SUBDIRS = lib apps include doc etc 
 
 .PHONY:	doc all clean depend $(SUBDIRS) install 
 
@@ -49,7 +49,7 @@ $(SUBDIRS):
 		(cd $@; $(MAKE) $(MFLAGS) all)
 
 depend:
-		for i in $(SUBDIRS) appdir; \
+		for i in $(SUBDIRS) examples; \
 		do (cd $$i; $(MAKE) $(MFLAGS) depend); done
 
 install:
@@ -60,9 +60,9 @@ install:
 install-include:
 		for i in $(SUBDIRS); \
 		do (cd $$i; $(MAKE) $(MFLAGS) $@); done; \
-		echo "To install hello app: cd appdir/hello; make; make install"
+		echo "To install hello app: cd examples/hello; make; make install"
 uninstall:
-		for i in $(SUBDIRS) appdir; \
+		for i in $(SUBDIRS) examples; \
 		do (cd $$i; $(MAKE) $(MFLAGS) $@); done; 
 
 .PHONY: config.status
@@ -73,13 +73,13 @@ configure:	configure.ac
 		cd $(srcdir); autoconf
 
 clean:
-		for i in $(SUBDIRS) appdir; \
+		for i in $(SUBDIRS) examples; \
 			do (cd $$i; $(MAKE) $(MFLAGS) $@); done; 
 
 distclean:
 		rm -f Makefile TAGS config.status config.log *~ .depend
 		rm -rf Makefile autom4te.cache 
-		for i in $(SUBDIRS) appdir; \
+		for i in $(SUBDIRS) examples; \
 		do (cd $$i; $(MAKE) $(MFLAGS) $@); done
 
 tags:

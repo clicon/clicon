@@ -29,7 +29,7 @@ docdir		= @docdir@
 pdflatex	= @PDFLATEX@
 
 
-SUBDIRS = man
+SUBDIRS = 
 
 .PHONY: clean all $(SUBDIRS)
 

@@ -4263,7 +4263,7 @@ if test "$ac_enable_keycontent" = "yes"; then
 
 fi
 
-ac_config_files="$ac_config_files Makefile lib/Makefile lib/src/Makefile lib/clicon/Makefile apps/Makefile apps/cli/Makefile apps/config/Makefile apps/netconf/Makefile apps/dbctrl/Makefile apps/logbuf/Makefile apps/tools/Makefile script/Makefile include/Makefile etc/Makefile etc/cliconrc appdir/Makefile appdir/hello/Makefile appdir/hello/clicon.conf appdir/ntp/Makefile appdir/ntp/clicon.conf appdir/datamodel/Makefile appdir/datamodel/clicon.conf test/Makefile doc/Makefile doc/man/Makefile"
+ac_config_files="$ac_config_files Makefile lib/Makefile lib/src/Makefile lib/clicon/Makefile apps/Makefile apps/cli/Makefile apps/config/Makefile apps/netconf/Makefile apps/dbctrl/Makefile include/Makefile etc/Makefile etc/cliconrc examples/Makefile examples/hello/Makefile examples/hello/clicon.conf examples/ntp/Makefile examples/ntp/clicon.conf examples/datamodel/Makefile examples/datamodel/clicon.conf doc/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -4976,22 +4976,17 @@ do
     "apps/config/Makefile") CONFIG_FILES="$CONFIG_FILES apps/config/Makefile" ;;
     "apps/netconf/Makefile") CONFIG_FILES="$CONFIG_FILES apps/netconf/Makefile" ;;
     "apps/dbctrl/Makefile") CONFIG_FILES="$CONFIG_FILES apps/dbctrl/Makefile" ;;
-    "apps/logbuf/Makefile") CONFIG_FILES="$CONFIG_FILES apps/logbuf/Makefile" ;;
-    "apps/tools/Makefile") CONFIG_FILES="$CONFIG_FILES apps/tools/Makefile" ;;
-    "script/Makefile") CONFIG_FILES="$CONFIG_FILES script/Makefile" ;;
     "include/Makefile") CONFIG_FILES="$CONFIG_FILES include/Makefile" ;;
     "etc/Makefile") CONFIG_FILES="$CONFIG_FILES etc/Makefile" ;;
     "etc/cliconrc") CONFIG_FILES="$CONFIG_FILES etc/cliconrc" ;;
-    "appdir/Makefile") CONFIG_FILES="$CONFIG_FILES appdir/Makefile" ;;
-    "appdir/hello/Makefile") CONFIG_FILES="$CONFIG_FILES appdir/hello/Makefile" ;;
-    "appdir/hello/clicon.conf") CONFIG_FILES="$CONFIG_FILES appdir/hello/clicon.conf" ;;
-    "appdir/ntp/Makefile") CONFIG_FILES="$CONFIG_FILES appdir/ntp/Makefile" ;;
-    "appdir/ntp/clicon.conf") CONFIG_FILES="$CONFIG_FILES appdir/ntp/clicon.conf" ;;
-    "appdir/datamodel/Makefile") CONFIG_FILES="$CONFIG_FILES appdir/datamodel/Makefile" ;;
-    "appdir/datamodel/clicon.conf") CONFIG_FILES="$CONFIG_FILES appdir/datamodel/clicon.conf" ;;
-    "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "examples/Makefile") CONFIG_FILES="$CONFIG_FILES examples/Makefile" ;;
+    "examples/hello/Makefile") CONFIG_FILES="$CONFIG_FILES examples/hello/Makefile" ;;
+    "examples/hello/clicon.conf") CONFIG_FILES="$CONFIG_FILES examples/hello/clicon.conf" ;;
+    "examples/ntp/Makefile") CONFIG_FILES="$CONFIG_FILES examples/ntp/Makefile" ;;
+    "examples/ntp/clicon.conf") CONFIG_FILES="$CONFIG_FILES examples/ntp/clicon.conf" ;;
+    "examples/datamodel/Makefile") CONFIG_FILES="$CONFIG_FILES examples/datamodel/Makefile" ;;
+    "examples/datamodel/clicon.conf") CONFIG_FILES="$CONFIG_FILES examples/datamodel/clicon.conf" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
-    "doc/man/Makefile") CONFIG_FILES="$CONFIG_FILES doc/man/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
