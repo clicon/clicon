@@ -1,0 +1,41 @@
+# $Id: hello_cli.cli,v 1.6 2013/09/19 15:02:38 olof Exp $
+# Common CLI syntax for both server and PMNode operatio mode
+CLICON_MODE="hello";
+CLICON_PLUGIN="hello_cli";
+CLICON_PROMPT="%U@%H> ";
+
+@datamodel, cli_merge();
+commit("Commit the changes"), cli_commit((int)0); # snapshot
+validate("Validate changes"), cli_validate();
+quit("Quit Hello"), cli_quit();
+delete("Delete a configuration item"){ 
+    @datamodel, cli_del();
+    all("Delete whole candidate configuration"), delete_all("candidate");
+}
+no("Negate or remove") debug("Debugging parts of the system"), cli_debug((int)0);
+debug("Debugging parts of the system"), cli_debug((int)1);{
+    level("Set debug level: 1..n") <level:int>("Set debug level (0..n)"), cli_debug();
+}
+
+compare("Compare candidate and running databases"), compare_dbs((int)0);{
+    xml("Show comparison in xml"), compare_dbs((int)0);
+    text("Show comparison in text"), compare_dbs((int)1);
+}
+discard("Discard edits (rollback 0)"), discard_changes();
+
+show("Show a particular state of the system"){
+    configuration("Show configuration"), show_conf_as_text("candidate ^.*$");{
+	    xml("Show configuration as XML"), show_conf_as_xml("candidate ^.*$");
+	    netconf("Show configuration as netconf edit-config operation"), show_conf_as_netconf("candidate ^.*$");
+	    text("Show configuration as text"), show_conf_as_text("candidate ^.*$");
+	    cli("Show configuration as cli commands"), show_conf_as_cli("candidate ^.*$");
+    }
+}
+
+save("Save candidate configuration to XML file") <filename:string>("Filename (local filename)"), save_config_file("candidate filename");
+load("Load configuration from XML file") <filename:string>("Filename (local filename)"),load_config_file("filename merge");{
+    replace("Replace candidate with file contents"), load_config_file("filename replace");
+    merge("Merge file with existent candidate"), load_config_file("filename merge");
+}
+
+

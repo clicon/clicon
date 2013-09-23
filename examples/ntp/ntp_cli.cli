@@ -1,0 +1,14 @@
+CLICON_MODE="ntp";
+CLICON_PLUGIN="ntp_cli";
+CLICON_PROMPT="%U@%H> ";
+
+show("Show running system information"){
+    associations("NTP associations"), cli_run("ntpq -p");
+    configuration("Show configuration as cli commands"), show_conf_as_cli("running ^.*$");
+    netconf("Show configuration as netconf"), show_conf_as_netconf("running ^.*$");
+}
+# Set and delete syntax
+@datamodel, cli_merge();
+no("Negate a syntax-statement") @datamodel, cli_del();
+
+quit("Quit CLI"), cli_quit();

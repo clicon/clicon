@@ -1,0 +1,16 @@
+This directory contains an example application. After building and installing
+clicon, make and install this hello application.
+Example:
+> tar xzf clicon.tgz
+> cd clicon
+> make
+> sudo make install
+> sudo make install-include # NB!
+> cd appdir
+> make
+> sudo make install
+> sudo clicon_config
+clicon_config[17651]: clicon_config: 17651 Started
+> clicon_cli 
+Welcome to CLICON hello example CLI
+hello> 

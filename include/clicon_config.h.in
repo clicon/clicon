@@ -1,0 +1,85 @@
+/*
+  CVS Version: $Id: clicon_config.h.in,v 1.20 2013/08/15 11:54:38 olof Exp $ 
+
+  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+
+  This file is part of CLICON.
+
+  CLICON is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 3 of the License, or
+  (at your option) any later version.
+
+  CLICON is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with CLICON; see the file COPYING.  If not, see
+  <http://www.gnu.org/licenses/>.
+
+  */
+
+#undef AUTOCONF 1
+
+
+/*
+ * CLICON config constants
+ */
+
+
+/* CLIGEN */
+#undef HAVE_CLIGEN_CLIGEN_H
+#undef HAVE_LIBCLIGEN
+
+/* QDBM */
+#undef HAVE_DEPOT_H
+#undef HAVE_QDBM_DEPOT_H
+#undef HAVE_LIBQDBM
+
+/* LIBS */
+#undef HAVE_LIBSOCKET
+#undef HAVE_LIBNSL
+
+/* HEADERS */
+#undef HAVE_LINUX_IF_VLAN_H
+#undef HAVE_CRYPT_H
+#undef HAVE_SYS_UCRED_H
+
+/* STRUCTS */
+#undef HAVE_SA_LEN
+#undef HAVE_SIN_LEN
+
+/* AC_CHECK_FUNCS */
+#undef HAVE_INET_ATON
+#undef HAVE_SIGACTION
+#undef HAVE_SIGVEC
+#undef HAVE_STRLCPY
+#undef HAVE_STRSEP
+#undef HAVE_STRNDUP
+#undef HAVE_MEMSET
+#undef HAVE_ALPHASORT
+#undef HAVE_VERSIONSORT
+#undef HAVE_STRVERSCMP
+
+#ifndef HAVE_STRNDUP
+#define strndup(s, n) clicon_strndup(s, n)
+#endif
+
+#if defined(__OpenBSD__) || defined(__FreeBSD__) ||  defined(__NetBSD__)
+#define BSD
+/* at least for openbsd 4.5 i cannot get a hdr file */
+int strverscmp (__const char *__s1, __const char *__s2);
+#endif
+
+/*
+ * DBLIST_CONTENT_LOOKUP
+ * Experiment to add hash-lists to every db-list, eg A[], A.n.
+ */
+#undef DB_KEYCONTENT
+
+/* This is the in-compiled clicon application dir, overruled by -a or env-variable */
+#undef APPDIR
+
+

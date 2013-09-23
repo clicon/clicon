@@ -1,0 +1,50 @@
+$Id: CHANGELOG,v 1.6 2013/09/19 16:03:40 olof Exp $
+     
+R2.3.0 
+=================
+Two new documents have been written and resides in the docs document:
+clicon-datamodel.pdf and clicon_db2txt.pdf. Together with an updated
+clicon_tutorial.pdf should give a good overview of the clicon system.
+
+The clicon data model has been better defined, extended and generates
+validation and CLI code more complete. Please see the datamodel
+description.
+
+make install and make install-include replaces make runtime/sdk. This
+is more inline with what you "would expect". You install files under
+/usr/local, but can change this with --prefix=<somethingelse>. Files
+are installed under lib, bin, etc, sbin, and share. See "Installation
+appendix" in clicon tutorial for more info.
+
+A default hello application residing in share is installed in
+/usr/local/share/clicon by default. This is a runnable "hello"
+application. 
+
+The order in which applications find the installation has been
+changed. An applications looks for APPDIR first (instead of
+CONFIGFILE). APPDIR is assumed to be in /usr/local/share/clicon,
+unless (in order of priority):
+   (1) The application has the -a option set
+   (2) The environment-variable CLICON_APPDIR is set
+   (3) The --with-appdir configure option; 
+The config-file is assumed to be $APPDIR/clicon-conf, unless overridden
+by the -f option.  This behaviour differs from the previous, when
+configuration file was looked for in a separate directory and APPDIR
+was defined within the configuration-file.
+
+R2.2.0 April 2013
+=================
+Optimized database access and commit for large (up to 10K) lists. 
+
+Datatype change: Changed all var and vh structures to cligen
+variables (cv:s) and cvec:s.
+
+New cli_set syntax.
+
+Enhanced commit semantics with transaction start, validate, and transaction end.
+
+Added Netconf xpath-capability (RFC 6241 Sec 8.9).
+
+Plugin 'downcall' support for direct function call from cli frontend to backend.
+
+Removed curl and procfs support and moved to application (osr)

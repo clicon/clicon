@@ -1,0 +1,203 @@
+# 
+# Makefile 
+# CVS Version: $Id: Makefile.in,v 1.96 2013/09/19 16:03:40 olof Exp $ 
+#
+# Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+#
+# This file is part of CLICON.
+#
+# CLICON is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# CLICON is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CLICON; see the file COPYING.  If not, see
+# <http://www.gnu.org/licenses/>.
+#
+#
+prefix 		= @prefix@
+datarootdir	= @datarootdir@
+srcdir  	= @srcdir@
+top_srcdir  	= @top_srcdir@
+exec_prefix 	= @exec_prefix@
+bindir 		= @bindir@
+libdir		= @libdir@
+dbdir		= @prefix@/db
+mandir		= @mandir@
+libexecdir	= @libexecdir@
+localstatedir	= @localstatedir@
+sysconfdir	= @sysconfdir@
+
+SH_SUFFIX	= @SH_SUFFIX@
+CLICON_VERSION  = @CLICON_VERSION@
+CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
+
+VPATH       	= @srcdir@
+CC		= @CC@
+CFLAGS  	= -fPIC @CFLAGS@ 
+LDFLAGS 	= @LDFLAGS@
+LIBS    	= @LIBS@ -L$(top_srcdir)/cligen -lcligen
+
+YACC		= @YACC@
+LEX		= @LEX@
+
+CPPFLAGS  	= @CPPFLAGS@
+
+INCLUDES = -I. @INCLUDES@ -I$(top_srcdir)/lib/clicon -I$(top_srcdir)/include -I$(top_srcdir)
+
+SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
+	  clicon_lvalue.c clicon_lvmap.c clicon_chunk.c clicon_proc.c \
+	  clicon_string.c clicon_handle.c \
+	  clicon_xml.c clicon_spec.c clicon_file.c clicon_dbutil.c \
+	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
+	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \
+	  xmlgen_xf.c xmlgen_xml.c xmlgen_xsl.c
+
+# XML parser src
+YACC_SRC	= xml.y
+LEX_SRC		= xml.l
+
+YACCOBJS := lex.xml.o xml.tab.o clicon_dbvars.yy.o clicon_dbvars.tab.o \
+	lex.clicon_dbspec.o clicon_dbspec.tab.o clicon_db2txt.yy.o clicon_db2txt.tab.o 
+
+
+# Generated src 
+GENSRC  = build.c 
+
+OBJS    = $(SRC:.c=.o) $(YACCOBJS)
+GENOBJS  = $(GENSRC:.c=.o) 
+
+# Linker-name: libclicon.so
+# so-name: libclicon.so.2
+# real-name: libclicon.so.2.0.0
+MYLIB        = libclicon$(SH_SUFFIX).$(CLICON_VERSION)
+MYLIBSO      = libclicon$(SH_SUFFIX).$(CLICON_MAJOR)
+MYLIBLINK    = libclicon$(SH_SUFFIX)
+
+all:	 $(MYLIB) $(MYLIBLINK)
+
+clean:
+	rm -f $(OBJS) $(MYLIB) $(MYLIBLINK) $(GENOBJS) $(GENSRC) *.core
+	rm -f xml.tab.[ch] lex.[co]
+	rm -f clicon_dbvars.tab.[ch] clicon_dbvars.yy.[co]
+	rm -f clicon_db2txt.tab.[ch] clicon_db2txt.yy.[co]
+	rm -f clicon_dbspec.tab.[ch] clicon_dbspec.[co]
+	rm -f lex.clicon_dbspec.c
+	rm -f lex.xml.c
+
+#############################################################################
+# Implicit rules for lex and yacc.
+#
+# lex files *.l -> *.yy.c
+# yacc files *.y -> *.tab.c and *.tab.h
+#
+# Lex forces yacc include file *.tab.h to be built.
+#############################################################################
+
+%.c : %.y  # cancel implicit yacc rule
+%.c : %.l  # cancel implicit lex rule
+
+# xml parser
+lex.xml.c : xml.l xml.tab.h
+	$(LEX) -Pxml xml.l # -d is debug
+
+xml.tab.c xml.tab.h: xml.y
+	$(YACC) -l -d -p xml xml.y # -t is debug
+	mv y.tab.c xml.tab.c
+	mv y.tab.h xml.tab.h
+
+lex.xml.o : lex.xml.c xml.tab.h # special rule to for make clean to work
+	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
+
+# clicon_dbspec parser
+lex.clicon_dbspec.c : clicon_dbspec.l clicon_dbspec.tab.h
+	$(LEX) -Pclicon_dbspec clicon_dbspec.l # -d is debug
+
+clicon_dbspec.tab.c clicon_dbspec.tab.h: clicon_dbspec.y
+	$(YACC) -l -d -p clicon_dbspec clicon_dbspec.y # -t is debug
+	mv y.tab.c clicon_dbspec.tab.c
+	mv y.tab.h clicon_dbspec.tab.h
+
+lex.clicon_dbspec.o : lex.clicon_dbspec.c clicon_dbspec.tab.h
+	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
+
+# clicon_dbvars parser
+clicon_dbvars.yy.c : clicon_dbvars.l clicon_dbvars.tab.h
+	$(LEX) -Pclicon_dbvars clicon_dbvars.l # -d is debug
+	mv lex.clicon_dbvars.c clicon_dbvars.yy.c
+
+clicon_dbvars.tab.c clicon_dbvars.tab.h: clicon_dbvars.y
+	$(YACC) -l -d -p clicon_dbvars clicon_dbvars.y # -t is debug
+	mv y.tab.c clicon_dbvars.tab.c
+	mv y.tab.h clicon_dbvars.tab.h
+
+# special rule to for make clean to work
+clicon_dbvars.yy.o : clicon_dbvars.yy.c clicon_dbvars.tab.h
+	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c clicon_dbvars.yy.c
+
+# clicon_db2txt parser
+clicon_db2txt.yy.c : clicon_db2txt.l clicon_db2txt.tab.h
+	$(LEX) -Pclicon_db2txt clicon_db2txt.l
+	mv lex.clicon_db2txt.c clicon_db2txt.yy.c
+
+clicon_db2txt.tab.c clicon_db2txt.tab.h: clicon_db2txt.y
+	$(YACC) -l -d -p clicon_db2txt clicon_db2txt.y # -t is debug
+	mv y.tab.c clicon_db2txt.tab.c
+	mv y.tab.h clicon_db2txt.tab.h
+
+# special rule to for make clean to work
+clicon_db2txt.yy.o : clicon_db2txt.yy.c clicon_db2txt.tab.h
+	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c clicon_db2txt.yy.c
+
+
+
+distclean: clean
+	rm -f Makefile *~ .depend
+
+.SUFFIXES:
+.SUFFIXES: .c .o
+
+.c.o: $(GENSRC)
+	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c $<
+
+.PHONY: build.c
+build.c:	
+	date +"const char CLICON_BUILDSTR[64]=\"%Y.%m.%d %H:%M by `whoami` on `hostname`"\"\; > build.c;
+	echo "const char CLICON_VERSION[64]=\"$(CLICON_VERSION)\""\; >> build.c;
+
+$(MYLIB) : $(GENOBJS) $(OBJS) 
+	$(CC) -shared -Wl,-soname,$(MYLIBSO) -o $@ $(GENOBJS) $(OBJS) $(LIBS) -Wl,-soname=$(MYLIBSO) -Wl
+
+# link-name is needed for application linking, eg for clicon_cli and clicon_config
+$(MYLIBLINK) : $(MYLIB)
+	ln -sf $(MYLIB) $@
+
+#	ar cru $@ $^
+#	ranlib $@
+
+install: install-lib
+
+install-include:
+
+install-lib: $(MYLIB)
+	install -m 755 -d $(DESTDIR)$(libdir) 
+	install -m 755 $(MYLIB) $(DESTDIR)$(libdir) 
+	ln -sf $(libdir)/$(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)
+
+uninstall: 
+	rm -f $(libdir)/$(MYLIB)
+
+TAGS:
+	find . -name '*.[chyl]' -print | etags -
+
+depend:
+	$(CC) $(DEPENDFLAGS) @DEFS@ $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
+
+#include .depend
+

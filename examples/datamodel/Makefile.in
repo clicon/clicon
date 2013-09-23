@@ -1,0 +1,70 @@
+# 
+# Makefile 
+# CVS Version: $Id: Makefile.in,v 1.4 2013/09/19 16:03:40 olof Exp $ 
+#
+# Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+#
+# This file is part of CLICON.
+#
+# CLICON is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# CLICON is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CLICON; see the file COPYING.  If not, see
+# <http://www.gnu.org/licenses/>.
+#
+#
+VPATH       	= @srcdir@
+srcdir  	= @srcdir@
+top_srcdir  	= @top_srcdir@
+prefix 		= @prefix@
+bindir 		= @bindir@
+includedir	= @includedir@
+localstatedir	= @localstatedir@
+INSTALL		= @INSTALL@
+APPDIR          = @APPDIR@
+CC		= @CC@
+CFLAGS  	= @CFLAGS@ -rdynamic -fPIC 
+
+INCLUDES 	= -I$(includedir) @INCLUDES@ 
+
+all:	
+
+clean:
+
+distclean: clean
+	rm -f clicon.conf Makefile *~ .depend
+
+install:	clicon.conf datamodel.spec datamodel_cli.cli 
+	install -m 755 -d $(DESTDIR)$(APPDIR) 
+	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
+	install -m 755 datamodel.spec $(DESTDIR)$(APPDIR)
+	install -m 755 -d $(DESTDIR)$(APPDIR)/frontend
+	install -m 755 -d $(DESTDIR)$(APPDIR)/backend
+	install -m 755 -d $(DESTDIR)$(APPDIR)/db
+	install -m 755 -d $(DESTDIR)$(APPDIR)/archive
+	for i in datamodel_cli.cli; do \
+		install $$i $(DESTDIR)$(APPDIR)/frontend/`basename $$i`; \
+	done
+
+uninstall: 
+	rm -rf $(APPDIR)/frontend
+	rm -rf $(APPDIR)/db
+	rm -rf $(APPDIR)/archive
+	rm -rf $(APPDIR)/datamodel.spec
+	rm -rf $(APPDIR)/*
+
+install-include:	
+
+depend:
+#	$(CC) $(DEPENDFLAGS) @DEFS@ $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
+
+#include .depend
+

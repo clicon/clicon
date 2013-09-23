@@ -1,0 +1,4 @@
+The clicon examples directory contains clicon example applications to get you started.
+ * hello - is a litte more than a simple hello example
+ * ntp   - is the application used in the clicon tutorial, see clicon_tutorial.pdf
+ * datamodel - an application centered on features of the datamodel

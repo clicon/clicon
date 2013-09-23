@@ -1,0 +1,210 @@
+<!--
+  CVS Version: $Id: netconf.dtd,v 1.3 2013/08/01 09:15:46 olof Exp $ 
+
+  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+
+  This file is part of CLICON.
+
+  CLICON is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 3 of the License, or
+  (at your option) any later version.
+
+  CLICON is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with CLICON; see the file COPYING.  If not, see
+  <http://www.gnu.org/licenses/>.
+
+  -->
+<!ELEMENT osr ( 
+	  Envelope|
+	  hello |
+	  rpc   |
+	  rpc-reply 
+	  )*>
+
+<!-- 
+    URI: http://www.w3.org/2003/05/soap-envelope
+-->
+<!ELEMENT Envelope (
+	  Body)>
+<!ATTLIST Envelope 
+	  xmlns:soapenv CDATA #IMPLIED
+	  xmlns:xml CDATA #IMPLIED>
+
+<!ELEMENT Body (
+	  Fault |
+	  hello |
+	  rpc |
+	  rpc-reply)>
+
+<!ELEMENT Fault (
+	  Code |
+	  Reason |
+	  detail)*>
+
+<!ELEMENT detail (
+	  rpc-error)>
+
+<!ELEMENT Code (
+	  Value
+	  )>
+<!ELEMENT Reason (
+	  Text
+	  )>
+
+<!-- xml:lang URI: "http://www.w3.org/XML/1998/namespace"-->
+<!ATTLIST   Text
+	  xml:lang CDATA #IMPLIED>
+
+<!--
+     All attributes returned unchanged to rpc-reply.
+     This includes:
+     message-id   Mandatory in netconf, but not junos
+-->
+<!ELEMENT rpc (
+	  close-session |
+	  copy-config |
+	  commit |
+	  discard-changes |
+	  delete-config |
+	  edit-config |
+	  get-config |
+	  kill-session |
+	  lock |
+	  unlock
+	  )*>
+<!--
+       @ANYATTR rpc
+-->
+
+<!--
+   rpc-reply
+
+   rpc-reply includs standard replies but also operational responses. 
+
+     All attributes returned unchanged from rpc
+     This includes:
+     message-id   Mandatory in netconf, but not junos
+-->
+<!ELEMENT rpc-reply (
+	  rpc-error |
+	  ok |
+	  config-text
+	  )*>
+
+<!--
+       @ANYATTR rpc-reply 
+-->
+
+<!ELEMENT hello (
+	  session-id |
+	  capabilities)*>
+
+<!ELEMENT capabilities (capability)*>
+<!ELEMENT capability EMPTY>
+<!ELEMENT session-id EMPTY>
+
+<!ELEMENT rpc-error (
+	  error-tag |
+	  error-type |
+	  error-severity |
+	  error-message |
+	  error-info)*>
+
+<!ELEMENT error-info (
+	  session-id |
+	  bad-attribute |
+	  bad-element |
+	  ok-element |
+	  err-element |
+	  noop-element |
+	  bad-namespace)*>
+
+<!ELEMENT ok EMPTY>
+<!ELEMENT get-config (
+	  source |
+	  filter
+)*>
+
+<!ELEMENT lock (
+	  target 
+	  )>
+<!ELEMENT unlock (
+	  target 
+	  )>
+
+<!--
+   delete-config
+-->
+<!ELEMENT delete-config (
+	  target 
+	  )?>
+
+<!--
+   edit-config
+
+      operation  - One of: merge, replace, create, delete. Merge is default.
+-->
+<!ELEMENT edit-config (
+	  target |
+	  config-text |
+	  configuration |
+	  default-operation
+	  )*>
+<!ATTLIST edit-config
+	  operation   CDATA #IMPLIED
+>
+<!ELEMENT target (
+	  running |
+	  candidate)
+>
+<!ELEMENT source (
+	  running |
+	  candidate)
+>
+
+<!--
+   filter
+
+      type   subtree: default and defined in rfc4741
+             xpath: if :xpath capability
+-->
+<!ELEMENT filter (
+	  config-text |
+	  configuration
+	  )
+>
+<!ATTLIST filter 
+	  type CDATA #IMPLIED
+>
+
+<!--
+   sub-elements may violate required attributes for example.
+-->
+
+<!--
+   default-operation
+
+   Body is either: merge|replace|none. Default is merge
+-->
+<!ELEMENT default-operation EMPTY>
+
+<!ELEMENT copy-config (
+	  source ,
+	  target
+	  )>
+
+<!ELEMENT close-session EMPTY>
+
+<!ELEMENT kill-session 
+	  (session-id)*>
+
+<!ELEMENT commit EMPTY>
+
+<!ELEMENT discard-changes EMPTY>
+
