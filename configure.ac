@@ -76,7 +76,7 @@ AC_MSG_RESULT(CFLAGS is $CFLAGS)
 AC_PROG_YACC
 AC_PROG_LEX
 if test "$YACC" != "bison -y"; then
-   AC_MSG_ERROR(CLIGEN does not find bison.  There are several problems with yacc and byacc. Please install bison.)
+   AC_MSG_ERROR(CLICON does not find bison.  There are several problems with yacc and byacc. Please install bison.)
    # byacc leaks, may need byacc -P?
    echo "Please install bison."
    #  YACC="byacc -P"

@@ -3430,7 +3430,7 @@ rm -f conftest.l $LEX_OUTPUT_ROOT.c
 
 fi
 if test "$YACC" != "bison -y"; then
-   as_fn_error $? "CLIGEN does not find bison.  There are several problems with yacc and byacc. Please install bison." "$LINENO" 5
+   as_fn_error $? "CLICON does not find bison.  There are several problems with yacc and byacc. Please install bison." "$LINENO" 5
    # byacc leaks, may need byacc -P?
    echo "Please install bison."
    #  YACC="byacc -P"

@@ -2,7 +2,9 @@ clicon
 ======
 
 CLICON is a software suite for configuration management including CLI generation, netconf interface and embedded databases
-$Id: README,v 1.17 2013/08/15 11:56:37 olof Exp $
+
+Presentations and tutorial is found on the [CLICON project
+page](http://www.hagsand.se/clicon)
 
 This is CLICON source code repository
 
