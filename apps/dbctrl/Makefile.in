@@ -28,7 +28,6 @@ top_srcdir  	= @top_srcdir@
 CC		= @CC@
 CFLAGS  	= @CFLAGS@ 
 LDFLAGS 	= @LDFLAGS@
-LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -lclicon 
 
 prefix 		= @prefix@
 exec_prefix 	= @exec_prefix@
@@ -37,12 +36,23 @@ libexecdir	= @libexecdir@
 localstatedir	= @localstatedir@
 sysconfdir	= @sysconfdir@
 
+SH_SUFFIX	= @SH_SUFFIX@
+CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
+CLICON_MINOR    = @CLICON_VERSION_MINOR@
+
+# Use this clicon lib for linking
+CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
+
+# For dependency
+LIBDEPS		= $(top_srcdir)/lib/src/$(CLICON_LIB) 
+
+LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -l:$(CLICON_LIB)
+
 CPPFLAGS  	= @CPPFLAGS@
 
 INCLUDES	= -I. -I$(top_srcdir)/lib/src -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcdir) @INCLUDES@
 
 SRC     = 
-LIBDEPS	= $(top_srcdir)/lib/src/libclicon@SH_SUFFIX@ 
 
 OBJS    = $(SRC:.c=.o)
 

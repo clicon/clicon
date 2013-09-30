@@ -33,13 +33,16 @@ AC_CONFIG_HEADER(include/clicon_config.h)
 # clicon versions spread to Makefile's (.so files) and variable in build.c
 AC_SUBST(CLICON_VERSION)
 AC_SUBST(CLICON_VERSION_MAJOR)
+AC_SUBST(CLICON_VERSION_MINOR)
+AC_SUBST(CLIGEN_VERSION) # Bind to specific CLIgen version
 
 CLICON_VERSION_MAJOR="2"
 CLICON_VERSION_MINOR="3"
 CLICON_VERSION_PATCH="0"
 CLICON_VERSION="${CLICON_VERSION_MAJOR}.${CLICON_VERSION_MINOR}.${CLICON_VERSION_PATCH}"
+CLIGEN_VERSION="3" # Or newer?
 
-AC_MSG_RESULT(CLICON version is ${CLICON_VERSION}_PRE2)
+AC_MSG_RESULT(CLICON version is ${CLICON_VERSION}_PRE3)
 
 AC_CANONICAL_TARGET
 AC_DEFINE(AUTOCONF)
@@ -75,14 +78,12 @@ AC_MSG_RESULT(CFLAGS is $CFLAGS)
 
 AC_PROG_YACC
 AC_PROG_LEX
+if test "$LEX" = ":"; then
+   AC_MSG_ERROR(CLICON does not find lex or flex.)
+fi
 if test "$YACC" != "bison -y"; then
    AC_MSG_ERROR(CLICON does not find bison.  There are several problems with yacc and byacc. Please install bison.)
-   # byacc leaks, may need byacc -P?
-   echo "Please install bison."
-   #  YACC="byacc -P"
-   AC_DEFINE(USE_BYACC)
 fi
-
 
 if test "$prefix" = "NONE"; then
   APPDIR=${ac_default_prefix}/share/clicon
@@ -109,8 +110,9 @@ SH_SUFFIX=".so"
 AR="ar"
 
 # This is for cligen
-AC_CHECK_HEADERS(cligen/cligen.h,, AC_ERROR(cligen missing. Try: git clone https://github.com/olofhagsand/cligen.git))
-AC_CHECK_LIB(cligen, cligen_init,, AC_ERROR(cligen missing. Try: git clone https://github.com/olofhagsand/cligen.git))
+AC_CHECK_HEADERS(cligen/cligen.h,, AC_MSG_ERROR(cligen missing. Try: git clone https://github.com/olofhagsand/cligen.git))
+
+AC_CHECK_LIB(:libcligen.so.${CLIGEN_VERSION}, cligen_init,, AC_MSG_ERROR([CLIgen${CLIGEN_VERSION} missing. Try: git clone https://github.com/olofhagsand/cligen.git]))
 
 AC_MSG_CHECKING(whether struct sockaddr has a sa_len field)
 AC_TRY_COMPILE([#include <sys/types.h>
@@ -130,8 +132,8 @@ AC_TRY_COMPILE([#include <sys/types.h>
 
 # This is for qdbm.
 # Problem: depot.h may be in qdbm/depot.h. 
-AC_CHECK_HEADERS(depot.h,,[AC_CHECK_HEADERS(qdbm/depot.h,,AC_ERROR(qdbm required))])
-AC_CHECK_LIB(qdbm, dpopen,, AC_ERROR(qdbm required))
+AC_CHECK_HEADERS(depot.h,,[AC_CHECK_HEADERS(qdbm/depot.h,,AC_MSG_ERROR(libqdbm-dev required))])
+AC_CHECK_LIB(qdbm, dpopen,, AC_MSG_ERROR(libqdbm-dev required))
 
 AC_PATH_PROG(PDFLATEX, pdflatex)
 AC_DEFINE_UNQUOTED(PROG_PDFLATEX, "$PDFLATEX")

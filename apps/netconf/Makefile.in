@@ -21,10 +21,15 @@
 # <http://www.gnu.org/licenses/>.
 #
 #
-prefix 		= @prefix@
-datarootdir	= @datarootdir@
+VPATH       	= @srcdir@
 srcdir  	= @srcdir@
 top_srcdir  	= @top_srcdir@
+CC		= @CC@
+CFLAGS  	= @CFLAGS@ 
+LDFLAGS 	= @LDFLAGS@
+
+prefix 		= @prefix@
+datarootdir	= @datarootdir@
 exec_prefix 	= @exec_prefix@
 bindir 		= @bindir@
 libdir		= @libdir@
@@ -34,28 +39,28 @@ localstatedir	= @localstatedir@
 sysconfdir	= @sysconfdir@
 includedir	= @includedir@
 
-VPATH       	= @srcdir@
-CC		= @CC@
-CFLAGS  	= @CFLAGS@ 
-LDFLAGS 	= @LDFLAGS@
-LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -lclicon 
+SH_SUFFIX	= @SH_SUFFIX@
+CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
+CLICON_MINOR    = @CLICON_VERSION_MINOR@
 
+# Use this clicon lib for linking
+CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
+
+# For dependency
+LIBDEPS		= $(top_srcdir)/lib/src/$(CLICON_LIB) 
+
+LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -l:$(CLICON_LIB)
 CPPFLAGS  	= @CPPFLAGS@ -fPIC
 INCLUDES	= -I. -I$(top_srcdir)/lib/src -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcdir) @INCLUDES@
-
-SH_SUFFIX	= @SH_SUFFIX@
-CLICON_VERSION  = @CLICON_VERSION@
-CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
 
 APPL	= clicon_netconf
 SRC     = netconf_main.c
 OBJS    = $(SRC:.c=.o)
-LIBDEPS	= $(top_srcdir)/lib/src/libclicon$(SH_SUFFIX) 
 
 MYNAME		= clicon_netconf
 MYLIBLINK       = lib$(MYNAME)$(SH_SUFFIX)
+MYLIB           = $(MYLIBLINK).$(CLICON_MAJOR).$(CLICON_MINOR)
 MYLIBSO         = $(MYLIBLINK).$(CLICON_MAJOR)
-MYLIB           = $(MYLIBLINK).$(CLICON_VERSION)
 
 LIBSRC     = netconf_hello.c netconf_rpc.c netconf_filter.c netconf_lib.c netconf_plugin.c
 LIBOBJS    = $(LIBSRC:.c=.o)
@@ -72,12 +77,15 @@ distclean: clean
 # Put other executables in libexec/
 # Also create a libexec/ directory for writeable/temporary files.
 # Put config file in etc/
-install:	$(APPL)
+install:	install-lib $(APPL)
 	install -d $(DESTDIR)$(bindir)
 	install $(APPL) $(DESTDIR)$(bindir)
+
+install-lib: $(MYLIB)
 	install -d $(DESTDIR)$(libdir) 
 	install $(MYLIB) $(DESTDIR)$(libdir) 
-	ln -sf $(libdir)/$(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)
+	ln -sf $(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)     # -l:libclicon_netconf.so.2
+	ln -sf $(MYLIBSO) $(DESTDIR)$(libdir)/$(MYLIBLINK) # -l:libclicon_netconf.so
 
 install-include:	clicon_netconf.h
 	install -d $(DESTDIR)$(includedir)/clicon
@@ -95,15 +103,15 @@ uninstall:
 	$(CC) $(INCLUDES) $(CPPFLAGS) -D__PROGRAM__=\"$(APPL)\" $(CFLAGS) -c $<
 
 $(APPL) : $(OBJS) $(MYLIBLINK) $(LIBDEPS)
-	$(CC) $(LDFLAGS) $(OBJS) -L. -l$(MYNAME) $(LIBS) -o $@
+	$(CC) $(LDFLAGS) $(OBJS) -L. -l:$(MYLIB) $(LIBS) -o $@
 
 $(MYLIB) : $(LIBOBJS)
-	$(CC) -shared -Wl,-soname,$(MYLIBSO) -o $@ $(LIBOBJS) $(LIBS) -Wl,-soname=$(MYLIBSO) -Wl
+	$(CC) -shared -Wl,-soname,$(MYLIBSO) -o $@ $(LIBOBJS) $(LIBS) -Wl,-soname=$(MYLIBSO)
 
 # link-name is needed for application linking, eg for clicon_cli and clicon_config
 $(MYLIBLINK) : $(MYLIB)
-	ln -sf $(MYLIB) $(MYLIBSO)
-	ln -sf $(MYLIB) $@
+#	ln -sf $(MYLIB) $(MYLIBSO)
+#	ln -sf $(MYLIB) $@
 
 TAGS:
 	find . -name '*.[chyl]' -print | etags -

@@ -27,7 +27,6 @@ top_srcdir  	= @top_srcdir@
 CC		= @CC@
 CFLAGS  	= @CFLAGS@ 
 LDFLAGS 	= @LDFLAGS@
-LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -lpthread -lclicon 
 
 prefix 		= @prefix@
 exec_prefix 	= @exec_prefix@
@@ -39,15 +38,20 @@ localstatedir	= @localstatedir@
 sysconfdir	= @sysconfdir@
 includedir	= @includedir@
 
+SH_SUFFIX	= @SH_SUFFIX@
+CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
+CLICON_MINOR    = @CLICON_VERSION_MINOR@
+
+# Use this clicon lib for linking
+CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
+
+# For dependency. A little strange that we rely on it being built in the src dir
+# even though it may exist in $(libdir). But the new version may not have been installed yet.
+LIBDEPS		= $(top_srcdir)/lib/src/$(CLICON_LIB) 
+
+LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -l:$(CLICON_LIB) -lpthread
 CPPFLAGS  	= @CPPFLAGS@ -fPIC
 INCLUDES	= -I. -I$(top_srcdir)/lib/src -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcdir) @INCLUDES@
-
-SH_SUFFIX	= @SH_SUFFIX@
-CLICON_VERSION  = @CLICON_VERSION@
-CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
-
-LIBDEPS	= $(top_srcdir)/lib/src/libclicon$(SH_SUFFIX) 
-
 
 APPSRC  = config_main.c config_socket.c config_client.c config_lib.c \
 	config_lock.c config_commit.c config_plugin.c config_dbdiff.c
@@ -57,9 +61,8 @@ APPL	= clicon_backend
 #SHLIB	= clicon_backend
 MYNAME		= clicon_backend
 MYLIBLINK       = lib$(MYNAME)$(SH_SUFFIX)
+MYLIB           = $(MYLIBLINK).$(CLICON_MAJOR).$(CLICON_MINOR)
 MYLIBSO         = $(MYLIBLINK).$(CLICON_MAJOR)
-MYLIB           = $(MYLIBLINK).$(CLICON_VERSION)
-
 
 LIBSRC	= config_dbdep.c config_handle.c
 LIBOBJ	= $(LIBSRC:.c=.o)
@@ -76,15 +79,19 @@ distclean: clean
 # Put other executables in libexec/
 # Also create a libexec/ directory for writeable/temporary files.
 # Put config file in etc/
-install:	$(APPL)
+install:	install-lib	$(APPL)
 	install -d $(DESTDIR)$(sbindir)
 	install $(APPL) $(DESTDIR)$(sbindir)
+
+install-lib:	$(MYLIB)
 	install -d $(DESTDIR)$(libdir)
 	install $(MYLIB) $(DESTDIR)$(libdir)
-	ln -sf $(libdir)/$(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)
+	ln -sf $(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)	   # -l:libclicon_config.so.2
+	ln -sf $(MYLIBSO) $(DESTDIR)$(libdir)/$(MYLIBLINK) # -l:libclicon_config.so
 
 uninstall:
 	rm -f $(sbindir)/$(APPL)
+	rm -f $(libdir)/$(MYLIB)
 	rm -f $(includedir)/clicon/*
 
 install-include: clicon_backend.h clicon_backend_api.h clicon_backend_plugin.h
@@ -98,16 +105,15 @@ install-include: clicon_backend.h clicon_backend_api.h clicon_backend_plugin.h
 	$(CC) $(INCLUDES) -D__PROGRAM__=\"$(APPL)\" $(CPPFLAGS) $(CFLAGS) -c $<
 
 $(APPL) : $(APPOBJ) $(MYLIBLINK) $(LIBDEPS)
-	$(CC) $(LDFLAGS) $(APPOBJ) $(OBJS) -L. -l$(MYNAME) $(LIBS) -o $@
+	$(CC) $(LDFLAGS) $(APPOBJ) $(OBJS) -L. -l:$(MYLIB) $(LIBS) -o $@
 
 $(MYLIB): $(LIBOBJ)
-	$(CC) $(LDFLAGS) -shared -Wl,-soname,$(MYLIBSO) -o $@ -lc $(LIBOBJ) -Wl,-soname=$(MYLIBSO) -Wl
+	$(CC) $(LDFLAGS) -shared -Wl,-soname,$(MYLIBSO) -o $@ -lc $(LIBOBJ) -Wl,-soname=$(MYLIBSO)
 
 # link-name is needed for application linking, eg for clicon_cli and clicon_backend
 $(MYLIBLINK) : $(MYLIB)
-	echo "LIBS: $(LIBS)"
-	ln -sf $(MYLIB) $(MYLIBSO)
-	ln -sf $(MYLIB) $@
+#	ln -sf $(MYLIB) $(MYLIBSO)
+#	ln -sf $(MYLIB) $@
 
 TAGS:
 	find . -name '*.[chyl]' -print | etags -

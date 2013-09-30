@@ -37,12 +37,13 @@ sysconfdir	= @sysconfdir@
 SH_SUFFIX	= @SH_SUFFIX@
 CLICON_VERSION  = @CLICON_VERSION@
 CLICON_MAJOR    = @CLICON_VERSION_MAJOR@
+CLICON_MINOR    = @CLICON_VERSION_MINOR@
 
 VPATH       	= @srcdir@
 CC		= @CC@
 CFLAGS  	= -fPIC @CFLAGS@ 
 LDFLAGS 	= @LDFLAGS@
-LIBS    	= @LIBS@ -L$(top_srcdir)/cligen -lcligen
+LIBS    	= @LIBS@ 
 
 YACC		= @YACC@
 LEX		= @LEX@
@@ -75,8 +76,8 @@ GENOBJS  = $(GENSRC:.c=.o)
 
 # Linker-name: libclicon.so
 # so-name: libclicon.so.2
-# real-name: libclicon.so.2.0.0
-MYLIB        = libclicon$(SH_SUFFIX).$(CLICON_VERSION)
+# real-name: libclicon.so.2.0
+MYLIB        = libclicon$(SH_SUFFIX).$(CLICON_MAJOR).$(CLICON_MINOR)
 MYLIBSO      = libclicon$(SH_SUFFIX).$(CLICON_MAJOR)
 MYLIBLINK    = libclicon$(SH_SUFFIX)
 
@@ -155,8 +156,6 @@ clicon_db2txt.tab.c clicon_db2txt.tab.h: clicon_db2txt.y
 clicon_db2txt.yy.o : clicon_db2txt.yy.c clicon_db2txt.tab.h
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c clicon_db2txt.yy.c
 
-
-
 distclean: clean
 	rm -f Makefile *~ .depend
 
@@ -172,11 +171,10 @@ build.c:
 	echo "const char CLICON_VERSION[64]=\"$(CLICON_VERSION)\""\; >> build.c;
 
 $(MYLIB) : $(GENOBJS) $(OBJS) 
-	$(CC) -shared -Wl,-soname,$(MYLIBSO) -o $@ $(GENOBJS) $(OBJS) $(LIBS) -Wl,-soname=$(MYLIBSO) -Wl
-
+	$(CC) -shared -Wl,-soname,$(MYLIBSO) -o $@ $(GENOBJS) $(OBJS) $(LIBS) -Wl,-soname=$(MYLIBSO) 
 # link-name is needed for application linking, eg for clicon_cli and clicon_config
 $(MYLIBLINK) : $(MYLIB)
-	ln -sf $(MYLIB) $@
+#	ln -sf $(MYLIB) $@
 
 #	ar cru $@ $^
 #	ranlib $@
@@ -188,7 +186,8 @@ install-include:
 install-lib: $(MYLIB)
 	install -m 755 -d $(DESTDIR)$(libdir) 
 	install -m 755 $(MYLIB) $(DESTDIR)$(libdir) 
-	ln -sf $(libdir)/$(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)
+	ln -sf $(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)     # -l:libclicon.so.2
+	ln -sf $(MYLIBSO) $(DESTDIR)$(libdir)/$(MYLIBLINK) # -l:libclicon.so
 
 uninstall: 
 	rm -f $(libdir)/$(MYLIB)

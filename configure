@@ -637,6 +637,8 @@ build_os
 build_vendor
 build_cpu
 build
+CLIGEN_VERSION
+CLICON_VERSION_MINOR
 CLICON_VERSION_MAJOR
 CLICON_VERSION
 target_alias
@@ -2120,13 +2122,16 @@ ac_config_headers="$ac_config_headers include/clicon_config.h"
 
 
 
+ # Bind to specific CLIgen version
+
 CLICON_VERSION_MAJOR="2"
 CLICON_VERSION_MINOR="3"
 CLICON_VERSION_PATCH="0"
 CLICON_VERSION="${CLICON_VERSION_MAJOR}.${CLICON_VERSION_MINOR}.${CLICON_VERSION_PATCH}"
+CLIGEN_VERSION="3" # Or newer?
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: CLICON version is ${CLICON_VERSION}_PRE2" >&5
-$as_echo "CLICON version is ${CLICON_VERSION}_PRE2" >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: CLICON version is ${CLICON_VERSION}_PRE3" >&5
+$as_echo "CLICON version is ${CLICON_VERSION}_PRE3" >&6; }
 
 ac_aux_dir=
 for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do
@@ -3429,15 +3434,12 @@ fi
 rm -f conftest.l $LEX_OUTPUT_ROOT.c
 
 fi
+if test "$LEX" = ":"; then
+   as_fn_error $? "CLICON does not find lex or flex." "$LINENO" 5
+fi
 if test "$YACC" != "bison -y"; then
    as_fn_error $? "CLICON does not find bison.  There are several problems with yacc and byacc. Please install bison." "$LINENO" 5
-   # byacc leaks, may need byacc -P?
-   echo "Please install bison."
-   #  YACC="byacc -P"
-   $as_echo "#define USE_BYACC 1" >>confdefs.h
-
 fi
-
 
 if test "$prefix" = "NONE"; then
   APPDIR=${ac_default_prefix}/share/clicon
@@ -3783,13 +3785,15 @@ fi
 
 done
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for cligen_init in -lcligen" >&5
-$as_echo_n "checking for cligen_init in -lcligen... " >&6; }
-if ${ac_cv_lib_cligen_cligen_init+:} false; then :
+
+as_ac_Lib=`$as_echo "ac_cv_lib_:libcligen.so.${CLIGEN_VERSION}''_cligen_init" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for cligen_init in -l:libcligen.so.${CLIGEN_VERSION}" >&5
+$as_echo_n "checking for cligen_init in -l:libcligen.so.${CLIGEN_VERSION}... " >&6; }
+if eval \${$as_ac_Lib+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcligen  $LIBS"
+LIBS="-l:libcligen.so.${CLIGEN_VERSION}  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -3809,25 +3813,26 @@ return cligen_init ();
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_cligen_cligen_init=yes
+  eval "$as_ac_Lib=yes"
 else
-  ac_cv_lib_cligen_cligen_init=no
+  eval "$as_ac_Lib=no"
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_cligen_cligen_init" >&5
-$as_echo "$ac_cv_lib_cligen_cligen_init" >&6; }
-if test "x$ac_cv_lib_cligen_cligen_init" = xyes; then :
+eval ac_res=\$$as_ac_Lib
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_Lib"\" = x"yes"; then :
   cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBCLIGEN 1
+#define `$as_echo "HAVE_LIB:libcligen.so.${CLIGEN_VERSION}" | $as_tr_cpp` 1
 _ACEOF
 
-  LIBS="-lcligen $LIBS"
+  LIBS="-l:libcligen.so.${CLIGEN_VERSION} $LIBS"
 
 else
-  as_fn_error $? "cligen missing. Try: git clone https://github.com/olofhagsand/cligen.git" "$LINENO" 5
+  as_fn_error $? "CLIgen${CLIGEN_VERSION} missing. Try: git clone https://github.com/olofhagsand/cligen.git" "$LINENO" 5
 fi
 
 
@@ -3903,7 +3908,7 @@ if test "x$ac_cv_header_qdbm_depot_h" = xyes; then :
 _ACEOF
 
 else
-  as_fn_error $? "qdbm required" "$LINENO" 5
+  as_fn_error $? "libqdbm-dev required" "$LINENO" 5
 fi
 
 done
@@ -3956,7 +3961,7 @@ _ACEOF
   LIBS="-lqdbm $LIBS"
 
 else
-  as_fn_error $? "qdbm required" "$LINENO" 5
+  as_fn_error $? "libqdbm-dev required" "$LINENO" 5
 fi
 
 
