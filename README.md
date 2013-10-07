@@ -5,7 +5,7 @@ CLICON is a software suite for configuration management including CLI
 generation, transaction support, netconf and embedded databases.
 
 Presentations and tutorial is found on the [CLICON project
-page](http://www.hagsand.se/clicon)
+page](http://www.clicon.org)
 
 A typical installation is as follows:
 
