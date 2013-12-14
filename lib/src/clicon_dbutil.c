@@ -136,7 +136,15 @@ cvec_merge(cvec *orig, cvec *add)
     return retval;
 }
 
-/* XXX: merge with above */
+/* 
+ * cvec_merge2
+ * Since vector, assume same variables eg x, y below 
+ * The values in a leaf-list MUST be unique.
+ *
+ * vec:[x=42;y=99] old:[x=42;y=100] => vec:[x=42;y=99;x=42;y=100]
+ * vec:[x=42;y=99] old:[x=42;y=100] => vec:[x=42;y=99;y=100] ??
+ * vec:[x=42;y=99] old:[x=42;y=99]  => vec:[x=42;y=99]
+ */
 int
 cvec_merge2(cvec *orig, cvec *add)
 {

@@ -105,7 +105,13 @@ plugin_modify_key_value(clicon_handle h,
 
 /*
  * generic_validate
- * keys are checked for validity independent of user-defined callbacks
+ *
+ * key values are checked for validity independent of user-defined callbacks
+ * They are checked as follows:
+ * 1. If no value and default value defined, add it.
+ * 2. If no value and mandatory flag set in spec, report error.
+ * 3. Validate value versus spec, and report error if no match. Currently only int ranges and
+ *    string regexp checked.
  */
 static int
 generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
@@ -141,17 +147,21 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 	    if ((cov = pt->pt_vec[j]) == NULL)
 		continue;
 	    if (cov->co_type == CO_VARIABLE){
+
+		/* There is no db-value, but dbspec has default value */
 		if ((cv = dbspec_default_get(cov)) != NULL &&
 		    cvec_find(cvec, cov->co_command) == NULL){
-		    /* add to key? */
-		    cv_print(stderr, cv);
+		    cv_flag_set(cv, V_DEFAULT); /* mark it as default XXX not survive DB */
+		    /* add default value to cvec */
 		    if (cvec_add_cv(cvec, cv) < 0){
 			clicon_err(OE_CFG, 0, "cvec_add_cv");
 			goto done;
 		    }
+		    /* Write to database */
 		    if (cvec2dbkey(dbname, key, cvec) < 0)
 			goto done;
 		}
+		else
 		if (!dbspec_optional_get(cov) && cvec_find(cvec, cov->co_command) == NULL){
 		    clicon_err(OE_CFG, 0, 
 			       "key %s: Missing mandatory variable: %s\n",
@@ -328,7 +338,8 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	goto done;
     
     /* 2. Call plugin pre-commit hooks */
-    plugin_begin_hooks(h, candidate);
+    if (plugin_begin_hooks(h, candidate) < 0)
+	goto done;
 
     /* call generic cv_validate() on all new or changed keys. */
     if (generic_validate(h, candidate, &df) < 0)
@@ -339,7 +350,8 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	goto done;
 
     /* Call plugin post-commit hooks */
-    plugin_complete_hooks(h, candidate);
+    if (plugin_complete_hooks(h, candidate) < 0)
+	goto done;
 
     /* Now follows commit rules in order.
     * 4. For all keys that are in candidate, delete key (from running). 
@@ -437,7 +449,7 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     }
 
 
-    /* Copy running back to candidate in case post-commit functions triggered 
+    /* Copy running back to candidate in case end functions triggered 
        updates in running */
     /* XXX: check for errors */
     file_cp(running, candidate);
@@ -493,7 +505,8 @@ candidate_validate(clicon_handle h, char *candidate, char *running)
 	goto done;
     
     /* 2. Call plugin pre-commit hooks */
-    plugin_begin_hooks(h, candidate);
+    if (plugin_begin_hooks(h, candidate) < 0)
+	goto done;
 
     /* call generic cv_validate() on all new or changed keys. */
     if (generic_validate(h, candidate, &df) < 0)
@@ -504,7 +517,8 @@ candidate_validate(clicon_handle h, char *candidate, char *running)
 	goto done;
 
     /* Call plugin post-commit hooks */
-    plugin_complete_hooks(h, candidate);
+    if (plugin_complete_hooks(h, candidate) < 0)
+	goto done;
 
     retval = 0;
   done:

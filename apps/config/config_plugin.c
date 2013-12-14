@@ -364,17 +364,21 @@ plugin_finish(clicon_handle h)
     
 
 /*
+ * plugin_begin_hooks
  * Call plugin pre-commit hooks in plugins before a commit.
  * XXX We should only call plugins which have commit dependencies?
  */
-void
+int
 plugin_begin_hooks(clicon_handle h, char *candidate)
 {
     int i;
+    int retval = 0;
 
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_begin) 
-	    (plugins[i].p_begin)(h, candidate);
+	    if ((retval = (plugins[i].p_begin)(h, candidate)) < 0)
+		break;
+    return retval;
 }
 
 /*
@@ -401,28 +405,33 @@ plugin_complete_hooks(clicon_handle h, char *dbname)
  * transaction_end
  * XXX We should only call plugins which have commit dependencies?
  */
-void
+int
 plugin_end_hooks(clicon_handle h, char *candidate)
 {
     int i;
+    int retval = 0;
     
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_end) 
-	    (plugins[i].p_end)(h, candidate);
+	    if ((retval = (plugins[i].p_end)(h, candidate)) < 0)
+		break;
+    return retval;
 }
 
 /*
  * Call plugin commit failed hooks in plugins
  * XXX We should only call plugins which have commit dependencies?
  */
-void
+int
 plugin_abort_hooks(clicon_handle h, char *candidate)
 {
     int i;
+    int retval = 0;
 
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_abort) 
-	    (plugins[i].p_abort)(h, candidate);
+	    (plugins[i].p_abort)(h, candidate); /* dont abort on error */
+    return retval;
 }
 
 /*

@@ -690,6 +690,8 @@ db_lv_set(struct db_spec *spec,
 {
     int              retval = -1;
     cvec            *old = NULL;
+    cvec            *def;
+    cg_var          *v = NULL;
 
     /* Merge with existing variable list. Note, some calling functions
      do this before calling this function, eg db_lv_lvec_set() */
@@ -721,7 +723,11 @@ db_lv_set(struct db_spec *spec,
      * generic_validate() where we also add default values for netconf
      * for example.
      */
-    if (cvec_merge(vec, db_spec2cvec(spec)) < 0)
+    def = db_spec2cvec(spec);
+    /* Mark them as default values */
+    while ((v = cvec_each(def, v))) 
+	cv_flag_set(v, V_DEFAULT);
+    if (cvec_merge(vec, def) < 0)
 	goto quit;
 
     /* write to database, key and a vector of variables */

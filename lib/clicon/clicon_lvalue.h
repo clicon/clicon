@@ -29,6 +29,7 @@
 #define V_WILDCARD	0x02	/* Variable flag */
 #define V_SEQ		0x04	/* Sequence variable */
 #define V_UNSET		0x08	/* Variable is unset */
+#define V_DEFAULT	0x10	/* Value is default value */
 
 /*
  * Types

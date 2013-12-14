@@ -9,7 +9,7 @@ Example:
 > cd appdir
 > make
 > sudo make install
-> sudo clicon_config
+> sudo clicon_backend
 clicon_config[17651]: clicon_config: 17651 Started
 > clicon_cli 
 Welcome to CLICON hello example CLI
