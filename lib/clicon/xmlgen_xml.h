@@ -82,6 +82,7 @@ int xml_prune(struct xml_node *xp, struct xml_node *xc, int freeit);
 int xml_to_file(FILE *f, struct xml_node *xn, int level, int prettyprint);
 char *xml_to_string(char *str,  struct xml_node *xn, 
 		    int level, int prettyprint, const char *label);
+int print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint);
 int xml_parse(char **str, struct xml_node *xn_parent, char *dtd_file,
 	      char *dtd_root_label, size_t dtd_len);
 int xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag);

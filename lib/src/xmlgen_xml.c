@@ -699,7 +699,7 @@ xml_to_file(FILE *f, struct xml_node *xn, int level, int prettyprint)
 }
 
 /*
- * xml_to_file
+ * xml_to_string
  * prettyprint - insert \n and spaces tomake the xml more readable.
  * level: how many spaces to insert before each line
  */
@@ -776,6 +776,81 @@ xml_to_string(char *str,
     }/* switch */
     return str;
 }
+
+/*
+ * print_xml_xf_node
+ * prettyprint - insert \n and spaces tomake the xml more readable.
+ * This variant places the parser tree in an xf buffer (essentially as string)
+ * Usage:
+ * xf_t *xf;
+ * xf = print_xml_xf_node(xf, xn, 0, 1);
+ * xf_free(xf);
+ */
+int
+print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
+{
+    int i;
+    struct xml_node *xn_child;
+    int empty = 0;
+    int body;
+    int subnodes = 0;
+
+    switch(xn->xn_type){
+    case XML_ATTRIBUTE:
+	xprintf(xf, " ");
+	if (xn->xn_namespace)
+	    xprintf(xf, "%s:", xn->xn_namespace);
+	xprintf(xf, "%s=\"%s\"", xn->xn_name, xn->xn_value);
+	break;
+    case XML_BODY:
+	/* The following is required in netconf but destroys xml pretty-printing
+	   in other code */
+#if 1
+	xprintf(xf, "%s", xn->xn_value);
+#endif
+	break;
+    case XML_ELEMENT:
+	xprintf(xf, "%*s", prettyprint?(level+1):0, "<");
+	if (xn->xn_namespace)
+	    xprintf(xf, "%s:", xn->xn_namespace);
+	xprintf(xf, "%s", xn->xn_name);
+	/* Two passes: first attributes */
+	for (i=0; i<xn->xn_nrchildren; i++){
+	    xn_child = xn->xn_children[i];
+	    if (xn_child->xn_type != XML_ATTRIBUTE){
+		subnodes++;
+		continue;
+	    }
+	    print_xml_xf_node(xf, xn_child, prettyprint?(level+2):0, prettyprint);
+	}
+	body = xn->xn_nrchildren && xn->xn_children[0]->xn_type==XML_BODY;
+	if (prettyprint)
+	    xprintf(xf, ">%s", body?"":"\n");
+	else
+	    xprintf(xf, ">"); /* No CR / want no xtra chars after end-tag */
+	/* then nodes */
+	if (!empty){
+	    for (i=0; i<xn->xn_nrchildren; i++){
+		xn_child = xn->xn_children[i];
+		if (xn_child->xn_type == XML_ATTRIBUTE)
+		    continue;
+		else
+		    print_xml_xf_node(xf, xn_child, level+2, prettyprint);
+	    }
+	    xprintf(xf, "%*s%s>%s", 
+		    (prettyprint&&!body)?(level+2):0, 
+		    "</", 
+		    xn->xn_name,
+		    prettyprint?"\n":""
+		);
+	}
+	break;
+    default:
+	break;
+    }/* switch */
+    return 0;
+}
+
 
 
 int 

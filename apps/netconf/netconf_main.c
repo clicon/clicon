@@ -131,6 +131,8 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 	    output(1, xf, reply_root, "rpc-error");
 	    xf_free(xf);
 	}
+	else
+	    clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
 	free(str0);
 	goto done;
     }
@@ -217,7 +219,10 @@ eventloop(clicon_handle h, int s)
     int xml_state = 0;
     int retval = -1;
 
-    xf = xf_alloc();
+    if ((xf = xf_alloc()) == NULL){
+	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+	return retval;
+    }
     while (!cc_closed){
 	memset(buf, 0, sizeof(buf));
 	if ((len = read(s, buf, sizeof(buf))) < 0){

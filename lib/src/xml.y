@@ -60,6 +60,7 @@
 
 /* clicon */
 #include "clicon_err.h"
+#include "xmlgen_xf.h"
 #include "xmlgen_xml.h"
 #include "xmlgen_xf.h"
 #include "xmlgen_parse.h"

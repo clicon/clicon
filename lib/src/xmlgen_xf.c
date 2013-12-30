@@ -35,16 +35,12 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <string.h>
-#include <errno.h>
 
-/* clicon */
-#include "clicon_err.h"
-#include "clicon_log.h"
-#include "xmlgen_xml.h"
 #include "xmlgen_xf.h"
+
+/* for debugging */
+static int debug = 0;
 
 /*
  * Allocate xml stream. The handle returned can be used in 
@@ -58,15 +54,11 @@ xf_alloc()
 {
     xf_t *xf;
 
-    if ((xf = (xf_t*)malloc(sizeof(*xf))) == NULL){
-	clicon_err(OE_XML, errno, "%s: malloc", __FUNCTION__);
+    if ((xf = (xf_t*)malloc(sizeof(*xf))) == NULL)
 	return NULL;
-    }
     memset(xf, 0, sizeof(*xf));
-    if ((xf->xf_buf = malloc(XF_BUFLEN)) == NULL){
-	clicon_err(OE_XML, errno, "%s: malloc", __FUNCTION__);
+    if ((xf->xf_buf = malloc(XF_BUFLEN)) == NULL)
 	return NULL;
-    }
     xf->xf_maxbuf = XF_BUFLEN;
     memset(xf->xf_buf, 0, xf->xf_maxbuf);
     xf->xf_len = 0;
@@ -103,20 +95,16 @@ xprintf(xf_t *xf, const char *format, ...)
     retval = vsnprintf(xf->xf_buf+xf->xf_len, 
 		       xf->xf_maxbuf-xf->xf_len, 
 		       format, ap);
-    if (retval < 0){
-	clicon_err(OE_XML, errno, "%s: vsnprintf", __FUNCTION__);
+    if (retval < 0)
 	return -1;
-    }
     remaining = xf->xf_maxbuf - (xf->xf_len + retval + 1);
     if (remaining <= 0){
 	if (debug)
 	    fprintf(stderr, "xprintf: Reallocate %d -> %d\n", (int)xf->xf_maxbuf, 
 		    (int)(2*xf->xf_maxbuf));
 	xf->xf_maxbuf *= 2;
-	if ((xf->xf_buf = realloc(xf->xf_buf, xf->xf_maxbuf)) == NULL){
-	    clicon_err(OE_XML, errno, "%s: realloc", __FUNCTION__);
+	if ((xf->xf_buf = realloc(xf->xf_buf, xf->xf_maxbuf)) == NULL)
 	    return -1;
-	}
 	va_end(ap);
 	va_start(ap, format);
 	goto retry;
@@ -136,84 +124,9 @@ xf_reset(xf_t *xf)
 }
 
 /*
- * print_xml_xf_node
- * prettyprint - insert \n and spaces tomake the xml more readable.
- * This variant places the parser tree in an xf buffer (essentially as string)
- * Usage:
- * xf_t *xf;
- * xf = xf_alxf_node(xf, xn, 0, 1);
- * xf_free(xf);
- */
-int
-print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
-{
-    int i;
-    struct xml_node *xn_child;
-    int empty = 0;
-    int body;
-    int subnodes = 0;
-
-    switch(xn->xn_type){
-    case XML_ATTRIBUTE:
-	xprintf(xf, " ");
-	if (xn->xn_namespace)
-	    xprintf(xf, "%s:", xn->xn_namespace);
-	xprintf(xf, "%s=\"%s\"", xn->xn_name, xn->xn_value);
-	break;
-    case XML_BODY:
-	/* The following is required in netconf but destroys xml pretty-printing
-	   in other code */
-#if 1
-	xprintf(xf, "%s", xn->xn_value);
-#endif
-	break;
-    case XML_ELEMENT:
-	xprintf(xf, "%*s", prettyprint?(level+1):0, "<");
-	if (xn->xn_namespace)
-	    xprintf(xf, "%s:", xn->xn_namespace);
-	xprintf(xf, "%s", xn->xn_name);
-	/* Two passes: first attributes */
-	for (i=0; i<xn->xn_nrchildren; i++){
-	    xn_child = xn->xn_children[i];
-	    if (xn_child->xn_type != XML_ATTRIBUTE){
-		subnodes++;
-		continue;
-	    }
-	    print_xml_xf_node(xf, xn_child, prettyprint?(level+2):0, prettyprint);
-	}
-	body = xn->xn_nrchildren && xn->xn_children[0]->xn_type==XML_BODY;
-	if (prettyprint)
-	    xprintf(xf, ">%s", body?"":"\n");
-	else
-	    xprintf(xf, ">"); /* No CR / want no xtra chars after end-tag */
-	/* then nodes */
-	if (!empty){
-	    for (i=0; i<xn->xn_nrchildren; i++){
-		xn_child = xn->xn_children[i];
-		if (xn_child->xn_type == XML_ATTRIBUTE)
-		    continue;
-		else
-		    print_xml_xf_node(xf, xn_child, level+2, prettyprint);
-	    }
-	    xprintf(xf, "%*s%s>%s", 
-		    (prettyprint&&!body)?(level+2):0, 
-		    "</", 
-		    xn->xn_name,
-		    prettyprint?"\n":""
-		);
-	}
-	break;
-    default:
-	break;
-    }/* switch */
-    return 0;
-}
-
-/*
  * xf_encode_attr
  * Translate entity references and return new allocated string.
- * This should only be applied to XML attribute values or XML bodies (but
- * we seldom use those).
+ * This should only be applied to XML attribute values or XML bodies.
  * &lt;     <--     <
  * &gt;     <--     >
  * &amp;    <--     &
@@ -233,10 +146,8 @@ xf_encode_attr(xf_t *xf)
 
   newlen = 0;
   newmax = xf->xf_maxbuf;
-  if ((newbuf = malloc(newmax)) == NULL){
-      clicon_err(OE_XML, errno, "%s: malloc", __FUNCTION__);
+  if ((newbuf = malloc(newmax)) == NULL)
       return -1;
-  }
   memset(newbuf, 0, newmax);
   for (i=0; i<xf->xf_len; i++){
       c = xf->xf_buf[i];
@@ -269,10 +180,8 @@ xf_encode_attr(xf_t *xf)
 			  (int)newmax, 
 			  (int)(2*newmax));
 	      newmax *= 2;
-	      if ((newbuf = realloc(newbuf, newmax)) == NULL){
-		  clicon_err(OE_XML, errno, "%s: realloc", __FUNCTION__);
+	      if ((newbuf = realloc(newbuf, newmax)) == NULL)
 		  return -1;
-	      }
 	      goto retry;
 	  }
 	  memcpy(&newbuf[newlen], escape, strlen(escape));

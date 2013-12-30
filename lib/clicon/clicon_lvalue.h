@@ -35,7 +35,8 @@
  * Types
  */
 struct lvalue {
-    uint16_t   lv_type;
+    uint8_t    lv_type;
+    uint8_t    lv_flags;
     uint16_t   lv_len; /* Length of value */
     char       lv_val[0];
 };

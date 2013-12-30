@@ -77,7 +77,6 @@ xf_t *xf_alloc(void);
 void xf_free(xf_t *xf);
 int xprintf(xf_t *xf, const char *format, ...);
 void xf_reset(xf_t *xf);
-int print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint);
 int xf_encode_attr(xf_t *xf);
 
 #endif /* _XMLGEN_XF_H */

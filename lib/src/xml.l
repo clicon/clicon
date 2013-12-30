@@ -29,6 +29,7 @@
 #include <stdint.h>
 
 /* clicon */
+#include "xmlgen_xf.h"
 #include "xmlgen_xml.h"
 #include "xml.tab.h"  
 #include "xmlgen_parse.h"  

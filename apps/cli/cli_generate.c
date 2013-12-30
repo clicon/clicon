@@ -296,8 +296,10 @@ dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_typ
     xf_t           *xf;
     cvec           *globals;       /* global variables from syntax */
 
-    if ((xf = xf_alloc()) == NULL)
+    if ((xf = xf_alloc()) == NULL){
+	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
 	goto done;
+    }
     
     /* Go through parse-tree and print a CLIgen tree. */
     for (i=0; i<pt->pt_len; i++)
