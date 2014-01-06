@@ -65,5 +65,10 @@ netconf_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
 void netconf_ok_set(int ok);
 int netconf_ok_get(void);
 
+int netconf_xpath(struct xml_node *xsearch,
+		  struct xml_node *xfilter, 
+		   xf_t *xf, xf_t *xf_err, 
+		  struct xml_node *xt);
+
 
 #endif /* _CLICON_NETCONF_H_ */

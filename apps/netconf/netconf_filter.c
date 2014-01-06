@@ -564,18 +564,26 @@ xml_edit(struct xml_node *filter,
 
 /*
  * netconf_xpath
- * Example:
- *  <filter type="xpath" select="/t:top/t:users/t:user[t:name='fred']"/>
+ * Arguments:
+ *  xsearach is where you search for xpath
+ *  xfilter is the xml sub-tree, eg: 
+ *             <filter type="xpath" select="/t:top/t:users/t:user[t:name='fred']"/>
+ *  xt is original tree
+ *  
  */
 int 
-netconf_xpath(struct db_spec *dbspec, struct xml_node *xdb,
+netconf_xpath(struct xml_node *xsearch,
 	      struct xml_node *xfilter, 
-	      xf_t *xf, xf_t *xf_err, 
-	      struct xml_node *xt, char *target)
+	      xf_t *xf, 
+	      xf_t *xf_err, 
+	      struct xml_node *xt)
 {
-    struct xml_node *x;
-    int retval = -1;
-    char *selector;
+    struct xml_node  *x;
+    int               retval = -1;
+    char             *selector;
+    struct xml_node **xv;
+    int               xlen;
+    int               i;
 
     if ((selector = xml_get(xfilter, "select")) == NULL){
 	netconf_create_rpc_error(xf_err, xt, 
@@ -586,11 +594,17 @@ netconf_xpath(struct db_spec *dbspec, struct xml_node *xdb,
 				 "select");
 	goto done;
     }
-    xprintf(xf, "<configuration>");
+
     x = NULL;
 
-    while ((x = xpath_each(xdb, selector, x)) != NULL) 
-	print_xml_xf_node(xf, x, 0, 1);
+    clicon_errno = 0;
+    if ((xv = xpath_vec(xsearch, selector, &xlen)) != NULL) {
+	for (i=0; i<xlen; i++){
+	    x = xv[i];
+	    print_xml_xf_node(xf, x, 0, 1);
+	}
+	free(xv);
+    }
     /* XXX: NULL means error sometimes */
     if (clicon_errno){
 	netconf_create_rpc_error(xf_err, xt, 
@@ -601,7 +615,7 @@ netconf_xpath(struct db_spec *dbspec, struct xml_node *xdb,
 				 "select");
 	goto done;
     }
-    xprintf(xf, "</configuration>");
+
     retval = 0;
   done:
     return retval;

@@ -110,8 +110,10 @@ xml_find_deep(struct xml_node *xn_parent, char *name,
 
 
 /*
+ * xpath1
+ * sub-function to xpath(), xpath_each(), xpath_vec() that actually does the xpathing
  * XXX: or with ///?
- * Given a node, and a very limited XPATH syntax, return the (first) xml node 
+ * Given a node, and a very limited XPATH syntax, return a vector of xml node 
  * that matches.
  * examples: 
         /foobar
@@ -129,8 +131,9 @@ xml_find_deep(struct xml_node *xn_parent, char *name,
 	//foo[@bar=5] Select all foo elements with bar attribute equal to 5
 
  */
-static struct xml_node *
-xml_xpath1(struct xml_node *xn_top, char *xpath0, struct xml_node *xprev)
+
+static struct xml_node **
+xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 {
     int deep = 0;
     char *attr;
@@ -142,7 +145,8 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, struct xml_node *xprev)
     char *node;
     char *xpath = strdup(xpath0);
     struct xml_node *xn, *xc;
-    struct xml_node **xv0=NULL, **xv1=NULL;  /* Search vector */
+    struct xml_node **xv0=NULL;  /* Search vector 0 */
+    struct xml_node **xv1=NULL;  /* Search vector 1 */
     int i,j;
     int xv_max = 128;
     size_t xv0_len=0, xv1_len=0;
@@ -341,12 +345,90 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, struct xml_node *xprev)
     } /* expr */
   done:
     /* Result in xv0 (if any). Pick result after previous or first of NULL */
-    if (xdebug){
+    if (0){
 	fprintf(stderr, "%s: result:\n", __FUNCTION__); 
 	for (i=0; i<xv0_len; i++)
 	    fprintf(stderr, "\t%s\n", xv0[i]->xn_name); 
     }
-    if (xv0_len ){
+    if (xpath)
+	free(xpath);
+    *xv00_len = xv0_len;
+    if (xv1)
+	free(xv1);
+    return xv0;
+} /* xml_xpath */
+
+
+/*
+ * xpath
+ * Given a node, and a very limited XPATH syntax, return the first entry that matches.
+ * See xpath1() on details for subset.
+ * args:
+ *  IN  xn_top  xml-tree where to search
+ *  IN  xpath   string with XPATH syntax
+ * returns:
+ *   xml-tree of first match, or NULL on error. 
+ * Note that the returned pointer points into the original tree so should not be freed
+ * after use.
+ * See also xpath_each, xpath_vec.
+ */
+struct xml_node *
+xml_xpath(struct xml_node *xn_top, char *xpath)
+{
+    struct xml_node **xv0;
+    int xv0_len = 0;
+    struct xml_node *xn = NULL;
+
+    if ((xv0 = xml_xpath1(xn_top, xpath, &xv0_len)) == NULL)
+	goto done;
+    if (xv0_len)
+	xn = xv0[0];
+    else
+	xn = NULL;
+  done:
+    if (xv0)
+	free(xv0);
+    return xn;
+
+}
+
+/*
+ * xpath_each
+ * xpath iterator
+ * Given a node, and a very limited XPATH syntax, iteratively return the matches.
+ * See xpath1() on details for subset.
+ * Example of usage:
+ *   struct xml_node *x = NULL;
+ *   while ((x = xpath_each(xn_top, "//symbol/foo", x)) != NULL) {
+ *     ...
+ *   }
+ * args:
+ *  IN  xn_top  xml-tree where to search
+ *  IN  xpath   string with XPATH syntax
+ *  IN  xprev   iterator/result should be initiated to NULL
+ * returns:
+ *   xml-tree of n:th match, or NULL on error. 
+ * Note that the returned pointer points into the original tree so should not be freed
+ * after use.
+ * See also xpath, xpath_vec.
+ * NOTE: uses a static variable: consider replacing with xpath_vec() instead
+ */
+struct xml_node *
+xpath_each(struct xml_node *xn_top, char *xpath, struct xml_node *xprev)
+{
+    static    struct xml_node **xv0 = NULL; /* XXX */
+    static int xv0_len = 0;
+    struct xml_node *xn = NULL;
+    int i;
+    
+    if (xprev == NULL){
+	if (xv0) // XXX
+	    free(xv0); // XXX
+	xv0_len = 0;
+	if ((xv0 = xml_xpath1(xn_top, xpath, &xv0_len)) == NULL)
+	    goto done;
+    }
+    if (xv0_len){
 	if (xprev==NULL)
 	    xn = xv0[0];
 	else{
@@ -361,35 +443,41 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, struct xml_node *xprev)
     }
     else
 	xn = NULL;
-    if (xpath)
-	free(xpath);
-    if (xv0)
-	free(xv0);
-    if (xv1)
-	free(xv1);
+  done:
     return xn;
-} /* xml_xpath */
-
-struct xml_node *
-xml_xpath(struct xml_node *xn_top, char *xpath)
-{
-    return xml_xpath1(xn_top, xpath, NULL);
 }
 
 /*
- * xpath_each
+ * xpath_vec
  * xpath iterator
+ * Given a node, and a very limited XPATH syntax, return a vector of matches.
+ * See xpath1() on details for subset.
  * Example of usage:
- *   struct xml_node *x = NULL;
- *   while ((x = xpath_each(xn_top, "//symbol/foo", x)) != NULL) {
- *     ...
+ *   struct xml_node **xv;
+ *   int               xlen;
+ *   if ((xv = xpath_vec(xn_top, "//symbol/foo", &xlen)) != NULL) {
+ *      for (i=0; i<xlen; i++){
+ *         xn = xv[i];
+ *         ...
+ *      }
+ *      free(xv);
  *   }
+ * args:
+ *  IN  xn_top  xml-tree where to search
+ *  IN  xpath   string with XPATH syntax
+ *  OUT xv_len  returns length of vector in return value
+ * returns:
+ *   vector of xml-trees, or NULL on error. Vector must be freed after use
+ * Note that although the returned vector must be freed after use, the returned xml
+ * trees need not be.
+ * See also xpath, xpath_each.
  */
-struct xml_node *
-xpath_each(struct xml_node *xn_top, char *xpath, struct xml_node *prev)
+struct xml_node **
+xpath_vec(struct xml_node *xn_top, char *xpath, int *xv_len)
 {
-    return xml_xpath1(xn_top, xpath, prev);
+    return xml_xpath1(xn_top, xpath, xv_len);
 }
+
 
 /*
  *---------------------------------------

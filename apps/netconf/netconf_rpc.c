@@ -65,14 +65,16 @@
 /*
  * See get-config
  * xfilter is a filter expression starting with <filter>
-
+ * only <filter type="xpath"/> supported
+ * needs refactoring: move the lower part (after xfilter) up to get-config or 
+ * sub-function., focus on xfilter part here.
  */
 static int
 netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter, 
 	       xf_t *xf, xf_t *xf_err, 
 	       struct xml_node *xt, char *target)
 {
-    struct xml_node *xdb = NULL; 
+    struct xml_node *xdb; 
     struct xml_node *xc; 
     struct xml_node *xfilterconf = NULL; 
     char *type;
@@ -95,8 +97,10 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
      */
     if (xfilter){
 	if ((ftype = xml_get(xfilter, "type")) != NULL){
-	    if (strcmp(ftype, "xpath")==0){
-		retval = netconf_xpath(dbspec, xdb, xfilter, xf, xf_err, xt, target);
+	    if (strcmp(ftype, "xpath")==0){ 
+		xprintf(xf, "<configuration>"); /* XXX: hardcoded */
+		retval = netconf_xpath(xdb, xfilter, xf, xf_err, xt);
+		xprintf(xf, "</configuration>");
 		goto done;
 	    }
 	    else{
@@ -104,7 +108,7 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
 				 "operation-failed", 
 				 "application", 
 				 "error", 
-				 NULL,
+				 "only xpath filter type supported",
 				 "type");
 		goto done;
 	    }
@@ -179,6 +183,10 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
             </configuration> 
         </filter> 
     </get-config> 
+ Example:
+   <rpc><get-config><source><running /></source>
+     <filter type="xpath" select="//SenderTwampIpv4"/>
+   </get-config></rpc>]]>]]>
  */
 int
 netconf_get_config(clicon_handle h, struct db_spec *dbspec,
@@ -199,7 +207,8 @@ netconf_get_config(clicon_handle h, struct db_spec *dbspec,
 				 "<bad-element>source</bad-element>");
 	goto done;
     }
-    xfilter = xml_xpath(xn, "//filter");
+    /* ie <filter>...</filter> */
+   xfilter = xml_xpath(xn, "//filter");
     if (netconf_filter(dbspec, xfilter, xf, xf_err, xt, target) < 0)
 	goto done;
     retval = 0;

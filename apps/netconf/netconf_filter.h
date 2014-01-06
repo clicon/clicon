@@ -32,9 +32,9 @@ int xml_filter(struct xml_node *xf, struct xml_node *xn);
 int xml_edit(struct xml_node *filter, 
 	     struct xml_node *parent, 
 	     enum operation_type op, xf_t *xf_err, struct xml_node *xt);
-int netconf_xpath(struct db_spec *dbspec, struct xml_node *xdb,
+int netconf_xpath(struct xml_node *xsearch,
 		  struct xml_node *xfilter, 
-		   xf_t *xf, xf_t *xf_err, 
-		   struct xml_node *xt, char *target);
+		  xf_t *xf, xf_t *xf_err, 
+		  struct xml_node *xt);
 
 #endif  /* _NETCONF_FILTER_H_ */
