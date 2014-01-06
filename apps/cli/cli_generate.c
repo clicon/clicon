@@ -165,46 +165,36 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
 }
 
 static int 
-mycov_print(cg_obj *co, char *cmd, int len, int brief)
+mycov_print(xf_t *xf, cg_obj *co, int brief)
 {
-    char          *cmd2;
     char          *cvstr;
 
     if (co->co_choice){
-	snprintf(cmd, len, "<type:string choice:%s>", co->co_choice);
+	xprintf(xf, "<type:string choice:%s>", co->co_choice);
     }
     else{
 	if (brief)
-	    snprintf(cmd, len, "<%s>", co->co_command);   
+	    xprintf(xf, "<%s>", co->co_command);   
 	else{
-	    snprintf(cmd, len, "<%s:%s", co->co_command, cv_type2str(co->co_vtype));
-	    cmd2 = strdup(cmd);
+	    xprintf(xf, "<%s:%s", co->co_command, cv_type2str(co->co_vtype));
 	    if (co->co_range){
-		snprintf(cmd, len, "%s range[%" PRId64 ":%" PRId64 "]", 
-			 cmd2, co->co_range_low, co->co_range_high);
-		free(cmd2);
-		cmd2 = strdup(cmd);
+		xprintf(xf, " range[%" PRId64 ":%" PRId64 "]", 
+			co->co_range_low, co->co_range_high);
 	    }
 	    if (co->co_expand_fn_str){
 		if (co->co_expand_fn_arg)
 		    cvstr = cv2str_dup(co->co_expand_fn_arg);
 		else
 		    cvstr = NULL;
-		snprintf(cmd, len, "%s %s(\"%s\")",  /* XXX: cv2str() */
-			 cmd2, co->co_expand_fn_str, cvstr?cvstr:"");
+		xprintf(xf, " %s(\"%s\")",  /* XXX: cv2str() */
+			co->co_expand_fn_str, cvstr?cvstr:"");
 		if (cvstr)
 		    free(cvstr);
-		free(cmd2);
-		cmd2 = strdup(cmd);
 	    }
 	    if (co->co_regex){
-		snprintf(cmd, len, "%s regexp:\"%s\"", 
-			 cmd2, co->co_regex);
-		free(cmd2);
-		cmd2 = strdup(cmd);
+		xprintf(xf, " regexp:\"%s\"", co->co_regex);
 	    }
-	    snprintf(cmd, len, "%s>", cmd2);
-	    free(cmd2);
+	    xprintf(xf, ">");
 	}
     }
 
@@ -220,10 +210,7 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
 
     /* In some cases we should add keyword before variables */	
     xprintf(xf, " (");
-    mycov_print(co, 	    /* XXX Warning: this may overflow */
-	      xf->xf_buf + xf->xf_len, 
-	      xf->xf_maxbuf - xf->xf_len, 0);
-    xf->xf_len += strlen(xf->xf_buf+xf->xf_len);
+    mycov_print(xf, co, 0);
     if (co->co_help)
 	xprintf(xf, "(\"%s\")", co->co_help);
     if (clicon_cli_genmodel_completion(h)){
@@ -310,9 +297,9 @@ dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_typ
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
     if (debug)
-	fprintf(stderr, "xbuf: %s\n", xf->xf_buf);
+	fprintf(stderr, "xbuf: %s\n", xf_buf(xf));
     /* load cli syntax */
-    if (cligen_parse_str(cli_cligen(h), xf->xf_buf, "dbspec2cli", ptnew, globals) < 0)
+    if (cligen_parse_str(cli_cligen(h), xf_buf(xf), "dbspec2cli", ptnew, globals) < 0)
 	goto done;
     /* Dont check any variables for now (eg name="myspec") */
     cvec_free(globals);

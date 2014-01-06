@@ -30,7 +30,7 @@
  * xf = xf_alloc();
  * xprintf(xf, "<foo attr=\"%d\">\n", 17);
  * xprintf(xf, "</foo>");
- * write(f, xf->xf_buf, xf->xf_len);
+ * write(f, xf_buf(xf), xf_len(xf));
  * xf_free(xf);
  */
 
@@ -54,12 +54,12 @@
 /*
  * Types
  */
-/* Wrapper around a string */
-typedef struct {
-    char  *xf_buf;     /* malloc'd string */
-    size_t xf_maxbuf;  /* length of buf */
-    size_t xf_len;     /* length of string (strlen is actually adequate) */
-} xf_t;
+/* XML streams are called 'xf' and is really just a wrapper around a dynamic
+   reallocated string 
+   Note, full struct definition is hidden in .c file: a caller should not access 
+   individual fields, only use the functional API here 
+*/
+typedef struct xf_t xf_t;
 
 /* xf variable context for xf_push/xf_pop */
 typedef struct {
@@ -75,8 +75,12 @@ struct xml_node; /* forward declaration */
 
 xf_t *xf_alloc(void);
 void xf_free(xf_t *xf);
+char *xf_buf(xf_t *xf);
+int xf_len(xf_t *xf);
 int xprintf(xf_t *xf, const char *format, ...);
 void xf_reset(xf_t *xf);
+
+xf_t *xf_dup(xf_t *xf);
 int xf_encode_attr(xf_t *xf);
 
 #endif /* _XMLGEN_XF_H */

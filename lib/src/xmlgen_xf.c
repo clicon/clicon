@@ -19,7 +19,7 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
- * XML support functions.
+ * Dynamic XML stream support functions.
  */
 
 /*
@@ -30,7 +30,7 @@
  * xf = xf_alloc();
  * xprintf(xf, "<foo attr=\"%d\">\n", 17);
  * xprintf(xf, "</foo>");
- * write(f, xf->xf_buf, xf->xf_len);
+ * write(f, xf_buf(xf), xf_len(xf));
  * xf_free(xf);
  */
 #include <stdio.h>
@@ -39,10 +39,20 @@
 
 #include "xmlgen_xf.h"
 
+/* XML streams are called 'xf' and is really just a wrapper around a dynamic
+   reallocated string */
+struct xf_t {
+    char  *xf_buf;     /* malloc'd string */
+    size_t xf_maxbuf;  /* length of buf */
+    size_t xf_len;     /* length of string (strlen is actually adequate) */
+};
+
 /* for debugging */
 static int debug = 0;
 
+
 /*
+ * xf_alloc
  * Allocate xml stream. The handle returned can be used in 
  * successive xprintf calls which dynamically print a string.
  * The handle should be freed by xmlf_free()
@@ -77,9 +87,33 @@ xf_free(xf_t *xf)
 }
 
 /*
+ * xf_buf
+ * Return byte-stream of xml stream
+ */
+char*
+xf_buf(xf_t *xf)
+{
+    return xf->xf_buf;
+}
+
+/*
+ * xf_len
+ * Return length of xml stream
+ */
+int
+xf_len(xf_t *xf)
+{
+    return xf->xf_len;
+}
+
+/*
+ * xprintf
  * Create XML string dynamically.
- * xf is an XML stream allocated by xf_alloc.
- * format and arguments uses printf syntax.
+ * Arguments:
+ *  IN  xf      XML buffer stream allocated by xf_alloc, may be reallocated.
+ *  IN  format  arguments uses printf syntax.
+ * retur value:
+ *  similar to printf
  */
 int
 xprintf(xf_t *xf, const char *format, ...)
@@ -116,11 +150,41 @@ xprintf(xf_t *xf, const char *format, ...)
 }
 
 
+/*
+ * xf_reset
+ * Reset an xml stream. That is, an xf can have been written to, but a user wants to
+ * restart new writing (and forget the old) without allocating a new.
+ * Example:
+ * xf_t xf = xf_alloc();
+ * xprintf(xf, "old text");
+ * xf_reset(xf);
+ * xprintf(xf, "new text");
+ */
 void
 xf_reset(xf_t *xf)
 {
-    xf->xf_len=0; 
+    xf->xf_len    = 0; 
     xf->xf_buf[0] = '\0'; 
+}
+
+/*
+ * xf_dup
+ * Create a new xml stream and copy its contents from an old.
+ */
+xf_t *
+xf_dup(xf_t *xf0)
+{
+    xf_t *xf;
+
+    if ((xf = (xf_t*)malloc(sizeof(*xf))) == NULL)
+	return NULL;
+    memset(xf, 0, sizeof(*xf));
+    if ((xf->xf_buf = malloc(xf0->xf_maxbuf)) == NULL)
+	return NULL;
+    xf->xf_maxbuf = xf0->xf_maxbuf;
+    memcpy(xf->xf_buf, xf0->xf_buf, xf->xf_maxbuf);
+    xf->xf_len = xf0->xf_len;
+    return xf;
 }
 
 /*

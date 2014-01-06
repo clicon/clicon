@@ -49,7 +49,7 @@ CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
 # even though it may exist in $(libdir). But the new version may not have been installed yet.
 LIBDEPS		= $(top_srcdir)/lib/src/$(CLICON_LIB) 
 
-LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -l:$(CLICON_LIB) -lpthread
+LIBS    	= -L$(top_srcdir)/lib/src @LIBS@ -l:$(CLICON_LIB) -lpthread
 CPPFLAGS  	= @CPPFLAGS@ -fPIC
 INCLUDES	= -I. -I$(top_srcdir)/lib/src -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcdir) @INCLUDES@
 

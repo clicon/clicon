@@ -63,8 +63,8 @@
 static int 
 output(int s, xf_t *xf, char *root, char *msg)
 {
-    char *buf = xf->xf_buf;
-    int len = xf->xf_len;
+    char *buf = xf_buf(xf);
+    int len = xf_len(xf);
     int retval = -1;
 
     if (debug){
@@ -105,9 +105,9 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
     if (debug){
 	clicon_log(LOG_DEBUG, "RECV");
 	if (debug > 1)
-	    clicon_log(LOG_DEBUG, "%s: RCV: \"%s\"", __FUNCTION__, xf->xf_buf);
+	    clicon_log(LOG_DEBUG, "%s: RCV: \"%s\"", __FUNCTION__, xf_buf(xf));
     }
-    if ((str0 = strdup(xf->xf_buf)) == NULL){
+    if ((str0 = strdup(xf_buf(xf))) == NULL){
 	clicon_log(LOG_ERR, "%s: strdup: %s", __FUNCTION__, strerror(errno));
 	return -1;
     }
@@ -169,8 +169,8 @@ ed");
 				 xml_req, 
 				 xml_xpath(xml_req, "//rpc"), 
 				 xf_out, xf_err) < 0){
-	    assert(xf_err->xf_len);
-	    clicon_log(LOG_DEBUG, "%s", xf_err->xf_buf);
+	    assert(xf_len(xf_err));
+	    clicon_log(LOG_DEBUG, "%s", xf_buf(xf_err));
 	    if (isrpc){
 		if (output(1, xf_err, reply_root, "rpc-error") < 0)
 		    goto done;
@@ -178,7 +178,7 @@ ed");
 	}
 	else{
 	    if ((xf1 = xf_alloc()) != NULL){
-		if (netconf_create_rpc_reply(xf1, xml_req, xf_out->xf_buf, netconf_ok_get()) < 0){
+		if (netconf_create_rpc_reply(xf1, xml_req, xf_buf(xf_out), netconf_ok_get()) < 0){
 		    xf_free(xf_out);
 		    xf_free(xf_err);
 		    xf_free(xf1);
@@ -188,7 +188,7 @@ ed");
 		    xf_reset(xf1);
 		    netconf_create_rpc_error(xf1, xml_req, "operation-failed", 
 					     "protocol", "error", 
-					     NULL, xf_err->xf_buf);
+					     NULL, xf_buf(xf_err));
 		    output(1, xf1, reply_root, "rpc-error");
 		    xf_free(xf_out);
 		    xf_free(xf_err);
@@ -249,8 +249,7 @@ eventloop(clicon_handle h, int s)
 		    goto done;
 		if (cc_closed)
 		    break;
-		xf->xf_len = 0;
-		xf->xf_buf[0] = '\0';
+		xf_reset(xf);
 	    }
 
 	}
