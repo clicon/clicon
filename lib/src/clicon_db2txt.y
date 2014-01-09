@@ -43,6 +43,7 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_chunk.h"
+#include "clicon_db.h"
 #include "clicon_file.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
@@ -450,6 +451,7 @@ run_callback(void *_ya, char *func, cg_var *arg)
     
     
     cb = (clicon_db2txtcb_t *)clicon_find_func(_YA->ya_handle, pname, fname);
+    free(func);
     if (cb == NULL)
 	return NULL;
 
@@ -1078,20 +1080,59 @@ variable:
  	'$' varname {
 	    char *val;
 	    cg_var *cv;
+	    
+	    $$ = NULL;
 
-	    if (_YA->ya_vars && (cv = cvec_find(_YA->ya_vars, $2)) != NULL) 
-		$$ = cv_dup(cv);
+	    /* Is it a parser variable? */
+	    if (_YA->ya_vars && (cv = cvec_find(_YA->ya_vars, $2)) != NULL) {
+		if (($$ = cv_dup(cv)) == NULL)
+		    clicon_db2txterror(_YA, "cv_dup failed");
+	    }
+	    
+	    /* Or a clicon option? */
 	    else if ((val = clicon_option_str(_YA->ya_handle, $2)) != NULL) {
-		if (($$ = cv_new(CGV_STRING)) == NULL)
+		if (($$ = cv_new(CGV_STRING)) == NULL)	
 		    clicon_db2txterror(_YA, "cv_new failed");
 		else if (cv_string_set($$, val) == NULL) {
-		    clicon_db2txterror(_YA, "cv_string_set failed");
+		    clicon_db2txterror(_ya, "cv_string_set failed");
 		    cv_free($$);
 		    $$ = NULL;
 		}
-	    }		
+	    }
+	    
+	    /* db key only. Return key-name if exists or nil otherwise */
+	    else if(strstr($2, "->") == NULL) {  
+		char *key;
+		void *data;
+		size_t len;
+
+		if ((key = get_loopkey(_YA, $2)) == NULL) {
+		    if ((key = strdup($2)) == NULL) {
+			clicon_db2txterror(_YA, "malloc failed");
+			free($2);
+			YYERROR;
+		    }
+		}
+		db_get_alloc(_YA->ya_db, key, (void**)&data, &len);
+		if (data == NULL)
+		    $$ = get_nullvar(_YA);
+		else {
+		    free(data);
+		    if (($$ = cv_new(CGV_STRING)) == NULL)
+			clicon_err(OE_UNIX, errno, "cv_new");
+		    else if (cv_string_set($$, key) == NULL) {
+			clicon_db2txterror(_ya, "cv_string_set failed");
+			cv_free($$);
+			$$ = NULL;
+		    }
+		}
+		free(key);
+	    }
+	    
+	    /* key->var */
 	    else
 		$$ = get_dbvar(_YA, $2);
+
 	    free($2);
 	    if ($$ == NULL)
 		YYERROR;
