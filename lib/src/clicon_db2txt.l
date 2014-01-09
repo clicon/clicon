@@ -182,13 +182,13 @@ db2txt_debug(const char *s, ...)
 			  push_state (_YA, COMMENT); 
  			}
 <INITIAL>\$		{ APPBUF;  push_state (_YA, VAR); return *yytext; }
-<INITIAL>(@set)	{ APPBUF;  push_state (_YA, CODE); return SET; }
-<INITIAL>(@if)	{ APPBUF;  push_state (_YA, CODE); return IF; }
-<INITIAL>(@else)	{ APPBUF;  return ELSE; }
+<INITIAL>@[sS][eE][tT]	{ APPBUF;  push_state (_YA, CODE); return SET; }
+<INITIAL>@[iI][fF]	{ APPBUF;  push_state (_YA, CODE); return IF; }
+<INITIAL>@[eE][lL][sS][eE]	{ APPBUF;  return ELSE; }
 
-<INITIAL>(@include)	{ APPBUF;  push_state (_YA, CODE); return INCLUDE; }
-<INITIAL>(@each)	{ APPBUF;  push_state (_YA, CODE); return EACH; }
-<INITIAL>(@end)	{ APPBUF;  return END; }
+<INITIAL>@[iI][nN][cC][lL][uU][dD][eE]	{ APPBUF;  push_state (_YA, CODE); return INCLUDE; }
+<INITIAL>@[eE][aA][cC][hH]	{ APPBUF;  push_state (_YA, CODE); return EACH; }
+<INITIAL>@[eE][nN][dD]	{ APPBUF;  return END; }
 <INITIAL>.		{ APPBUF;  clicon_db2txtlval.character=*yytext;
 			  return CHAR; }
 
