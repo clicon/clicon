@@ -565,7 +565,8 @@ xml_edit(struct xml_node *filter,
 /*
  * netconf_xpath
  * Arguments:
- *  xsearach is where you search for xpath
+ *  xsearch is where you search for xpath, grouped by a single top node which is
+ *          not significant and will not be returned in any result. 
  *  xfilter is the xml sub-tree, eg: 
  *             <filter type="xpath" select="/t:top/t:users/t:user[t:name='fred']"/>
  *  xt is original tree

@@ -169,9 +169,8 @@ parse_line(char *line, int linenr, const char *filename, struct db_spec **list)
 	goto catch;
     if ((dbp = db_spec_new()) == NULL)
 	goto catch;
-    vr = dbp->ds_vec = cvec_new(0);
-    dbp->ds_key = strdup(vec[0]);
-    db_spec_tailadd(list, dbp); /* dbp may be freed */
+    if ((vr = cvec_new(0)) == NULL)
+	goto catch;
     for (i=1; i<nvec; i++){
 	unique = 0;
 	if (!strlen(vec[i]))
@@ -225,6 +224,12 @@ parse_line(char *line, int linenr, const char *filename, struct db_spec **list)
 	if (unique)
 	    cv_flag_set(newcv, V_UNIQUE);
     } /* for */
+    /* Add this cvec to the spec */
+    if ((dbp = db_spec_new()) == NULL)
+	goto catch;
+    dbp->ds_vec = vr;
+    dbp->ds_key = strdup(vec[0]);
+    db_spec_tailadd(list, dbp); /* dbp may be freed */
     retval = 0;
   catch:
     unchunk_group(__FUNCTION__);
@@ -858,6 +863,12 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
 	    if ((cov = co_find_one(co->co_pt, cv_name_get(v))) == NULL)
 		if ((cov = covar_new(h, co, v)) == NULL)
 		    goto catch;
+	    if ((str = db_spec2str(ds)) == NULL)
+		goto catch;
+	    /* The unique variable is added as indexvar in co */
+	    if (dbspec_key_set(cov, str) < 0)
+		goto catch;
+
 	    co = cov;
 	}
 
@@ -869,6 +880,12 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
 	    if ((cov = covar_new(h, co, v)) == NULL)
 		goto catch;
 	    co_insert(&cov->co_pt, NULL); /* empty child */
+		if ((str = db_spec2str(ds)) == NULL)
+		    goto catch;
+		/* The unique variable is added as indexvar in co */
+		if (dbspec_key_set(cov, str) < 0)
+		    goto catch;
+
 	} /* while single var not unique */
     } /* for (ds): lines in database */
 

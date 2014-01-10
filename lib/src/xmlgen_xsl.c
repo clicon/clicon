@@ -475,7 +475,10 @@ xpath_each(struct xml_node *xn_top, char *xpath, struct xml_node *xprev)
 struct xml_node **
 xpath_vec(struct xml_node *xn_top, char *xpath, int *xv_len)
 {
-    return xml_xpath1(xn_top, xpath, xv_len);
+    struct xml_node **xv;
+
+    xv = xml_xpath1(xn_top, xpath, xv_len);
+    return xv;
 }
 
 

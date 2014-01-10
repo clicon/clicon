@@ -477,10 +477,14 @@ main(int argc, char **argv)
 	parse_tree        *pts;        /* dbspec cli */
 	parse_tree         pt = {0,};   /* cli parse tree */
 
-	if ((treename = clicon_dbspec_name(h)) == NULL){
-	    clicon_err_print(stderr, "FATAL: DB_SPEC has no name (insert name=\"myname\"; in .spec file)");
-	    goto quit;
+	if (strcmp(clicon_dbspec_type(h), "PT")==0){
+		if ((treename = clicon_dbspec_name(h)) == NULL){
+		    clicon_err_print(stderr, "FATAL: DB_SPEC has no name (insert name=\"myname\"; in .spec file)");
+		    goto quit;
+		}
 	}
+	else /* key syntax hardwire to 'datamodel' */
+	    treename = "datamodel";
 	if ((pts = clicon_dbspec_pt(h)) == NULL){
 	    clicon_err_print(stderr, "FATAL: No DB_SPEC");
 	    goto quit;

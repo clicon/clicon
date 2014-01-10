@@ -214,7 +214,9 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
     if (co->co_help)
 	xprintf(xf, "(\"%s\")", co->co_help);
     if (clicon_cli_genmodel_completion(h)){
-	if ((s0 = strdup(dbspec_key_get(co))) == NULL){
+	char *ds = dbspec_key_get(co);
+	assert(ds); 
+	if ((s0 = strdup(ds)) == NULL){
 	    clicon_err(OE_DB, errno, "%s: strdup\n", __FUNCTION__); 
 	    goto done;
 	}

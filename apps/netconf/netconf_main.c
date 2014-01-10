@@ -378,6 +378,23 @@ spec_main_netconf(clicon_handle h, int printspec)
     return retval;
 }
 
+static int
+terminate(clicon_handle h)
+{
+    struct db_spec *dbspec;
+    parse_tree *pt;
+
+    if ((dbspec = clicon_dbspec_key(h)) != NULL)
+	db_spec_free(dbspec);
+    if ((pt = clicon_dbspec_pt(h)) != NULL){
+	pt_apply(*pt, dbspec_userdata_delete, h);
+	cligen_parsetree_free(*pt, 1);
+	free(pt);
+    }
+    clicon_handle_exit(h);
+    return 0;
+}
+
 
 /*
  * usage
@@ -504,9 +521,9 @@ main(int argc, char **argv)
     if (eventloop(h, 0) < 0)
 	goto quit;
   quit:
+    
     netconf_plugin_unload(h);
-    db_spec_free(clicon_dbspec_key(h));
-    clicon_handle_exit(h);
+    terminate(h);
     
     return 0;
 }
