@@ -60,42 +60,11 @@
 /* Command line options to be passed to getopt(3) */
 #define NETCONF_OPTS "hDa:f:qs:d:"
 
-static int 
-output(int s, xf_t *xf, char *root, char *msg)
-{
-    char *buf = xf_buf(xf);
-    int len = xf_len(xf);
-    int retval = -1;
-
-    if (debug){
-	clicon_log(LOG_DEBUG, "SEND %s", msg);
-	if (debug > 1){
-	    struct xml_node *xt = NULL;
-	    if (xml_parse_str(&buf, &xt) == 0){
-    		xml_to_file(stderr, *xt->xn_children, 0, 0);
-		fprintf(stderr, "\n");
-		xml_free(xt);
-	    }
-	}
-    }
-    if (write(s, buf, len) < 0){
-	if (errno == EPIPE)
-	    ;
-	else
-	    clicon_log(LOG_ERR, "%s: write: %s", __FUNCTION__, strerror(errno));
-	goto done;
-    }
-    retval = 0;
-  done:
-    return retval;
-
-}
 
 static int
 packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 {
     char *str, *str0;
-    char *root, *reply_root;
     struct xml_node *xml_req = NULL; /* Request (in) */
     int isrpc = 0;   /* either hello or rpc */
     xf_t *xf_out;
@@ -112,10 +81,6 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 	return -1;
     }
     str = str0;
-    if (transport == NETCONF_SOAP)
-	reply_root = root = "Envelope";
-    else
-	reply_root = "rpc-reply";
     /* Parse incoming XML message */
     if (xml_parse_str(&str, &xml_req) < 0){
 	if ((xf = xf_alloc()) != NULL){
@@ -128,7 +93,7 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 				     NULL,
 				     NULL);
 
-	    output(1, xf, reply_root, "rpc-error");
+	    netconf_output(1, xf, "rpc-error");
 	    xf_free(xf);
 	}
 	else
@@ -139,18 +104,15 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
     free(str0);
     if (xml_xpath(xml_req, "//rpc") != NULL){
         isrpc++;
-        root = "rpc";
     }
     else
         if (xml_xpath(xml_req, "//hello") != NULL)
-            root = "hello";
+	    ;
         else{
             clicon_log(LOG_WARNING, "Illegal netconf msg: neither rpc or hello: dropp\
 ed");
             goto done;
         }
-    if (transport == NETCONF_SOAP)
-        root = "Envelope";
     /* Initialize response buffers */
     if ((xf_out = xf_alloc()) == NULL){
 	clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
@@ -172,7 +134,7 @@ ed");
 	    assert(xf_len(xf_err));
 	    clicon_log(LOG_DEBUG, "%s", xf_buf(xf_err));
 	    if (isrpc){
-		if (output(1, xf_err, reply_root, "rpc-error") < 0)
+		if (netconf_output(1, xf_err, "rpc-error") < 0)
 		    goto done;
 	    }
 	}
@@ -184,12 +146,12 @@ ed");
 		    xf_free(xf1);
 		    goto done;
 		}
-		if (output(1, xf1, reply_root, "rpc-reply") < 0){
+		if (netconf_output(1, xf1, "rpc-reply") < 0){
 		    xf_reset(xf1);
 		    netconf_create_rpc_error(xf1, xml_req, "operation-failed", 
 					     "protocol", "error", 
 					     NULL, xf_buf(xf_err));
-		    output(1, xf1, reply_root, "rpc-error");
+		    netconf_output(1, xf1, "rpc-error");
 		    xf_free(xf_out);
 		    xf_free(xf_err);
 		    xf_free(xf1);
@@ -210,53 +172,60 @@ ed");
     return 0;
 }
 
+
 static int
-eventloop(clicon_handle h, int s)
+netconf_input_cb(int s, void *arg)
 {
+    clicon_handle h = arg;
     unsigned char buf[BUFSIZ];
     int i, len;
     xf_t *xf;
     int xml_state = 0;
     int retval = -1;
 
+    fprintf(stdout, "%s\n", __FUNCTION__);
     if ((xf = xf_alloc()) == NULL){
 	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
 	return retval;
     }
-    while (!cc_closed){
-	memset(buf, 0, sizeof(buf));
-	if ((len = read(s, buf, sizeof(buf))) < 0){
-	    if (errno == ECONNRESET)
-		len = 0; /* emulate EOF */
-	    else{
-		clicon_log(LOG_ERR, "%s: read: %s", __FUNCTION__, strerror(errno));
-		goto done;
-	    }
-	} /* read */
-	if (len == 0){ 	/* EOF */
-	    retval = 0;
+    memset(buf, 0, sizeof(buf));
+    if ((len = read(s, buf, sizeof(buf))) < 0){
+	if (errno == ECONNRESET)
+	    len = 0; /* emulate EOF */
+	else{
+	    clicon_log(LOG_ERR, "%s: read: %s", __FUNCTION__, strerror(errno));
 	    goto done;
 	}
-	for (i=0; i<len; i++){
-	    if (buf[i] == 0)
-		continue; /* Skip NULL chars (eg from terminals) */
-	    xprintf(xf, "%c", buf[i]);
-	    if (detect_endtag("]]>]]>",
-			      buf[i],
-			      &xml_state)) {
+    } /* read */
+    if (len == 0){ 	/* EOF */
+	cc_closed++;
+	close(s);
+	retval = 0;
+	goto done;
+    }
+    for (i=0; i<len; i++){
+	if (buf[i] == 0)
+	    continue; /* Skip NULL chars (eg from terminals) */
+	xprintf(xf, "%c", buf[i]);
+	if (detect_endtag("]]>]]>",
+			  buf[i],
+			  &xml_state)) {
 	    /* OK, we have an xml string from a client */
-		if (packet(h, clicon_dbspec_key(h), xf) < 0)
-		    goto done;
-		if (cc_closed)
-		    break;
-		xf_reset(xf);
+	    if (packet(h, clicon_dbspec_key(h), xf) < 0){
+		goto done;
 	    }
-
+	    if (cc_closed)
+		break;
+	    xf_reset(xf);
 	}
     }
     retval = 0;
   done:
     xf_free(xf);
+    if (cc_closed) 
+	retval = -1;
+    fprintf(stderr, "%s retval=%d\n", __FUNCTION__, retval);
+
     return retval;
 }
 
@@ -276,7 +245,7 @@ send_hello(int s)
     }
     if (netconf_create_hello(xf, getpid()) < 0)
 	goto done;
-    if (output(s, xf, "hello", "hello") < 0)
+    if (netconf_output(s, xf, "hello") < 0)
 	goto done;
     retval = 0;
   done:
@@ -384,6 +353,7 @@ terminate(clicon_handle h)
     struct db_spec *dbspec;
     parse_tree *pt;
 
+//    fprintf(stdout, "%s\n", __FUNCTION__);
     if ((dbspec = clicon_dbspec_key(h)) != NULL)
 	db_spec_free(dbspec);
     if ((pt = clicon_dbspec_pt(h)) != NULL){
@@ -518,12 +488,14 @@ main(int argc, char **argv)
 
     if (!quiet)
 	send_hello(1);
-    if (eventloop(h, 0) < 0)
+    if (event_reg_fd(0, netconf_input_cb, h, "netconf socket") < 0)
+	goto quit;
+    if (event_loop() < 0)
 	goto quit;
   quit:
-    
+
     netconf_plugin_unload(h);
     terminate(h);
-    
+    fprintf(stderr, "%s quit\n", __FUNCTION__);    
     return 0;
 }

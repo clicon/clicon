@@ -362,6 +362,7 @@ clicon_dbspec_parse_str(clicon_handle h,
  *
  * Similar to clicon_dbspec_str(), just read a file first
  * (cloned from cligen)
+ * The database symbols are inserted in alphabetical order.
  */
 static int
 clicon_dbspec_parse_file(clicon_handle h,
@@ -408,6 +409,8 @@ clicon_dbspec_parse_file(clicon_handle h,
 
 /*
  * \brief Parse dbspec using cligen spec format
+ *
+ * The database symbols are inserted in alphabetical order.
  */
 int
 dbclispec_parse(clicon_handle h, const char *filename, parse_tree *pt)

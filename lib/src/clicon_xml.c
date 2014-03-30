@@ -517,7 +517,7 @@ xml2db_transform_key(struct xml_node *xn,
 	xb = NULL;
 	while ((xb = xml_child_each(xc, xb, XML_BODY)) != NULL){
 	    /* unique cv already added? */
-	    if ((cv = cvec_find(vh1, xc->xn_name)) == NULL){ 
+	    if (spec->ds_vector || (cv = cvec_find(vh1, xc->xn_name)) == NULL){ 
 		if ((v = cvec_find(vhds, xc->xn_name)) == NULL)
 		    continue;
 		if ((cv = cvec_add_cv(vh1, v)) == NULL){

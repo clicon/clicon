@@ -575,4 +575,4 @@ main(int argc, char **argv)
     clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
 
     return 0;
-    }
+}

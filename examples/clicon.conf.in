@@ -36,7 +36,7 @@
 # Database specification file syntax, Parse-tree or key. PT(default) or KEY(old)
 # CLICON_DBSPEC_TYPE      PT
 
-# Database specification file. Syntax either CLI or KEY given by DB_SPEC_SYNTAX
+# Database specification file. Syntax either CLI or KEY given by CLICON_DBSPEC_TYPE
 # CLICON_DBSPEC_FILE      $(APPDIR)/datamodel.spec
 
 # Candidate qdbm database

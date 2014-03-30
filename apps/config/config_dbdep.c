@@ -99,9 +99,12 @@ dbdep_create()
     return dp;
 }
 
-/*
+/*!
+ * \brief Create plugin commit/validate dependency and register callback
+ *
  * Create config dependency component named 'name' and register the
  * callback 'cb' and callback argument 'arg'. 
+ * The entries are pushed on the list (last first)
  * The optional following arguments will be treated as depencency 
  * entries that in the form of "<db-key>[:<variable>]". These entries
  * can be set separately via the dbdep_ent() function. 
@@ -114,11 +117,9 @@ dbdep_create()
  * return value needs to be freed.
  */
 dbdep_handle_t
-dbdep(
+dbdep_w(
     clicon_handle h, /* Config handle */
-#ifdef nogood
     uint16_t row, 
-#endif
     trans_cb_type trans_cb_type,  /* Type of callback: commit/validate or both */
     trans_cb cb,    /* Callback called */
     void *arg,        /* Arg to send to callback */
@@ -132,9 +133,7 @@ dbdep(
 
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
-#ifdef nogood
     dp->dp_row = row;
-#endif
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
     dp->dp_type = trans_cb_type;
@@ -161,7 +160,6 @@ catch:
 	dbdep_free(dp);
     return NULL;
 }
-
 
 /*
  * Add a key+var dependency entry to a dependency component
@@ -252,15 +250,15 @@ dbdep_match(dbdep_ent_t *dent, const char *dbkey)
 /*
  * Dependency qsort fun.
  */
-#ifdef nogood /* XXX Keep in dbdiff order */
 static int
 dbdep_commitvec_sort(const void *arg1, const void *arg2)
 {
-    return (((dbdep_t *)arg1)->dp_row - ((dbdep_t *)arg2)->dp_row);
+    dbdep_dd_t *d1 = (dbdep_dd_t *)arg1;
+    dbdep_dd_t *d2 = (dbdep_dd_t *)arg2;
+
+    return d1->dd_dep->dp_row - d2->dd_dep->dp_row;
 }
 
-
-#endif /* nogood */
 
 /*
  * dbdep_commitvec
@@ -321,10 +319,8 @@ dbdep_commitvec(clicon_handle h,
 	} while (dp != deps);
     }
     
-#ifdef nogood /* XXX Keep in dbdiff order */
     /* Now sort vector based on dbdep row number */
     qsort(ddvec, nvec, sizeof(*ddvec), dbdep_commitvec_sort);
-#endif /* nogood */
 
   done:
     *nvecp = nvec;

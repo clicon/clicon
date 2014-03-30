@@ -960,6 +960,7 @@ expand_db_variable(clicon_handle h,
 	    buf = NULL;
 	    (*nr)++;
 	}
+	cvec_free(cvec);
     }
     retval = 0;
 quit:

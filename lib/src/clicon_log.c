@@ -65,7 +65,6 @@ clicon_log_init(char *ident, int upto, int err)
 
 /*
  * clicon_log
- * OSR loggings. 
  * In arguments are:
  * default log-level is LOG_NOTICE.
  */

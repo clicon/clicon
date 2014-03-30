@@ -107,6 +107,8 @@ netconf_create_hello(xf_t *xf,            /* msg buffer */
     xprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:capability:candidate:1:0</capability>\n");
     xprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:capability:validate:1.0</capability>\n");
    xprintf(xf, "<capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>\n");
+   xprintf(xf, "<capability>urn:ietf:params:netconf:capability:notification:1.0</capability>\n");
+
 
 //    xprintf(xf, "<capability>urn:rnr:rnrapi:1:0</capability>");
     xprintf(xf, "</capabilities>");

@@ -743,6 +743,44 @@ clicon_msg_call_decode(struct clicon_msg *msg,
 }
 
 struct clicon_msg *
+clicon_msg_subscription_encode(char *stream, const char *label)
+{
+    clicon_log(LOG_DEBUG, "%s: stream: %s", __FUNCTION__, stream);
+    return clicon_msg_1str_encode(stream, CLICON_MSG_SUBSCRIPTION, label);
+}
+
+int
+clicon_msg_subscription_decode(struct clicon_msg *msg, 
+			       char **stream, 
+			       const char *label)
+{
+    int retval;
+
+    retval = clicon_msg_1str_decode(msg, stream, label);
+    clicon_log(LOG_DEBUG, "%s: stream: %s",  __FUNCTION__, *stream);
+    return retval;
+}
+
+struct clicon_msg *
+clicon_msg_notify_encode(char *event, const char *label)
+{
+    clicon_log(LOG_DEBUG, "%s: event: %s", __FUNCTION__, event);
+    return clicon_msg_1str_encode(event, CLICON_MSG_NOTIFY, label);
+}
+
+int
+clicon_msg_notify_decode(struct clicon_msg *msg, 
+			 char **event, 
+			 const char *label)
+{
+    int retval;
+
+    retval = clicon_msg_1str_decode(msg, event, label);
+    clicon_log(LOG_DEBUG, "%s: event: %s",  __FUNCTION__, *event);
+    return retval;
+}
+
+struct clicon_msg *
 clicon_msg_err_encode(uint32_t err, uint32_t suberr, char *reason, const char *label)
 {
     struct clicon_msg *msg;
@@ -805,3 +843,4 @@ clicon_msg_err_decode(struct clicon_msg *msg,
     return 0;
 
 }
+

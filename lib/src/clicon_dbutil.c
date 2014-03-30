@@ -87,12 +87,15 @@
 #include "clicon_spec.h"
 #include "clicon_log.h"
 #include "clicon_lvalue.h"
+#include "clicon_options.h"
+#include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
 
-/*
- * cvec_add_cv
- * Append a new cligen variable (cv) to cligen variable vector (cvec),
- * Copy contents to new cv and return it.
+/*!
+ * \brief Append a new cligen variable (cv) to cligen variable vector (cvec),
+ *
+ * Copy contents to new cv and return it. A utility function to cvec_add
+ * See also cvec_add() 
  */
 cg_var *
 cvec_add_cv(cvec *vr, cg_var *cv)
@@ -106,8 +109,8 @@ cvec_add_cv(cvec *vr, cg_var *cv)
     return new;
 }
 
-/*
- * Merge two cvec's.
+/*!
+ * \brief Merge two cvec's, no overlap.
  *
  * Arguments:
  *	orig		- Original variable vector
@@ -136,9 +139,11 @@ cvec_merge(cvec *orig, cvec *add)
     return retval;
 }
 
-/* 
- * cvec_merge2
- * Since vector, assume same variables eg x, y below 
+/*!
+ * \brief Merge two cvec's, accept overlap
+ *
+ * Same as cvec_merge but same variable name may occur several times.
+ * Example: assume variables eg x, y below 
  * The values in a leaf-list MUST be unique.
  *
  * vec:[x=42;y=99] old:[x=42;y=100] => vec:[x=42;y=99;x=42;y=100]
@@ -212,11 +217,20 @@ catch:
     return cv;
 }
 
-/*
- * dbkey2cvec
+/*!
+ * \brief Seacrh for key in database and return a vector of cligen variables.
+ *
  * Find a key in the db and return its vector of values as a vector of cligen
  * variables.
- * Returned cvec needs to be freed with cvec_free().
+ * Note: if key not found an empty cvec will be returned (not NULL).
+ *
+ * Args:
+ *  IN   dname  Name of database to search in (filename including dir path)
+ *  IN   key    String containing key to look for.
+ * Returns:
+ *  A cligen vector containing all variables found. This vector contains no 
+ *  variables (length == 0) if key is not found.
+ *  Returned cvec needs to be freed with cvec_free().
  */
 cvec *
 dbkey2cvec(char *dbname, char *key)
@@ -569,7 +583,6 @@ dbspec_last_unique_str(struct db_spec *ds, cvec *setvars)
 /*
  * dbmatch()
  * Look in the database and match entries according to a matching expression,
- * pick up the uuid and make a callback for every match.
  * Matching expression is a variable and a shell-wildcard value.
  * Example: Database includes the following entries:
  * Key.0 $!a=442 $b=3 $uuid=u0
@@ -619,15 +632,23 @@ dbmatch(void *handle,
 	    goto done;
 	/* match attribute value with corresponding variable in database */
 	if (attr){ /* attr and value given on command line */
-	    if ((cv = cvec_find_var(vr, attr)) == NULL)
+	    if ((cv = cvec_find_var(vr, attr)) == NULL){
+		cvec_free(vr);
+		vr=NULL;
 		continue; /* no such variable for this key */
+	    }
 	    if ((len = cv2str(cv, NULL, 0)) < 0)
 		goto done;
-	    if (len == 0)
+	    if (len == 0){
+		cvec_free(vr);
+		vr=NULL;
 		continue; /* If attr has no value (eg "") interpret it as no match */
+	    }
 	    if ((str = cv2str_dup(cv)) == NULL)
 		goto done;
 	    if(fnmatch(pattern, str, 0) != 0) {
+		cvec_free(vr);
+		vr=NULL;
 		free(str);
 		continue; /* no match */
 	    }
@@ -654,13 +675,218 @@ dbmatch(void *handle,
     return retval;
 }
 
+/*!
+ * \brief Return matching database entries using an attribute and string pattern
+ *
+ * Usage example:
+ *
+    int          len;
+    cvec       **cvecv;
+    char       **keyv;
+    if (dbmatch_vec(h, clicon_running_db(h), "^Sender.*$", attr, val, 
+		    &cvecv, &keyv, &len) < 0)
+	goto done;
+    dbmatch_vec_free(cvecv, keyv, len);
+ */
+int
+dbmatch_vec(void *handle,
+	    char *dbname, 
+	    char *keypattern, 
+	    char *attr, 
+	    char *pattern, 
+	    cvec ***cvecp,
+	    char ***keyp,
+	    int  *lenp) /* How many matches, 0 if none */
+    
+{
+    struct db_pair  *pairs;
+    int              npairs;
+    char            *key;
+    char            **keyv = NULL;
+    cvec            **cvecv = NULL;
+    cvec            *vr = NULL;
+    cg_var          *cv;
+    int              match=0;
+    int              retval = -1;
+    char            *str;
+    int              len;
+
+    /* Following can be done generic */
+    if ((npairs = db_regexp(dbname, keypattern, 
+			    __FUNCTION__, &pairs, 0)) < 0)
+	goto done;
+    for (npairs--; npairs >= 0; npairs--) {
+	key = pairs[npairs].dp_key;
+	if (key_isvector_n(key) || key_iskeycontent(key))
+	    continue;
+	if ((vr = dbkey2cvec(dbname, key)) == NULL) /* get cvec of key */
+	    goto done;
+	/* match attribute value with corresponding variable in database */
+	if (attr){ /* attr and value given on command line */
+	    if ((cv = cvec_find_var(vr, attr)) == NULL){
+		cvec_free(vr);
+		vr=NULL;
+		continue; /* no such variable for this key */
+	    }
+	    if ((len = cv2str(cv, NULL, 0)) < 0)
+		goto done;
+	    if (len == 0){
+		cvec_free(vr);
+		vr=NULL;
+		continue; /* If attr has no value (eg "") interpret it as no match */
+	    }
+	    if ((str = cv2str_dup(cv)) == NULL)
+		goto done;
+	    if(fnmatch(pattern, str, 0) != 0) {
+		cvec_free(vr);
+		vr=NULL;
+		free(str);
+		continue; /* no match */
+	    }
+	    free(str);
+	    str = NULL;
+	}
+	match++;
+	if ((keyv = realloc(keyv, sizeof(char*) * match)) == NULL){	
+	    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
+	    goto done;
+	}
+	keyv[match-1] = strdup(key);
+	if ((cvecv = realloc(cvecv, sizeof(cvec *) * match)) == NULL){	
+	    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
+	    goto done;
+	}
+	cvecv[match-1] = vr;
+	vr = NULL;
+    }
+    if (lenp)
+	*lenp = match;
+    if (cvecp)
+	*cvecp = cvecv;
+    if (keyp)
+	*keyp = keyv;
+    retval = 0;
+  done:
+    if (vr)
+	cvec_free(vr);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*!
+ * \brief Free all structures allocated by dbmatch_vec()
+ */
+int
+dbmatch_vec_free(cvec **cvecv, char **keyv, int len)
+{
+    int i;
+
+    for (i=0; i<len; i++){
+	cvec_free(cvecv[i]);
+	free(keyv[i]);
+    }
+    free(cvecv);
+    free(keyv);
+    return 0;
+}
 
 /*
- * dbvectorkeys
+ * dbfind()
+ * Look in the database and match first entry according to a matching expression,
+ * Matching expression is a variable and a shell-wildcard value.
+ * Example: Database includes the following entries:
+ * Key.0 $!a=442 $b=3 $uuid=u0
+ * Key.1 $!a=443 $b=7 $uuid=u1
+ * Key.1 $!a=53  $b=3 $uuid=u2
+ *  dbfind(dbname, key="^Key.*$", attr="a", pattern="44*")
+ * will result in the return of the cvec of Key.0
+ * This is a special case of dbmatch()
+ * NOTE: deallocate return values cvecp and keyp:
+ * cvec_free(cvecp); free(keyp)
+ */
+int
+dbfind(void *handle,
+       char *dbname, 
+       char *keypattern, 
+       char *attr, 
+       char *pattern,
+       cvec **cvecp,
+       char **keyp
+    )
+{
+    struct db_pair  *pairs;
+    int              npairs;
+    char            *key;
+    cvec            *vr = NULL;
+    cg_var          *cv;
+    char            *str;
+    int              len;
+    int              retval = -1;
+
+    /* Following can be done generic */
+    if ((npairs = db_regexp(dbname, keypattern, 
+			    __FUNCTION__, &pairs, 0)) < 0)
+	goto done;
+    for (npairs--; npairs >= 0; npairs--) {
+	key = pairs[npairs].dp_key;
+	if (key_isvector_n(key) || key_iskeycontent(key))
+	    continue;
+	if ((vr = dbkey2cvec(dbname, key)) == NULL) /* get cvec of key */
+	    goto done;
+	/* match attribute value with corresponding variable in database */
+	if (attr){ /* attr and value given on command line */
+	    if ((cv = cvec_find_var(vr, attr)) == NULL){
+		cvec_free(vr);
+		continue; /* no such variable for this key */
+	    }
+	    if ((len = cv2str(cv, NULL, 0)) < 0)
+		goto done;
+	    if (len == 0){
+		cvec_free(vr);
+		vr=NULL;
+		continue; /* If attr has no value (eg "") interpret it as no match */
+	    }
+	    if ((str = cv2str_dup(cv)) == NULL)
+		goto done;
+	    if(fnmatch(pattern, str, 0) != 0) {
+		cvec_free(vr);
+		vr=NULL;
+		free(str);
+		continue; /* no match */
+	    }
+	    free(str);
+	    str = NULL;
+	}
+	if (cvecp)
+	    *cvecp = vr;
+	if (keyp)
+	    *keyp = strdup(key);
+	break;
+    }
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+
+/*!
+ * \brief Given a key array, return a NULL terminated list of actual keys
  *
  * Given a vector key in 'key[]' format, return a NULL terminated
  * list of actual keys found in the database. Size of list is returned 
  * in 'len'. On error, NULL is returned.
+ * Args:
+ *   IN  dbname 
+ *   IN  basekey  
+ *   OUT len      Length of returned vector.
+ * Returns:
+ *   Allocated list of keys
+ * NOTE: return value must be freed after use.
+ * Example:
+ * char **vec = dbvectorkeys(running, "key[]", &len);
+ * ...
+ * free(vec);
  */
 char **
 dbvectorkeys(char *dbname, char *basekey, size_t *len)
@@ -709,4 +935,29 @@ quit:
 	free(list);
     unchunk_group(__FUNCTION__);
     return NULL;
+}
+
+/*
+ * Same as cli_proto_change just with a cvec instead of lvec, and get the sock
+ * from handle.
+ * Utility function. COnsider moving to clicon_proto_client.c
+ */
+int
+cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
+		      char *key, cvec *cvv)
+{
+    char            *lvec = NULL;
+    size_t           lvec_len;
+    char            *spath;
+    int              retval = -1;
+
+    if ((spath = clicon_sock(h)) == NULL)
+	goto done;
+    if ((lvec = cvec2lvec(cvv, &lvec_len)) == NULL)
+	goto done;
+    retval = cli_proto_change(spath, db, op, key, lvec, lvec_len);
+  done:
+    if (lvec)
+	free(lvec);
+    return retval;
 }

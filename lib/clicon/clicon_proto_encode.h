@@ -136,6 +136,20 @@ clicon_msg_call_decode(struct clicon_msg *msg,
 		      struct clicon_msg_call_req **req,
 		      const char *label);
 
+struct clicon_msg *
+clicon_msg_subscription_encode(char *stream, const char *label);
+
+int clicon_msg_subscription_decode(struct clicon_msg *msg, 
+				   char **stream, 
+				   const char *label);
+
+struct clicon_msg *
+clicon_msg_notify_encode(char *event, const char *label);
+
+int 
+clicon_msg_notify_decode(struct clicon_msg *msg, 
+			 char **event, const char *label);
+
 struct clicon_msg *clicon_msg_err_encode(uint32_t err, uint32_t suberr, 
 					 char *reason, const char *label);
 

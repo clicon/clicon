@@ -69,6 +69,16 @@ char *dbspec_last_unique_str(struct db_spec *ds, cvec *setvars);
 
 int dbmatch(void *handle, char *dbname, char *keypattern, char *attr, char *val, dbmatch_fn_t fn, void *arg, int *matches);
 
+int dbmatch_vec(void *handle, char *dbname, char *keypattern, char *attr, 
+		char *pattern, cvec ***cvecp, char ***keyp, int *lenp);
+
+int dbmatch_vec_free(cvec **cvecv, char **keyv, int len);
+
+int dbfind(void *handle, char *dbname, char *keypattern, char *attr, char *pattern, cvec **cvecp, char **keyp);
+
 char **dbvectorkeys(char *dbname, char *basekey, size_t *len);
+
+int cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
+			  char *key, cvec *cvv);
 
 #endif  /* _CLICON_DBUTIL_H_ */

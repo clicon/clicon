@@ -53,6 +53,15 @@
 #include "netconf_lib.h"
 #include "netconf_filter.h"
 
+/* forward */
+static int
+xml_edit(struct xml_node *filter, 
+	 struct xml_node *parent, 
+	 enum operation_type op,
+	 xf_t *xf_err, 
+	 struct xml_node *xt);
+
+
 /*
  * xml_filter
  * xf specifices a filter, and xn is an xml tree.
@@ -303,6 +312,9 @@ edit_selection(struct xml_node *filter,
     return retval;
 }
 
+/*
+ * XXX: not called from external?
+ */
 static int
 edit_match(struct xml_node *filter, 
 	   struct xml_node *parent, 
@@ -472,8 +484,9 @@ edit_match(struct xml_node *filter,
 /*
  * xml_edit
  * merge filter into parent
+ * XXX: not called from external?
  */
-int
+static int
 xml_edit(struct xml_node *filter, 
 	 struct xml_node *parent, 
 	 enum operation_type op,

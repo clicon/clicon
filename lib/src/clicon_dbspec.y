@@ -260,7 +260,6 @@ dbs_var_pre(struct clicon_dbspec_yacc_arg *ya)
     memset(co_new, 0, sizeof(cg_obj));
     co_new->co_type      = CO_VARIABLE;
     co_new->co_max       = 0;
-    co_new->co_delimiter = ' ';
     if (dbspec_userdata_add(ya->ya_handle, co_new) < 0){
 	clicon_dbspecerror(ya, "Allocating cligen object"); 
 	return NULL;

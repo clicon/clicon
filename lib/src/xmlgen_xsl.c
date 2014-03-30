@@ -77,32 +77,47 @@ xv_alloc(struct xml_node ***xv0p, struct xml_node ***xv1p, int *xv_maxp)
 /*
  * Similar to xml_find but find a node with name "name" recursively
  * in the tree. 
- * Return NULL if no such node found.
+ * name is a shell wildcard pattern
  * Send in a vector which is filled in with matching nodes.
- * XXX: Only match ELEMENT objects.
+ * args:
+ *  IN    xn_parent  Base XML object
+ *  IN    name       shell wildcard pattern to match with node name
+ *  IN    node_type  XML_ELEMENT, XML_ATTRIBUTE or XML_BODY
+ *  INOUT xv1        internal buffers with results
+ *  INOUT xv0        internal buffers with results
+ *  INOUT xv_len     internal buffers with length of xv0,xv1
+ *  INOUT xv_max     internal buffers with max of xv0,xv1
+ * returns:
+ *  0 on OK, -1 on error
  */
 static int
 xml_find_deep(struct xml_node *xn_parent, char *name, 
+	      int node_type,
 	      struct xml_node ***xv1, 
 	      struct xml_node ***xv0, 
 	      size_t *xv_len, 
-	      int *xv_max,
-	      int node_type)
+	      int *xv_max)
 {
     int i;
     struct xml_node *xn = NULL; 
 
     for (i=0; i<xn_parent->xn_nrchildren; i++){
 	xn = xn_parent->xn_children[i];
-	if (xn->xn_type == node_type && strcmp(name, xn->xn_name) == 0){
-	    if (*xv_len >= *xv_max)
-		if (xv_alloc(xv0, xv1, xv_max) < 0)
-		    return -1;
-	    (*xv1)[(*xv_len)] = xn;
-	    *xv_len = *xv_len + 1;
-	    continue; /* Dont go deeper */
-	}
-	if (xml_find_deep(xn, name, xv1, xv0, xv_len, xv_max, node_type) < 0)
+	if (xn->xn_type == node_type)
+#if 1
+	    if (fnmatch(name, xn->xn_name, 0) == 0)
+#else
+	    if (strcmp(name, xn->xn_name) == 0)
+#endif
+		{
+		if (*xv_len >= *xv_max)
+		    if (xv_alloc(xv0, xv1, xv_max) < 0)
+			return -1;
+		(*xv1)[(*xv_len)] = xn;
+		*xv_len = *xv_len + 1;
+		continue; /* Dont go deeper */
+	    }
+	if (xml_find_deep(xn, name, node_type, xv1, xv0, xv_len, xv_max) < 0)
 	    return -1;
     }
     return 0;
@@ -118,6 +133,8 @@ xml_find_deep(struct xml_node *xn_parent, char *name,
  * examples: 
         /foobar
         //foobar
+        //foo?ar   # wildcards
+        //foo*     # wildcards
 
         /foobar@bar
         //foobar@bar
@@ -222,13 +239,13 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 		}
 		else
 #endif
-		    if (xml_find_deep(xn, node, &xv1, &xv0, &xv1_len, &xv_max, XML_ELEMENT) < 0)
+		    if (xml_find_deep(xn, node, XML_ELEMENT, &xv1, &xv0, &xv1_len, &xv_max) < 0)
 		    return NULL;
 	    }
 	    else
 		for (j=0; j<xn->xn_nrchildren; j++){
 		    xc = xn->xn_children[j];
-		    if (strcmp(node, xc->xn_name) == 0 &&
+		    if (fnmatch(node, xc->xn_name, 0) == 0 &&
 			xc->xn_type == XML_ELEMENT){
 
 			if (xv1_len >= xv_max)
@@ -255,7 +272,7 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 	for (i=0; i<xv0_len; i++){
 	    xn = xv0[i];
 	    if (deep){
-		if (xml_find_deep(xn, attr, &xv1, &xv0, &xv1_len, &xv_max, XML_ATTRIBUTE) < 0)
+		if (xml_find_deep(xn, attr, XML_ATTRIBUTE, &xv1, &xv0, &xv1_len, &xv_max) < 0)
 		    return NULL;
 	    }
 	    else{
@@ -360,7 +377,65 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 
 
 /*
- * xpath
+ * intermediate function to handle the 'or' case. For example: 
+ * xpath = //a | //b. xml_xpath+ splits xpath up in several subcalls
+ * (eg xpath=//a and xpath=//b) and collects the results.
+ * Note: if a match is found in both, two (or more) same results will be 
+ * returned.
+ * Note, this could be 'folded' into xpath1 but I judged it too complex.
+ */
+static struct xml_node **
+xml_xpath0(struct xml_node *xn_top, char *xpath0, int *xv_len00)
+{
+    char             *s0;
+    char             *s1;
+    char             *s2;
+    char             *xpath;
+    struct xml_node **xv0 = NULL;
+    struct xml_node **xv;
+    int               xv_len0;
+    int               xv_len;
+
+    xv_len0 = 0;
+    if ((s0 = strdup(xpath0)) == NULL){
+	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
+	return NULL;
+    }
+    s2 = s1 = s0;
+    while (s1 != NULL){
+	s2 = strstr(s1, " | ");
+	if (s2 != NULL){
+	    *s2 = '\0'; /* terminate xpath */
+	    s2 += 3;
+	}
+	xpath = s1;
+	s1 = s2;
+	xv_len = 0;
+	if ((xv = xml_xpath1(xn_top, xpath, &xv_len)) == NULL)
+	    goto done;
+	if (xv_len > 0){
+	    xv_len0 += xv_len;
+	    if ((xv0 = realloc(xv0, sizeof(struct xml_node *) * xv_len0)) == NULL){	
+		clicon_err(OE_XML, errno, "%s: realloc", __FUNCTION__);
+		goto done;
+	    }
+	    memcpy(xv0+xv_len0-xv_len, xv, xv_len*sizeof(struct xml_node *));
+
+	}
+	free(xv); /* may be set w/o xv_len being > 0 */
+	xv = NULL;
+    }
+  done:
+    if (xv)
+	free(xv);
+    if (s0)
+	free(s0);
+    *xv_len00 = xv_len0;
+    return xv0;
+}
+
+/*
+ * xml_xpath
  * Given a node, and a very limited XPATH syntax, return the first entry that matches.
  * See xpath1() on details for subset.
  * args:
@@ -379,7 +454,7 @@ xml_xpath(struct xml_node *xn_top, char *xpath)
     int xv0_len = 0;
     struct xml_node *xn = NULL;
 
-    if ((xv0 = xml_xpath1(xn_top, xpath, &xv0_len)) == NULL)
+    if ((xv0 = xml_xpath0(xn_top, xpath, &xv0_len)) == NULL)
 	goto done;
     if (xv0_len)
 	xn = xv0[0];
@@ -425,7 +500,7 @@ xpath_each(struct xml_node *xn_top, char *xpath, struct xml_node *xprev)
 	if (xv0) // XXX
 	    free(xv0); // XXX
 	xv0_len = 0;
-	if ((xv0 = xml_xpath1(xn_top, xpath, &xv0_len)) == NULL)
+	if ((xv0 = xml_xpath0(xn_top, xpath, &xv0_len)) == NULL)
 	    goto done;
     }
     if (xv0_len){
@@ -475,10 +550,7 @@ xpath_each(struct xml_node *xn_top, char *xpath, struct xml_node *xprev)
 struct xml_node **
 xpath_vec(struct xml_node *xn_top, char *xpath, int *xv_len)
 {
-    struct xml_node **xv;
-
-    xv = xml_xpath1(xn_top, xpath, xv_len);
-    return xv;
+    return xml_xpath0(xn_top, xpath, xv_len);
 }
 
 

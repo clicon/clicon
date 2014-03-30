@@ -61,6 +61,7 @@
 /*
  * cli_handle
  * first part of this is header, same for clicon_handle and config_handle.
+ * Access functions for common fields are found in clicon lib: clicon_options.[ch]
  * This file should only contain access functions for the _specific_
  * entries in the struct below.
  */
@@ -68,6 +69,7 @@ struct cli_handle {
     int                      cl_magic;    /* magic (HDR)*/
     clicon_hash_t           *cl_copt;     /* clicon option list (HDR) */
     clicon_hash_t           *cl_data;     /* internal clicon data (HDR) */
+    /* ------ end of common handle ------ */
     cligen_handle            cl_cligen;   /* cligen handle */
 
     int                      cl_usedaemon;     /* Send changes to configuration daemon */

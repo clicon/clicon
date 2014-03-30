@@ -212,10 +212,17 @@ xml_new_body(struct xml_node *xp, char *value)
     return xb;
 }
 
-/*
- * Get the XML node directly under xn_parent in the xml hierarchy with
+/*!
+ * \brief Find an XML node matching name among a parent's children.
+ *
+ * Get first XML node directly under xn_parent in the xml hierarchy with
  * name "name".
- * Return NULL if no such node found.
+ * Args:
+ *  IN  xn_parent  Base XML object
+ *  IN  name       shell wildcard pattern to match with node name
+ * Return 
+ *  xml object if found.
+ *  NULL if no such node found.
  */
 struct xml_node *
 xml_find(struct xml_node *xn_parent, char *name)
@@ -980,6 +987,7 @@ xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag)
  *             xml_free(xml_node);
  *   xml_top: Top of the XML parse tree created by this function.
  * Note, you need to free the xml parse tree after use, using xml_free()
+ * Update: with yacc parser I dont think it changes,....
  */
 int 
 xml_parse_str(char **str, struct xml_node **xml_top)
@@ -1002,32 +1010,52 @@ xml_cp1(struct xml_node *xn0, struct xml_node *xn1)
     return 0;
 }
 
-/*
- * xml_cp
- * Copy xml tree from xn0 to xn1
- * xn1 should be a created placeholder. If xn1 is non-empty,
+/*!
+ * \brief Copy xml tree to other existing tree
+ *
+ * x1 should be a created placeholder. If x1 is non-empty,
  * the copied tree is appended to the existing tree.
- * exmple: 
+ * Example: 
  *   x1 = xml_new("new", xc);
  *   xml_cp(x0, x1);
  */
 int
-xml_cp(struct xml_node *xn0, struct xml_node *xn1)
+xml_cp(struct xml_node *x0, struct xml_node *x1)
 {
     int i;
     struct xml_node *xc0;
     struct xml_node *xc1;
 
-    assert(xn0 && xn1);
-    xml_cp1(xn0, xn1);
-    for (i=0; i<xn0->xn_nrchildren; i++){
-	xc0 = xn0->xn_children[i];
-	if ((xc1 = xml_new(xc0->xn_name, xn1)) == NULL)
+    assert(x0 && x1);
+    xml_cp1(x0, x1);
+    for (i=0; i<x0->xn_nrchildren; i++){
+	xc0 = x0->xn_children[i];
+	if ((xc1 = xml_new(xc0->xn_name, x1)) == NULL)
 	    return -1;
 	if (xml_cp(xc0, xc1) < 0)
 	    return -1;
     }
     return 0;
+}
+
+/*!
+ * \brief Create and return a copy of xml tree.
+ *
+ * Example:
+ *   struct xml_node *x1;
+ *   x1 = xml_dup(x0);
+ * Note, returned tree should be freed as: xml_free(x1)
+ */
+struct xml_node *
+xml_dup(struct xml_node *x0)
+{
+    struct xml_node *x1;
+
+    if ((x1 = xml_new("new", NULL)) == NULL)
+	return NULL;
+    if (xml_cp(x0, x1) < 0)
+	return NULL;
+    return x1;
 }
 
 /*

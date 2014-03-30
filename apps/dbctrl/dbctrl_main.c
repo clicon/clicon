@@ -122,6 +122,7 @@ usage(char *argv0)
             "\t-h\t\tHelp\n"
             "\t-D\t\tDebug\n"
     	    "\t-f <file>\tCLICON config file\n"
+    	    "\t-a <dir>\tSpecify application dir\n"
             "\t-d <dbname>\tDatabase name (default: running_db)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
     	    "\t-p\t\tDump database on stdout\n"
@@ -180,7 +181,7 @@ main(int argc, char **argv)
 	    usage(argv[0]);
 	    break;
 	case 'D' : /* debug */
-	    debug = 1;	/* From libosr */
+	    debug = 1;	
 	    break;
 	case 'a': /* Register command line app-dir if any */
 	    if (!strlen(optarg))

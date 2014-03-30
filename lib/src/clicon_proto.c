@@ -361,6 +361,23 @@ send_msg_ok(int s)
 }
 
 int
+send_msg_notify(int s, char *event)
+{
+    int retval = -1;
+    struct clicon_msg *msg;
+
+    if ((msg=clicon_msg_notify_encode(event, __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_msg_send(s, msg) < 0)
+	goto done;
+
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+int
 send_msg_err(int s, int err, int suberr, char *format, ...)
 {
     va_list args;

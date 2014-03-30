@@ -325,9 +325,9 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 
     /* Find the differences between the two databases and store it in dd vector. */
     if (db_diff(running, candidate,
-		&df,
 		__FUNCTION__,
-		clicon_dbspec_key(h)
+		clicon_dbspec_key(h),
+		&df
 	    ) < 0)
 	goto done;
     /* 1. Get commit processing dbdiff vector: one entry per key that changed.
@@ -492,9 +492,9 @@ candidate_validate(clicon_handle h, char *candidate, char *running)
 
     /* Find the differences between the two databases and store it in df vector. */
     if (db_diff(running, candidate,
-		&df,
 		__FUNCTION__,
-		clicon_dbspec_key(h)
+		clicon_dbspec_key(h),
+		&df
 	    ) < 0)
 	goto done;
     /* 1. Get commit processing dbdiff vector (df): one entry per key that 
