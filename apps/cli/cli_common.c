@@ -1334,8 +1334,6 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     char            *running;
     struct db_spec  *spec;
     clicon_dbvars_t *dbv;
-    char            *lvec = NULL;
-    size_t           lvec_len;
     int	             retval = -1;
 
     candidate = clicon_candidate_db(h);
@@ -1353,11 +1351,8 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     if (debug)
 	cvec_print(stdout, dbv->dbv_vec);
     
-    if ((lvec = cvec2lvec (dbv->dbv_vec, &lvec_len)) == NULL)
-	goto quit;
- 
     if (cli_usedaemon(h)) {
-	if (cli_proto_change(s, candidate, op, dbv->dbv_key, lvec, lvec_len) < 0)
+	if (cli_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
 	    goto quit;
     } else {
 	if (db_lv_op_exec(spec, candidate, dbv->dbv_key, op, dbv->dbv_vec) < 0)
@@ -1375,8 +1370,6 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 
     retval = 0;
 quit:
-    if (lvec)
-	free (lvec);
     clicon_dbvars_free(dbv);
 
     return retval;}

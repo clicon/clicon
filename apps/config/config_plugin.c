@@ -61,9 +61,9 @@ struct plugin {
     plgstart_t	      *p_start;		       /* Start */
     plgexit_t         *p_exit;		       /* Exit */
     plgreset_t	      *p_reset;		       /* Reset state */
-    trans_begin_t     *p_begin;	       /* Pre commit hook */
+    trans_begin_t     *p_begin;	               /* Pre commit hook */
     trans_complete_t  *p_complete;	       /* Validation complete */
-    trans_end_t       *p_end;	       /* Post commit hook */
+    trans_end_t       *p_end;	               /* Post commit hook */
     trans_abort_t     *p_abort;	  
      /* Post commit hook */
 };
