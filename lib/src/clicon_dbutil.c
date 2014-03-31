@@ -681,12 +681,14 @@ dbmatch(void *handle,
  * Usage example:
  *
     int          len;
-    cvec       **cvecv;
     char       **keyv;
-    if (dbmatch_vec(h, clicon_running_db(h), "^Sender.*$", attr, val, 
-		    &cvecv, &keyv, &len) < 0)
+    cvec       **cvecv;
+    if (dbmatch_vec(h, dbname, "^Sender.*$", attr, val, 
+		    &keyv, &cvecv, &len) < 0)
 	goto done;
-    dbmatch_vec_free(cvecv, keyv, len);
+    for (i=0; i<len; i++)
+       keyv[i],... cvecv[i],....
+    dbmatch_vec_free(keyv, cvecv, len);
  */
 int
 dbmatch_vec(void *handle,
@@ -694,8 +696,8 @@ dbmatch_vec(void *handle,
 	    char *keypattern, 
 	    char *attr, 
 	    char *pattern, 
-	    cvec ***cvecp,
 	    char ***keyp,
+	    cvec ***cvecp,
 	    int  *lenp) /* How many matches, 0 if none */
     
 {
@@ -761,14 +763,22 @@ dbmatch_vec(void *handle,
     }
     if (lenp)
 	*lenp = match;
-    if (cvecp)
+    if (cvecp){
 	*cvecp = cvecv;
-    if (keyp)
+	cvecp = NULL;
+    }
+    if (keyp){
 	*keyp = keyv;
+	keyp = NULL;
+    }
     retval = 0;
   done:
     if (vr)
 	cvec_free(vr);
+    if (cvecp)
+	free(cvecp);
+    if (keyp)
+	free(keyp);
     unchunk_group(__FUNCTION__);
     return retval;
 }
@@ -777,7 +787,7 @@ dbmatch_vec(void *handle,
  * \brief Free all structures allocated by dbmatch_vec()
  */
 int
-dbmatch_vec_free(cvec **cvecv, char **keyv, int len)
+dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
 {
     int i;
 
@@ -798,7 +808,7 @@ dbmatch_vec_free(cvec **cvecv, char **keyv, int len)
  * Key.0 $!a=442 $b=3 $uuid=u0
  * Key.1 $!a=443 $b=7 $uuid=u1
  * Key.1 $!a=53  $b=3 $uuid=u2
- *  dbfind(dbname, key="^Key.*$", attr="a", pattern="44*")
+ *  dbfind(dbname, key="^Key.*$", attr="a", pattern="44*", &key, &cvec)
  * will result in the return of the cvec of Key.0
  * This is a special case of dbmatch()
  * NOTE: deallocate return values cvecp and keyp:
@@ -810,8 +820,8 @@ dbfind(void *handle,
        char *keypattern, 
        char *attr, 
        char *pattern,
-       cvec **cvecp,
-       char **keyp
+       char **keyp,
+       cvec **cvecp
     )
 {
     struct db_pair  *pairs;

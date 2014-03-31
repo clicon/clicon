@@ -1578,7 +1578,7 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 
 
 /*
- * show_conf_as()
+ * show_conf_as
  * Generic function for showing configurations.
  * the callback differs.
  * arg is a string: <dbname> <key> [<variable> <varname>]. 
@@ -1600,25 +1600,29 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
     char            *attr = NULL;
     char            *val = NULL;
     char            *valname;
-    int              nvec;
     char           **vec = NULL;
+    int              nvec;
     char            *str;
+    int              len;
+    int              i;
+    char           **keyv;
+    cvec           **cvecv;
 
     str = cv_string_get(arg);
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto catch;
     }
-    if (nvec < 2 || nvec > 4){
-	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <dbname> <key> [<variable>]", str);	
+    if (nvec != 2 && nvec != 4){
+	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <dbname> <key> [<name> <variable>]", str);	
 	goto catch;
     }
-    if (nvec == 4){
+    if (nvec > 2){
 	attr = vec[2];
 	valname = vec[3];
-	if ((cv = cvec_find_var(vars, valname)) != NULL)
-	    if ((val = cv2str_dup(cv)) == NULL)
-		goto catch;
+	cv = cvec_find_var(vars, valname);
+	if (cv && (val = cv2str_dup(cv)) == NULL)
+	    goto catch;
     }
     /* Dont get attr here, take it from arg instead */
     if (strcmp(vec[0], "running") == 0) /* XXX: hardcoded */
@@ -1631,20 +1635,19 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
 	goto catch;
     }
     regex = vec[1];
-    if (dbmatch(h, 
-		dbname, 
-		regex, 
-		attr, 
-		val,
-		fn, 
-		fnarg, 
-		NULL) < 0)
+    if (dbmatch_vec(h, dbname, regex, attr, val, &keyv, &cvecv, &len) < 0)
 	goto catch;
-
+    for (i=0; i<len; i++)
+	if ((*fn)(h, dbname, keyv[i], cvecv[i], fnarg) < 0)
+	    goto catch;
+    dbmatch_vec_free(keyv, cvecv, len);
     retval = 0;
 catch:
+    unchunk_group(__FUNCTION__);
     if (x0)
 	xml_free(x0);
+    if (val)
+	free(val);
     return retval;
 
 }

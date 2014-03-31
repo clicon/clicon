@@ -31,8 +31,7 @@
  */
 /* Callback for dbmatch() call 
  * returns 0 on success, -1 on error (and break), 1 on OK but break. */
-typedef	int (*dbmatch_fn_t)(void *h, char *dbname, char *key, 
-			    cvec *vr, void *arg);
+typedef	int (*dbmatch_fn_t)(void *h, char *dbname, char *key, cvec *vr, void *arg);
 
 /*
  * Prototypes
@@ -70,11 +69,11 @@ char *dbspec_last_unique_str(struct db_spec *ds, cvec *setvars);
 int dbmatch(void *handle, char *dbname, char *keypattern, char *attr, char *val, dbmatch_fn_t fn, void *arg, int *matches);
 
 int dbmatch_vec(void *handle, char *dbname, char *keypattern, char *attr, 
-		char *pattern, cvec ***cvecp, char ***keyp, int *lenp);
+		char *pattern, char ***keyp, cvec ***cvecp, int *lenp);
 
-int dbmatch_vec_free(cvec **cvecv, char **keyv, int len);
+int dbmatch_vec_free(char **keyv, cvec **cvecv, int len);
 
-int dbfind(void *handle, char *dbname, char *keypattern, char *attr, char *pattern, cvec **cvecp, char **keyp);
+int dbfind(void *handle, char *dbname, char *keypattern, char *attr, char *pattern, char **keyp, cvec **cvecp);
 
 char **dbvectorkeys(char *dbname, char *basekey, size_t *len);
 
