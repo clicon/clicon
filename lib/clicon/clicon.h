@@ -43,6 +43,7 @@
 #include <clicon/clicon_spec.h>
 #include <clicon/clicon_lvalue.h>
 #include <clicon/clicon_dbutil.h>
+#include <clicon/clicon_dbmatch.h>
 #include <clicon/clicon_chunk.h>
 #include <clicon/clicon_event.h>
 #include <clicon/clicon_lvmap.h>

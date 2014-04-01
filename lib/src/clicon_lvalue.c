@@ -873,7 +873,6 @@ db_lv_vec_replace(char *dbname,
 /*
  * db_lv_vec_del
  * Find subkey which matches the lvalue vector lvec, and remove them
- * XXX: Code in perfmon (delid_cb() to delete a key from a specific key, eg a.4.b.7
  */
 static int
 db_lv_vec_del(struct db_spec *dbspec, /* spec list */

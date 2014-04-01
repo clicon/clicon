@@ -23,45 +23,31 @@
  * directly related to lvmaps or lvalues.
  *                               
  */
-#ifndef _CLICON_DBUTIL_H_
-#define _CLICON_DBUTIL_H_
+#ifndef _CLICON_DBMATCH_H_
+#define _CLICON_DBMATCH_H_
 
 /*
  * Types
  */
+/* Callback for dbmatch_fn() call 
+ * returns 0 on success, -1 on error (and break), 1 on OK but break. */
+typedef	int (*dbmatch_fn_t)(void *h, char *dbname, char *key, cvec *vr, void *arg);
 
 /*
  * Prototypes
  */ 
-int cvec_del(cvec *vec, cg_var *cv);
+int dbmatch_fn(void *handle, char *dbname, char *keypattern, char *attr, char *val, dbmatch_fn_t fn, void *arg, int *matches);
 
-cg_var *cvec_add_cv(cvec *vec, cg_var *cv);
+int dbmatch_vec(void *handle, char *dbname, char *keypattern, char *attr, 
+		char *pattern, char ***keyp, cvec ***cvecp, int *lenp);
 
-int cvec_merge(cvec *orig, cvec *add);
+int dbmatch_vec_free(char **keyv, cvec **cvecv, int len);
 
-int cvec_merge2(cvec *orig, cvec *add);
+int dbmatch_one(void *handle, char *dbname, char *keypattern, char *attr, char *pattern, char **keyp, cvec **cvecp);
 
-cg_var *dbvar2cv(char *dbname, char *key, char *variable);
+char **dbvectorkeys(char *dbname, char *basekey, size_t *len);
 
-cvec *dbkey2cvec(char *dbname, char *key);
+int dbmatch_del(void *handle, char *dbname, char *keypattern, 
+		char *attr, char *pattern, int *len);
 
-int cvec2dbkey(char *dbname, char *key, cvec *cvec);
-
-cvec *lvec2cvec(char *lvec, size_t lveclen);
-
-char *cvec2lvec(cvec *vr, size_t *len);
-
-int lv2cv(struct lvalue *lv, cg_var *cgv);
-
-struct lvalue *cv2lv (cg_var *cgv);
-
-char *lv2str(struct lvalue *lv);
-
-char *db_gen_rxkey(char *basekey, const char *label);
-
-char *dbspec_last_unique_str(struct db_spec *ds, cvec *setvars);
-
-int cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
-			  char *key, cvec *cvv);
-
-#endif  /* _CLICON_DBUTIL_H_ */
+#endif  /* _CLICON_DBMATCH_H_ */
