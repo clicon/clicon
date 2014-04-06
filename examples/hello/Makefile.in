@@ -45,7 +45,7 @@ PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN) $(NC_PLUGIN)
 
 all:	$(PLUGINS)
 
-include $(datadir)/clicon/clicon.mk
+-include $(datadir)/clicon/clicon.mk
 
 # You can add more .c:s for every SRC.
 FE_SRC   = hello_cli.c
@@ -75,7 +75,7 @@ $(BE_PLUGIN): $(BE_OBJ)
 clean:
 	rm -f $(OBJS) $(PLUGINS)
 
-distclean: clean
+distclean: 	clean
 	rm -f clicon.conf Makefile *~ .depend
 
 install:	hello.conf datamodel.spec hello_cli.cli $(PLUGINS)

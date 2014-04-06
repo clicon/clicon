@@ -56,14 +56,18 @@ CLICON_FRONTEND_DIR    libdir/APPNAME/frontend
 # Location of frontend .cli cligen spec files
 CLICON_CLI_DIR    libdir/APPNAME/frontend
 
-# Where to save configuration commit history (in XML)
-# CLICON_ARCHIVE_DIR      $(APPDIR)/archive
+# XXX Directory where to save configuration commit history (in XML). Snapshots
+# are saved chronolically
+CLICON_ARCHIVE_DIR      localstatedir/APPNAME/archive
 
-# Name of startup configuration file (in XML)
-# CLICON_STARTUP_CONFIG   $(APPDIR)/startup-config
+# XXX Name of startup configuration file (in XML)
+CLICON_STARTUP_CONFIG   localstatedir/APPNAME/startup-config
 
-# Unix socket for communicating with clicon_config
-# CLICON_SOCK         $(APPDIR)/clicon.sock
+# XXX Unix socket for communicating with clicon_config
+CLICON_SOCK         localstatedir/APPNAME/APPNAME.sock
+
+# Process-id file
+CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 
 # Group membership to access clicon_config unix socket
 # CLICON_SOCK_GROUP       clicon
@@ -74,9 +78,6 @@ CLICON_CLI_DIR    libdir/APPNAME/frontend
 # Name of master plugin (both frontend and backend). Master plugin has special 
 # callbacks for frontends. See clicon user manual for more info.
 # CLICON_MASTER_PLUGIN    master
-
-# Process-id file
-# CLICON_BACKEND_PIDFILE  $(APPDIR)/clicon.pidfile
 
 # Optional name of syntax group to start from if many. 
 # Should be subdir of CLICON_CLI_DIR. Only frontend.

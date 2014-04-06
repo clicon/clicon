@@ -38,7 +38,7 @@ all:  $(SUBDIRS)
 $(SUBDIRS):
 	(cd $@; $(MAKE) $(MFLAGS) all)
 
-distclean:
+distclean: clean
 	rm -f Makefile *~ .depend
 	for i in $(SUBDIRS); \
 	do (cd $$i; $(MAKE) $(MFLAGS) $@); done
