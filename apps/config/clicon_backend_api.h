@@ -76,6 +76,6 @@ int dbdep_ent(dbdep_handle_t, const char *, const char *);
 /*
  * Log for netconf notify function (config_client.c)
  */
-int notify_log(char *stream, char *format, ...);
+int notify_log(char *stream, int level, char *format, ...);
 
 #endif /* _CLICON_BACKEND_API_H_ */

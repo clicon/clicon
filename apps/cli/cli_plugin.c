@@ -186,8 +186,7 @@ syntax_group_unload(clicon_handle h, struct cli_syntax_group *cpg)
     while (cpg->cpg_nplugins > 0) {
 	p = cpg->cpg_plugins;
 	plugin_unload(h, p->cp_handle);
-	if (debug)
-	    fprintf(stderr, "DEBUG: Plugin '%s::%s' unloaded.\n", 
+	clicon_debug(1, "DEBUG: Plugin '%s::%s' unloaded.", 
 		    cpg->cpg_name, p->cp_name);
 	DELQ(cpg->cpg_plugins, cpg->cpg_plugins, struct cli_plugin *);
 	cpg->cpg_nplugins--;
@@ -514,11 +513,8 @@ syntax_group_load (clicon_handle h, char *group)
 	goto quit;
     }
     if (stat(filename, &st) == 0) {
-	if (debug) {
-	    fprintf(stderr, "DEBUG: Loading master plugin '%s::%.*s' ... ", 
+	clicon_debug(1, "DEBUG: Loading master plugin '%s::%.*s' ... ", 
 		    cpg->cpg_name, (int)strlen(master)-3, master);
-	    fflush(stderr);
-	}
 	if ((cp = plugin_load (h, filename, RTLD_NOW|RTLD_GLOBAL, cnklbl)) == NULL)
 	    goto quit;
 	/* Look up certain call-backs in master plugin */
@@ -530,10 +526,6 @@ syntax_group_load (clicon_handle h, char *group)
 	    dlsym(cp->cp_handle, "plugin_susp_hook");
 	INSQ(cp, cpg->cpg_plugins);
 	cpg->cpg_nplugins++;
-	if (debug) {
-	    fprintf(stderr, "OK\n"); 
-	    fflush(stderr);
-	}
     }
 
     unchunk (filename);
@@ -546,20 +538,13 @@ syntax_group_load (clicon_handle h, char *group)
 	    clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
 	    goto quit;
 	}
-	if (debug) {
-	    fprintf(stderr, "DEBUG: Loading plugin '%s::%.*s' ... ", 
-		    cpg->cpg_name, (int)strlen(dp[i].d_name)-3, dp[i].d_name);
-	    fflush(stderr);
-	}
+	clicon_debug(1, "DEBUG: Loading plugin '%s::%.*s' ... ", 
+		     cpg->cpg_name, (int)strlen(dp[i].d_name)-3, dp[i].d_name);
 
 	if ((cp = plugin_load (h, filename, RTLD_NOW, cnklbl)) == NULL)
 	    goto quit;
 	INSQ(cp, cpg->cpg_plugins);
 	cpg->cpg_nplugins++;
-	if (debug) {
-	    fprintf(stderr, "OK\n"); 
-	    fflush(stderr);
-	}
 	unchunk (filename);
     }
     if (dp)
@@ -570,17 +555,10 @@ syntax_group_load (clicon_handle h, char *group)
 	goto quit;
     /* Load the rest */
     for (i = 0; i < ndp; i++) {
-	if (debug) {
-	    fprintf(stderr, "DEBUG: Loading syntax '%s::%.*s' ... ", 
+	clicon_debug(1, "DEBUG: Loading syntax '%s::%.*s' ... ", 
 		    cpg->cpg_name, (int)strlen(dp[i].d_name)-4, dp[i].d_name);
-	    fflush(stderr);
-	}
 	if (cli_load_syntax(h, dp[i].d_name) < 0)
 	    goto quit;
-	if (debug) {
-	    fprintf(stderr, "OK\n"); 
-	    fflush(stderr);
-	}
     }
     if (dp)
 	unchunk(dp);
@@ -1026,7 +1004,6 @@ cli_syntax_group_load(clicon_handle h, char *group)
     cli_set_unloading_cpg(h, cli_active_cpg(h));
     /* Initialize plugins */
     if (syntax_group_load(h, group) == NULL) {
-	clicon_err_print(stderr, "FATAL: Loading syntax group ");
 	cli_set_unloading_cpg(h, NULL);
 	return -1;
     }

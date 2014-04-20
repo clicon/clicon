@@ -69,7 +69,7 @@ int
 db_lock(clicon_handle h, int id)
 {
     _db_locked = id;
-    clicon_log(LOG_DEBUG, "%s: lock db by %u",  __FUNCTION__, id);
+    clicon_debug(1, "%s: lock db by %u",  __FUNCTION__, id);
     return 0;
 }
 

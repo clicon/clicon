@@ -118,8 +118,7 @@ config_socket_init(clicon_handle h)
 		config_sock, config_group);
 	goto err;
     }
-    clicon_debug(1, "SOCKET=%s", config_sock);
-    clicon_log(LOG_DEBUG, "Binding socket to %s", addr.sun_path);
+    clicon_debug(1, "Listen on server socket at %s", addr.sun_path);
     if (listen(s, 5) < 0){
 	clicon_err(OE_UNIX, errno, "%s: listen", __FUNCTION__);
 	goto err;
@@ -190,7 +189,7 @@ config_accept_client(int fd, void *arg)
 	int ii;
 	struct client_entry *c;
 	for (c = ce_list, ii=0; c; c = c->ce_next, ii++);
-	clicon_log(LOG_DEBUG, "Open client socket (nr:%d pid:%d [Total: %d])",
+	clicon_debug(1, "Open client socket (nr:%d pid:%d [Total: %d])",
 		ce->ce_nr, ce->ce_pid, ii);
     }
 #endif

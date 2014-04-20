@@ -63,8 +63,7 @@ clicon_dbvars_seq(char *db, char *key, clicon_dbvars_t *dbv)
 	if (cv_flag(cv, V_SEQ)) {
 	    ival = lv_next_seq(db, key, cv_name_get(cv), cv_int_get(cv));
 	    if (ival < 0) {
-		if (debug)
-		    fprintf(stderr, "%s: lv_next_seq < 0\n", __FUNCTION__);
+		clicon_debug(1, "%s: lv_next_seq < 0\n", __FUNCTION__);
 		return -1;
 	    }
 	    cv_int_set(cv, ival);

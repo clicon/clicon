@@ -890,7 +890,8 @@ netconf_notification_cb(int s, void *arg)
     char              *selector;
     struct clicon_msg *reply;
     int                eof;
-    char              *event;
+    char              *event = NULL;
+    int                level;
     int                retval = -1;
     xf_t              *xf;
     struct xml_node   *xe = NULL; /* event xml */
@@ -915,7 +916,7 @@ netconf_notification_cb(int s, void *arg)
     /* multiplex on message type: we only expect notify */
     switch (reply->op_type){
     case CLICON_MSG_NOTIFY:
-	if (clicon_msg_notify_decode(reply, &event, __FUNCTION__) < 0) 
+	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
 	    goto done;
 	/* parse event */
 	if (xml_parse_str(&event, &xe) < 0)
@@ -952,6 +953,8 @@ netconf_notification_cb(int s, void *arg)
   done:
     if (xe != NULL)
 	xml_free(xe);
+    if (event)
+	free(event);
     unchunk_group(__FUNCTION__);
     return retval;
 }

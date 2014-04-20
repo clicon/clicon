@@ -75,7 +75,7 @@ int
 xml_debug(int value)
 {
     xdebug = value;
-    return xmly_debug(value);
+    return 0;
 }
 
 static int

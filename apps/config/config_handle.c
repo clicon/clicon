@@ -118,9 +118,10 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
  * See also clicon_log(). We have chosen not to integrate this log-function with the
  * system-wide. Maybe we should?
  * XXX: placed here to be part of libclicon_backend, but really does not belong here?
+ * See also: subscription_add()
  */
 int
-notify_log(char *stream, char *format, ...)
+notify_log(char *stream, int level, char *format, ...)
 {
     va_list              args;
     int                  len;
@@ -140,13 +141,13 @@ notify_log(char *stream, char *format, ...)
     va_start(args, format);
     vsnprintf(event, len+1, format, args);
     va_end(args);
-    fprintf(stderr, "%s: %s\n", __FUNCTION__, event);
 
     /* Now go thru all clients(sessions), and all subscriptions and find matches */
     for (ce = ce_list; ce; ce = ce->ce_next)
 	for (su = ce->ce_subscription; su; su = su->su_next)
 	    if (strcmp(su->su_stream, stream) == 0)
-		send_msg_notify(ce->ce_s, event);
+		if (send_msg_notify(ce->ce_s, level, event) < 0)
+		    goto done;
     retval = 0;
   done:
     if (event)

@@ -802,8 +802,7 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
     memset(&co0, 0, sizeof(co0));
     /* Parse through all spec lines */
     for (ds=db_spec; ds; ds=ds->ds_next){
-	if (debug)
-	    fprintf(stderr, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
+	clicon_debug(2, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
 	subvh = db_spec2cvec(ds);
 	v = NULL; 		
 	co = NULL;
@@ -816,8 +815,7 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
 	/* Parse through all keys in a spec-line, eg "a.b.c" */
 	for (i=0; i<nvec; i++){ 
 	    key = vec[i];
-	    if (debug)
-		fprintf(stderr, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
+	    clicon_debug(2, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
 	    isvec = 0;
 	    if (key_isvector(key)){
 		isvec++;

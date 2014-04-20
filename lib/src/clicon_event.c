@@ -91,8 +91,7 @@ event_reg_fd(int fd, int (*fn)(int, void*), void *arg, char *str)
     e->e_type = EVENT_FD;
     e->e_next = ee;
     ee = e;
-    clicon_log(LOG_DEBUG, "%s, registering %s", 
-	    __FUNCTION__, e->e_string);
+    clicon_debug(2, "%s, registering %s", __FUNCTION__, e->e_string);
     return 0;
 }
 
@@ -149,7 +148,7 @@ event_reg_timeout(struct timeval t,  int (*fn)(int, void*),
     }
     e->e_next = e1;
     *e_prev = e;
-    clicon_log(LOG_DEBUG, "event_reg_timeout: %s", str); 
+    clicon_debug(2, "event_reg_timeout: %s", str); 
     return 0;
 }
 
@@ -220,7 +219,7 @@ event_loop(void)
 	if (n==0){ /* Timeout */
 	    e = ee_timers;
 	    ee_timers = ee_timers->e_next;
-	    clicon_log(LOG_DEBUG, "%s timeout: %s[%x]", 
+	    clicon_debug(2, "%s timeout: %s[%x]", 
 		    __FUNCTION__, e->e_string, e->e_arg);
 	    if ((*e->e_fn)(0, e->e_arg) < 0){
 		unchunk(e);
@@ -231,7 +230,7 @@ event_loop(void)
 	for (e=ee; e; e=e_next){
 	    e_next = e->e_next;
 	    if(e->e_type == EVENT_FD && FD_ISSET(e->e_fd, &fdset)){
-		clicon_log(LOG_DEBUG, "%s: socket: %s[%x]", 
+		clicon_debug(2, "%s: socket: %s[%x]", 
 			__FUNCTION__, e->e_string, e->e_arg);
 		if ((*e->e_fn)(e->e_fd, e->e_arg) < 0)
 		    goto err;

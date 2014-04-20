@@ -79,7 +79,7 @@ clicon_connect_unix(char *sockpath)
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, sockpath, sizeof(addr.sun_path)-1);
 
-    clicon_log(LOG_DEBUG, "%s: connecting to %s", __FUNCTION__, addr.sun_path);
+    clicon_debug(1, "%s: connecting to %s", __FUNCTION__, addr.sun_path);
     if (connect(s, (struct sockaddr *)&addr, SUN_LEN(&addr)) < 0){
 	if (errno == EACCES)
 	    clicon_err(OE_CFG, errno, "connecting unix socket: %s.\n"
@@ -147,7 +147,7 @@ msg_dump(struct clicon_msg *msg)
     for (i=0; i<msg->op_len; i++){
 	snprintf(buf, sizeof(buf), "%s%02x", buf2, ((char*)msg)[i]&0xff);
 	if ((i+1)%32==0){
-	    clicon_log(LOG_DEBUG, buf);
+	    clicon_debug(2, buf);
 	    snprintf(buf, sizeof(buf), "%s:", __FUNCTION__);
 	}
 	else
@@ -156,7 +156,7 @@ msg_dump(struct clicon_msg *msg)
 	strncpy(buf2, buf, sizeof(buf2));
     }
     if (i%32)
-	clicon_log(LOG_DEBUG, buf);
+	clicon_debug(2, buf);
     return 0;
 }
 
@@ -165,9 +165,9 @@ clicon_msg_send(int s, struct clicon_msg *msg)
 { 
     int retval = -1;
 
-    clicon_log(LOG_DEBUG, "%s: send msg seq=%d len=%d", 
+    clicon_debug(1, "%s: send msg seq=%d len=%d", 
 	    __FUNCTION__, msg->op_type, msg->op_len);
-    if (debug > 1)
+    if (debug > 2)
 	msg_dump(msg);
     if (atomicio((ssize_t (*)(int, void *, size_t))write, 
 		 s, msg, msg->op_len) < 0){
@@ -218,7 +218,7 @@ clicon_msg_rcv(int s,
 	clicon_err(OE_CFG, errno, "%s: header too short (%d)", __FUNCTION__, len);
 	goto done;
     }
-    clicon_log(LOG_DEBUG, "%s: rcv msg seq=%d, len=%d",  
+    clicon_debug(1, "%s: rcv msg seq=%d, len=%d",  
 	    __FUNCTION__, hdr.op_type, hdr.op_len);
     if ((*msg = (struct clicon_msg *)chunk(hdr.op_len, label)) == NULL){
 	clicon_err(OE_CFG, errno, "%s: chunk", __FUNCTION__);
@@ -361,16 +361,15 @@ send_msg_ok(int s)
 }
 
 int
-send_msg_notify(int s, char *event)
+send_msg_notify(int s, int level, char *event)
 {
     int retval = -1;
     struct clicon_msg *msg;
 
-    if ((msg=clicon_msg_notify_encode(event, __FUNCTION__)) == NULL)
+    if ((msg=clicon_msg_notify_encode(level, event, __FUNCTION__)) == NULL)
 	goto done;
     if (clicon_msg_send(s, msg) < 0)
 	goto done;
-
     retval = 0;
   done:
     unchunk_group(__FUNCTION__);

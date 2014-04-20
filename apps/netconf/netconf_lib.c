@@ -256,15 +256,13 @@ netconf_output(int s, xf_t *xf, char *msg)
     int len = xf_len(xf);
     int retval = -1;
 
-    if (debug){
-	clicon_log(LOG_DEBUG, "SEND %s", msg);
-	if (debug > 1){
-	    struct xml_node *xt = NULL;
-	    if (xml_parse_str(&buf, &xt) == 0){
-    		xml_to_file(stderr, *xt->xn_children, 0, 0);
-		fprintf(stderr, "\n");
-		xml_free(xt);
-	    }
+    clicon_debug(1, "SEND %s", msg);
+    if (debug > 1){ /* XXX: below only works to stderr, clicon_debug may log to syslog */
+	struct xml_node *xt = NULL;
+	if (xml_parse_str(&buf, &xt) == 0){
+	    xml_to_file(stderr, *xt->xn_children, 0, 0);
+	    fprintf(stderr, "\n");
+	    xml_free(xt);
 	}
     }
     if (write(s, buf, len) < 0){

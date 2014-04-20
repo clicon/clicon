@@ -80,9 +80,8 @@
 #include "clicon_handle.h"
 #include "clicon_spec.h"
 #include "clicon_err.h"
+#include "clicon_log.h"
 #include "clicon_dbspec.h"
-
-static int debug = 0;
 
 extern int clicon_dbspecget_lineno  (void);
 
@@ -158,8 +157,6 @@ dbs_assignment(struct clicon_dbspec_yacc_arg *ya, char *var, char *val)
     int              retval = -1;
     cg_var          *cv;
 
-    if (debug)
-	fprintf(stderr, "%s: %s=%s\n", __FUNCTION__, var, val);
     if (cs == NULL){
 	fprintf(stderr, "%s: Error, stack should not be NULL\n", __FUNCTION__);
     }
@@ -213,8 +210,6 @@ dbs_list_push(cg_obj *co, struct dbs_list **cl0)
 {
     struct dbs_list *cl;
 
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
     if ((cl = malloc(sizeof(*cl))) == NULL) {
 	fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno));
 	return -1;
@@ -265,15 +260,12 @@ dbs_var_pre(struct clicon_dbspec_yacc_arg *ya)
 	return NULL;
     }
 
-    if (debug)
-	fprintf(stderr, "%s: pre\n", __FUNCTION__);
     return co_new;
 }
 
 static int
 validate_name(const char *name)
 {
-
     if (!isalpha(*name) && *name!='_') /* Must beging with [a-zA-Z_] */
 	return 0;
 
@@ -303,8 +295,7 @@ dbs_var_post(struct clicon_dbspec_yacc_arg *ya)
 
     if (cv->co_vtype == CGV_ERR) /* unassigned */
 	cv->co_vtype = cv_str2type(cv->co_command);
-    if (debug)
-	fprintf(stderr, "%s: cmd:%s vtype:%d\n", __FUNCTION__, 
+    clicon_debug(2, "%s: cmd:%s vtype:%d", __FUNCTION__, 
 		cv->co_command,
 		cv->co_vtype );
     if (cv->co_vtype == CGV_ERR){
@@ -356,8 +347,7 @@ dbs_cmd(struct clicon_dbspec_yacc_arg *ya, char *cmd, char *indexvar)
 
     for (cl=ya->ya_list; cl; cl = cl->cl_next){
 	cop = cl->cl_obj;
-	if (debug)
-	    fprintf(stderr, "%s: %s parent:%s\n",
+	clicon_debug(2, "%s: %s parent:%s",
 		    __FUNCTION__, cmd, cop->co_command);
 	if ((conew = co_new(cmd, cop)) == NULL) { 
 	    clicon_dbspecerror(ya, "Allocating cligen object"); 
@@ -511,8 +501,6 @@ ctx_push(struct clicon_dbspec_yacc_arg *ya)
     struct dbs_list *cl; 
     struct dbs_stack *cs; 
 
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
     if ((cs = malloc(sizeof(*cs))) == NULL) {
 	fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno));
 	return -1;
@@ -540,8 +528,6 @@ ctx_peek_swap(struct clicon_dbspec_yacc_arg *ya)
     struct dbs_list *cl; 
     cg_obj *co; 
 
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
     if ((cs = ya->ya_stack) == NULL){
 #if 1
 	clicon_dbspecerror(ya, "No surrounding () or []"); 
@@ -578,8 +564,6 @@ ctx_peek_swap2(struct clicon_dbspec_yacc_arg *ya)
     struct dbs_list  *cl; 
     cg_obj           *co; 
 
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
     if ((cs = ya->ya_stack) == NULL){
 #if 1
 	clicon_dbspecerror(ya, "No surrounding () or []"); 
@@ -621,8 +605,6 @@ ctx_pop(struct clicon_dbspec_yacc_arg *ya)
     struct dbs_list *cl; 
     cg_obj *co; 
 
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
     if ((cs = ya->ya_stack) == NULL){
 	fprintf(stderr, "%s: dbs_stack empty\n", __FUNCTION__);
 	return -1; /* shouldnt happen */
@@ -691,8 +673,6 @@ cg_range(struct clicon_dbspec_yacc_arg *ya, char *low, char *high)
 int
 dbspec_parse_init(struct clicon_dbspec_yacc_arg *ya, cg_obj *co_top)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
     /* Add top-level object */
     if (dbs_list_push(co_top, &ya->ya_list) < 0)
 	return -1;
@@ -705,9 +685,6 @@ int
 dbspec_parse_exit(struct clicon_dbspec_yacc_arg *ya)
 {
     struct dbs_stack *cs; 
-
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);
 
     ya->ya_var = NULL;
     dbs_list_delete(&ya->ya_list);
@@ -730,56 +707,56 @@ dbspec_parse_exit(struct clicon_dbspec_yacc_arg *ya)
  
 %%
 
-file          : lines MY_EOF{if(debug)printf("file->lines\n"); YYACCEPT;} 
-              | MY_EOF {if(debug)printf("file->\n"); YYACCEPT;} 
+file          : lines MY_EOF{clicon_debug(2,"file->lines"); YYACCEPT;} 
+              | MY_EOF {clicon_debug(2,"file->"); YYACCEPT;} 
               ;
 
 lines        : lines line {
-                  if(debug)printf("lines->lines line\n");
+                  clicon_debug(2,"lines->lines line");
                  } 
-              | line  { if(debug)printf("lines->line\n"); } 
+              | line  { clicon_debug(2,"lines->line"); } 
               ;
 
-line          : decltop line2	{ if (debug) printf("line->decltop line2\n"); }	
-              | assignment ';'  { if (debug) fprintf(stderr, "line->assignment ;\n"); }
+line          : decltop line2	{ clicon_debug(2, "line->decltop line2"); }	
+              | assignment ';'  { clicon_debug(2, "line->assignment ;"); }
               ;
 
 assignment    : NAME '=' DQ charseq DQ {dbs_assignment(_ya, $1,$4);free($1); free($4);}
               ; 
 
-line2        : ';' { if (debug) printf("line2->';'\n"); if (dbs_terminal(_ya) < 0) YYERROR;if (ctx_peek_swap2(_ya) < 0) YYERROR; } 
-              | '{' '}' { if (debug) printf("line2->'{' '}'\n"); }
+line2        : ';' { clicon_debug(2, "line2->';'"); if (dbs_terminal(_ya) < 0) YYERROR;if (ctx_peek_swap2(_ya) < 0) YYERROR; } 
+              | '{' '}' { clicon_debug(2, "line2->'{' '}'"); }
               | '{' {if (ctx_push(_ya) < 0) YYERROR; } 
                 lines 
-                '}' { if (debug) printf("line2->'{' lines '}'\n");if (ctx_pop(_ya) < 0) YYERROR;if (ctx_peek_swap2(_ya) < 0) YYERROR; }
+                '}' { clicon_debug(2, "line2->'{' lines '}'");if (ctx_pop(_ya) < 0) YYERROR;if (ctx_peek_swap2(_ya) < 0) YYERROR; }
               | ';' { if (dbs_terminal(_ya) < 0) YYERROR; } 
                 '{' { if (ctx_push(_ya) < 0) YYERROR; }
                 lines 
-                '}' { if (debug) printf("line2->';' '{' lines '}'\n");if (ctx_pop(_ya) < 0) YYERROR;if (ctx_peek_swap2(_ya) < 0) YYERROR; }
+                '}' { clicon_debug(2, "line2->';' '{' lines '}'");if (ctx_pop(_ya) < 0) YYERROR;if (ctx_peek_swap2(_ya) < 0) YYERROR; }
               ;
 
-decltop        : decllist  {if (debug)fprintf(stderr, "decltop->decllist\n");}
-               | declcomp  {if (debug)fprintf(stderr, "decltop->declcomp\n");}
+decltop        : decllist  {clicon_debug(2, "decltop->decllist");}
+               | declcomp  {clicon_debug(2, "decltop->declcomp");}
                ;
 
 decllist      : decltop 
-                declcomp  {if (debug)fprintf(stderr, "decllist->decltop declcomp\n");}
+                declcomp  {clicon_debug(2, "decllist->decltop declcomp");}
               | decltop '|' { if (ctx_peek_swap(_ya) < 0) YYERROR;} 
-                declcomp  {if (debug)fprintf(stderr, "decllist->decltop | declcomp\n");}
+                declcomp  {clicon_debug(2, "decllist->decltop | declcomp");}
               ;
 
-declcomp      : '(' { if (ctx_push(_ya) < 0) YYERROR; } decltop ')' { if (ctx_pop(_ya) < 0) YYERROR; if (debug)fprintf(stderr, "declcomp->(decltop)\n");}
-              | decl  {if (debug)fprintf(stderr, "declcomp->decl\n");}
+declcomp      : '(' { if (ctx_push(_ya) < 0) YYERROR; } decltop ')' { if (ctx_pop(_ya) < 0) YYERROR; clicon_debug(2, "declcomp->(decltop)");}
+              | decl  {clicon_debug(2, "declcomp->decl");}
               ;
 
-decl        : cmd {if (debug)fprintf(stderr, "decl->cmd\n");}
-            | cmd PDQ charseq DQP { if (debug)fprintf(stderr, "decl->cmd (\" comment \")\n");if (dbs_comment(_ya, $3) < 0) YYERROR; free($3);}
-            | cmd PDQ DQP { if (debug)fprintf(stderr, "decl->cmd (\"\")\n");}
+decl        : cmd {clicon_debug(2, "decl->cmd");}
+            | cmd PDQ charseq DQP { clicon_debug(2, "decl->cmd (\" comment \")");if (dbs_comment(_ya, $3) < 0) YYERROR; free($3);}
+            | cmd PDQ DQP { clicon_debug(2, "decl->cmd (\"\")");}
             ;
 
-cmd         : NAME { if (debug)fprintf(stderr, "cmd->NAME\n");if (dbs_cmd(_ya, $1, NULL) < 0) YYERROR; free($1); } 
-            | NAME '[' NAME ']' { if (debug)fprintf(stderr, "cmd->[NAME]\n");if (dbs_cmd(_ya, $1, $3) < 0) YYERROR; free($1); free($3);} 
-            | '@' NAME { if (debug)fprintf(stderr, "cmd->@NAME\n");if (dbs_reference(_ya, $2) < 0) YYERROR; free($2); } 
+cmd         : NAME { clicon_debug(2, "cmd->NAME");if (dbs_cmd(_ya, $1, NULL) < 0) YYERROR; free($1); } 
+            | NAME '[' NAME ']' { clicon_debug(2, "cmd->[NAME]");if (dbs_cmd(_ya, $1, $3) < 0) YYERROR; free($1); free($3);} 
+            | '@' NAME { clicon_debug(2, "cmd->@NAME");if (dbs_reference(_ya, $2) < 0) YYERROR; free($2); } 
             | '<' { if ((_YA->ya_var = dbs_var_pre(_YA)) == NULL) YYERROR; }
                variable '>'  { if (dbs_var_post(_ya) < 0) YYERROR; }
             ;

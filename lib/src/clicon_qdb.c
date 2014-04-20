@@ -80,7 +80,7 @@ db_init_mode(char *file, int omode)
 		dperrmsg(dpecode));
 	return -1;
     }
-    clicon_log(LOG_DEBUG, "db_init(%s)", file);
+    clicon_debug(1, "db_init(%s)", file);
     if (dpclose(dp) == 0){
 	clicon_err(OE_DB, 0, "db_set: dpclose: %s", dperrmsg(dpecode));
 	return -1;
@@ -110,8 +110,7 @@ db_set(char *file, char *key, void *data, size_t datalen)
 		dperrmsg(dpecode));
 	return -1;
     }
-    if (debug)
-	fprintf(stderr, "%s: db_put(%s, len:%d)\n", 
+    clicon_debug(2, "%s: db_put(%s, len:%d)", 
 		file, key, (int)datalen);
     if (dpput(dp, key, -1, data, datalen, DP_DOVER) == 0){
 	clicon_err(OE_DB, 0, "%s: db_set: dpput(%s, %d): %s", 
@@ -165,8 +164,7 @@ db_get(char *file, char *key, void *data, size_t *datalen)
     }
     else
 	*datalen = len;	
-    if (debug)
-	fprintf(stderr, "db_get(%s, %s)=%s\n", file, key, (char*)data);
+    clicon_debug(2, "db_get(%s, %s)=%s", file, key, (char*)data);
     if (dpclose(dp) == 0){
 	clicon_err(OE_DB, 0, "db_get: dpclose: %s", dperrmsg(dpecode));
 	return -1;

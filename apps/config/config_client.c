@@ -72,6 +72,9 @@ struct client_entry *ce_list = NULL;   /* The client list */
 static int client_nr = 0;              /* Number of clients */
 
 
+/*
+ * See also notify_log
+ */
 static struct subscription *
 subscription_add(struct client_entry *ce, char *stream)
 {
@@ -608,8 +611,7 @@ from_client_debug(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    clicon_debug_init(level, /* 0: dont debug, 1:debug */
-		      1); /* to syslog */
+    clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
 
     if (send_msg_ok(s) < 0)
 	goto done;
@@ -668,6 +670,7 @@ from_client_subscription(clicon_handle h,
     char *stream;
     int retval = -1;
     struct subscription *su;
+    clicon_log_notify_t *old;
 
     if (clicon_msg_subscription_decode(msg, 
 				       &stream,
@@ -676,14 +679,17 @@ from_client_subscription(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    fprintf(stderr, "%s: %s\n", __FUNCTION__, stream);
+
     if ((su = subscription_add(ce, stream)) == NULL){
 	send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
 		     clicon_err_reason);
 	goto done;
     }
+    /* Avoid recursion when sending logs */
+    old = clicon_log_register_callback(NULL, NULL);
     if (send_msg_ok(ce->ce_s) < 0)
 	goto done;
+    clicon_log_register_callback(old, NULL); /* XXX NULL arg? */
     retval = 0;
   done:
     return retval;

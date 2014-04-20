@@ -144,10 +144,10 @@ int clicon_msg_subscription_decode(struct clicon_msg *msg,
 				   const char *label);
 
 struct clicon_msg *
-clicon_msg_notify_encode(char *event, const char *label);
+clicon_msg_notify_encode(int level, char *event, const char *label);
 
 int 
-clicon_msg_notify_decode(struct clicon_msg *msg, 
+clicon_msg_notify_decode(struct clicon_msg *msg, int *level,
 			 char **event, const char *label);
 
 struct clicon_msg *clicon_msg_err_encode(uint32_t err, uint32_t suberr, 

@@ -49,6 +49,9 @@
 /* clicon */
 #include <clicon/clicon.h>
 
+/* Command line options to be passed to getopt(3) */
+#define DBCTRL_OPTS "hDf:s:ZipPd:r:a:m:n:"
+
 /*
  * dump_database
  * Read registry, set machine state
@@ -155,26 +158,28 @@ main(int argc, char **argv)
     char            *db_spec_file;
     struct db_spec  *dbspec;
     clicon_handle    h;
+    int              use_syslog;
 
+    /* In the startup, logs to stderr & debug flag set later */
+    clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
     /* Create handle */
-    if ((h = clicon_handle_init()) == NULL){
-	clicon_err_print(stderr, "FATAL: handle");
+    if ((h = clicon_handle_init()) == NULL)
 	return -1;
-    }
 
     /* Defaults */
-    zapdb = 0;
-    initdb = 0;
-    dumpdb = 0;
-    matchent= 0;
-    addent = 0;
-    rment = 0;
-    brief = 0;
-    addstr = NULL;
+    zapdb      = 0;
+    initdb     = 0;
+    dumpdb     = 0;
+    matchent   = 0;
+    addent     = 0;
+    rment      = 0;
+    brief      = 0;
+    use_syslog = 0;
+    addstr     = NULL;
     memset(rmkey, '\0', sizeof(rmkey));
 
     /* getopt in two steps, first find config-file before over-riding options. */
-    while ((c = getopt(argc, argv, "hDf:s:ZipPd:r:a:m:n:")) != -1)
+    while ((c = getopt(argc, argv, DBCTRL_OPTS)) != -1)
 	switch (c) {
 	case '?' :
 	case 'h' : /* help */
@@ -193,9 +198,17 @@ main(int argc, char **argv)
 		usage(argv[0]);
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
+	 case 'S': /* Log on syslog */
+	     use_syslog = 1;
+	     break;
 	}
-    clicon_debug_init(debug, 1); /* set debug level and to syslog */
-    clicon_log_init(__PROGRAM__, LOG_PERROR, LOG_WARNING); /* Logs to stderr */
+    /* 
+     * Logs, error and debug to stderr or syslog, set debug level
+     */
+    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 
+		    use_syslog?CLICON_LOG_SYSLOG:CLICON_LOG_STDERR); 
+    clicon_debug_init(debug, NULL); 
+
 
     /* Find appdir. Find and read configfile */
     if (clicon_options_main(h, argc, argv) < 0)
@@ -206,7 +219,7 @@ main(int argc, char **argv)
 
     /* Now rest of options */   
     optind = 1;
-    while ((c = getopt(argc, argv, "hDf:s:ZipPd:r:a:m:n:")) != -1)
+    while ((c = getopt(argc, argv, DBCTRL_OPTS)) != -1)
 	switch (c) {
 	case 's':  /* db spec file */
 	    if (!strlen(optarg))
@@ -253,21 +266,17 @@ main(int argc, char **argv)
     argv += optind;
 
     /* Get db_spec file */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE not found in config file");
+    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
 	return -1;
+
     /* Parse db specification */
-    }
-    if ((dbspec = db_spec_parse_file(db_spec_file)) == NULL){
-	clicon_err_print(stderr, "FATAL: spec file");
+    if ((dbspec = db_spec_parse_file(db_spec_file)) == NULL)
 	return -1;
-    }
 
     if (dumpdb)
-        if (dump_database(dbname, NULL, brief, dbspec) < 0){
-	    clicon_err_print(stderr, "dbctrl");
+        if (dump_database(dbname, NULL, brief, dbspec) < 0)
 	    goto quit;
-	}
+
     if (matchent)
         if (dump_database(dbname, matchkey, brief, dbspec)) {
 	    fprintf(stderr, "Match error\n");

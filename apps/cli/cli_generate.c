@@ -298,8 +298,7 @@ dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_typ
     /* Parse the buffer using cligen parser. */
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
-    if (debug)
-	fprintf(stderr, "xbuf: %s\n", xf_buf(xf));
+    clicon_debug(2, "xbuf: %s", xf_buf(xf));
     /* load cli syntax */
     if (cligen_parse_str(cli_cligen(h), xf_buf(xf), "dbspec2cli", ptnew, globals) < 0)
 	goto done;

@@ -91,19 +91,19 @@ enum clicon_msg_type{
     CLICON_MSG_CALL ,   /* Backend plugin call request. Body is:
 			  1. struct clicon_msg_call_req *
 		       */
-    CLICON_MSG_SUBSCRIPTION ,   /* Create a new notification subscription. 
-				   Body is:
-				   1. name of stream */
+    CLICON_MSG_SUBSCRIPTION, /* Create a new notification subscription. 
+			        Body is:
+			        1. name of stream */
     CLICON_MSG_OK,       /* server->client reply */
     CLICON_MSG_NOTIFY,   /* Notification. Body is:
-			    1. eventtime: struct timeval
+			    1. int: loglevel
 			    2. event: log message. */
     CLICON_MSG_ERR       /* server->client reply. 
 			    Body is:
-			    1. uint32: (1)snapshot while doing commit, (0) dont
-			    2. uint32: (1)save to startup-config, (0) dont
-			    3. string: name of 'from' database (eg candidate)
-*/
+			    1. uint32: man error category
+			    2. uint32: sub-error
+			    3. string: reason
+			 */
 };
 
 /* Protocol message header */
@@ -142,7 +142,7 @@ int clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
 int clicon_rpc(int s, struct clicon_msg *msg, char **data, uint16_t *datalen,
 	    const char *label);
 
-int send_msg_notify(int s, char *event);
+int send_msg_notify(int s, int level, char *event);
 
 int send_msg_reply(int s, uint16_t type, char *data, uint16_t datalen);
 

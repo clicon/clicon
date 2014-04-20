@@ -90,7 +90,7 @@ plugin_modify_key_value(clicon_handle h,
 {
     int retval = -1;
 
-    clicon_log(LOG_DEBUG, "commit diff %c%s", (op==LV_SET)?'+':'-', key);
+    clicon_debug(2, "commit diff %c%s", (op==LV_SET)?'+':'-', key);
     clicon_err_reset();
     if (dp->dp_callback(h, db, type, op, key, dp->dp_arg) < 0){
 	if (!clicon_errno) 	/* sanity: log if clicon_err() is not called ! */
@@ -555,12 +555,12 @@ from_client_commit(clicon_handle h,
 	goto err;
 
     if (candidate_commit(h, candidate, running) < 0){
-	clicon_log(LOG_DEBUG, "Commit %s failed",  candidate);
+	clicon_debug(1, "Commit %s failed",  candidate);
 	retval = 0; /* We ignore errors from commit, but maybe
 		       we should fail on fatal errors? */
 	goto err;
     }
-    clicon_log(LOG_DEBUG, "Commit %s",  candidate);
+    clicon_debug(1, "Commit %s",  candidate);
 
     if (snapshot && config_snapshot(clicon_dbspec_key(h), running, clicon_archive_dir(h)) < 0)
 	goto err;
@@ -607,10 +607,10 @@ from_client_validate(clicon_handle h,
 	goto err;
     }
 
-    clicon_log(LOG_DEBUG, "Validate %s",  dbname);
+    clicon_debug(1, "Validate %s",  dbname);
 
     if (candidate_validate(h, dbname, clicon_running_db(h)) < 0){
-	clicon_log(LOG_DEBUG, "Validate %s failed",  dbname);
+	clicon_debug(1, "Validate %s failed",  dbname);
 	retval = 0; /* We ignore errors from commit, but maybe
 		       we should fail on fatal errors? */
 	goto err;

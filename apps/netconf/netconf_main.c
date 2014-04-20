@@ -58,8 +58,7 @@
 #include "netconf_rpc.h"
 
 /* Command line options to be passed to getopt(3) */
-#define NETCONF_OPTS "hDa:f:qs:d:"
-
+#define NETCONF_OPTS "hDa:f:Sqs:d:"
 
 static int
 packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
@@ -71,11 +70,8 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
     xf_t *xf_err;
     xf_t *xf1;
 
-    if (debug){
-	clicon_log(LOG_DEBUG, "RECV");
-	if (debug > 1)
-	    clicon_log(LOG_DEBUG, "%s: RCV: \"%s\"", __FUNCTION__, xf_buf(xf));
-    }
+    clicon_debug(1, "RECV");
+    clicon_debug(2, "%s: RCV: \"%s\"", __FUNCTION__, xf_buf(xf));
     if ((str0 = strdup(xf_buf(xf))) == NULL){
 	clicon_log(LOG_ERR, "%s: strdup: %s", __FUNCTION__, strerror(errno));
 	return -1;
@@ -132,7 +128,7 @@ ed");
 				 xml_xpath(xml_req, "//rpc"), 
 				 xf_out, xf_err) < 0){
 	    assert(xf_len(xf_err));
-	    clicon_log(LOG_DEBUG, "%s", xf_buf(xf_err));
+	    clicon_debug(1, "%s", xf_buf(xf_err));
 	    if (isrpc){
 		if (netconf_output(1, xf_err, "rpc-error") < 0)
 		    goto done;
@@ -183,7 +179,6 @@ netconf_input_cb(int s, void *arg)
     int xml_state = 0;
     int retval = -1;
 
-    fprintf(stdout, "%s\n", __FUNCTION__);
     if ((xf = xf_alloc()) == NULL){
 	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
 	return retval;
@@ -224,8 +219,6 @@ netconf_input_cb(int s, void *arg)
     xf_free(xf);
     if (cc_closed) 
 	retval = -1;
-    fprintf(stderr, "%s retval=%d\n", __FUNCTION__, retval);
-
     return retval;
 }
 
@@ -297,27 +290,26 @@ spec_main_netconf(clicon_handle h, int printspec)
 
     /* pt must be malloced since it is saved in options/hash-value */
     if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err_print(stderr, "FATAL: malloc");
+	clicon_err(OE_FATAL, errno, "malloc");
 	goto quit;
     }
     memset(pt, 0, sizeof(*pt));
 
     /* Parse db specification */
     if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE is NULL");
+	clicon_err(OE_FATAL, 0, "CLICON_DBSPEC_FILE is NULL");
 	goto quit;
     }
+
     if (stat(db_spec_file, &st) < 0){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE not found");
+	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
 	goto quit;
     }
     syntax = clicon_dbspec_type(h);
 
     if ((syntax == NULL) || strcmp(syntax, "PT") == 0){     /* Parse CLI syntax */
-	if (dbclispec_parse(h, db_spec_file, pt) < 0){
-	    clicon_err_print(stderr, "FATAL: parsing dbspec file");
+	if (dbclispec_parse(h, db_spec_file, pt) < 0)
 	    goto quit;
-	}	
 	if (clicon_dbspec_pt_set(h, pt) < 0)
 	    return -1;
 	if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
@@ -328,10 +320,8 @@ spec_main_netconf(clicon_handle h, int printspec)
 	    return -1;
     }
     else{ /* Parse KEY syntax */
-	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL){
-	    clicon_err_print(stderr, "FATAL: spec file (something wrong with appdir");
+	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 	    goto quit;
-	}
 	if (clicon_dbspec_key_set(h, db_spec) < 0)
 	    return -1;
 	/* 1: single arg, 2: doublearg */
@@ -401,12 +391,16 @@ main(int argc, char **argv)
     char            *argv0 = argv[0];
     int              quiet = 0;
     clicon_handle    h;
+    int              use_syslog;
 
+    /* Defaults */
+    use_syslog = 0;
+
+    /* In the startup, logs to stderr & debug flag set later */
+    clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
     /* Create handle */
-    if ((h = clicon_handle_init()) == NULL){
-	clicon_err_print(stderr, "FATAL: handle");
+    if ((h = clicon_handle_init()) == NULL)
 	return -1;
-    }
 
     while ((c = getopt(argc, argv, NETCONF_OPTS)) != -1)
 	switch (c) {
@@ -426,10 +420,17 @@ main(int argc, char **argv)
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
+	 case 'S': /* Log on syslog */
+	     use_syslog = 1;
+	     break;
 	}
 
-    clicon_debug_init(debug, 1); /* set debug level and to syslog */
-    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_WARNING, 1); /* Logs to stderr */
+    /* 
+     * Logs, error and debug to stderr or syslog, set debug level
+     */
+    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 
+		    use_syslog?CLICON_LOG_SYSLOG:CLICON_LOG_STDERR); 
+    clicon_debug_init(debug, NULL); 
 
     /* Find appdir. Find and read configfile */
     if (clicon_options_main(h, argc, argv) < 0)
@@ -444,6 +445,7 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	case 'a' : /* appdir */
 	case 'f': /* config file */
+	 case 'S': /* Log on syslog */
 	    break; /* see above */
 	case 'q':  /* quiet: dont write hello */
 	    quiet++;
@@ -466,20 +468,15 @@ main(int argc, char **argv)
     argv += optind;
 
     /* Parse db spec file */
-    if (spec_main_netconf(h, 0) < 0){
-	clicon_err_print(stderr, "FATAL: parsing db spec");
+    if (spec_main_netconf(h, 0) < 0)
 	return -1;
-    }
-    /* Initialize plugins group */
-    if (netconf_plugin_load(h) < 0){
-	clicon_err_print(stderr, "FATAL: loading plugin");
-	return -1;
-    }
 
-    if (init_candidate_db(h) < 0){
-	clicon_err_print(stderr, "FATAL: candidate_db");
+    /* Initialize plugins group */
+    if (netconf_plugin_load(h) < 0)
 	return -1;
-    }
+
+    if (init_candidate_db(h) < 0)
+	return -1;
     /* Call start function is all plugins before we go interactive */
     tmp = *(argv-1);
     *(argv-1) = argv0;
@@ -496,6 +493,7 @@ main(int argc, char **argv)
 
     netconf_plugin_unload(h);
     terminate(h);
-    fprintf(stderr, "%s quit\n", __FUNCTION__);    
+    clicon_log_init(__PROGRAM__, LOG_INFO, 0); /* Log on syslog no stderr */
+    clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
     return 0;
 }
