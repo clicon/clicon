@@ -57,7 +57,7 @@
 #include "cli_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGL"
+#define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGLl:"
 
 static int
 terminate(clicon_handle h)
@@ -285,6 +285,7 @@ usage(char *argv0, clicon_handle h)
 	    "\t-q \t\tQuiet mode, dont print greetings\n"
 	    "\t-p \t\tPrint dbspec translation in cli/db format\n"
 	    "\t-G \t\tPrint CLI syntax generated from dbspec (if enabled)\n"
+	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
 	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n",
 	    argv0,
 	    appdir ? appdir : "none",
@@ -314,13 +315,12 @@ main(int argc, char **argv)
     int          logclisyntax  = 0;
     int          help = 0;
     char        *treename;
-    int          use_syslog;
+    int          logdst = CLICON_LOG_STDERR;
 
     /* Defaults */
-    use_syslog = 0;
 
     /* In the startup, logs to stderr & debug flag set later */
-    clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
+    clicon_log_init(__PROGRAM__, LOG_INFO, logdst); 
     /* Initiate CLICON handle */
     if ((h = cli_handle_init()) == NULL)
 	goto quit;
@@ -361,15 +361,28 @@ main(int argc, char **argv)
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
-	 case 'S': /* Log on syslog */
-	     use_syslog = 1;
+	 case 'l': /* Log destination: s|e|o */
+	   fprintf(stderr, "optarg:%s\n", optarg);
+	   switch (optarg[0]){
+	   case 's':
+	     logdst = CLICON_LOG_SYSLOG;
+	     break;
+	   case 'e':
+	     logdst = CLICON_LOG_STDERR;
+	     break;
+	   case 'o':
+	     logdst = CLICON_LOG_STDOUT;
+	     break;
+	   default:
+	     usage(argv[0], h);
+	   }
 	     break;
 	}
     /* 
      * Logs, error and debug to stderr or syslog, set debug level
      */
-    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 
-		    use_syslog?CLICON_LOG_SYSLOG:CLICON_LOG_STDERR); 
+    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, logdst);
+
     clicon_debug_init(debug, NULL); 
 
     /* Find appdir. Find and read configfile */
@@ -384,7 +397,7 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	case 'a' : /* appdir */
 	case 'f': /* config file */
-	case 'S': /* Log on syslog */
+	case 'l': /* Log destination */
 	    break; /* see above */
 	case 'F': /* read commands from file */
 	    if (freopen(optarg, "r", stdin) == NULL){

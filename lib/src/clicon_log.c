@@ -153,6 +153,10 @@ clicon_log_str(int level, char *msg)
 	flogtime(stderr);
 	fprintf(stderr, "%s\n", msg);
     }
+    if (_logflags & CLICON_LOG_STDOUT){
+	flogtime(stdout);
+	fprintf(stdout, "%s\n", msg);
+    }
     if (_log_notify_cb){
 	static int  cb = 0;
 	char       *d, *msg2;

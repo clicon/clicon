@@ -29,8 +29,9 @@
 /*
  * Constants
  */
-#define CLICON_LOG_STDERR 1
-#define CLICON_LOG_SYSLOG 2
+#define CLICON_LOG_SYSLOG 1 /* print logs on syslog */
+#define CLICON_LOG_STDERR 2 /* print logs on stderr */
+#define CLICON_LOG_STDOUT 4 /* print logs on stdout */
 
 /*
  * Types
