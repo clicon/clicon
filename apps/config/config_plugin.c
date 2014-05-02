@@ -61,9 +61,9 @@ struct plugin {
     plgstart_t	      *p_start;		       /* Start */
     plgexit_t         *p_exit;		       /* Exit */
     plgreset_t	      *p_reset;		       /* Reset state */
-    trans_begin_t     *p_begin;	       /* Pre commit hook */
+    trans_begin_t     *p_begin;	               /* Pre commit hook */
     trans_complete_t  *p_complete;	       /* Validation complete */
-    trans_end_t       *p_end;	       /* Post commit hook */
+    trans_end_t       *p_end;	               /* Post commit hook */
     trans_abort_t     *p_abort;	  
      /* Post commit hook */
 };
@@ -129,8 +129,8 @@ plugin_unload(clicon_handle h, struct plugin *plg)
 	clicon_err(OE_UNIX, 0, "dlclose: %s", error?error:"Unknown error");
 	/* Just report */
     }
-    else if(debug)
-	clicon_log(LOG_DEBUG, "Plugin '%s' unloaded.", plg->p_name);
+    else 
+	clicon_debug(1, "Plugin '%s' unloaded.", plg->p_name);
 }
 
 
@@ -184,8 +184,7 @@ plugin_load (clicon_handle h, char *file, int dlflags, const char *label)
     new->p_complete = dlsym(handle, "transaction_complete");
     new->p_end    = dlsym(handle, "transaction_end"); 
     new->p_abort  = dlsym(handle, "transaction_abort");
-    if (debug)
-	clicon_log(LOG_DEBUG, "Plugin '%s' loaded.\n", name);
+    clicon_debug(2, "Plugin '%s' loaded.\n", name);
 
     return new;
 }
@@ -201,13 +200,11 @@ plugin_reset_state(clicon_handle h)
 
     for (i = 0; i < nplugins; i++)  {
 	if (plugins[i].p_reset) {
-	    if(debug)
-		clicon_log(LOG_DEBUG, "Calling plugin_reset() for %s\n",
-			   plugins[i].p_name);
+	    clicon_debug(1, "Calling plugin_reset() for %s\n",
+			 plugins[i].p_name);
 	    if (((plugins[i].p_reset)(h)) < 0) {
-		if(debug)
-		    clicon_log(LOG_DEBUG, "plugin_reset() failed for %s\n",
-			       plugins[i].p_name);
+		clicon_err(OE_FATAL, 0, "plugin_reset() failed for %s\n",
+			   plugins[i].p_name);
 		return -1;
 	    }
 	}
@@ -226,14 +223,10 @@ plugin_start_hooks(clicon_handle h, int argc, char **argv)
 
     for (i = 0; i < nplugins; i++)  {
 	if (plugins[i].p_start) {
-	    if(debug)
-		clicon_log(LOG_DEBUG, "Calling plugin_start() for %s\n",
-			   plugins[i].p_name);
 	    optind = 0;
 	    if (((plugins[i].p_start)(h, argc, argv)) < 0) {
-		if(debug)
-		    clicon_log(LOG_DEBUG, "plugin_start() failed for %s\n",
-			       plugins[i].p_name);
+		clicon_err(OE_FATAL, 0, "plugin_start() failed for %s\n",
+			   plugins[i].p_name);
 		return -1;
 	    }
 	}
@@ -285,9 +278,8 @@ plugin_initiate(clicon_handle h)
 	goto quit;
     }
     if (stat(filename, &st) == 0) {
-	if (debug) 	/* Early in start, errors are logged on stderr  only */
-	    fprintf(stderr, "DEBUG: Loading master plugin '%.*s' ...\n", 
-		    (int)strlen(filename), filename);
+	clicon_debug(1, "Loading master plugin '%.*s' ...", 
+		     (int)strlen(filename), filename);
 
 	new = plugin_load(h, filename, RTLD_NOW|RTLD_GLOBAL, __FUNCTION__);
 	if (new == NULL)
@@ -309,9 +301,7 @@ plugin_initiate(clicon_handle h)
 	if (strcmp(dp[i].d_name, master) == 0)
 	    continue; /* Skip master now */
 	filename = chunk_sprintf(__FUNCTION__, "%s/%s", dir, dp[i].d_name);
-	if (debug) 	/* Early in start, errors are logged on stderr  only */
-	    fprintf(stderr, "DEBUG: Loading plugin '%.*s' ...\n", 
-		    (int)strlen(filename), filename);
+	clicon_debug(1, "Loading plugin '%.*s' ...",  (int)strlen(filename), filename);
 	if (filename == NULL) {
 	    clicon_err(OE_UNIX, errno, "chunk");
 	    goto quit;

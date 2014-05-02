@@ -214,7 +214,9 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
     if (co->co_help)
 	xprintf(xf, "(\"%s\")", co->co_help);
     if (clicon_cli_genmodel_completion(h)){
-	if ((s0 = strdup(dbspec_key_get(co))) == NULL){
+	char *ds = dbspec_key_get(co);
+	assert(ds); 
+	if ((s0 = strdup(ds)) == NULL){
 	    clicon_err(OE_DB, errno, "%s: strdup\n", __FUNCTION__); 
 	    goto done;
 	}
@@ -296,8 +298,7 @@ dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_typ
     /* Parse the buffer using cligen parser. */
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
-    if (debug)
-	fprintf(stderr, "xbuf: %s\n", xf_buf(xf));
+    clicon_debug(2, "xbuf: %s", xf_buf(xf));
     /* load cli syntax */
     if (cligen_parse_str(cli_cligen(h), xf_buf(xf), "dbspec2cli", ptnew, globals) < 0)
 	goto done;

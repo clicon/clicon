@@ -90,9 +90,8 @@ dbdiff_add(char *basekey1, char *basekey2,
     return retval;
 }
 
-/*
- * dbdiff_single
- * Examine if regular key 'key' exists in either first, second or both databases.
+/*!
+ * \brief Check if regular key 'key' exists in first, second or both databases.
  * Args:
  *    db1    First database
  *    db2    Second database
@@ -400,15 +399,33 @@ dbdiff_vector_1(char *db1, char *db2,
     return retval;
 }	    
 
-/*
+/*!
+ * \brief
  *
+ * Given two databases, db1 and db2, typically running (db1) and candidate (db2),
+ * compute differences and return a db_diff structures, containing a list of entities,
+ * each stating a database symbol and how it diffs.
+   +---------------+     +---------------+  
+   |   dbdiff      |---->|    dbdiff_ent |  [key1, key2, add/change/rm] (dfe_)
+   +---------------+     +---------------+  
+   (df_) from dbdiff(),   (dfe_)
+ * 
+ * The returned dfdiff structure is freed using unchunk_group.
+ * Note: the order of the entries are according to the database spec (which in turn
+ * is alphabetical).
+ * Args:
+ * IN     db1         database 1, typically running
+ * IN     db2         database 2, typically candidate
+ * IN     label       label for chunk memory handling
+ * IN     db_spec     database specification
+ * OUT    df          dbdiff struct containing list of database changes
  */
 int
 db_diff(char *db1,     
 	char *db2, 
-	struct dbdiff *df,
 	const char *label,
-	struct db_spec *db_spec
+	struct db_spec *db_spec,
+	struct dbdiff *df
     )
 {
     char *basekey; 

@@ -117,7 +117,7 @@ clicon_msg_commit_encode(char *dbsrc, char *dbdst,
     int p;
     uint32_t tmp;
 
-    clicon_log(LOG_DEBUG, "%s: snapshot: %d startup: %d dbsrc: %s dbdst: %s", 
+    clicon_debug(1, "%s: snapshot: %d startup: %d dbsrc: %s dbdst: %s", 
 	    __FUNCTION__, 
 	    snapshot, startup, dbsrc, dbdst);
     p = 0;
@@ -174,7 +174,7 @@ clicon_msg_commit_decode(struct clicon_msg *msg,
 	return -1;
     }
     p += strlen(*dbdst)+1;
-    clicon_log(LOG_DEBUG, "%s: snapshot: %d startup: %d dbsrc: %s dbdst: %s", 
+    clicon_debug(1, "%s: snapshot: %d startup: %d dbsrc: %s dbdst: %s", 
 	    __FUNCTION__, 
 	    *snapshot, *startup, *dbsrc, *dbdst);
     return 0;
@@ -187,7 +187,7 @@ clicon_msg_validate_encode(char *db, const char *label)
     int len;
     int hdrlen = sizeof(*msg);
 
-    clicon_log(LOG_DEBUG, "%s: db: %s", __FUNCTION__, db);
+    clicon_debug(1, "%s: db: %s", __FUNCTION__, db);
     len = sizeof(*msg) + strlen(db) + 1;
     if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
 	clicon_err(OE_PROTO, errno, "%s: chunk", __FUNCTION__);
@@ -210,7 +210,7 @@ clicon_msg_validate_decode(struct clicon_msg *msg, char **db, const char *label)
 	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", __FUNCTION__);
 	return -1;
     }
-    clicon_log(LOG_DEBUG, "%s: db: %s", __FUNCTION__, *db);
+    clicon_debug(1, "%s: db: %s", __FUNCTION__, *db);
     return 0;
 }
 
@@ -226,7 +226,7 @@ clicon_msg_change_encode(char *db, uint32_t op,	char *key,
     int p;
     uint32_t tmp;
 
-    clicon_log(LOG_DEBUG, "%s: op: %d lvec_len: %d db: %s key: '%s'", 
+    clicon_debug(1, "%s: op: %d lvec_len: %d db: %s key: '%s'", 
 	    __FUNCTION__, 
 	    op, lvec_len, db, key);
 #if 1
@@ -303,7 +303,7 @@ clicon_msg_change_decode(struct clicon_msg *msg,
 	memcpy(*lvec, msg->op_body+p, *lvec_len);
 	p += *lvec_len;
     }
-    clicon_log(LOG_DEBUG, "%s: op: %d lvec_len: %d db: %s key: '%s'", 
+    clicon_debug(1, "%s: op: %d lvec_len: %d db: %s key: '%s'", 
 	    __FUNCTION__, 
 	    *op, *lvec_len, *db, *key);
     return 0;
@@ -319,7 +319,7 @@ clicon_msg_save_encode(char *db, uint32_t snapshot, char *filename,
     int p;
     uint32_t tmp;
 
-    clicon_log(LOG_DEBUG, "%s: snapshot: %d db: %s filename: %s", 
+    clicon_debug(1, "%s: snapshot: %d db: %s filename: %s", 
 	    __FUNCTION__, 
 	    snapshot, db, filename);
     p = 0;
@@ -377,7 +377,7 @@ clicon_msg_save_decode(struct clicon_msg *msg,
 	}
 	p += strlen(*filename)+1;
     }
-    clicon_log(LOG_DEBUG, "%s: snapshot: %d db: %s filename: %s", 
+    clicon_debug(1, "%s: snapshot: %d db: %s filename: %s", 
 	    __FUNCTION__, 
 	    *snapshot, *db, *filename);
     return 0;
@@ -392,7 +392,7 @@ clicon_msg_load_encode(int replace, char *db, char *filename, const char *label)
     uint32_t tmp;
     int p;
 
-    clicon_log(LOG_DEBUG, "%s: replace: %d db: %s filename: %s", 
+    clicon_debug(1, "%s: replace: %d db: %s filename: %s", 
 	    __FUNCTION__, 
 	       replace, db, filename);
     p = 0;
@@ -444,7 +444,7 @@ clicon_msg_load_decode(struct clicon_msg *msg,
 	return -1;
     }
     p += strlen(*filename)+1;
-    clicon_log(LOG_DEBUG, "%s: %d db: %s filename: %s", 
+    clicon_debug(1, "%s: %d db: %s filename: %s", 
 	    __FUNCTION__, 
 	    msg->op_type,
 	    *db, *filename);
@@ -454,7 +454,7 @@ clicon_msg_load_decode(struct clicon_msg *msg,
 struct clicon_msg *
 clicon_msg_initdb_encode(char *filename, const char *label)
 {
-    clicon_log(LOG_DEBUG, "%s: db: %s", __FUNCTION__, filename);
+    clicon_debug(1, "%s: db: %s", __FUNCTION__, filename);
     return clicon_msg_1str_encode(filename, CLICON_MSG_INITDB, label);
 }
 
@@ -466,14 +466,14 @@ clicon_msg_initdb_decode(struct clicon_msg *msg,
     int retval;
 
     retval = clicon_msg_1str_decode(msg, filename, label);
-    clicon_log(LOG_DEBUG, "%s: db: %s",  __FUNCTION__, *filename);
+    clicon_debug(1, "%s: db: %s",  __FUNCTION__, *filename);
     return retval;
 }
 
 struct clicon_msg *
 clicon_msg_rm_encode(char *filename, const char *label)
 {
-    clicon_log(LOG_DEBUG, "%s: db: %s", __FUNCTION__, filename);
+    clicon_debug(1, "%s: db: %s", __FUNCTION__, filename);
     return clicon_msg_1str_encode(filename, CLICON_MSG_RM, label);
 }
 
@@ -485,7 +485,7 @@ clicon_msg_rm_decode(struct clicon_msg *msg,
     int retval;
 
     retval = clicon_msg_1str_decode(msg, filename, label);
-    clicon_log(LOG_DEBUG, "%s: db: %s",  __FUNCTION__, *filename);
+    clicon_debug(1, "%s: db: %s",  __FUNCTION__, *filename);
     return retval;
 }
 
@@ -499,7 +499,7 @@ clicon_msg_copy_encode(char *filename_src, char *filename_dst,
     int len;
     int p;
 
-    clicon_log(LOG_DEBUG, "%s: filename_src: %s filename_dst: %s", 
+    clicon_debug(1, "%s: filename_src: %s filename_dst: %s", 
 	    __FUNCTION__, 
 	    filename_src, filename_dst);
     p = 0;
@@ -542,7 +542,7 @@ clicon_msg_copy_decode(struct clicon_msg *msg,
 	return -1;
     }
     p += strlen(*filename_dst)+1;
-    clicon_log(LOG_DEBUG, "%s: filename_src: %s filename_dst: %s", 
+    clicon_debug(1, "%s: filename_src: %s filename_dst: %s", 
 	    __FUNCTION__, 
 	    *filename_src, *filename_dst);
     return 0;
@@ -551,7 +551,7 @@ clicon_msg_copy_decode(struct clicon_msg *msg,
 struct clicon_msg *
 clicon_msg_lock_encode(char *db, const char *label)
 {
-    clicon_log(LOG_DEBUG, "%s: db: %s", __FUNCTION__, db);
+    clicon_debug(1, "%s: db: %s", __FUNCTION__, db);
     return clicon_msg_1str_encode(db, CLICON_MSG_LOCK, label);
 }
 
@@ -563,14 +563,14 @@ clicon_msg_lock_decode(struct clicon_msg *msg,
     int retval;
 
     retval = clicon_msg_1str_decode(msg, db, label);
-    clicon_log(LOG_DEBUG, "%s: db: %s",  __FUNCTION__, *db);
+    clicon_debug(1, "%s: db: %s",  __FUNCTION__, *db);
     return retval;
 }
 
 struct clicon_msg *
 clicon_msg_unlock_encode(char *db, const char *label)
 {
-    clicon_log(LOG_DEBUG, "%s: db: %s", __FUNCTION__, db);
+    clicon_debug(1, "%s: db: %s", __FUNCTION__, db);
     return clicon_msg_1str_encode(db, CLICON_MSG_UNLOCK, label);
 }
 
@@ -582,7 +582,7 @@ clicon_msg_unlock_decode(struct clicon_msg *msg,
     int retval;
 
     retval = clicon_msg_1str_decode(msg, db, label);
-    clicon_log(LOG_DEBUG, "%s: db: %s",  __FUNCTION__, *db);
+    clicon_debug(1, "%s: db: %s",  __FUNCTION__, *db);
     return retval;
 }
 
@@ -594,7 +594,7 @@ clicon_msg_kill_encode(uint32_t session_id, const char *label)
     int p;
     uint32_t tmp;
 
-    clicon_log(LOG_DEBUG, "%s: %d", __FUNCTION__, session_id);
+    clicon_debug(1, "%s: %d", __FUNCTION__, session_id);
     p = 0;
     len = sizeof(*msg) + sizeof(uint32_t);
     if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
@@ -626,7 +626,7 @@ clicon_msg_kill_decode(struct clicon_msg *msg,
     memcpy(&tmp, msg->op_body+p, sizeof(uint32_t));
     *session_id = ntohl(tmp);
     p += sizeof(uint32_t);
-    clicon_log(LOG_DEBUG, "%s: session-id: %u",  __FUNCTION__, *session_id);
+    clicon_debug(1, "%s: session-id: %u",  __FUNCTION__, *session_id);
     return 0;
 }
 
@@ -638,7 +638,7 @@ clicon_msg_debug_encode(uint32_t level, const char *label)
     int p;
     uint32_t tmp;
 
-    clicon_log(LOG_DEBUG, "%s: %d", __FUNCTION__, label);
+    clicon_debug(1, "%s: %d", __FUNCTION__, label);
     p = 0;
     len = sizeof(*msg) + sizeof(uint32_t);
     if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
@@ -670,7 +670,7 @@ clicon_msg_debug_decode(struct clicon_msg *msg,
     memcpy(&tmp, msg->op_body+p, sizeof(uint32_t));
     *level = ntohl(tmp);
     p += sizeof(uint32_t);
-    clicon_log(LOG_DEBUG, "%s: session-id: %u",  __FUNCTION__, *level);
+    clicon_debug(1, "%s: session-id: %u",  __FUNCTION__, *level);
     return 0;
 }
 
@@ -685,7 +685,7 @@ clicon_msg_call_encode(uint16_t op, char *plugin, char *func,
     int hdrlen = sizeof(*msg);
     int len;
     
-    clicon_log(LOG_DEBUG, "%s: %d plugin: %s func: %s arglen: %d", 
+    clicon_debug(1, "%s: %d plugin: %s func: %s arglen: %d", 
 	    __FUNCTION__, op, plugin, func, arglen);
     len =
 	hdrlen +
@@ -743,6 +743,79 @@ clicon_msg_call_decode(struct clicon_msg *msg,
 }
 
 struct clicon_msg *
+clicon_msg_subscription_encode(char *stream, const char *label)
+{
+    clicon_debug(1, "%s: stream: %s", __FUNCTION__, stream);
+    return clicon_msg_1str_encode(stream, CLICON_MSG_SUBSCRIPTION, label);
+}
+
+int
+clicon_msg_subscription_decode(struct clicon_msg *msg, 
+			       char **stream, 
+			       const char *label)
+{
+    int retval;
+
+    retval = clicon_msg_1str_decode(msg, stream, label);
+    clicon_debug(1, "%s: stream: %s",  __FUNCTION__, *stream);
+    return retval;
+}
+
+struct clicon_msg *
+clicon_msg_notify_encode(int level, char *event, const char *label)
+{
+    struct clicon_msg *msg;
+    int len;
+    int hdrlen = sizeof(*msg);
+    int p;
+    int tmp;
+
+    clicon_debug(1, "%s: %d %s", __FUNCTION__, level, event);
+    p = 0;
+    hdrlen = sizeof(*msg);
+    len = sizeof(*msg) + sizeof(uint32_t) + strlen(event) + 1;
+    if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk", __FUNCTION__);
+	return NULL;
+    }
+    memset(msg, 0, len);
+    /* hdr */
+    msg->op_type = CLICON_MSG_NOTIFY;
+    msg->op_len = len;
+    /* body */
+    tmp = htonl(level);
+    memcpy(msg->op_body+p, &tmp, sizeof(int));
+    p += sizeof(int);
+    strncpy(msg->op_body+p, event, len-p-hdrlen);
+    p += strlen(event)+1;
+
+    return msg;
+}
+
+int
+clicon_msg_notify_decode(struct clicon_msg *msg, 
+			 int *level, char **event,
+			 const char *label)
+{
+    int p;
+    int tmp;
+
+    p = 0;
+    /* body */
+    memcpy(&tmp, msg->op_body+p, sizeof(int));
+    *level = ntohl(tmp);
+    p += sizeof(int);
+    if ((*event = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		__FUNCTION__);
+	return -1;
+    }
+    p += strlen(*event)+1;
+    clicon_debug(1, "%s: %d %s", __FUNCTION__, *level, *event);
+    return 0;
+}
+
+struct clicon_msg *
 clicon_msg_err_encode(uint32_t err, uint32_t suberr, char *reason, const char *label)
 {
     struct clicon_msg *msg;
@@ -751,7 +824,7 @@ clicon_msg_err_encode(uint32_t err, uint32_t suberr, char *reason, const char *l
     int p;
     uint32_t tmp;
 
-    clicon_log(LOG_DEBUG, "%s: %d %d %s", __FUNCTION__, err, suberr, reason);
+    clicon_debug(1, "%s: %d %d %s", __FUNCTION__, err, suberr, reason);
     p = 0;
     hdrlen = sizeof(*msg);
     len = sizeof(*msg) + 2*sizeof(uint32_t) + strlen(reason) + 1;
@@ -799,9 +872,9 @@ clicon_msg_err_decode(struct clicon_msg *msg,
 	return -1;
     }
     p += strlen(*reason)+1;
-    clicon_log(LOG_DEBUG, "%s: %d %d %s", 
+    clicon_debug(1, "%s: %d %d %s", 
 	    __FUNCTION__, 
 	    *err, *suberr, *reason);
     return 0;
-
 }
+

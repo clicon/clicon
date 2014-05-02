@@ -57,7 +57,7 @@
 #include "cli_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define OPTSTRING "hDf:F:a:s:u:d:og:m:bcP:qpGL"
+#define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGLl:"
 
 static int
 terminate(clicon_handle h)
@@ -197,28 +197,24 @@ spec_main_cli(clicon_handle h, int printspec)
     
     /* pt must be malloced since it is saved in options/hash-value */
     if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err_print(stderr, "FATAL: malloc");
+	clicon_err(OE_FATAL, errno, "malloc");
 	goto quit;
     }
     memset(pt, 0, sizeof(*pt));
 
     /* Parse db specification */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE is NULL");
+    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
 	goto quit;
-    }
     if (stat(db_spec_file, &st) < 0){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE not found");
+	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
 	goto quit;
     }
     clicon_debug(1, "CLICON_DBSPEC_FILE=%s", db_spec_file);
     syntax = clicon_dbspec_type(h);
 
     if ((syntax == NULL) || strcmp(syntax, "PT") == 0){ /* Parse CLI spec syntax */
-	if (dbclispec_parse(h, db_spec_file, pt) < 0){
-	    clicon_err_print(stderr, "FATAL: parsing dbspec file");
+	if (dbclispec_parse(h, db_spec_file, pt) < 0)
 	    goto quit;
-	}	
 	/* The dbspec parse-tree is in pt*/
 	if (printspec && debug) 
 	    cligen_print(stdout, *pt, 0);
@@ -229,19 +225,17 @@ spec_main_cli(clicon_handle h, int printspec)
 	if (printspec)
 	    db_spec_dump(stdout, db_spec);
 	clicon_dbspec_key_set(h, db_spec);	
-	if (debug){ /* XXX */
+	if (debug>1){ 
 	    if (dbspec_key2cli(h, db_spec, &pt2) < 0)
 		goto quit;
 	    if (printspec) /* XXX */
-		cligen_print(stdout, pt2, 0);
+		cligen_print(stderr, pt2, 0);
 	    cligen_parsetree_free(pt2, 1);
 	}
     }
     else{ /* Parse KEY syntax */
-	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL){
-	    clicon_err_print(stderr, "FATAL: spec file (something wrong with appdir");
+	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 	    goto quit;
-	}
 	if (printspec && debug) 
 	    db_spec_dump(stdout, db_spec);
 	clicon_dbspec_key_set(h, db_spec);	
@@ -252,11 +246,11 @@ spec_main_cli(clicon_handle h, int printspec)
 	if (printspec)
 	    cligen_print(stdout, *pt, 0);
 	clicon_dbspec_pt_set(h, pt);
-	if (debug){ 
+	if (debug>1){ 
 	    if ((db_spec2 = dbspec_cli2key(pt)) == NULL) /* To dbspec */
 		goto quit;
 	    if (printspec) /* XXX */
-		db_spec_dump(stdout, db_spec2);
+		db_spec_dump(stderr, db_spec2);
 	}
     }
     retval = 0;
@@ -291,6 +285,7 @@ usage(char *argv0, clicon_handle h)
 	    "\t-q \t\tQuiet mode, dont print greetings\n"
 	    "\t-p \t\tPrint dbspec translation in cli/db format\n"
 	    "\t-G \t\tPrint CLI syntax generated from dbspec (if enabled)\n"
+	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
 	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n",
 	    argv0,
 	    appdir ? appdir : "none",
@@ -320,29 +315,28 @@ main(int argc, char **argv)
     int          logclisyntax  = 0;
     int          help = 0;
     char        *treename;
+    int          logdst = CLICON_LOG_STDERR;
 
+    /* Defaults */
+
+    /* In the startup, logs to stderr & debug flag set later */
+    clicon_log_init(__PROGRAM__, LOG_INFO, logdst); 
     /* Initiate CLICON handle */
-    if ((h = cli_handle_init()) == NULL){
-	clicon_err_print(stderr, "FATAL: handle");
+    if ((h = cli_handle_init()) == NULL)
 	goto quit;
-    }
-    if (cli_plugin_init(h) != 0) {
-	clicon_err_print(stderr, "FATAL: clicon_plugin_init()");
+    if (cli_plugin_init(h) != 0) 
 	goto quit;
-    }
     dbtype = CANDIDATE_DB_SHARED;
     private_db[0] = '\0';
     cli_set_usedaemon(h, 1); /* send changes to config daemon */
     cli_set_comment(h, '#'); /* Default to handle #! clicon_cli scripts */
-
-    clicon_err_init(0, 1); /* Silent, Handle errors ourselves */
 
     /*
      * Command-line options for appdir, config-file, debug and help
      */
     optind = 1;
     opterr = 0;
-    while ((c = getopt(argc, argv, OPTSTRING)) != -1)
+    while ((c = getopt(argc, argv, CLI_OPTS)) != -1)
 	switch (c) {
 	case '?':
 	case 'h':
@@ -354,7 +348,8 @@ main(int argc, char **argv)
 	    help = 1; 
 	    break;
 	case 'D' : /* debug */
-	    debug = 1;
+	    if (sscanf(optarg, "%d", &debug) != 1)
+		usage(argv[0], h);
 	    break;
 	case 'a': /* Register command line app-dir if any */
 	    if (!strlen(optarg))
@@ -366,10 +361,29 @@ main(int argc, char **argv)
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
-
+	 case 'l': /* Log destination: s|e|o */
+	   fprintf(stderr, "optarg:%s\n", optarg);
+	   switch (optarg[0]){
+	   case 's':
+	     logdst = CLICON_LOG_SYSLOG;
+	     break;
+	   case 'e':
+	     logdst = CLICON_LOG_STDERR;
+	     break;
+	   case 'o':
+	     logdst = CLICON_LOG_STDOUT;
+	     break;
+	   default:
+	     usage(argv[0], h);
+	   }
+	     break;
 	}
-    clicon_debug_init(debug, 1); /* set debug level and to syslog */
-    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 1); /* Log on syslog, stderr */
+    /* 
+     * Logs, error and debug to stderr or syslog, set debug level
+     */
+    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, logdst);
+
+    clicon_debug_init(debug, NULL); 
 
     /* Find appdir. Find and read configfile */
     if (clicon_options_main(h, argc, argv) < 0)
@@ -378,11 +392,12 @@ main(int argc, char **argv)
     /* Now rest of options */   
     opterr = 0;
     optind = 1;
-    while ((c = getopt(argc, argv, OPTSTRING)) != -1){
+    while ((c = getopt(argc, argv, CLI_OPTS)) != -1){
 	switch (c) {
 	case 'D' : /* debug */
 	case 'a' : /* appdir */
 	case 'f': /* config file */
+	case 'l': /* Log destination */
 	    break; /* see above */
 	case 'F': /* read commands from file */
 	    if (freopen(optarg, "r", stdin) == NULL){
@@ -448,7 +463,7 @@ main(int argc, char **argv)
 
     /* Setup signal handlers */
     cli_signal_init();
-    
+
     /* Backward compatible mode, do not include keys in cgv-arrays in callbacks.
        Should be 0 but default is 1 since all legacy apps use 1
        Test legacy before shifting default to 0
@@ -460,10 +475,8 @@ main(int argc, char **argv)
 	goto quit;
 
     /* Check plugin directory */
-    if ((plugin_dir = clicon_cli_dir(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_CLI_DIR");
+    if ((plugin_dir = clicon_cli_dir(h)) == NULL)
 	goto quit;
-    }
     
     /* Check syntax group */
     if (!clicon_option_exists(h, "CLICON_CLI_GROUP"))
@@ -477,16 +490,20 @@ main(int argc, char **argv)
 	parse_tree        *pts;        /* dbspec cli */
 	parse_tree         pt = {0,};   /* cli parse tree */
 
-	if ((treename = clicon_dbspec_name(h)) == NULL){
-	    clicon_err_print(stderr, "FATAL: DB_SPEC has no name (insert name=\"myname\"; in .spec file)");
-	    goto quit;
+	if (strcmp(clicon_dbspec_type(h), "PT")==0){
+		if ((treename = clicon_dbspec_name(h)) == NULL){
+		    clicon_err(OE_FATAL, 0, "DB_SPEC has no name (insert name=\"myname\"; in .spec file)");
+		    goto quit;
+		}
 	}
+	else /* key syntax hardwire to 'datamodel' */
+	    treename = "datamodel";
 	if ((pts = clicon_dbspec_pt(h)) == NULL){
-	    clicon_err_print(stderr, "FATAL: No DB_SPEC");
+	    clicon_err(OE_FATAL, 0, "No DB_SPEC");
 	    goto quit;
 	}
 	if (pts->pt_len == 0){
-	    clicon_err_print(stderr, "FATAL: DB_SPEC length is zero");
+	    clicon_err(OE_FATAL, 0, "DB_SPEC length is zero");
 	    goto quit;
 	}
 	/* Create cli command tree from dbspec */
@@ -520,10 +537,9 @@ main(int argc, char **argv)
     }
 
     /* Initialize databases */    
-    if (clicon_running_db(h) == NULL){
-	clicon_err_print(stderr, "FATAL: RUNNING_DB not found in config file");
+    if (clicon_running_db(h) == NULL)
 	goto quit;
-    }
+
     if (strlen(private_db))
 	clicon_option_str_set(h, "CLICON_CANDIDATE_DB", private_db);
 
@@ -533,8 +549,8 @@ main(int argc, char **argv)
     if (logclisyntax)
 	cli_logsyntax_set(h, logclisyntax);
 
-    if (debug)
-	clicon_option_dump(h, stdout);
+    if (debug>1)
+	clicon_option_dump(h, stderr);
 
     /* Call start function is all plugins before we go interactive 
        Pass all args after the standard options to plugin_start

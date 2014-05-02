@@ -87,7 +87,7 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
     case CANDIDATE_DB_PRIVATE:
 	if (lstat(candidate_db, &sb) < 0){
 	    if (file_cp(running_db, candidate_db) < 0){
-		fprintf(stderr, "Error when copying %s to %s: %s\n", 
+		clicon_err(OE_UNIX, errno, "Error when copying %s to %s: %s\n", 
 			running_db, candidate_db,
 			strerror(errno));
 		unlink(candidate_db);
@@ -496,8 +496,7 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
 	cv = arg;
     level = cv_int_get(cv);
     /* cli */
-    clicon_debug_init(level, /* 0: dont debug, 1:debug */
-		      0); /* to stderr, not to syslog */
+    clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
     /* config daemon */
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
@@ -885,7 +884,7 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
     cv = cvec_i(cvec, cvec_len(cvec)-1);
     cv_reset(cv);
     cvec_del(cvec, cv);
-    if (debug){
+    if (debug > 1){
 	fprintf(stderr, "%s: dbv_key: %s\n", __FUNCTION__, dbv->dbv_key);
 	fprintf(stderr, "dbv_vec:");
 	cvec_print(stdout, dbv->dbv_vec);
@@ -960,6 +959,7 @@ expand_db_variable(clicon_handle h,
 	    buf = NULL;
 	    (*nr)++;
 	}
+	cvec_free(cvec);
     }
     retval = 0;
 quit:
@@ -1333,8 +1333,6 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     char            *running;
     struct db_spec  *spec;
     clicon_dbvars_t *dbv;
-    char            *lvec = NULL;
-    size_t           lvec_len;
     int	             retval = -1;
 
     candidate = clicon_candidate_db(h);
@@ -1349,14 +1347,8 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     if (dbv == NULL)
 	return -1;
 
-    if (debug)
-	cvec_print(stdout, dbv->dbv_vec);
-    
-    if ((lvec = cvec2lvec (dbv->dbv_vec, &lvec_len)) == NULL)
-	goto quit;
- 
     if (cli_usedaemon(h)) {
-	if (cli_proto_change(s, candidate, op, dbv->dbv_key, lvec, lvec_len) < 0)
+	if (cli_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
 	    goto quit;
     } else {
 	if (db_lv_op_exec(spec, candidate, dbv->dbv_key, op, dbv->dbv_vec) < 0)
@@ -1374,8 +1366,6 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 
     retval = 0;
 quit:
-    if (lvec)
-	free (lvec);
     clicon_dbvars_free(dbv);
 
     return retval;}
@@ -1584,7 +1574,7 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 
 
 /*
- * show_conf_as()
+ * show_conf_as
  * Generic function for showing configurations.
  * the callback differs.
  * arg is a string: <dbname> <key> [<variable> <varname>]. 
@@ -1606,25 +1596,29 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
     char            *attr = NULL;
     char            *val = NULL;
     char            *valname;
-    int              nvec;
     char           **vec = NULL;
+    int              nvec;
     char            *str;
+    int              len;
+    int              i;
+    char           **keyv;
+    cvec           **cvecv;
 
     str = cv_string_get(arg);
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto catch;
     }
-    if (nvec < 2 || nvec > 4){
-	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <dbname> <key> [<variable>]", str);	
+    if (nvec != 2 && nvec != 4){
+	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <dbname> <key> [<name> <variable>]", str);	
 	goto catch;
     }
-    if (nvec == 4){
+    if (nvec > 2){
 	attr = vec[2];
 	valname = vec[3];
-	if ((cv = cvec_find_var(vars, valname)) != NULL)
-	    if ((val = cv2str_dup(cv)) == NULL)
-		goto catch;
+	cv = cvec_find_var(vars, valname);
+	if (cv && (val = cv2str_dup(cv)) == NULL)
+	    goto catch;
     }
     /* Dont get attr here, take it from arg instead */
     if (strcmp(vec[0], "running") == 0) /* XXX: hardcoded */
@@ -1637,20 +1631,19 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
 	goto catch;
     }
     regex = vec[1];
-    if (dbmatch(h, 
-		dbname, 
-		regex, 
-		attr, 
-		val,
-		fn, 
-		fnarg, 
-		NULL) < 0)
+    if (dbmatch_vec(h, dbname, regex, attr, val, &keyv, &cvecv, &len) < 0)
 	goto catch;
-
+    for (i=0; i<len; i++)
+	if ((*fn)(h, dbname, keyv[i], cvecv[i], fnarg) < 0)
+	    goto catch;
+    dbmatch_vec_free(keyv, cvecv, len);
     retval = 0;
 catch:
+    unchunk_group(__FUNCTION__);
     if (x0)
 	xml_free(x0);
+    if (val)
+	free(val);
     return retval;
 
 }
@@ -1741,6 +1734,8 @@ show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg, int as_cmd)
     return retval;
 }
 
+
+
 int
 show_conf_as_text(clicon_handle h, cvec *vars, cg_var *arg)
 {
@@ -1751,6 +1746,73 @@ int
 show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
 {
     return show_conf_as_text1(h, vars, arg, 1);
+}
+
+static int
+cli_notification_cb(int s, void *arg)
+{
+    struct clicon_msg *reply;
+    int                eof;
+    int                retval = -1;
+    char              *event = NULL;
+    int                level;
+
+    /* get msg (this is the reason this function is called) */
+    if (clicon_msg_rcv(s, &reply, &eof, __FUNCTION__) < 0)
+	goto done;
+    if (eof){
+	clicon_err(OE_PROTO, ESHUTDOWN, "%s: Socket unexpected close", __FUNCTION__);
+	close(s);
+	errno = ESHUTDOWN;
+	event_unreg_fd(s, cli_notification_cb);
+	goto done;
+    }
+    switch (reply->op_type){
+    case CLICON_MSG_NOTIFY:
+	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
+	    goto done;
+	fprintf(stderr, "%s\n", event);
+	break;
+    default:
+	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
+		__FUNCTION__, reply->op_type);
+	goto done;
+	break;
+    }
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__); /* event allocated by chunk */
+    return retval;
+
+}
+
+/*!
+ * \brief send a notify subscription to backend and register callback for return messages.
+ */
+int
+cli_getlog(clicon_handle h, cvec *vars, cg_var *arg)
+{
+    char            *sockpath;
+    int              s;
+    char            *stream = NULL;
+    int              retval = -1;
+
+    if (arg==NULL)
+	goto done;
+    stream = cv_string_get(arg);
+    sockpath = clicon_sock(h);
+    if (cli_proto_subscription(sockpath, stream, &s) < 0)
+	goto done;
+    
+    if (cligen_regfd(s, cli_notification_cb, NULL) < 0)
+	goto done;
+#if 0
+    if (event_reg_fd(s, cli_notification_cb, NULL, "notification socket") < 0)
+	goto done;
+#endif
+    retval = 0;
+  done:
+    return retval;
 }
 
 /*

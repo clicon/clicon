@@ -21,36 +21,32 @@
 # <http://www.gnu.org/licenses/>.
 #
 #
-VPATH       	= @srcdir@
-srcdir  	= @srcdir@
-top_srcdir  	= @top_srcdir@
-prefix 		= @prefix@
-datadir 	= @datarootdir@
-bindir 		= @bindir@
-includedir	= @includedir@
-localstatedir	= @localstatedir@
+
+srcdir  	= .
+top_srcdir  	= ../..
+prefix 		= /usr/local
+bindir 		= ${exec_prefix}/bin
+includedir	= ${prefix}/include
+localstatedir	= ${prefix}/var
 INSTALL		= @INSTALL@
-APPDIR          = @APPDIR@
-CC		= @CC@
-CFLAGS  	= @CFLAGS@ -rdynamic -fPIC 
-INCLUDES 	= -I$(includedir) @INCLUDES@ 
+APPDIR          = /perfmon
+CC		= gcc
+CFLAGS  	= -g -Wall -Werror -rdynamic -fPIC 
 
-APPNAME		= hello
+INCLUDES 	= -I$(includedir)  
 
-FE_PLUGIN       = hello_cli.so
-NC_PLUGIN       = hello_netconf.so
-BE_PLUGIN       = hello_backend.so
+FE_PLUGIN       = ntp_cli.so
+NC_PLUGIN       = ntp_netconf.so
+BE_PLUGIN       = ntp_backend.so
 
 PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN) $(NC_PLUGIN) 
 
 all:	$(PLUGINS)
 
--include $(datadir)/clicon/clicon.mk
-
 # You can add more .c:s for every SRC.
-FE_SRC   = hello_cli.c
-NC_SRC   = hello_netconf.c
-BE_SRC   = hello_backend.c
+FE_SRC   = ntp_cli.c
+NC_SRC   = ntp_netconf.c
+BE_SRC   = ntp_backend.c
 
 SRC = $(FE_SRC) $(BE_SRC) $(NC_SRC) 
 
@@ -75,42 +71,44 @@ $(BE_PLUGIN): $(BE_OBJ)
 clean:
 	rm -f $(OBJS) $(PLUGINS)
 
-distclean: 	clean
+distclean: clean
 	rm -f clicon.conf Makefile *~ .depend
 
-install:	hello.conf datamodel.spec hello_cli.cli $(PLUGINS)
-	install -d $(clicon_DBSPECDIR)
-	install -d $(clicon_SYSCONFDIR)
-	install -d $(clicon_LOCALSTATEDIR)
-	install -d $(clicon_LIBDIR)
-	install -d $(clicon_LIBDIR)/frontend
-	install -d $(clicon_LIBDIR)/backend
-	install -d $(clicon_LIBDIR)/netconf
-	install hello.conf $(clicon_SYSCONFDIR)/
-	install datamodel.spec $(clicon_DBSPECDIR)/
+install:	clicon.conf ntp.spec ntp_cli.cli $(PLUGINS)
+	install -m 755 -d $(DESTDIR)$(APPDIR) 
+	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
+	install -m 755 ntp.spec $(DESTDIR)$(APPDIR)
+	install -m 755 -d $(DESTDIR)$(APPDIR)/frontend
+	install -m 755 -d $(DESTDIR)$(APPDIR)/netconf
+	install -m 755 -d $(DESTDIR)$(APPDIR)/backend
+	install -m 755 -d $(DESTDIR)$(APPDIR)/db
+	install -m 755 -d $(DESTDIR)$(APPDIR)/archive
 	for i in $(FE_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/frontend/`basename $$i`; \
+		install $$i $(DESTDIR)$(APPDIR)/frontend/`basename $$i`; \
 	done
 	for i in $(NC_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/netconf/`basename $$i`; \
+		install $$i $(DESTDIR)$(APPDIR)/netconf/`basename $$i`; \
 	done
 	for i in $(BE_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/backend/`basename $$i`; \
+		install $$i $(DESTDIR)$(APPDIR)/backend/`basename $$i`; \
 	done
-	for i in hello_cli.cli; do \
-		install $$i $(clicon_LIBDIR)/frontend/`basename $$i`; \
+	for i in ntp_cli.cli; do \
+		install $$i $(DESTDIR)$(APPDIR)/frontend/`basename $$i`; \
 	done
 
 uninstall: 
-	rm -rf $(clicon_LIBDIR)/frontend
-	rm -rf $(clicon_LIBDIR)/backend
-	rm -rf $(clicon_LIBDIR)/netconf
-	rm -rf $(clicon_SYSCONFDIR)/hello.conf
-	rm -rf $(clicon_DBSPECDIR)/datamodel.spec
+	rm -rf $(APPDIR)/frontend
+	rm -rf $(APPDIR)/backend
+	rm -rf $(APPDIR)/netconf
+	rm -rf $(APPDIR)/db
+	rm -rf $(APPDIR)/archive
+	rm -rf $(APPDIR)/ntp.spec
+	rm -rf $(APPDIR)/*
 
 install-include:	
 
 depend:
-	$(CC) $(DEPENDFLAGS) @DEFS@ $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
+	$(CC) $(DEPENDFLAGS) -DHAVE_CONFIG_H $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
 
 #include .depend
+

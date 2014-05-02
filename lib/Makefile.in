@@ -64,7 +64,7 @@ clean:
 	for i in $(SUBDIRS); \
 	do (cd $$i; $(MAKE) $(MFLAGS) clean); done
 
-distclean:
+distclean:	clean
 	rm -f Makefile *~ .depend
 	for i in $(SUBDIRS); \
 	do (cd $$i; $(MAKE) $(MFLAGS) distclean); done; \

@@ -155,9 +155,8 @@ netconf_plugin_load(clicon_handle h)
     /* Load all plugins */
     for (i = 0; i < ndp; i++) {
 	filename = chunk_sprintf(__FUNCTION__, "%s/%s", dir, dp[i].d_name);
-	if (debug) 	/* Early in start, errors are logged on stderr  only */
-	    fprintf(stderr, "DEBUG: Loading plugin '%.*s' ...\n", 
-		    (int)strlen(filename), filename);
+	clicon_debug(1, "DEBUG: Loading plugin '%.*s' ...", 
+		     (int)strlen(filename), filename);
 	if (filename == NULL) {
 	    clicon_err(OE_UNIX, errno, "chunk");
 	    goto quit;
@@ -212,8 +211,7 @@ netconf_plugin_start(clicon_handle h, int argc, char **argv)
 	    break;
 	optind = 0;
 	if (startfn(h, argc, argv) < 0) {
-	    if(debug)
-		clicon_log(LOG_DEBUG, "plugin_start() failed\n");
+	    clicon_debug(1, "plugin_start() failed\n");
 	    return -1;
 	}
     }

@@ -20,8 +20,8 @@
   <http://www.gnu.org/licenses/>.
 
  *
- * Errors may be syslogged using LOG_ERR, and printed to stderr, as controlled
- * by clicon_err_init and clicon_log_init
+ * Errors may be syslogged using LOG_ERR, and printed to stderr, as controlled by 
+ * clicon_log_init
  * global error variables are set:
  *  clicon_errno, clicon_suberrno, clicon_err_reason.
  */
@@ -51,6 +51,7 @@ enum clicon_err{
     OE_ROUTING,  /* routing daemon error (eg quagga) */
     OE_XML,      /* xml parsing etc */
     OE_PLUGIN,   /* plugn loading, etc */
+    OE_FATAL,    /* Fatal error */
     OE_UNDEF,
 };
 
@@ -70,11 +71,9 @@ extern char clicon_err_reason[ERR_STRLEN];
 /*
  * Prototypes
  */
-int clicon_err_init(int syslog, int use_stderr);
 int clicon_err_reset(void);
 int clicon_err_fn(const char *fn, const int line, int level, int err, char *format, ...);
 char *clicon_strerror(int err);
-int clicon_err_print(FILE *f, char *str);
 void *clicon_err_save(void);
 int clicon_err_restore(void *handle);
 

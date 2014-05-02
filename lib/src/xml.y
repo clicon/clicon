@@ -60,6 +60,7 @@
 
 /* clicon */
 #include "clicon_err.h"
+#include "clicon_log.h"
 #include "xmlgen_xf.h"
 #include "xmlgen_xml.h"
 #include "xmlgen_xf.h"
@@ -69,16 +70,6 @@ static struct xml_node *xnc; /* current xml element */
 static struct xml_node *xnp; /* current xml parent */
 
 static char helpstr[64]; /* For use in error */
-static int debug = 0;
-
-int 
-xmly_debug(int value)
-{
-    int oldvalue = debug;
-
-    debug = value;
-    return oldvalue;
-}
 
 void 
 xmlerror(void *ya, char *s) 
@@ -110,9 +101,6 @@ static struct xml_node *
 append_body(struct xml_node *xn, struct xml_node *xn_parent, char *str)
 {
     int len0, len;
-
-    if (debug)
-	fprintf(stderr, "%s: '%s'\n", __FUNCTION__, str);
 
     if (xn == NULL){
 	/* if start w space, CR, TAB, ignore */
@@ -146,8 +134,6 @@ create_attribute(struct xml_node *xn, char *name, char *attrval)
 {
     struct xml_node *xa; 
 
-    if (debug)
-	fprintf(stderr, "%s: %s\n", __FUNCTION__, name);
     assert(xn);
     if ((xa = xml_new(name, xn)) == NULL)
 	return -1;
@@ -164,10 +150,10 @@ create_attribute(struct xml_node *xn, char *name, char *attrval)
 %%
 
 xml        : contentlist
-             { if (debug) fprintf(stderr, "ACCEPT\n"); 
+             { clicon_debug(2, "ACCEPT\n"); 
                YYACCEPT; }
             | XMLDecl contentlist
-            { if (debug) fprintf(stderr, "ACCEPT\n"); 
+            { clicon_debug(2, "ACCEPT\n"); 
                YYACCEPT; }
             ;
 

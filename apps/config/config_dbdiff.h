@@ -54,9 +54,9 @@ struct dbdiff {
  * Prototypes
  */ 
 int db_diff(char *db1,     char *db2, 
-	    struct dbdiff *df,
 	    const char *label,
-	    struct db_spec *db_spec
+	    struct db_spec *db_spec,
+	    struct dbdiff *df
     );
 
 

@@ -29,6 +29,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -39,95 +40,282 @@
 #include <sys/types.h>
 
 /* clicon */
+#include "clicon_err.h"
 #include "clicon_log.h"
 
-/* The global debug level */
+/* The global debug level. 0 means no debug */
 int debug = 0;
-static int _debug_syslog = 0;
 
-/*
- * clicon_log_init
- * Initialize system logger.
- * NOTE: applies to errors too.
- * ident is the prefix that appears on syslog (eg 'cli')
- * options: see syslog(3). Example: LOG_PERROR logs to stderr.
- * upto: log priority
+/* Bitmask whether to log to syslog or stderr: CLICON_LOG_STDERR | CLICON_LOG_SYSLOG */
+static int _logflags = 0x0;
+
+/* Function pointer to log notify callback */
+static clicon_log_notify_t *_log_notify_cb  = NULL;
+static void                *_log_notify_arg = NULL;
+
+/* Set to open file to bypass logging and write debug messages directly to file */
+static FILE *_debugfile = NULL;
+
+/*!
+ * \brief Initialize system logger.
+ *
+ * Make syslog(3) calls with specified ident and gates calls of level upto specified level (upto).
+ * May also print to stderr, if err is set.
+ * Applies to clicon_err() and clicon_debug too
+ *
+ * Args:
+ * IN    ident       prefix that appears on syslog (eg 'cli')
+ * IN    upto        log priority, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG (see syslog(3)).
+ * IN    flags       bitmask: if CLICON_LOG_STDERR, then print logs to stderr
+                              if CLICON_LOG_SYSLOG, then print logs to syslog
+			      You can do a combination of both
  */
 int
-clicon_log_init(char *ident, int upto, int err)
+clicon_log_init(char *ident, int upto, int flags)
 {
     if (setlogmask(LOG_UPTO(upto)) < 0)
 	/* Cant syslog here */
 	fprintf(stderr, "%s: setlogmask: %s\n", __FUNCTION__, strerror(errno)); 
-    openlog(ident, LOG_PID | (err?LOG_PERROR:0), LOG_USER);
+    _logflags = flags;
+    openlog(ident, LOG_PID, LOG_USER); /* LOG_PUSER is achieved by direct stderr logs in clicon_log */
+    return 0;
+}
+/*!
+ * \brief Register log callback, return old setting
+ */
+clicon_log_notify_t *
+clicon_log_register_callback(clicon_log_notify_t *cb, void *arg)
+{
+    clicon_log_notify_t *old = _log_notify_cb;
+    _log_notify_cb  = cb;
+    _log_notify_arg = arg;
+    return old;
+}
+
+/*
+ * Mimic syslog and print a time on file f
+ */
+static int
+flogtime(FILE *f)
+{
+    struct timeval tv;
+    struct tm *tm;
+
+    gettimeofday(&tv, NULL);
+    tm = localtime((time_t*)&tv.tv_sec);
+    fprintf(f, "%s %2d %02d:%02d:%02d: ", 
+	    mon2name(tm->tm_mon), tm->tm_mday,
+	    tm->tm_hour, tm->tm_min, tm->tm_sec);
     return 0;
 }
 
 /*
- * clicon_log
- * OSR loggings. 
- * In arguments are:
- * default log-level is LOG_NOTICE.
+ * Mimic syslog and print a time on string s
+ * String returned needs to be freed.
+ */
+static char *
+slogtime(void)
+{
+    struct timeval tv;
+    struct tm     *tm;
+    char           *str;
+
+    /* Example: "Apr 14 11:30:52: " len=17+1 */
+    if ((str = malloc(18)) == NULL){
+	fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno));
+	return NULL;
+    }
+    gettimeofday(&tv, NULL);
+    tm = localtime((time_t*)&tv.tv_sec);
+    snprintf(str, 18, "%s %2d %02d:%02d:%02d: ", 
+	     mon2name(tm->tm_mon), tm->tm_mday,
+	     tm->tm_hour, tm->tm_min, tm->tm_sec);
+    return str;
+}
+
+
+/*!
+ * \brief Make a logging call to syslog.
+ *
+ * This is the _only_ place the actual syslog (or stderr) logging is made in clicon,..
+ * See also clicon_log()
+ *
+ * Args:
+ * IN   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
+ * IN   format   Message to print as argv.
+ */
+int
+clicon_log_str(int level, char *msg)
+{
+    if (_logflags & CLICON_LOG_SYSLOG)
+	syslog(LOG_MAKEPRI(LOG_USER, level), "%s", msg);
+    if (_logflags & CLICON_LOG_STDERR){
+	flogtime(stderr);
+	fprintf(stderr, "%s\n", msg);
+    }
+    if (_logflags & CLICON_LOG_STDOUT){
+	flogtime(stdout);
+	fprintf(stdout, "%s\n", msg);
+    }
+    if (_log_notify_cb){
+	static int  cb = 0;
+	char       *d, *msg2;
+	int         len;
+
+	if (cb++ == 0){
+	    /* Here there is danger of recursion: if callback in turn logs, therefore
+	       make static check (should be stack-based - now global) 
+	    */
+	    if ((d = slogtime()) == NULL)
+		return -1;
+	    len = strlen(d) + strlen(msg) + 1;
+	    if ((msg2 = malloc(len)) == NULL){
+		fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno));
+		return -1;
+	    }
+	    snprintf(msg2, len, "%s%s", d, msg);
+	    _log_notify_cb(level, msg2, _log_notify_arg);
+	    free(d);
+	    free(msg2);
+	}
+	cb--;
+    }
+    return 0;
+}
+
+/*!
+ * \brief Make a logging call to syslog using variable arg syntax.
+ *
+ * See also clicon_log_init() and clicon_log_str()
+ *
+ * Args:
+ * IN   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
+ * IN   format   Message to print as argv.
  */
 int
 clicon_log(int level, char *format, ...)
 {
     va_list args;
+    int     len;
+    char   *msg    = NULL;
+    int     retval = -1;
 
+    /* first round: compute length of debug message */
     va_start(args, format);
-    vsyslog(LOG_MAKEPRI(LOG_USER, level), format, args);
+    len = vsnprintf(NULL, 0, format, args);
     va_end(args);
-    return 0;
+
+    /* allocate a message string exactly fitting the message length */
+    if ((msg = malloc(len+1)) == NULL){
+	fprintf(stderr, "malloc: %s\n", strerror(errno)); /* dont use clicon_err here due to recursion */
+	goto done;
+    }
+
+    /* second round: compute write message from format and args */
+    va_start(args, format);
+    if (vsnprintf(msg, len+1, format, args) < 0){
+	va_end(args);
+	fprintf(stderr, "vsnprintf: %s\n", strerror(errno)); /* dont use clicon_err here due to recursion */
+	goto done;
+    }
+    va_end(args);
+    /* Actually log it */
+    clicon_log_str(level, msg);
+
+    retval = 0;
+  done:
+    if (msg)
+	free(msg);
+    return retval;
 }
 
-/*
- * clicon_debug_init
- * log dbg messages upto 'level'
- * log on stderr, else to syslog
+
+/*!
+ * \brief Initialize debug messages. Set debug level.
+ *
+ * Initialize debug module. The level is used together with clicon_debug(dbglevel) calls as follows: 
+ * print message if level >= dbglevel.
+ * Example: clicon_debug_init(1) -> debug(1) is printed, but not debug(2).
+ * Normally, debug messages are sent to clicon_log() which in turn can be sent to syslog and/or stderr.
+ * But you can also override this with a specific debug file so that debug messages are written on the file
+ * independently of log or errors. This is to ensure that a syslog of normal logs is unpolluted by extensive
+ * debugging.
+ *
+ * Args:
+ * IN    dbglevel   0 is show no debug messages, 1 is normal, 2.. is high debug. Note this is not
+ *                  level from syslog(3)
+ * IN    f          Debug-file. Open file where debug messages are directed. This overrides the clicon_log settings
+ *                  which is otherwise where debug messages are directed.
  */
 int
-clicon_debug_init(int level, int syslog)
+clicon_debug_init(int dbglevel, FILE *f)
 {
-    int mask;
-
-    debug = level;
-    mask = setlogmask(0);
-    _debug_syslog = syslog;
-    if (debug)
-	setlogmask(LOG_MASK(LOG_DEBUG) | mask);
-    else
-	setlogmask(~LOG_MASK(LOG_DEBUG) & mask);
-
+    debug = dbglevel; /* Global variable */
     return 0;
 }
 
-/*
- * clicon_debug
- * print a debug message to syslog(LOG_DEBUG) if the debug level passed in the 
- * function is equal to or lower than the one set by clicon_debug_init.
- * That is, only print debug messages <= than what you want.
- * You can therefore have clicon_debug(0,...) which should always be called
- * (But then you may not see them in the syslog due to the level).
+
+/*!
+ * \brief Print a debug message with debug-level. Settings determine where msg appears.
+ *
+ * If the dbglevel passed in the function is equal to or lower than the one set by 
+ * clicon_debug_init(level).  That is, only print debug messages <= than what you want:
+ *      print message if level >= dbglevel.
+ * The message is sent to clicon_log. EIther to syslog, stderr or both, depending on 
+ * clicon_log_init() setting
+ * 
+ * Args:
+ * IN dbglevel   0 always called (dont do this: not really a dbg message)
+ *               1 default level if passed -D
+ *               2.. Higher debug levels
+ * IN format     Message to print as argv.
+ * 
  */
 int
 clicon_debug(int dbglevel, char *format, ...)
 {
     va_list args;
+    int     len;
+    char   *msg    = NULL;
+    int     retval = -1;
 
-    if (dbglevel > debug)
+    if (dbglevel > debug) /* debug mask */
 	return 0;
-    if (_debug_syslog) {
-	va_start(args, format);
-	vsyslog(LOG_MAKEPRI(LOG_USER, LOG_DEBUG), format, args);
-	va_end(args);
-    }
+    /* first round: compute length of debug message */
     va_start(args, format);
-    vfprintf(stderr, format, args);
+    len = vsnprintf(NULL, 0, format, args);
     va_end(args);
-    fprintf(stderr, "\n");
-    return 0;
+
+    /* allocate a message string exactly fitting the messgae length */
+    if ((msg = malloc(len+1)) == NULL){
+	clicon_err(OE_UNIX, errno, "malloc");
+	goto done;
+    }
+    /* second round: compute write message from format and args */
+    va_start(args, format);
+    if (vsnprintf(msg, len+1, format, args) < 0){
+	va_end(args);
+	clicon_err(OE_UNIX, errno, "vsnprintf");
+	goto done;
+    }
+    va_end(args);
+    if (_debugfile != NULL){ /* Bypass syslog altogether */
+	/* XXX: Here use date sub-routine as found in err_print1 */
+	flogtime(_debugfile);
+	fprintf(_debugfile, "%s\n", msg);
+    }
+    else
+	clicon_log_str(LOG_DEBUG, msg);
+    retval = 0;
+  done:
+    if (msg)
+	free(msg);
+    return retval;
 }
 
+/*!
+ * \brief Translate month number (0..11) to a three letter month name
+ */
 char *
 mon2name(int md)
 {

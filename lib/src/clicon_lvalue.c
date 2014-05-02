@@ -768,9 +768,8 @@ db_lv_vec_set(struct db_spec *dbspec,
 	clicon_err(OE_UNIX, errno, "chunk");
 	goto quit;
     }
-    if (debug && matched >= 0)
-	fprintf(stderr, "%s: new lvalue matches key %s\n", 
-		__FUNCTION__, key);
+    if (matched >= 0)
+	clicon_debug(2, "%s: new lvalue matches key %s", __FUNCTION__, key);
 
     /* Merge variables? */
     if(op == LV_MERGE) {
@@ -804,9 +803,7 @@ db_lv_vec_set(struct db_spec *dbspec,
     }
     if (db_lv_set(spec, dbname, key, setvars, LV_SET) < 0)
 	goto quit;
-    if (debug)
-	fprintf(stderr, "%s: set key %s to new lvalue\n", 
-		__FUNCTION__, key);
+    clicon_debug(2, "%s: set key %s to new lvalue", __FUNCTION__, key);
     retval = 0;
 quit:
     unchunk_group(__FUNCTION__);
@@ -873,7 +870,6 @@ db_lv_vec_replace(char *dbname,
 /*
  * db_lv_vec_del
  * Find subkey which matches the lvalue vector lvec, and remove them
- * XXX: Code in perfmon (delid_cb() to delete a key from a specific key, eg a.4.b.7
  */
 static int
 db_lv_vec_del(struct db_spec *dbspec, /* spec list */
@@ -973,8 +969,7 @@ db_lv_vec_del(struct db_spec *dbspec, /* spec list */
 	
 	/* Check if Value matches */
 	if (lv_matchvar (dbvars, setvars, 0)) {
-	  if (debug)
-		fprintf(stderr, "%s: remove key %s\n", 
+	    clicon_debug(1, "%s: remove key %s\n", 
 			__FUNCTION__, key);
 	    if (db_del(dbname, key) < 0)
 		goto quit;

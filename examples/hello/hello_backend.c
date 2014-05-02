@@ -87,8 +87,6 @@ plugin_init(clicon_handle h)
 int
 plugin_exit(clicon_handle h)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
     return 0;
 }
 
@@ -100,8 +98,6 @@ plugin_exit(clicon_handle h)
 int
 plugin_start(clicon_handle h, int argc, char **argv)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
     return 0;
 }
 
@@ -113,9 +109,6 @@ plugin_start(clicon_handle h, int argc, char **argv)
 int
 plugin_reset(clicon_handle h)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
-
     return 0;
 }
 
@@ -126,8 +119,6 @@ plugin_reset(clicon_handle h)
 int
 transaction_begin(clicon_handle h)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
     return 0;
 }
 
@@ -137,8 +128,7 @@ transaction_begin(clicon_handle h)
 int
 transaction_complete(clicon_handle h)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
+
     return 0;
 }
 
@@ -151,8 +141,6 @@ transaction_end(clicon_handle h)
 {
     int retval = -1;
 
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
     retval = 0;
     unchunk_group(__FUNCTION__);
     return retval;
@@ -165,8 +153,6 @@ transaction_end(clicon_handle h)
 int
 transaction_abort(clicon_handle h)
 {
-    if (debug)
-	fprintf(stderr, "%s\n", __FUNCTION__);    
     return 0;
 }
 
@@ -186,11 +172,10 @@ hello_validate(clicon_handle h,
     struct db_spec     *dbspec;
     int                 retval = -1;
 
-    if (debug){
-	fprintf(stderr, "%s %s\n", __FUNCTION__, key);
-	fprintf(stderr, "  dbname:  %s\n", dbname);
-	fprintf(stderr, "  key: %s\n", key);
-	fprintf(stderr, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");    }
+    clicon_debug(1, "%s %s\n", __FUNCTION__, key);
+    clicon_debug(1, "  dbname:  %s\n", dbname);
+    clicon_debug(1, "  key: %s\n", key);
+    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");    }
     if (op !=  LV_SET && op != LV_MERGE)
 	return 0;
     dbspec = clicon_dbspec_key(h);
@@ -219,11 +204,10 @@ hello_commit(clicon_handle h,
 {
     int                 retval = -1;
 
-    if (debug){
-	fprintf(stderr, "%s %s\n", __FUNCTION__, key);
-	fprintf(stderr, "  dbname:  %s\n", dbname);
-	fprintf(stderr, "  key: %s\n", key);
-	fprintf(stderr, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");    }
+    clicon_debug(1, "%s %s\n", __FUNCTION__, key);
+    clicon_debug(1, "  dbname:  %s\n", dbname);
+    clicon_debug(1, "  key: %s\n", key);
+    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");    }
     switch (op){
     case LV_DELETE:
 	break;

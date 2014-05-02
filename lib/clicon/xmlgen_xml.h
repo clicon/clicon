@@ -88,8 +88,9 @@ int xml_parse(char **str, struct xml_node *xn_parent, char *dtd_file,
 int xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag);
 int xml_parse_str(char **str, struct xml_node **xml_top);
 
-int xml_cp1(struct xml_node *xn0, struct xml_node *xn1);
-int xml_cp(struct xml_node *xn0, struct xml_node *xn1);
+int xml_cp1(struct xml_node *x0, struct xml_node *x1);
+int xml_cp(struct xml_node *x0, struct xml_node *x1);
+struct xml_node *xml_dup(struct xml_node *x0);
 int xml_node_eq(struct xml_node *x0, struct xml_node *x1);
 int xml_eq(struct xml_node *x0, struct xml_node *x1);
 int xml_delete(struct xml_node *xc, struct xml_node *xn,

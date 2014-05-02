@@ -38,6 +38,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <syslog.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/param.h>
@@ -245,5 +246,33 @@ netconf_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
 	goto done;
     retval = 0;
 done:
+    return retval;
+}
+
+int 
+netconf_output(int s, xf_t *xf, char *msg)
+{
+    char *buf = xf_buf(xf);
+    int len = xf_len(xf);
+    int retval = -1;
+
+    clicon_debug(1, "SEND %s", msg);
+    if (debug > 1){ /* XXX: below only works to stderr, clicon_debug may log to syslog */
+	struct xml_node *xt = NULL;
+	if (xml_parse_str(&buf, &xt) == 0){
+	    xml_to_file(stderr, *xt->xn_children, 0, 0);
+	    fprintf(stderr, "\n");
+	    xml_free(xt);
+	}
+    }
+    if (write(s, buf, len) < 0){
+	if (errno == EPIPE)
+	    ;
+	else
+	    clicon_log(LOG_ERR, "%s: write: %s", __FUNCTION__, strerror(errno));
+	goto done;
+    }
+    retval = 0;
+  done:
     return retval;
 }

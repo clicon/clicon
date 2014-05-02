@@ -35,6 +35,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/stat.h>
 
 /* cligen */
 #include <cligen/cligen.h>
@@ -48,6 +49,7 @@
 #include "clicon_spec.h"
 #include "clicon_lvalue.h"
 #include "clicon_proto.h"
+#include "clicon_err.h"
 #include "clicon_proto_encode.h"
 #include "clicon_proto_client.h"
 
@@ -81,6 +83,9 @@ cli_proto_copy(char *spath, char *filename1, char *filename2)
 
 }
 
+/*
+ * See also cli_proto_change_cvec
+ */
 int
 cli_proto_change(char *spath, char *db, lv_op_t op,
 		 char *key, char *lvec, int lvec_len)
@@ -390,4 +395,44 @@ cli_proto_debug(char *spath, int level)
     return retval;
 }
 
+/*
+ * cli_proto_subscription
+ * create a new notification subscription
+ * return socket
+ */
+int
+cli_proto_subscription(char *sockpath, char *stream, int *s0)
+{
+    struct clicon_msg *msg;
+    int                retval = -1;
+    int                s = -1;
+    struct stat        sb;
 
+    /* special error handling to get understandable messages (otherwise ENOENT) */
+    if (stat(sockpath, &sb) < 0){
+	clicon_err(OE_PROTO, errno, "%s: config daemon not running?", sockpath);
+	goto done;
+    }
+    if (!S_ISSOCK(sb.st_mode)){
+	clicon_err(OE_PROTO, EIO, "%s: Not unix socket", sockpath);
+	goto done;
+    }
+    if ((s = clicon_connect_unix(sockpath)) < 0)
+	goto done;
+    if ((msg=clicon_msg_subscription_encode(stream, __FUNCTION__)) == NULL)
+	return -1;
+    if (clicon_rpc(s, msg, NULL, 0, __FUNCTION__) < 0){
+#if 0
+	if (errno == ESHUTDOWN)
+	    /* Maybe could reconnect on a higher layer, but lets fail
+	       loud and proud */
+	    cli_set_exiting(1);
+#endif
+	goto done;
+    }
+    *s0 = s;
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}

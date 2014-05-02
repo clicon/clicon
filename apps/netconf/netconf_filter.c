@@ -53,6 +53,15 @@
 #include "netconf_lib.h"
 #include "netconf_filter.h"
 
+/* forward */
+static int
+xml_edit(struct xml_node *filter, 
+	 struct xml_node *parent, 
+	 enum operation_type op,
+	 xf_t *xf_err, 
+	 struct xml_node *xt);
+
+
 /*
  * xml_filter
  * xf specifices a filter, and xn is an xml tree.
@@ -303,6 +312,9 @@ edit_selection(struct xml_node *filter,
     return retval;
 }
 
+/*
+ * XXX: not called from external?
+ */
 static int
 edit_match(struct xml_node *filter, 
 	   struct xml_node *parent, 
@@ -317,14 +329,11 @@ edit_match(struct xml_node *filter,
     struct xml_node *copy;
     int retval = -1;
 
-    if (debug)
-	fprintf(stderr, "%s: %s op:%d\n", __FUNCTION__, filter->xn_name, op);
+    clicon_debug(1, "%s: %s op:%d", __FUNCTION__, filter->xn_name, op);
     if (match)
 	switch (op){
 	case OP_REPLACE:
 	case OP_CREATE:
-	    if (debug)
-		fprintf(stderr, "%s: %s REPLACE\n", __FUNCTION__, filter->xn_name);
 	    s = NULL;
 	    while ((s = xml_child_each(parent, s, -1)) != NULL){ 
 		xml_prune(parent, s, 1);
@@ -353,8 +362,6 @@ edit_match(struct xml_node *filter,
 	s = xml_find(parent, f->xn_name);
 	switch (op){
 	case OP_MERGE: 
-	    if (debug)
-		fprintf(stderr, "%s: merge: %s\n", __FUNCTION__, f->xn_name);
 	    /* things in filter:
 	       not in conf should be added 
 	       in conf go down recursive
@@ -367,8 +374,6 @@ edit_match(struct xml_node *filter,
 		netconf_clean(copy);
 	    }
 	    else{
-		if (debug)
-		    fprintf(stderr, "%s: merge: %s descent\n", __FUNCTION__, f->xn_name);
 		s = NULL;
 		while ((s = xml_child_each(parent, s, XML_ELEMENT)) != NULL) {
 		    if (strcmp(f->xn_name, s->xn_name))
@@ -376,8 +381,6 @@ edit_match(struct xml_node *filter,
 		    if ((retval = xml_edit(f, s, op, xf_err, xt)) < 0)
 			goto done;
 		}
-		if (debug)
-		    fprintf(stderr, "%s: merge: %s descent done\n", __FUNCTION__, f->xn_name);
 	    }
 	    break;
 	case OP_REPLACE:
@@ -472,8 +475,9 @@ edit_match(struct xml_node *filter,
 /*
  * xml_edit
  * merge filter into parent
+ * XXX: not called from external?
  */
-int
+static int
 xml_edit(struct xml_node *filter, 
 	 struct xml_node *parent, 
 	 enum operation_type op,
@@ -488,8 +492,6 @@ xml_edit(struct xml_node *filter,
     char *fstr, *sstr;
     int keymatch = 0;
 
-    if (debug)
-	fprintf(stderr, "%s: %s\n", __FUNCTION__, filter->xn_name);
     get_operation(filter, &op, xf_err, xt);
     /* 1. First try selection: filter is empty */
     if (filter->xn_nrchildren == 0){  /* no elements? */
@@ -522,24 +524,13 @@ xml_edit(struct xml_node *filter,
     while ((f = xml_child_each(filter, f, XML_ELEMENT)) != NULL) {
 	if ((fstr = leafstring(f)) == NULL)
 	    continue;
-	if (debug)
-	    fprintf(stderr, "%s: filter %s leafstring: %s=%s\n", __FUNCTION__, 
-		    filter->xn_name,
-		    f->xn_name, fstr);
 	/* we found a filter leaf-match: no return we say it should match*/
 	if ((s = xml_find(parent, f->xn_name)) == NULL)
 	    goto nomatch;
 	if ((sstr = leafstring(s)) == NULL)
 	    goto nomatch;
-	if (debug){
-	    fprintf(stderr, "%s: parent leafstring: %s=%s\n", __FUNCTION__, 
-		    s->xn_name, sstr);
-	    fprintf(stderr, "%s: leafstring sibling: %s=%s\n", __FUNCTION__, s->xn_name, sstr);
-	}
 	if (strcmp(fstr, sstr))
 	    goto nomatch;
-	if (debug)
-	    fprintf(stderr, "%s: leaftsring match\n", __FUNCTION__);
 	keymatch++;
 	break; /* match */
     }
@@ -565,7 +556,8 @@ xml_edit(struct xml_node *filter,
 /*
  * netconf_xpath
  * Arguments:
- *  xsearach is where you search for xpath
+ *  xsearch is where you search for xpath, grouped by a single top node which is
+ *          not significant and will not be returned in any result. 
  *  xfilter is the xml sub-tree, eg: 
  *             <filter type="xpath" select="/t:top/t:users/t:user[t:name='fred']"/>
  *  xt is original tree

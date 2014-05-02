@@ -146,8 +146,7 @@ transaction_end(clicon_handle h)
     fclose(out);
 
     /* Restart ntpd. XXX Any way to do a soft reconfig? */
-    if (debug)
-	fprintf(stderr, "Re-loading NTP daemon\n");
+    clicon_debug(1, "Re-loading NTP daemon\n");
     { /* XXX: platform dependent */
 	char buf[512];
 	snprintf (buf, sizeof (buf)-1, "pkill -%d %s", SIGTERM, NTPD);

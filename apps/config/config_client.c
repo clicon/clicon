@@ -71,6 +71,37 @@ struct client_entry *ce_list = NULL;   /* The client list */
  */
 static int client_nr = 0;              /* Number of clients */
 
+
+/*
+ * See also notify_log
+ */
+static struct subscription *
+subscription_add(struct client_entry *ce, char *stream)
+{
+    struct subscription *su = NULL;
+
+    if ((su = malloc(sizeof(*su))) == NULL){
+	clicon_err(OE_PLUGIN, errno, "malloc");
+	goto done;
+    }
+    memset(su, 0, sizeof(*su));
+    su->su_stream = strdup(stream);
+    su->su_next = ce->ce_subscription;
+    ce->ce_subscription = su;
+  done:
+    return su;
+}
+
+static int
+subscription_delete(struct subscription *su)
+{
+    free(su->su_stream);
+    free(su);
+    return 0;
+}
+
+
+
 /*
  * ce_add
  * Add client entry state
@@ -102,6 +133,7 @@ ce_rm(struct client_entry **ce_list, struct client_entry *ce)
 {
     struct client_entry *c;
     struct client_entry **ce_prev;
+    struct subscription *su;
 
     ce_prev = ce_list;
     for (c = *ce_prev; c; c = c->ce_next){
@@ -111,6 +143,10 @@ ce_rm(struct client_entry **ce_list, struct client_entry *ce)
 		event_unreg_fd(ce->ce_s, from_client);
 		close(ce->ce_s);
 		ce->ce_s = 0;
+	    }
+	    while ((su = ce->ce_subscription) != NULL){
+		ce->ce_subscription = su->su_next;
+		subscription_delete(su);
 	    }
 	    free(ce);
 	    break;
@@ -575,8 +611,7 @@ from_client_debug(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    clicon_debug_init(level, /* 0: dont debug, 1:debug */
-		      1); /* to syslog */
+    clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
 
     if (send_msg_ok(s) < 0)
 	goto done;
@@ -584,8 +619,6 @@ from_client_debug(clicon_handle h,
   done:
     return retval;
 }
-
-
 
 /*
  * Call backend plugin
@@ -621,6 +654,44 @@ from_client_call(clicon_handle h,
     free(reply_data);
 
  done:
+    return retval;
+}
+
+
+/*
+ * create subscription for notifications
+ */
+static int
+from_client_subscription(clicon_handle h,
+			 struct client_entry *ce,
+			 struct clicon_msg *msg, 
+			 const char *label)
+{
+    char *stream;
+    int retval = -1;
+    struct subscription *su;
+    clicon_log_notify_t *old;
+
+    if (clicon_msg_subscription_decode(msg, 
+				       &stream,
+				       label) < 0){
+	send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+
+    if ((su = subscription_add(ce, stream)) == NULL){
+	send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    /* Avoid recursion when sending logs */
+    old = clicon_log_register_callback(NULL, NULL);
+    if (send_msg_ok(ce->ce_s) < 0)
+	goto done;
+    clicon_log_register_callback(old, NULL); /* XXX NULL arg? */
+    retval = 0;
+  done:
     return retval;
 }
 
@@ -699,6 +770,10 @@ from_client(int s, void* arg)
 	break;
     case CLICON_MSG_CALL:
 	if (from_client_call(h, ce->ce_s, msg, __FUNCTION__) < 0)
+	    goto done;
+	break;
+    case CLICON_MSG_SUBSCRIPTION:
+	if (from_client_subscription(h, ce, msg, __FUNCTION__) < 0)
 	    goto done;
 	break;
     default:

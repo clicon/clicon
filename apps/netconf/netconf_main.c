@@ -58,64 +58,25 @@
 #include "netconf_rpc.h"
 
 /* Command line options to be passed to getopt(3) */
-#define NETCONF_OPTS "hDa:f:qs:d:"
-
-static int 
-output(int s, xf_t *xf, char *root, char *msg)
-{
-    char *buf = xf_buf(xf);
-    int len = xf_len(xf);
-    int retval = -1;
-
-    if (debug){
-	clicon_log(LOG_DEBUG, "SEND %s", msg);
-	if (debug > 1){
-	    struct xml_node *xt = NULL;
-	    if (xml_parse_str(&buf, &xt) == 0){
-    		xml_to_file(stderr, *xt->xn_children, 0, 0);
-		fprintf(stderr, "\n");
-		xml_free(xt);
-	    }
-	}
-    }
-    if (write(s, buf, len) < 0){
-	if (errno == EPIPE)
-	    ;
-	else
-	    clicon_log(LOG_ERR, "%s: write: %s", __FUNCTION__, strerror(errno));
-	goto done;
-    }
-    retval = 0;
-  done:
-    return retval;
-
-}
+#define NETCONF_OPTS "hDa:f:Sqs:d:"
 
 static int
 packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 {
     char *str, *str0;
-    char *root, *reply_root;
     struct xml_node *xml_req = NULL; /* Request (in) */
     int isrpc = 0;   /* either hello or rpc */
     xf_t *xf_out;
     xf_t *xf_err;
     xf_t *xf1;
 
-    if (debug){
-	clicon_log(LOG_DEBUG, "RECV");
-	if (debug > 1)
-	    clicon_log(LOG_DEBUG, "%s: RCV: \"%s\"", __FUNCTION__, xf_buf(xf));
-    }
+    clicon_debug(1, "RECV");
+    clicon_debug(2, "%s: RCV: \"%s\"", __FUNCTION__, xf_buf(xf));
     if ((str0 = strdup(xf_buf(xf))) == NULL){
 	clicon_log(LOG_ERR, "%s: strdup: %s", __FUNCTION__, strerror(errno));
 	return -1;
     }
     str = str0;
-    if (transport == NETCONF_SOAP)
-	reply_root = root = "Envelope";
-    else
-	reply_root = "rpc-reply";
     /* Parse incoming XML message */
     if (xml_parse_str(&str, &xml_req) < 0){
 	if ((xf = xf_alloc()) != NULL){
@@ -128,7 +89,7 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 				     NULL,
 				     NULL);
 
-	    output(1, xf, reply_root, "rpc-error");
+	    netconf_output(1, xf, "rpc-error");
 	    xf_free(xf);
 	}
 	else
@@ -139,18 +100,15 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
     free(str0);
     if (xml_xpath(xml_req, "//rpc") != NULL){
         isrpc++;
-        root = "rpc";
     }
     else
         if (xml_xpath(xml_req, "//hello") != NULL)
-            root = "hello";
+	    ;
         else{
             clicon_log(LOG_WARNING, "Illegal netconf msg: neither rpc or hello: dropp\
 ed");
             goto done;
         }
-    if (transport == NETCONF_SOAP)
-        root = "Envelope";
     /* Initialize response buffers */
     if ((xf_out = xf_alloc()) == NULL){
 	clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
@@ -170,9 +128,9 @@ ed");
 				 xml_xpath(xml_req, "//rpc"), 
 				 xf_out, xf_err) < 0){
 	    assert(xf_len(xf_err));
-	    clicon_log(LOG_DEBUG, "%s", xf_buf(xf_err));
+	    clicon_debug(1, "%s", xf_buf(xf_err));
 	    if (isrpc){
-		if (output(1, xf_err, reply_root, "rpc-error") < 0)
+		if (netconf_output(1, xf_err, "rpc-error") < 0)
 		    goto done;
 	    }
 	}
@@ -184,12 +142,12 @@ ed");
 		    xf_free(xf1);
 		    goto done;
 		}
-		if (output(1, xf1, reply_root, "rpc-reply") < 0){
+		if (netconf_output(1, xf1, "rpc-reply") < 0){
 		    xf_reset(xf1);
 		    netconf_create_rpc_error(xf1, xml_req, "operation-failed", 
 					     "protocol", "error", 
 					     NULL, xf_buf(xf_err));
-		    output(1, xf1, reply_root, "rpc-error");
+		    netconf_output(1, xf1, "rpc-error");
 		    xf_free(xf_out);
 		    xf_free(xf_err);
 		    xf_free(xf1);
@@ -210,9 +168,11 @@ ed");
     return 0;
 }
 
+
 static int
-eventloop(clicon_handle h, int s)
+netconf_input_cb(int s, void *arg)
 {
+    clicon_handle h = arg;
     unsigned char buf[BUFSIZ];
     int i, len;
     xf_t *xf;
@@ -223,40 +183,42 @@ eventloop(clicon_handle h, int s)
 	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
 	return retval;
     }
-    while (!cc_closed){
-	memset(buf, 0, sizeof(buf));
-	if ((len = read(s, buf, sizeof(buf))) < 0){
-	    if (errno == ECONNRESET)
-		len = 0; /* emulate EOF */
-	    else{
-		clicon_log(LOG_ERR, "%s: read: %s", __FUNCTION__, strerror(errno));
-		goto done;
-	    }
-	} /* read */
-	if (len == 0){ 	/* EOF */
-	    retval = 0;
+    memset(buf, 0, sizeof(buf));
+    if ((len = read(s, buf, sizeof(buf))) < 0){
+	if (errno == ECONNRESET)
+	    len = 0; /* emulate EOF */
+	else{
+	    clicon_log(LOG_ERR, "%s: read: %s", __FUNCTION__, strerror(errno));
 	    goto done;
 	}
-	for (i=0; i<len; i++){
-	    if (buf[i] == 0)
-		continue; /* Skip NULL chars (eg from terminals) */
-	    xprintf(xf, "%c", buf[i]);
-	    if (detect_endtag("]]>]]>",
-			      buf[i],
-			      &xml_state)) {
+    } /* read */
+    if (len == 0){ 	/* EOF */
+	cc_closed++;
+	close(s);
+	retval = 0;
+	goto done;
+    }
+    for (i=0; i<len; i++){
+	if (buf[i] == 0)
+	    continue; /* Skip NULL chars (eg from terminals) */
+	xprintf(xf, "%c", buf[i]);
+	if (detect_endtag("]]>]]>",
+			  buf[i],
+			  &xml_state)) {
 	    /* OK, we have an xml string from a client */
-		if (packet(h, clicon_dbspec_key(h), xf) < 0)
-		    goto done;
-		if (cc_closed)
-		    break;
-		xf_reset(xf);
+	    if (packet(h, clicon_dbspec_key(h), xf) < 0){
+		goto done;
 	    }
-
+	    if (cc_closed)
+		break;
+	    xf_reset(xf);
 	}
     }
     retval = 0;
   done:
     xf_free(xf);
+    if (cc_closed) 
+	retval = -1;
     return retval;
 }
 
@@ -276,7 +238,7 @@ send_hello(int s)
     }
     if (netconf_create_hello(xf, getpid()) < 0)
 	goto done;
-    if (output(s, xf, "hello", "hello") < 0)
+    if (netconf_output(s, xf, "hello") < 0)
 	goto done;
     retval = 0;
   done:
@@ -328,27 +290,26 @@ spec_main_netconf(clicon_handle h, int printspec)
 
     /* pt must be malloced since it is saved in options/hash-value */
     if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err_print(stderr, "FATAL: malloc");
+	clicon_err(OE_FATAL, errno, "malloc");
 	goto quit;
     }
     memset(pt, 0, sizeof(*pt));
 
     /* Parse db specification */
     if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE is NULL");
+	clicon_err(OE_FATAL, 0, "CLICON_DBSPEC_FILE is NULL");
 	goto quit;
     }
+
     if (stat(db_spec_file, &st) < 0){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE not found");
+	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
 	goto quit;
     }
     syntax = clicon_dbspec_type(h);
 
     if ((syntax == NULL) || strcmp(syntax, "PT") == 0){     /* Parse CLI syntax */
-	if (dbclispec_parse(h, db_spec_file, pt) < 0){
-	    clicon_err_print(stderr, "FATAL: parsing dbspec file");
+	if (dbclispec_parse(h, db_spec_file, pt) < 0)
 	    goto quit;
-	}	
 	if (clicon_dbspec_pt_set(h, pt) < 0)
 	    return -1;
 	if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
@@ -359,10 +320,8 @@ spec_main_netconf(clicon_handle h, int printspec)
 	    return -1;
     }
     else{ /* Parse KEY syntax */
-	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL){
-	    clicon_err_print(stderr, "FATAL: spec file (something wrong with appdir");
+	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 	    goto quit;
-	}
 	if (clicon_dbspec_key_set(h, db_spec) < 0)
 	    return -1;
 	/* 1: single arg, 2: doublearg */
@@ -376,6 +335,24 @@ spec_main_netconf(clicon_handle h, int printspec)
     retval = 0;
   quit:
     return retval;
+}
+
+static int
+terminate(clicon_handle h)
+{
+    struct db_spec *dbspec;
+    parse_tree *pt;
+
+//    fprintf(stdout, "%s\n", __FUNCTION__);
+    if ((dbspec = clicon_dbspec_key(h)) != NULL)
+	db_spec_free(dbspec);
+    if ((pt = clicon_dbspec_pt(h)) != NULL){
+	pt_apply(*pt, dbspec_userdata_delete, h);
+	cligen_parsetree_free(*pt, 1);
+	free(pt);
+    }
+    clicon_handle_exit(h);
+    return 0;
 }
 
 
@@ -414,12 +391,16 @@ main(int argc, char **argv)
     char            *argv0 = argv[0];
     int              quiet = 0;
     clicon_handle    h;
+    int              use_syslog;
 
+    /* Defaults */
+    use_syslog = 0;
+
+    /* In the startup, logs to stderr & debug flag set later */
+    clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
     /* Create handle */
-    if ((h = clicon_handle_init()) == NULL){
-	clicon_err_print(stderr, "FATAL: handle");
+    if ((h = clicon_handle_init()) == NULL)
 	return -1;
-    }
 
     while ((c = getopt(argc, argv, NETCONF_OPTS)) != -1)
 	switch (c) {
@@ -439,10 +420,17 @@ main(int argc, char **argv)
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
+	 case 'S': /* Log on syslog */
+	     use_syslog = 1;
+	     break;
 	}
 
-    clicon_debug_init(debug, 1); /* set debug level and to syslog */
-    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_WARNING, 1); /* Logs to stderr */
+    /* 
+     * Logs, error and debug to stderr or syslog, set debug level
+     */
+    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 
+		    use_syslog?CLICON_LOG_SYSLOG:CLICON_LOG_STDERR); 
+    clicon_debug_init(debug, NULL); 
 
     /* Find appdir. Find and read configfile */
     if (clicon_options_main(h, argc, argv) < 0)
@@ -457,6 +445,7 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	case 'a' : /* appdir */
 	case 'f': /* config file */
+	 case 'S': /* Log on syslog */
 	    break; /* see above */
 	case 'q':  /* quiet: dont write hello */
 	    quiet++;
@@ -479,20 +468,15 @@ main(int argc, char **argv)
     argv += optind;
 
     /* Parse db spec file */
-    if (spec_main_netconf(h, 0) < 0){
-	clicon_err_print(stderr, "FATAL: parsing db spec");
+    if (spec_main_netconf(h, 0) < 0)
 	return -1;
-    }
-    /* Initialize plugins group */
-    if (netconf_plugin_load(h) < 0){
-	clicon_err_print(stderr, "FATAL: loading plugin");
-	return -1;
-    }
 
-    if (init_candidate_db(h) < 0){
-	clicon_err_print(stderr, "FATAL: candidate_db");
+    /* Initialize plugins group */
+    if (netconf_plugin_load(h) < 0)
 	return -1;
-    }
+
+    if (init_candidate_db(h) < 0)
+	return -1;
     /* Call start function is all plugins before we go interactive */
     tmp = *(argv-1);
     *(argv-1) = argv0;
@@ -501,12 +485,15 @@ main(int argc, char **argv)
 
     if (!quiet)
 	send_hello(1);
-    if (eventloop(h, 0) < 0)
+    if (event_reg_fd(0, netconf_input_cb, h, "netconf socket") < 0)
+	goto quit;
+    if (event_loop() < 0)
 	goto quit;
   quit:
+
     netconf_plugin_unload(h);
-    db_spec_free(clicon_dbspec_key(h));
-    clicon_handle_exit(h);
-    
+    terminate(h);
+    clicon_log_init(__PROGRAM__, LOG_INFO, 0); /* Log on syslog no stderr */
+    clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
     return 0;
 }

@@ -101,10 +101,10 @@ clicon_option_dump(clicon_handle h, FILE *f)
 	
     for(i = 0; i < klen; i++) {
 	val = hash_value(hash, keys[i], &vlen);
-	printf("%s =\t 0x%p , length %zu", keys[i], val, vlen);
+	fprintf(f, "%s =\t 0x%p , length %zu", keys[i], val, vlen);
 	if (vlen && ((char*)val)[vlen-1]=='\0') /* assume string */
-	    printf(" \"%s\"", (char*)val);
-	printf("\n");
+	    fprintf(f, " \"%s\"", (char*)val);
+	fprintf(f, "\n");
     }
     free(keys);
 
@@ -139,7 +139,7 @@ clicon_option_readfile(clicon_hash_t *copt, const char *filename)
 	clicon_err(OE_UNIX, errno, "configure file: %s", filename);
 	return -1;
     }
-    clicon_log(LOG_DEBUG, "%s: Reading config file %s", __FUNCTION__, filename);
+    clicon_debug(2, "Reading config file %s", __FUNCTION__, filename);
     while (fgets(line, sizeof(line), f)) {
 	if ((cp = strchr(line, '\n')) != NULL) /* strip last \n */
 	    *cp = '\0';
@@ -169,7 +169,7 @@ clicon_option_readfile(clicon_hash_t *copt, const char *filename)
 static int
 clicon_option_default(clicon_hash_t  *copt)
 {
-    char           *dir;
+    char           *appdir;
     struct stat     st;
     char           *val;
     int             retval = 0;
@@ -178,50 +178,50 @@ clicon_option_default(clicon_hash_t  *copt)
 	clicon_err(OE_UNIX, 0, "CLICON_APPDIR not present in registry");
 	return -1;
     }
-    if ((dir = hash_value(copt, "CLICON_APPDIR", NULL)) == NULL){
+    if ((appdir = hash_value(copt, "CLICON_APPDIR", NULL)) == NULL){
 	clicon_err(OE_UNIX, 0, "CLICON_APPDIR not present in registry");
 	return -1;
     }
-    if (stat(dir, &st) < 0){
-	clicon_err(OE_UNIX, errno, "%s", dir);
+    if (stat(appdir, &st) < 0){
+	clicon_err(OE_UNIX, errno, "%s", appdir);
 	return -1;
     }
     if (!S_ISDIR(st.st_mode)){
-	clicon_err(OE_UNIX, ENOTDIR, "%s", dir);
+	clicon_err(OE_UNIX, ENOTDIR, "%s", appdir);
 	return -1;
     }
     if (!hash_lookup(copt, "CLICON_CLI_DIR")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/frontend", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/frontend", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_CLI_DIR", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_BACKEND_DIR")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/backend", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/backend", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_BACKEND_DIR", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_NETCONF_DIR")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/netconf", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/netconf", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_NETCONF_DIR", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_RUNNING_DB")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/db/running_db", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/db/running_db", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_RUNNING_DB", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_CANDIDATE_DB")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/db/candidate_db", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/db/candidate_db", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_CANDIDATE_DB", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_DBSPEC_FILE")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/datamodel.spec", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/datamodel.spec", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_DBSPEC_FILE", val, strlen(val)+1) < 0)
 	    goto catch;
@@ -231,25 +231,25 @@ clicon_option_default(clicon_hash_t  *copt)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_ARCHIVE_DIR")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/archive", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/archive", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_ARCHIVE_DIR", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_STARTUP_CONFIG")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/startup-config", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/startup-config", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_STARTUP_CONFIG", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_SOCK")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/clicon.sock", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/clicon.sock", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_SOCK", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_BACKEND_PIDFILE")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/clicon.pidfile", dir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/clicon.pidfile", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_BACKEND_PIDFILE", val, strlen(val)+1) < 0)
 	    goto catch;
@@ -333,15 +333,15 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
 		hash_add(copt, "CLICON_APPDIR", APPDIR, strlen(APPDIR)+1);
 #endif /* APPDIR */
 	}
-	if (!hash_lookup(copt, "CLICON_APPDIR")){ 
-	    clicon_err_print(stderr, "FATAL: APPDIR not set\n"
-			     "Try -a; configure --with-appdir or CLICON_APPDIR env variable.");
+	if (hash_lookup(copt, "CLICON_APPDIR") == NULL){ 
+	    clicon_err(OE_CFG, 0, "FATAL: APPDIR not set\n"
+		       "Try -a; configure --with-appdir or CLICON_APPDIR env variable.");
 	    return -1;
 	}
     }
     appdir = hash_value(copt, "CLICON_APPDIR", NULL);
     if (stat(appdir, &st) < 0){
-	clicon_err(OE_CFG, errno, "%s\n", appdir);
+	clicon_err(OE_CFG, errno, "%s", appdir);
 	return -1;
     }
     if (!S_ISDIR(st.st_mode)){
@@ -365,7 +365,7 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
 
     /* Read configfile */
     if (clicon_option_readfile(copt, configfile) < 0){
-	clicon_err_print(stderr, "FATAL: Reading config file");	
+	clicon_err(OE_CFG, 0, 0, "FATAL: Reading config file");	
 	return -1;
     }
     return 0;

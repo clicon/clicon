@@ -123,7 +123,7 @@ pidfile_check(char *pidfile, int kill_it)
 	    if (kill (pid, 0) == 0 || errno != ESRCH) {
 		if (kill_it == 0) /* Don't kill, report pid */
 		    return pid;
-		clicon_log(LOG_DEBUG, "Killing old daemon with pid: %d", pid);
+		clicon_debug(1, "Killing old daemon with pid: %d", pid);
 		killpg(pid, SIGTERM);
 		kill(pid, SIGTERM);
 		sleep(1); /* check again */
@@ -144,8 +144,7 @@ pidfile_check(char *pidfile, int kill_it)
     } 
     fprintf(f, "%ld\n", (long) getpid());
     fclose(f);
-    clicon_log(LOG_DEBUG, "Opened pidfile %s with pid %d",
-	    pidfile, getpid());
+    clicon_debug(1, "Opened pidfile %s with pid %d", pidfile, getpid());
     
     return 0;
 }

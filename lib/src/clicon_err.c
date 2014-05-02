@@ -21,7 +21,7 @@
 
  *
  * Errors may be syslogged using LOG_ERR, and printed to stderr, as controlled
- * by clicon_err_init and clicon_log_init
+ * by clicon_log_init
  * global error variables are set:
  *  clicon_errno, clicon_suberrno, clicon_err_reason.
  */
@@ -33,7 +33,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <string.h>
@@ -67,28 +69,53 @@ int clicon_errno  = 0;    /* See enum clicon_err */
 int clicon_suberrno  = 0; /* Corresponds to errno.h */
 char clicon_err_reason[ERR_STRLEN] = {0, };
 
-/* Local variables */
-static int err_syslog = 0; /* print errors on syslog */
-static int err_stderr = 0; /* print errors on stderr */
-
 /*
  * Error descriptions. Must stop with NULL element.
  */
 static struct errvec EV[] = {
-    {"Database error",      OE_DB},
-    {"Demon error",        OE_DEMON},
-    {"Event error",        OE_EVENTS},
-    {"Config error",        OE_CFG},
-    {"Protocol error",    OE_PROTO},
-    {"Regexp error",    OE_REGEX},
-    {"UNIX error",    OE_UNIX},
-    {"Syslog error",    OE_SYSLOG},
+    {"Database error",         OE_DB},
+    {"Demon error",            OE_DEMON},
+    {"Event error",            OE_EVENTS},
+    {"Config error",           OE_CFG},
+    {"Protocol error",         OE_PROTO},
+    {"Regexp error",           OE_REGEX},
+    {"UNIX error",             OE_UNIX},
+    {"Syslog error",           OE_SYSLOG},
     {"Routing demon error",    OE_ROUTING},
-    {"Plugins",    OE_PLUGIN},
-    {"Undefined",    OE_UNDEF},
+    {"Plugins",                OE_PLUGIN},
+    {"FATAL",                  OE_FATAL},
+    {"Undefined",              OE_UNDEF},
     {NULL,                     -1}
 };
 
+
+
+static char *
+clicon_strerror1(int err, struct errvec vec[])
+{
+    struct errvec *ev;
+
+    for (ev=vec; ev->ev_err != -1; ev++)
+	if (ev->ev_err == err)
+	    break;
+    return ev?(ev->ev_str?ev->ev_str:"unknown"):"CLICON unknown error";
+}
+
+/*!
+ * \brief Clear error state and continue.
+ *
+ * Clear error state and get on with it, typically non-fatal error and you wish to continue.
+ */
+int
+clicon_err_reset(void)
+{
+    clicon_errno = 0;
+    clicon_suberrno = 0;
+    memset(clicon_err_reason, 0, ERR_STRLEN);
+    return 0;
+}
+
+#ifdef notused
 /* XXX: hardcoded to QUAGGA, move to app-layer */
 static struct errvec QV[] = {
     {"QUAGGA_SUCCESS",              0},
@@ -105,47 +132,6 @@ static struct errvec QV[] = {
     {"QUAGGA_NO_CONTACT",          11},
     {NULL,            -1}
 };
-
-
-
-/*
- * Applications define how errors are signalled.
- * On FILE, syslog(LOG_ERR), or not at all.
- * If not at all, the app can choose to print all error messages itself.
- * Use _either_ syslog, stderr or neither. Dont use both.
- */
-int
-clicon_err_init(int use_syslog, int use_stderr)
-{
-    err_syslog = use_syslog;
-    err_stderr = use_stderr;
-    return 0;
-}
-
-static char *
-clicon_strerror1(int err, struct errvec vec[])
-{
-    struct errvec *ev;
-
-    for (ev=vec; ev->ev_err != -1; ev++)
-	if (ev->ev_err == err)
-	    break;
-    return ev?(ev->ev_str?ev->ev_str:"unknown"):"OSR unknown error";
-}
-
-/*
- * clicon_err_reset
- * Clear error state and get on with it.
- * (Non-fatal error and you wish to continue)
- */
-int
-clicon_err_reset(void)
-{
-    clicon_errno = 0;
-    clicon_suberrno = 0;
-    memset(clicon_err_reason, 0, ERR_STRLEN);
-    return 0;
-}
 
 static int
 err_print1(FILE *f, char *prestr, int time, 
@@ -182,52 +168,75 @@ err_print1(FILE *f, char *prestr, int time,
     }
     else
 	fprintf(f, "\n");
-    clicon_err_reset();
     return 0;
 }
+#endif /* notused */
 
-
-/*
- * clicon_err_fn
+/*!
+ * \brief Report an error.
+ *
  * Library routines should call this function when an error occurs.
  * The function does he following:
  * - Logs to syslog with LOG_ERR
  * - Set global error variable name clicon_errno
  * - Set global reason string clicon_err_reason
- * NOTE: err direction (syslog and/or stderr) controlled by clicon_err_init and 
- * clicon_log_init()
+ * NOTE: err direction (syslog and/or stderr) controlled by clicon_log_init()
+ * Args:
+ * IN    fn       Inline function name (when called from clicon_err() macro)
+ * IN    line     Inline file line number (when called from clicon_err() macro)
+ * IN    err      Error number, typically errno
+ * IN    suberr   Sub-error number   
+ * IN    reason   Error string, format with argv
  */
 int
-clicon_err_fn(const char *fn, const int line, int err, int suberr, char *reason, ...)
+clicon_err_fn(const char *fn, const int line, int category, int suberr, char *reason, ...)
 {
     va_list args;
+    int     len;
+    char   *msg    = NULL;
+    int     retval = -1;
 
-    clicon_errno = err;
-    clicon_suberrno = suberr;
+    /* first round: compute length of error message */
     va_start(args, reason);
-    vsnprintf(clicon_err_reason, ERR_STRLEN, reason, args);
+    len = vsnprintf(NULL, 0, reason, args);
     va_end(args);
-    if (err_syslog){
-	if (suberr)
-	    syslog(LOG_MAKEPRI(LOG_USER, LOG_ERR), "%s: %s: %s\n",
-		   clicon_strerror(err),
-		   clicon_err_reason,
-		   strerror(suberr));
-	else
-	    syslog(LOG_MAKEPRI(LOG_USER, LOG_ERR), "%s: %s\n",
-		   clicon_strerror(err),
-		   clicon_err_reason);
+
+    /* allocate a message string exactly fitting the message length */
+    if ((msg = malloc(len+1)) == NULL){
+	fprintf(stderr, "malloc: %s\n", strerror(errno)); /* dont use clicon_err here due to recursion */
+	goto done;
     }
-    if (err_stderr)
-	err_print1(stderr, NULL, 0, err, suberr, clicon_err_reason);
-    return 0;
+
+    /* second round: compute write message from reason and args */
+    va_start(args, reason);
+    if (vsnprintf(msg, len+1, reason, args) < 0){
+	va_end(args);
+	fprintf(stderr, "vsnprintf: %s\n", strerror(errno)); /* dont use clicon_err here due to recursion */
+	goto done;
+    }
+    va_end(args);
+    /* Actually log it */
+    if (suberr){
+	/* Here we could take care of specific suberr, like application-defined errors */
+	clicon_log(LOG_ERR, "%s: %s: %s", 
+		   clicon_strerror(category),
+		   msg,
+		   strerror(suberr));
+    }
+    else
+	clicon_log(LOG_ERR, "%s: %s", 
+		   clicon_strerror(category),
+		   msg);
+
+    retval = 0;
+  done:
+    if (msg)
+	free(msg);
+    return retval;
 }
 
-
-
-/*
- * clicon_strerror
- * Translate from numeric error to string representation
+/*!
+ * \brief Translate from numeric error to string representation
  */
 char *
 clicon_strerror(int err)
@@ -235,18 +244,9 @@ clicon_strerror(int err)
     return clicon_strerror1(err, EV);
 }
 
-/*
- * Print error messages (syslog style) to a file (eg stderr)
- * Only top-level applications use this to print an error that occurred
- * with clicon_err().
- * NOTE: use clicon_err() to indicate an error in a library routine.
+/*!
+ * \brief Push an error state, if recursive error handling
  */
-int
-clicon_err_print(FILE *f, char *prestr)
-{
-    return err_print1(f, prestr, 1, clicon_errno, clicon_suberrno, clicon_err_reason);
-}
-
 void*
 clicon_err_save(void)
 {
@@ -260,6 +260,9 @@ clicon_err_save(void)
     return (void*)es;
 }
 
+/*!
+ * \brief Pop an error state, if recursive error handling
+ */
 int
 clicon_err_restore(void* handle)
 {

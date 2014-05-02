@@ -51,6 +51,7 @@
 #include "clicon_options.h"
 #include "clicon_plugin.h"
 #include "clicon_dbutil.h"
+#include "clicon_dbmatch.h"
 #include "clicon_db2txt.h"
 #include "clicon_db2txt.y.h"
 #include "clicon_db2txt.tab.h"

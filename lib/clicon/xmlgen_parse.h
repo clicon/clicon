@@ -43,6 +43,5 @@ int xmll_linenum(void);
 int xmllex(void *);
 int xmlparse(void *);
 void xmlgen_xmlerror(char*);
-int xmly_debug(int value);
 
 #endif	/* _XMLGEN_PARSE_H_ */

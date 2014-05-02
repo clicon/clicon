@@ -71,7 +71,7 @@
 #include "config_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define OPTSTRING "hDf:a:d:s:Fzu:P:1IRc::rg:"
+#define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRc::rg:"
 
 static int
 terminate(clicon_handle h)
@@ -106,8 +106,10 @@ terminate(clicon_handle h)
 static void
 config_sig_term(int arg)
 {
-    clicon_log(LOG_NOTICE, "%s: %u Killed by sig %d", 
-	    __PROGRAM__, getpid(), arg);
+    static int i=0;
+    if (i++ == 0)
+	clicon_log(LOG_NOTICE, "%s: %u Signal %d", 
+		   __PROGRAM__, getpid(), arg);
 //    exit(0); /* XXX: should not exit here, but it hangs sometimes */
 }
 
@@ -129,7 +131,7 @@ usage(char *argv0, clicon_handle h)
     fprintf(stderr, "usage:%s\n"
 	    "where options are\n"
             "    -h\t\thelp\n"
-    	    "    -D\t\tdebug\n"
+    	    "    -D <level>\t\tdebug\n"
     	    "    -f <file>\tCLICON config file (default: %s)\n"
     	    "    -a <dir>\tSpecify application dir (default: %s)\n"
 	    "    -d <dir>\tSpecify backend plugin directory (default: %s)\n"
@@ -248,6 +250,13 @@ server_socket(clicon_handle h)
     return ss;
 }
 
+static int
+config_log_cb(int level, char *msg, void *arg)
+{
+    /* Notify_log() will go through all clients and see if any has registered "CLICON",
+       and if so make a clicon_proto notify message to those clients.   */
+    return notify_log("CLICON", level, msg);
+}
 
 /*
  * cf cli_main.c: spec_main_cli()
@@ -265,27 +274,23 @@ spec_main_config(clicon_handle h, int printspec)
 
     /* pt must be malloced since it is saved in options/hash-value */
     if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err_print(stderr, "FATAL: malloc");
+	clicon_err(OE_FATAL, errno, "malloc");
 	goto quit;
     }
     memset(pt, 0, sizeof(*pt));
 
     /* Parse db specification */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE is NULL");
+    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
 	goto quit;
-    }
-    if (stat(db_spec_file, &st) < 0){
-	clicon_err_print(stderr, "FATAL: CLICON_DBSPEC_FILE not found");
+
+    if (stat(db_spec_file, &st) < 0)
 	goto quit;
-    }
+
     syntax = clicon_dbspec_type(h);
 
     if ((syntax == NULL) || strcmp(syntax, "PT") == 0){     /* Parse CLI syntax */
-	if (dbclispec_parse(h, db_spec_file, pt) < 0){
-	    clicon_err_print(stderr, "FATAL: parsing dbspec file");
+	if (dbclispec_parse(h, db_spec_file, pt) < 0)
 	    goto quit;
-	}	
 	if (clicon_dbspec_pt_set(h, pt) < 0)
 	    return -1;
 	if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
@@ -296,10 +301,8 @@ spec_main_config(clicon_handle h, int printspec)
 	    return -1;
     }
     else{ /* Parse KEY syntax */
-	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL){
-	    clicon_err_print(stderr, "FATAL: spec file (something wrong with appdir");
+	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 	    goto quit;
-	}
 	if (clicon_dbspec_key_set(h, db_spec) < 0)
 	    return -1;
 	/* 1: single arg, 2: doublearg */
@@ -334,15 +337,13 @@ main(int argc, char **argv)
     clicon_handle  h;
     int            help = 0;
 
+    /* In the startup, logs to stderr & syslog and debug flag set later */
+    clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR|CLICON_LOG_SYSLOG); 
     /* Initiate CLICON handle */
-    if ((h = backend_handle_init()) == NULL){
-	clicon_err_print(stderr, "FATAL: handle");
+    if ((h = backend_handle_init()) == NULL)
 	goto quit;
-    }
-    if (config_plugin_init(h) != 0) {
-	clicon_err_print(stderr, "FATAL: config_plugin_init");
+    if (config_plugin_init(h) != 0) 
 	goto quit;
-    }
 
     foreground = 0;
     once = 0;
@@ -355,7 +356,7 @@ main(int argc, char **argv)
      */
     opterr = 0;
     optind = 1;
-    while ((c = getopt(argc, argv, OPTSTRING)) != -1)
+    while ((c = getopt(argc, argv, BACKEND_OPTS)) != -1)
 	switch (c) {
 	case '?':
 	case 'h':
@@ -367,7 +368,8 @@ main(int argc, char **argv)
 	    help = 1; 
 	    break;
 	case 'D' : /* debug */
-	    debug = 1;
+	    if (sscanf(optarg, "%d", &debug) != 1)
+		usage(argv[0], h);
 	    break;
 	case 'a': /* Register command line app-dir if any */
 	    if (!strlen(optarg))
@@ -380,21 +382,24 @@ main(int argc, char **argv)
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
 	}
-    clicon_debug_init(debug, 1); /* set debug level and to syslog */
-    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 1); /* Log on stderr too */
+    /* 
+     * Syslogs also to stderr, but later turn stderr off in daemon mode. 
+     * error only to syslog. debug to syslog
+     */
+    clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, CLICON_LOG_STDERR|CLICON_LOG_SYSLOG); 
+    clicon_debug_init(debug, NULL);
 
     /* Find appdir. Find and read configfile */
     if (clicon_options_main(h, argc, argv) < 0){
 	if (help)
 	    usage(argv[0], h);
-	clicon_err_print(stderr, "FATAL: configfile");
 	return -1;
     }
 
     /* Now run through the operational args */
     opterr = 1;
     optind = 1;
-    while ((c = getopt(argc, argv, OPTSTRING)) != -1)
+    while ((c = getopt(argc, argv, BACKEND_OPTS)) != -1)
 	switch (c) {
 	case 'D' : /* debug */
 	case 'a' : /* appdir */
@@ -464,13 +469,11 @@ main(int argc, char **argv)
 	exit(0);
     }
     /* Sanity check: config group exists */
-    if ((config_group = clicon_sock_group(h)) == NULL){
-	clicon_err_print(stderr, "FATAL: CLICON_SOCK_GROUP option");
+    if ((config_group = clicon_sock_group(h)) == NULL)
 	return -1;
-    }
+
     if (group_name2gid(config_group, NULL) < 0){
-	clicon_err_print(stderr, "FATAL: config group");
-	fprintf(stderr, "'%s' does not seem to be a valid user group.\n" 
+	clicon_log(LOG_ERR, "'%s' does not seem to be a valid user group.\n" 
 		"The config demon requires a valid group to create a server UNIX socket\n"
 		"Define a valid CLICON_SOCK_GROUP in %s or via the -g option\n", 
 		config_group, clicon_configfile(h));
@@ -478,49 +481,36 @@ main(int argc, char **argv)
     }
 
     /* Parse db spec file */
-    if (spec_main_config(h, 0) < 0){
-	clicon_err_print(stderr, "FATAL: parsing db spec");
+    if (spec_main_config(h, 0) < 0)
 	return -1;
-    }
 
     /* Init running db */
     if (init_rundb || (stat(clicon_running_db(h), &st) && errno == ENOENT))
-	if (rundb_main(h) < 0){
-	    clicon_err_print(stderr, "FATAL: Failed to init running db");
+	if (rundb_main(h) < 0)
 	    goto quit;
-	}
 
     /* Initialize plugins 
        (also calls plugin_init() and plugin_start(argc,argv) in each plugin */
-    if (plugin_initiate(h) != 0) {
-	clicon_err_print(stderr, "FATAL: Failed to load plugins");
+    if (plugin_initiate(h) != 0) 
 	goto quit;
-    }
     
     /* Request plugins to reset system state */
     if (reset_state)
-	if (plugin_reset_state(h) < 0)  {
-	    clicon_err_print(stderr, "FATAL: Initial state reset failed");
+	if (plugin_reset_state(h) < 0)  
 	    goto quit;
-	}
-	    
 
     /* Call plugin_start */
     tmp = *(argv-1);
     *(argv-1) = argv0;
-    if (plugin_start_hooks(h, argc+1, argv-1) < 0) {
-	clicon_err_print(stderr, "FATAL: Plugin start failed");
+    if (plugin_start_hooks(h, argc+1, argv-1) < 0) 
 	goto quit;
-    }
     *(argv-1) = tmp;
 
 
     /* Have we specified a config file to load? */
     if (app_config)
-	if (appconf_main(h, app_config, replace_config) < 0){
-	    clicon_err_print(stderr, "FATAL: Failed to load configuration");
+	if (appconf_main(h, app_config, replace_config) < 0)
 	    goto quit;
-	}
     /* Initiate the shared candidate. Maybe we should not do this? */
     if (file_cp(clicon_running_db(h), clicon_candidate_db(h)) < 0){
 	clicon_err(OE_UNIX, errno, "FATAL: file_cp");
@@ -534,26 +524,22 @@ main(int argc, char **argv)
 
     /* Daemonize and initiate logging. Note error is initiated here to make
        demonized errors OK. Before this stage, errors are logged on stderr 
-       only */
+       also */
     if (foreground==0){
+	clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, CLICON_LOG_SYSLOG); 
 	if (daemon(0, 0) < 0){
 	    fprintf(stderr, "config: daemon");
 	    exit(0);
 	}
-	clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 0); /* log on syslog */
-	clicon_err_init(1, 0); /* log errs (ie syslog) */
-    }
-    else{
-	clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, 1); /* Log on stderr too */
-	clicon_err_init(1, 0); /* log errs (ie stderr too) */
     }
 
     /* Daemon already running? */
-    if (pidfile_check(clicon_backend_pidfile(h), 0) > 0) {
-	clicon_err_print(stderr, "FATAL: Another daemon already running");
+    if (pidfile_check(clicon_backend_pidfile(h), 0) > 0) 
 	goto quit;
-    }
 
+    /* Register log notifications */
+    if (clicon_log_register_callback(config_log_cb, NULL) < 0)
+	return -1;
     clicon_log(LOG_NOTICE, "%s: %u Started", __PROGRAM__, getpid());
     if (set_signal(SIGTERM, config_sig_term, NULL) < 0){
 	clicon_err(OE_DEMON, errno, "Setting signal");
@@ -563,7 +549,7 @@ main(int argc, char **argv)
 	clicon_err(OE_DEMON, errno, "Setting signal");
 	return -1;
     }
-
+	
     /* Initialize server socket */
     if (server_socket(h) < 0)
 	return -1;
@@ -575,4 +561,4 @@ main(int argc, char **argv)
     clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
 
     return 0;
-    }
+}

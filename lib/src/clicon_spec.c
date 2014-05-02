@@ -169,9 +169,8 @@ parse_line(char *line, int linenr, const char *filename, struct db_spec **list)
 	goto catch;
     if ((dbp = db_spec_new()) == NULL)
 	goto catch;
-    vr = dbp->ds_vec = cvec_new(0);
-    dbp->ds_key = strdup(vec[0]);
-    db_spec_tailadd(list, dbp); /* dbp may be freed */
+    if ((vr = cvec_new(0)) == NULL)
+	goto catch;
     for (i=1; i<nvec; i++){
 	unique = 0;
 	if (!strlen(vec[i]))
@@ -225,6 +224,12 @@ parse_line(char *line, int linenr, const char *filename, struct db_spec **list)
 	if (unique)
 	    cv_flag_set(newcv, V_UNIQUE);
     } /* for */
+    /* Add this cvec to the spec */
+    if ((dbp = db_spec_new()) == NULL)
+	goto catch;
+    dbp->ds_vec = vr;
+    dbp->ds_key = strdup(vec[0]);
+    db_spec_tailadd(list, dbp); /* dbp may be freed */
     retval = 0;
   catch:
     unchunk_group(__FUNCTION__);
@@ -357,6 +362,7 @@ clicon_dbspec_parse_str(clicon_handle h,
  *
  * Similar to clicon_dbspec_str(), just read a file first
  * (cloned from cligen)
+ * The database symbols are inserted in alphabetical order.
  */
 static int
 clicon_dbspec_parse_file(clicon_handle h,
@@ -403,6 +409,8 @@ clicon_dbspec_parse_file(clicon_handle h,
 
 /*
  * \brief Parse dbspec using cligen spec format
+ *
+ * The database symbols are inserted in alphabetical order.
  */
 int
 dbclispec_parse(clicon_handle h, const char *filename, parse_tree *pt)
@@ -794,8 +802,7 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
     memset(&co0, 0, sizeof(co0));
     /* Parse through all spec lines */
     for (ds=db_spec; ds; ds=ds->ds_next){
-	if (debug)
-	    fprintf(stderr, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
+	clicon_debug(2, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
 	subvh = db_spec2cvec(ds);
 	v = NULL; 		
 	co = NULL;
@@ -808,8 +815,7 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
 	/* Parse through all keys in a spec-line, eg "a.b.c" */
 	for (i=0; i<nvec; i++){ 
 	    key = vec[i];
-	    if (debug)
-		fprintf(stderr, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
+	    clicon_debug(2, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
 	    isvec = 0;
 	    if (key_isvector(key)){
 		isvec++;
@@ -858,6 +864,12 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
 	    if ((cov = co_find_one(co->co_pt, cv_name_get(v))) == NULL)
 		if ((cov = covar_new(h, co, v)) == NULL)
 		    goto catch;
+	    if ((str = db_spec2str(ds)) == NULL)
+		goto catch;
+	    /* The unique variable is added as indexvar in co */
+	    if (dbspec_key_set(cov, str) < 0)
+		goto catch;
+
 	    co = cov;
 	}
 
@@ -869,6 +881,12 @@ dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt)
 	    if ((cov = covar_new(h, co, v)) == NULL)
 		goto catch;
 	    co_insert(&cov->co_pt, NULL); /* empty child */
+		if ((str = db_spec2str(ds)) == NULL)
+		    goto catch;
+		/* The unique variable is added as indexvar in co */
+		if (dbspec_key_set(cov, str) < 0)
+		    goto catch;
+
 	} /* while single var not unique */
     } /* for (ds): lines in database */
 

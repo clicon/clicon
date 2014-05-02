@@ -30,29 +30,44 @@
 # CLICON_APPDIR /usr/local/share/clicon
 
 # Location of configuration-file for default values (this file)
-# Here for reference only.
-# CLICON_CONFIGFILE       $(APPDIR)/clicon.conf
+CLICON_CONFIGFILE      sysconfdir/APPNAME.conf
 
 # Database specification file syntax, Parse-tree or key. PT(default) or KEY(old)
 # CLICON_DBSPEC_TYPE      PT
 
 # Database specification file. Syntax either CLI or KEY given by CLICON_DBSPEC_TYPE
-# CLICON_DBSPEC_FILE      $(APPDIR)/datamodel.spec
+CLICON_DBSPEC_FILE     prefix/share/APPNAME/datamodel.spec
 
 # Candidate qdbm database
-# CLICON_CANDIDATE_DB     $(APPDIR)/db/candidate_db
+CLICON_CANDIDATE_DB    localstatedir/APPNAME/candidate_db
 
 # Running qdbm database
-# CLICON_RUNNING_DB       $(APPDIR)/db/running_db
+CLICON_RUNNING_DB      localstatedir/APPNAME/running_db
 
-# Where to save configuration commit history (in XML)
-# CLICON_ARCHIVE_DIR      $(APPDIR)/archive
+# Location of backend .so plugins
+CLICON_BACKEND_DIR     libdir/APPNAME/backend
 
-# Name of startup configuration file (in XML)
-# CLICON_STARTUP_CONFIG   $(APPDIR)/startup-config
+# Location of netconf (frontend) .so plugins
+CLICON_NETCONF_DIR     libdir/APPNAME/netconf 
 
-# Unix socket for communicating with clicon_config
-# CLICON_SOCK         $(APPDIR)/clicon.sock
+# Location of cli fronted .so plugins
+CLICON_FRONTEND_DIR    libdir/APPNAME/frontend
+
+# Location of frontend .cli cligen spec files
+CLICON_CLI_DIR    libdir/APPNAME/frontend
+
+# XXX Directory where to save configuration commit history (in XML). Snapshots
+# are saved chronolically
+CLICON_ARCHIVE_DIR      localstatedir/APPNAME/archive
+
+# XXX Name of startup configuration file (in XML)
+CLICON_STARTUP_CONFIG   localstatedir/APPNAME/startup-config
+
+# XXX Unix socket for communicating with clicon_config
+CLICON_SOCK         localstatedir/APPNAME/APPNAME.sock
+
+# Process-id file
+CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 
 # Group membership to access clicon_config unix socket
 # CLICON_SOCK_GROUP       clicon
@@ -63,18 +78,6 @@
 # Name of master plugin (both frontend and backend). Master plugin has special 
 # callbacks for frontends. See clicon user manual for more info.
 # CLICON_MASTER_PLUGIN    master
-
-# Location of backend .so plugins
-# CLICON_BACKEND_DIR      $(APPDIR)/backend/<group>
-
-# Process-id file
-# CLICON_BACKEND_PIDFILE  $(APPDIR)/clicon.pidfile
-
-# Location of netconf (frontend) .so plugins
-# CLICON_NETCONF_DIR  $(APPDIR)/netconf
-
-# Location of fronted .so plugins
-# CLICON_CLI_DIR $(APPDIR)/frontend
 
 # Optional name of syntax group to start from if many. 
 # Should be subdir of CLICON_CLI_DIR. Only frontend.
@@ -101,4 +104,5 @@
 
 # Dont include keys in cvec in cli vars callbacks, ie a & k in 'a <b> k <c>' ignored
 # CLICON_CLI_VARONLY      1
+
 

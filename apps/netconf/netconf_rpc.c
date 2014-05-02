@@ -77,9 +77,9 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
     struct xml_node *xdb; 
     struct xml_node *xc; 
     struct xml_node *xfilterconf = NULL; 
-    char *type;
-    char *ftype;
-    int retval = -1;
+    char            *type;
+    char            *ftype;
+    int              retval = -1;
 
     if ((xdb = db2xml(target, dbspec, "clicon")) == NULL){
 	netconf_create_rpc_error(xf_err, xt, 
@@ -209,7 +209,7 @@ netconf_get_config(clicon_handle h, struct db_spec *dbspec,
     }
     /* ie <filter>...</filter> */
    xfilter = xml_xpath(xn, "//filter");
-    if (netconf_filter(dbspec, xfilter, xf, xf_err, xt, target) < 0)
+   if (netconf_filter(dbspec, xfilter, xf, xf_err, xt, target) < 0)
 	goto done;
     retval = 0;
   done:
@@ -344,6 +344,7 @@ get_edit_opts(struct xml_node *xn,
  * error-option: only stop-on-error supported
  * test-option:  not supported
  *
+ * XXX: delete/remove not implemented!!!
  *
  */
 int
@@ -867,6 +868,171 @@ netconf_validate(clicon_handle h,
 }
 
 /*
+ * netconf_notification_cb
+ * Called when a notification has happened on backend
+ * and this session has registered for that event.
+ * Filter it and forward it.
+   <notification>
+      <eventTime>2007-07-08T00:01:00Z</eventTime>
+      <event xmlns="http://example.com/event/1.0">
+         <eventClass>fault</eventClass>
+         <reportingEntity>
+             <card>Ethernet0</card>
+         </reportingEntity>
+         <severity>major</severity>
+      </event>
+   </notification>
+ */
+static int
+netconf_notification_cb(int s, void *arg)
+{
+    struct xml_node   *xfilter = (struct xml_node *)arg; 
+    char              *selector;
+    struct clicon_msg *reply;
+    int                eof;
+    char              *event = NULL;
+    int                level;
+    int                retval = -1;
+    xf_t              *xf;
+    struct xml_node   *xe = NULL; /* event xml */
+
+    if (0){
+    fprintf(stderr, "%s\n", __FUNCTION__); /* debug */
+    xml_to_file(stderr, xfilter, 0, 1); /* debug */
+    }
+    /* get msg (this is the reason this function is called) */
+    if (clicon_msg_rcv(s, &reply, &eof, __FUNCTION__) < 0)
+	goto done;
+    /* handle close from remote end: this will exit the client */
+    if (eof){
+	clicon_err(OE_PROTO, ESHUTDOWN, "%s: Socket unexpected close", __FUNCTION__);
+	close(s);
+	errno = ESHUTDOWN;
+	event_unreg_fd(s, netconf_notification_cb);
+	if (xfilter)
+	    xml_free(xfilter);
+	goto done;
+    }
+    /* multiplex on message type: we only expect notify */
+    switch (reply->op_type){
+    case CLICON_MSG_NOTIFY:
+	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
+	    goto done;
+	/* parse event */
+	if (xml_parse_str(&event, &xe) < 0)
+	    goto done;
+	/* find and apply filter */
+	if ((selector = xml_get(xfilter, "select")) == NULL)
+	    goto done;
+	if (xml_xpath(xe, selector) == NULL) {
+	    fprintf(stderr, "%s no match\n", __FUNCTION__); /* debug */
+	    break;
+	}
+	/* create netconf message */
+	if ((xf = xf_alloc()) == NULL){
+	    clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+	    goto done;
+	}
+	add_preamble(xf); /* Make it well-formed netconf xml */
+	xprintf(xf, "%s", event); 
+	add_postamble(xf);
+	/* Send it to listening client on stdout */
+	if (netconf_output(1, xf, "notification") < 0){
+	    xf_free(xf);
+	    goto done;
+	}
+	xf_free(xf);
+	break;
+    default:
+	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
+		__FUNCTION__, reply->op_type);
+	goto done;
+	break;
+    }
+    retval = 0;
+  done:
+    if (xe != NULL)
+	xml_free(xe);
+    if (event)
+	free(event);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*
+    <create-subscription> 
+       <stream/> # If not present, events in the default NETCONF stream will be sent.
+       <filter/>
+       <startTime/> # only for replay (NYI)
+       <stopTime/>  # only for replay (NYI)
+    </create-subscription> 
+    Dont support replay
+ */
+static int
+netconf_create_subscription(clicon_handle h, 
+			    struct xml_node *xn, 
+			    xf_t *xf, xf_t *xf_err, 
+			    struct xml_node *xt)
+{
+    struct xml_node *xstream;
+    struct xml_node *xfilter; 
+    struct xml_node *xfilter2 = NULL; 
+    char            *stream = NULL;
+    char            *sockpath;
+    int              s;
+    char            *ftype;
+    int              retval = -1;
+
+    if ((xstream = xml_xpath(xn, "//stream")) != NULL)
+	stream = xml_get(xstream, "body");
+    if (stream == NULL)
+	stream = "NETCONF";
+    if ((xfilter = xml_xpath(xn, "//filter")) != NULL){
+	if ((ftype = xml_get(xfilter, "type")) != NULL){
+	    if (strcmp(ftype, "xpath") != 0){
+		netconf_create_rpc_error(xf_err, xt, 
+					 "operation-failed", 
+					 "application", 
+					 "error", 
+					 "only xpath filter type supported",
+					 "type");
+		goto done;
+	    }
+	}
+	/* xfilter2 is applied to netconf_notification_cb below 
+	   and is only freed on exit since no unreg is made.
+	*/
+	if ((xfilter2 = xml_dup(xfilter)) == NULL){
+	    netconf_create_rpc_error(xf_err, xt, 
+				     "operation-failed", 
+				     "application", 
+				     "error", 
+				     NULL,
+				     "Internal server error");
+	    goto done;
+	}
+
+    }
+    sockpath = clicon_sock(h);
+    if (cli_proto_subscription(sockpath, stream, &s) < 0){
+	netconf_create_rpc_error(xf_err, xt, 
+				 "operation-failed", 
+				 "application", 
+				 "error", 
+				 NULL,
+				 "Internal protocol error");
+	goto done;
+    }
+    if (event_reg_fd(s, netconf_notification_cb, xfilter2, "notification socket") < 0)
+	goto done;
+    netconf_ok_set(1);
+    retval = 0;
+  done:
+    return retval;
+}
+
+
+/*
  * netconf_rpc_dispatch
  * Big rpc dispatcher. Look at first tag and dispach to sub-functions.
  * Call plugin handler if tag not found. If not handled by any handler, return
@@ -927,6 +1093,9 @@ netconf_rpc_dispatch(clicon_handle h,
        else
        if (strcmp(xe->xn_name, "validate") == 0)
 	   return netconf_validate(h, xe, xf, xf_err, xorig);
+       else
+       if (strcmp(xe->xn_name, "create-subscription") == 0)
+	   return netconf_create_subscription(h, xe, xf, xf_err, xorig);
        else{
 	   if ((ret = netconf_plugin_callbacks(h, xe, xf, xf_err, xorig)) < 0)
 	       return -1;
