@@ -1021,10 +1021,20 @@ charseq:
 	    sprintf($$, "%c", $1);
 	}
 	|
+	variable {
+	    $$ = cv2str_dup($1);
+	    cv_free($1);
+	    if ($$ == NULL) {
+		clicon_db2txterror(_YA, "malloc failed");
+		YYERROR;
+	    }
+	}
+	|
 	charseq CHAR {
 	    int len = strlen($1);
 	    if (($$ = realloc($1, len+2)) == NULL) {
 		clicon_db2txterror(_YA, "malloc failed");
+		free($1);
 		YYERROR;
 	    }
 	    sprintf($$+len, "%c", $2); 
@@ -1037,6 +1047,7 @@ charseq:
 	    if ((v = cv2str_dup($2)) != NULL) {
 		if (($$ = realloc($1, len+strlen(v)+1)) == NULL) {
 		    clicon_db2txterror(_YA, "malloc failed");
+		    free(v);
 		    YYERROR;
 		}
 		sprintf($$+len, "%s", v);
@@ -1090,7 +1101,8 @@ variable:
 	    }
 	    
 	    /* Or a clicon option? */
-	    else if ((val = clicon_option_str(_YA->ya_handle, $2)) != NULL) {
+	    else if (clicon_option_exists(_YA->ya_handle, $2)) {
+		val = clicon_option_str(_YA->ya_handle, $2);
 		if (($$ = cv_new(CGV_STRING)) == NULL)	
 		    clicon_db2txterror(_YA, "cv_new failed");
 		else if (cv_string_set($$, val) == NULL) {
