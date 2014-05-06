@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: config_main.c,v 1.64 2013/09/13 15:07:20 olof Exp $
 
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

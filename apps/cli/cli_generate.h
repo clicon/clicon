@@ -1,7 +1,7 @@
 /*
  * CVS Version: $Id: cli_generate.h,v 1.7 2013/09/05 20:13:36 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

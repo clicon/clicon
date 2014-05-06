@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: netconf_main.c,v 1.49 2013/09/13 15:07:42 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

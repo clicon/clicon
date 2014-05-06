@@ -2,7 +2,7 @@
 /*
  *  CVS Version: $Id: clicon_lvalue.c,v 1.36 2013/09/20 11:46:07 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

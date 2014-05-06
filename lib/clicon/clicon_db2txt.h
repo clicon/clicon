@@ -1,7 +1,7 @@
 /*
   CVS Version: $Id: clicon_db2txt.h,v 1.4 2013/08/31 06:42:53 benny Exp $ 
 
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

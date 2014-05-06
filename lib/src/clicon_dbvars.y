@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: clicon_dbvars.y,v 1.14 2013/09/18 19:15:54 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

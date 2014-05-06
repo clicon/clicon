@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: netconf_rpc.c,v 1.38 2013/08/15 11:52:08 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

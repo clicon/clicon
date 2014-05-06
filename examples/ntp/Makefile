@@ -2,7 +2,7 @@
 # Makefile 
 # CVS Version: $Id: Makefile.in,v 1.4 2013/09/19 16:03:40 olof Exp $ 
 #
-# Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+# Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 #
 # This file is part of CLICON.
 #
@@ -29,9 +29,9 @@ bindir 		= ${exec_prefix}/bin
 includedir	= ${prefix}/include
 localstatedir	= ${prefix}/var
 INSTALL		= @INSTALL@
-APPDIR          = /perfmon
+APPDIR          = /usr/local/share/clicon
 CC		= gcc
-CFLAGS  	= -g -Wall -Werror -rdynamic -fPIC 
+CFLAGS  	= -O2 -Wall -rdynamic -fPIC 
 
 INCLUDES 	= -I$(includedir)  
 

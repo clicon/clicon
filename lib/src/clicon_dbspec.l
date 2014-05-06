@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: clicon_dbspec.l,v 1.3 2013/09/13 15:05:14 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

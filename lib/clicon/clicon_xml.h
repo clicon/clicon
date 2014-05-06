@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: clicon_xml.h,v 1.12 2013/08/12 20:37:06 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
   Olof Hagsand
  *
   This file is part of CLICON.

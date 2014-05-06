@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: clicon_backend_plugin.h,v 1.1 2013/08/01 13:58:52 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

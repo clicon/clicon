@@ -1,7 +1,7 @@
 /*
   CVS Version: $Id: hello_netconf.c,v 1.1 2013/08/08 14:22:00 olof Exp $ 
 
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: clicon_lvmap.c,v 1.12 2013/09/05 20:08:27 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 

@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: clicon_err.c,v 1.10 2013/09/05 20:07:36 olof Exp $
  *
-  Copyright (C) 2009-2013 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 
