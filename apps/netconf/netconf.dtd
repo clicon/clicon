@@ -20,7 +20,7 @@
   <http://www.gnu.org/licenses/>.
 
   -->
-<!ELEMENT osr ( 
+<!ELEMENT netconf ( 
 	  Envelope|
 	  hello |
 	  rpc   |
@@ -68,19 +68,18 @@
 -->
 <!ELEMENT rpc (
 	  close-session |
-	  copy-config |
-	  commit |
-	  discard-changes |
-	  delete-config |
-	  edit-config |
 	  get-config |
+	  edit-config |
+	  copy-config |
+	  delete-config |
 	  kill-session |
 	  lock |
-	  unlock
+	  unlock |
+	  commit |
+	  discard-changes |
+	  validate |
+	  create-subscription 
 	  )*>
-<!--
-       @ANYATTR rpc
--->
 
 <!--
    rpc-reply
@@ -94,12 +93,8 @@
 <!ELEMENT rpc-reply (
 	  rpc-error |
 	  ok |
-	  config-text
+	  configuration
 	  )*>
-
-<!--
-       @ANYATTR rpc-reply 
--->
 
 <!ELEMENT hello (
 	  session-id |
@@ -149,11 +144,12 @@
    edit-config
 
       operation  - One of: merge, replace, create, delete. Merge is default.
+      config 
 -->
 <!ELEMENT edit-config (
 	  target |
 	  config-text |
-	  configuration |
+	  config |
 	  default-operation
 	  )*>
 <!ATTLIST edit-config
@@ -206,5 +202,17 @@
 
 <!ELEMENT commit EMPTY>
 
+<!ELEMENT validate EMPTY>
+
 <!ELEMENT discard-changes EMPTY>
 
+<!ELEMENT create-subscription (
+	  stream?, 
+	  filter?
+	  )>
+
+<!-- XXX Here is where app-specific rules are added for rpc-reply get-config -->
+<!ELEMENT configuration (#PCDATA)>
+
+<!-- XXX Here is where app-specific rules are added for rpc edit-config -->
+<!ELEMENT config (#PCDATA)>

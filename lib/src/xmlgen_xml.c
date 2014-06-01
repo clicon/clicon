@@ -904,9 +904,9 @@ xml_parse(char **xml_str, struct xml_node *xn_parent, char *dtd_file,
     return 0;
 }
 
-/*
- * xml_parse_fd
- * Read an XML definition from file and parse it into a parse-tree. 
+/*!
+ * \brief Read an XML definition from file and parse it into a parse-tree. 
+ *
  * Parameters:
  *   fd:      A file descriptor containing the XML file (as ASCII characters)
  *   xml_top: Pointer to an (on entry empty) pointer to an XML parse tree 
@@ -987,9 +987,9 @@ xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag)
 }
 
 
-/*
- * xml_parse_str
- * Read an XML definition from string and parse it into a parse-tree. 
+/*!
+ * \brief Read an XML definition from string and parse it into a parse-tree. 
+ *
  * Parameters:
  *   str:   Pointer to string containing XML definition. NOTE: destructively
  *          modified. This means if str is malloced, you need tomake a copy

@@ -1064,10 +1064,7 @@ netconf_rpc_dispatch(clicon_handle h,
        if (strcmp(xe->xn_name, "get-config") == 0)
 	   return netconf_get_config(h, dbspec, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "get") == 0) /* TBD */
-	   ;
-       else
-       if (strcmp(xe->xn_name, "edit-config") == 0) /* TBD */
+       if (strcmp(xe->xn_name, "edit-config") == 0)
 	   return netconf_edit_config(h, dbspec, xe, xf, xf_err, xorig);
        else
        if (strcmp(xe->xn_name, "copy-config") == 0)

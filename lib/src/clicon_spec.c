@@ -30,7 +30,7 @@
  * Each db_spec contains a key and a variable-headm which in turn contains
  * a list of variables (see osr_var.h).
  *
- * Translation between databsae specs
+ * Translation between database specs
  *     db_spec                      parse_tree                    parse_tree
  *  +-------------+ dbspec_key2cli +-------------+ dbspec2cli    +-------------+
  *  |  dbspec     | -------------> | dbclispec   | ------------> | cli         |
@@ -1372,4 +1372,94 @@ dbspec_userdata_delete(cg_obj *co, void *arg)
     free(du);
     co->co_userdata = NULL;
     return 0;
+}
+
+static int
+dbspec2dtd_var(FILE *f, cg_obj *co)
+{
+    struct cg_var *cv;
+
+    fprintf(f, "\t%s CDATA ", co->co_command);
+    if ((cv = dbspec_default_get(co)) != NULL){
+	cv_name_set(cv, co->co_command);
+	if (cv_type_get(cv) != CGV_STRING && cv_type_get(cv) != CGV_REST)
+	    fprintf(f, "\"");
+	cv_print(f, cv);
+	if (cv_type_get(cv) != CGV_STRING && cv_type_get(cv) != CGV_REST)
+	    fprintf(f, "\"");
+    }
+    else{
+	if (dbspec_optional_get(co))
+	    fprintf(f, "#IMPLIED");
+	else
+	    fprintf(f, "#REQUIRED");
+    }
+    fprintf(f, " \n");
+    return 0;
+}
+
+static int
+dbspec2dtd_cmd(FILE *f, cg_obj *co)
+{
+    parse_tree     *pt;
+    cg_obj         *coc;
+    int             retval = -1;
+    int             i;
+    int             j;
+
+    pt = &co->co_pt;
+    fprintf(f, "<!ELEMENT %s (", co->co_command);
+    j = 0;
+    for (i=0; i<pt->pt_len; i++){
+	if ((coc = pt->pt_vec[i]) == NULL)
+	    continue;
+	if (coc->co_type != CO_COMMAND)
+	    continue;
+	if (j++ != 0)
+	    fprintf(f, "|");
+	fprintf(f, "%s", coc->co_command);
+    }
+    if (j==0)
+	fprintf(f, "#PCDATA)>\n");
+    else
+	fprintf(f, ")*>\n");
+    fprintf(f, "<!ATTLIST %s\n", co->co_command);
+    for (i=0; i<pt->pt_len; i++){
+	if ((coc = pt->pt_vec[i]) == NULL)
+	    continue;
+	if (coc->co_type != CO_VARIABLE)
+	    continue;
+	if (dbspec2dtd_var(f, coc) < 0)
+	    goto done;
+    }
+    fprintf(f, ">\n");
+    if (dbspec2dtd(f, pt) < 0)
+	goto done;
+    retval = 0;
+  done:
+    return retval;
+}
+
+/*! Translate from a clicon database specification to a DTD on a stream
+ *
+ * @param f    Output stream
+ * @param pt   Database specification as CLIGEN parse-tree
+ */
+int
+dbspec2dtd(FILE *f, parse_tree *pt)
+{
+    int        i;
+    cg_obj    *co;
+    int        retval = -1;
+
+    for (i=0; i<pt->pt_len; i++){
+	if ((co = pt->pt_vec[i]) == NULL)
+	    continue;
+	if (co->co_type == CO_COMMAND)
+	    if (dbspec2dtd_cmd(f, co) < 0)
+		goto done;
+    }   
+    retval = 0;
+  done:
+    return retval;
 }

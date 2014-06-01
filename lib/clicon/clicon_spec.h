@@ -78,6 +78,6 @@ int dbspec_vector_set(cg_obj *co, char val);
 
 int dbspec_userdata_add(clicon_handle h, cg_obj *co);
 int dbspec_userdata_delete(cg_obj *co, void *arg);
-
+int dbspec2dtd(FILE *f, parse_tree *pt);
 
 #endif  /* _CLICON_SPEC_H_ */
