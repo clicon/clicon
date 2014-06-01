@@ -1295,9 +1295,29 @@ quit:
 }
 
 
-/*
- * cli_downcall
- * Call a config function
+/*!
+ * \brief An rpc call from a frontend module to a function in a backend module
+ *
+ * A CLI/netconf frontend module can make a functional call to a backend
+ * module and get return value back. 
+ * The backend module needs to be specified (XXX would be nice to avoid this)
+ * parameters can be sent, and value returned.
+ * A function (func) must be defined in the backend module (plugin)
+ * An example signature of such a downcall function is:
+int
+downcall(clicon_handle h, uint16_t op, uint16_t len, void *arg, 
+	      uint16_t *reply_data_len, void **reply_data)
+ *
+ * Arguments:
+ *  IN   h
+ *  IN   op       Generic application-defined operation
+ *  IN   plugin   Name of backend plugin (XXX look in backend plugin dir)
+ *  IN   func     Name of function i backend (ie downcall above) as string
+ *  IN   param    Input parameter given to function (void* arg in downcall)
+ *  IN   paramlen Length of input parameter
+ *  OUT  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
+ *  OUT  retlen   Length of returned data
+ *  IN   label    Label used in chunk (de)allocation.
  */
 int
 cli_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,

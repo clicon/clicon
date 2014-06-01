@@ -49,6 +49,7 @@ int netconf_plugin_unload(clicon_handle h);
 
 
 int netconf_plugin_callbacks(clicon_handle h,
+//			 struct db_spec *dbspec,
 			struct xml_node *xn, 
 			 xf_t *xf, 
 			 xf_t *xf_err, 

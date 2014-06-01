@@ -117,7 +117,7 @@ struct clicon_msg {
    or application-specific backend plugin downcall request */
 struct clicon_msg_call_req {
     uint16_t	  cr_len;	/* Length of total request */
-    uint16_t	  cr_op;
+    uint16_t	  cr_op;        /* Generic application-defined operation */
     char	 *cr_plugin;	/* Name of backend plugin, NULL -> internal
 				   functions */
     char	 *cr_func;	/* Function name in plugin (or internal) */

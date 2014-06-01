@@ -1095,9 +1095,13 @@ netconf_rpc_dispatch(clicon_handle h,
 	   return netconf_validate(h, xe, xf, xf_err, xorig);
        else
        if (strcmp(xe->xn_name, "create-subscription") == 0)
-	   return netconf_create_subscription(h, xe, xf, xf_err, xorig);
+	   return netconf_create_subscription(h, 
+					      //dbspec, 
+					      xe, xf, xf_err, xorig);
        else{
-	   if ((ret = netconf_plugin_callbacks(h, xe, xf, xf_err, xorig)) < 0)
+	   if ((ret = netconf_plugin_callbacks(h, 
+					       //dbspec, 
+					       xe, xf, xf_err, xorig)) < 0)
 	       return -1;
 	   if (ret == 0){ /* not handled by callback */
 	       netconf_create_rpc_error(xf_err, xorig, 

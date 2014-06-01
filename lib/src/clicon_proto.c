@@ -180,8 +180,9 @@ clicon_msg_send(int s, struct clicon_msg *msg)
 }
 
 
-/*
- * clicon_msg_rcv
+/*!
+ * \brief Receive a CLICON message on a UNIX domain socket
+ *
  * XXX: timeout? and signals?
  * There is rudimentary code for turning on signals and handling them 
  * so that they can be interrupted by ^C. But the problem is that this
@@ -189,6 +190,12 @@ clicon_msg_send(int s, struct clicon_msg *msg)
  * application for example: a daemon calling this function will want another 
  * behaviour.
  * Now, ^C will interrupt the whole process, and this may not be what you want.
+ * Arguments:
+ *  IN   s       UNIX domain socket to communicate with backend
+ *  OUT  msg     CLICON msg data reply structure. allocated using CLICON chunks, freed
+ *               by caller with unchunk*(...,label)
+ *  OUT  eof     Set if eof encountered
+ *  IN   label   Label used in chunk allocation and deallocation.
  */
 int
 clicon_msg_rcv(int s,
@@ -277,13 +284,19 @@ clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
     return retval;
 }
 
-/*
- * clicon_rpc
- * Send an clicon_msg message and wait for result.
+/*!
+ * \brief Send a clicon_msg message and wait for result.
+ *
  * TBD: timeout, interrupt?
  * retval may be -1 and
  * errno set to ENOTCONN which means that socket is now closed probably
  * due to remote peer disconnecting. The caller may have to do something,...
+ * Arguments:
+ *  IN   s       UNIX domain socket to communicate with backend
+ *  IN   msg     CLICON msg data structure. It has a fixed header and variable body.
+ *  OUT  data    Returned data as byte-string. Deallocate w unchunk...(..., label)
+ *  OUT  datalen Length of returedn data
+ *  IN   label   Label used in chunk allocation.
  */
 int
 clicon_rpc(int s, struct clicon_msg *msg, 

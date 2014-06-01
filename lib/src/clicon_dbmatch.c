@@ -297,12 +297,12 @@ dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
  */
 int
 dbmatch_one(void *handle,
-       char *dbname, 
-       char *keypattern, 
-       char *attr, 
-       char *pattern,
-       char **keyp,
-       cvec **cvecp
+	    char *dbname, 
+	    char *keypattern, 
+	    char *attr, 
+	    char *pattern,
+	    char **keyp,
+	    cvec **cvecp
     )
 {
     struct db_pair  *pairs;
@@ -431,7 +431,7 @@ quit:
 /*!
  * \brief Delete objects given key and attribute pattern matching
  *
- * Specific function using dbmatch
+ * Specific function using dbmatch. NOTE: cannot be used by backend
  */
 int
 dbmatch_del(void *handle,

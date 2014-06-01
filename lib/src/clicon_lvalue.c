@@ -1222,11 +1222,13 @@ db_lv_op_exec(struct db_spec *dbspec,
 	      cvec *vh)
 {
     struct db_spec *spec;
-    int retval = -1;
+    int             len;
+    int             retval = -1;
 
     /* Set the value, must find matching subkey if vector */
     if (key_isvector(basekey)){
-	basekey[strlen(basekey)-2] = '\0';
+	len = strlen(basekey);
+	basekey[len-2] = '\0';
 	switch (op){
 	case LV_MERGE:
 	case LV_SET:

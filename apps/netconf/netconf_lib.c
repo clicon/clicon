@@ -219,10 +219,22 @@ get_target(clicon_handle h, struct xml_node *xn, char *path)
     
 }
 
-/*
- * netconf_downcall
+/*!
+ * \brief An rpc call from a frontend module to a function in a backend module
+ *
  * Call a config function
  * XXX: clone of cli_downcall
+ *
+ * Arguments:
+ *  IN   h
+ *  IN   op       Generic application-defined operation
+ *  IN   plugin   Name of backend plugin (XXX look in backend plugin dir)
+ *  IN   func     Name of function i backend (ie downcall above) as string
+ *  IN   param    Input parameter given to function (void* arg in downcall)
+ *  IN   paramlen Length of input parameter
+ *  OUT  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
+ *  OUT  retlen   Length of returned data
+ *  IN   label    Label used in chunk (de)allocation.
  */
 int
 netconf_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,

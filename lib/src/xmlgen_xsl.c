@@ -144,7 +144,7 @@ xml_find_deep(struct xml_node *xn_parent, char *name,
 	/foo[bar=89]  # select //foo where body of sub-element bar equals '89'
 	//foo/bar/fie@attr, osv
 	//foo[n] Select nth foo element
-	//foo[@bar] Select all foo elemtn with bar attribute
+	//foo[@bar] Select all foo elements with bar attribute
 	//foo[@bar=5] Select all foo elements with bar attribute equal to 5
 
  */

@@ -196,6 +196,11 @@ clicon_err_fn(const char *fn, const int line, int category, int suberr, char *re
     char   *msg    = NULL;
     int     retval = -1;
 
+    /* Set the global variables */
+    clicon_errno    = category;
+    clicon_suberrno = suberr;
+    strncpy(clicon_err_reason, reason, ERR_STRLEN-1);
+
     /* first round: compute length of error message */
     va_start(args, reason);
     len = vsnprintf(NULL, 0, reason, args);

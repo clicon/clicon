@@ -632,10 +632,15 @@ xml_free(struct xml_node *xn)
     return 0;
 }
 
-/*
- * xml_to_file
- * prettyprint - insert \n and spaces tomake the xml more readable.
- * level: how many spaces to insert before each line
+/*!
+ * \brief Print an XML tree structure to an output stream
+ *
+ * Args:
+ * IN   f           UNIX output stream
+ * IN   xn          xmlgen xml tree
+ * IN   level       how many spaces to insert before each line
+ * IN   prettyprint insert \n and spaces tomake the xml more readable.
+ * See also xml_to_string
  */
 int
 xml_to_file(FILE *f, struct xml_node *xn, int level, int prettyprint)
@@ -705,10 +710,17 @@ xml_to_file(FILE *f, struct xml_node *xn, int level, int prettyprint)
     return 0;
 }
 
-/*
- * xml_to_string
- * prettyprint - insert \n and spaces tomake the xml more readable.
- * level: how many spaces to insert before each line
+/*!
+ * \brief Print an XML tree structure to a string
+ *
+ * Args:
+ * INOUT str         String to write to
+ * IN    xn          xmlgen xml tree
+ * IN    level       how many spaces to insert before each line
+ * IN    prettyprint insert \n and spaces tomake the xml more readable.
+ * IN    label       string used for chunk allocation, typically __FUNCTION__
+ * str is freed using (for example) unchunk_group(__FUNCTION__);
+ * See also xml_to_file
  */
 char *
 xml_to_string(char *str,
@@ -790,8 +802,10 @@ xml_to_string(char *str,
  * This variant places the parser tree in an xf buffer (essentially as string)
  * Usage:
  * xf_t *xf;
+ * xf = xf_alloc();
  * xf = print_xml_xf_node(xf, xn, 0, 1);
  * xf_free(xf);
+ * See also xml_to_string
  */
 int
 print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
