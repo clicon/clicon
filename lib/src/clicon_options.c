@@ -364,10 +364,8 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
 	return -1;
 
     /* Read configfile */
-    if (clicon_option_readfile(copt, configfile) < 0){
-	clicon_err(OE_CFG, 0, 0, "FATAL: Reading config file");	
+    if (clicon_option_readfile(copt, configfile) < 0)
 	return -1;
-    }
     return 0;
 }
 

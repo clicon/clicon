@@ -175,7 +175,7 @@ hello_validate(clicon_handle h,
     clicon_debug(1, "%s %s\n", __FUNCTION__, key);
     clicon_debug(1, "  dbname:  %s\n", dbname);
     clicon_debug(1, "  key: %s\n", key);
-    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");    }
+    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");
     if (op !=  LV_SET && op != LV_MERGE)
 	return 0;
     dbspec = clicon_dbspec_key(h);
@@ -207,7 +207,7 @@ hello_commit(clicon_handle h,
     clicon_debug(1, "%s %s\n", __FUNCTION__, key);
     clicon_debug(1, "  dbname:  %s\n", dbname);
     clicon_debug(1, "  key: %s\n", key);
-    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");    }
+    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");
     switch (op){
     case LV_DELETE:
 	break;

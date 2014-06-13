@@ -139,7 +139,10 @@ pidfile_check(char *pidfile, int kill_it)
     }
     /* Here, there should be no old agent and no pidfile */
     if ((f = fopen(pidfile, "wb")) == NULL){
-	clicon_err(OE_DEMON, errno, "Creating pid-file %s", pidfile);
+	if (errno == EACCES)
+	    clicon_err(OE_DEMON, errno, "Creating pid-file %s (Try run as root?)", pidfile);
+	else
+	    clicon_err(OE_DEMON, errno, "Creating pid-file %s", pidfile);
 	return -1;
     } 
     fprintf(f, "%ld\n", (long) getpid());

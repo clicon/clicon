@@ -534,7 +534,7 @@ main(int argc, char **argv)
     }
 
     /* Daemon already running? */
-    if (pidfile_check(clicon_backend_pidfile(h), 0) > 0) 
+    if (pidfile_check(clicon_backend_pidfile(h), 0) != 0) 
 	goto quit;
 
     /* Register log notifications */
