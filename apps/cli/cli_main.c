@@ -57,7 +57,7 @@
 #include "cli_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGLl:"
+#define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGLl:t"
 
 static int
 terminate(clicon_handle h)
@@ -286,7 +286,8 @@ usage(char *argv0, clicon_handle h)
 	    "\t-p \t\tPrint dbspec translation in cli/db format\n"
 	    "\t-G \t\tPrint CLI syntax generated from dbspec (if enabled)\n"
 	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
-	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n",
+	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
+	    "\t-t \t\tDump DTD of database spec and exit\n",
 	    argv0,
 	    appdir ? appdir : "none",
 	    conffile ? conffile : "none",
@@ -316,6 +317,7 @@ main(int argc, char **argv)
     int          help = 0;
     char        *treename;
     int          logdst = CLICON_LOG_STDERR;
+    int          dumpdtd = 0;
 
     /* Defaults */
 
@@ -362,7 +364,6 @@ main(int argc, char **argv)
 	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
 	    break;
 	 case 'l': /* Log destination: s|e|o */
-	   fprintf(stderr, "optarg:%s\n", optarg);
 	   switch (optarg[0]){
 	   case 's':
 	     logdst = CLICON_LOG_SYSLOG;
@@ -449,6 +450,9 @@ main(int argc, char **argv)
 	case 'L' : /* Debug print dynamic CLI syntax */
 	    logclisyntax++;
 	    break;
+	case 't' : /* Dump dtd of dbspec */
+	    dumpdtd++;
+	    break;
 	default:
 	    usage(argv[0], h);
 	    break;
@@ -473,6 +477,15 @@ main(int argc, char **argv)
     /* Parse db specification as cli*/
     if (spec_main_cli(h, printspec) < 0)
 	goto quit;
+
+    if (dumpdtd) { /* Dump database specification as DTD */
+	parse_tree *pt;
+	if ((pt = clicon_dbspec_pt(h)) != NULL){
+	    if (dbspec2dtd(stdout, pt) < 0)
+		goto quit;
+	}
+	exit(1);
+    }
 
     /* Check plugin directory */
     if ((plugin_dir = clicon_cli_dir(h)) == NULL)
