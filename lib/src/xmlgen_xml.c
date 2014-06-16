@@ -212,17 +212,16 @@ xml_new_body(struct xml_node *xp, char *value)
     return xb;
 }
 
-/*!
- * \brief Find an XML node matching name among a parent's children.
+/*! Find an XML node matching name among a parent's children.
  *
  * Get first XML node directly under xn_parent in the xml hierarchy with
  * name "name".
- * Args:
- *  IN  xn_parent  Base XML object
- *  IN  name       shell wildcard pattern to match with node name
- * Return 
- *  xml object if found.
- *  NULL if no such node found.
+ *
+ * @param[in]  xn_parent  Base XML object
+ * @param[in]  name       shell wildcard pattern to match with node name
+ *
+ * @retval xmlobj        if found.
+ * @retval NULL          if no such node found.
  */
 struct xml_node *
 xml_find(struct xml_node *xn_parent, char *name)
@@ -632,15 +631,14 @@ xml_free(struct xml_node *xn)
     return 0;
 }
 
-/*!
- * \brief Print an XML tree structure to an output stream
+/*! Print an XML tree structure to an output stream
  *
- * Args:
- * IN   f           UNIX output stream
- * IN   xn          xmlgen xml tree
- * IN   level       how many spaces to insert before each line
- * IN   prettyprint insert \n and spaces tomake the xml more readable.
  * See also xml_to_string
+ *
+ * @param[in]   f           UNIX output stream
+ * @param[in]   xn          xmlgen xml tree
+ * @param[in]   level       how many spaces to insert before each line
+ * @param[in]   prettyprint insert \n and spaces tomake the xml more readable.
  */
 int
 xml_to_file(FILE *f, struct xml_node *xn, int level, int prettyprint)
@@ -710,15 +708,14 @@ xml_to_file(FILE *f, struct xml_node *xn, int level, int prettyprint)
     return 0;
 }
 
-/*!
- * \brief Print an XML tree structure to a string
+/*! Print an XML tree structure to a string
  *
- * Args:
- * INOUT str         String to write to
- * IN    xn          xmlgen xml tree
- * IN    level       how many spaces to insert before each line
- * IN    prettyprint insert \n and spaces tomake the xml more readable.
- * IN    label       string used for chunk allocation, typically __FUNCTION__
+ * @param[in,out] str         String to write to
+ * @param[in]     xn          xmlgen xml tree
+ * @param[in]     level       how many spaces to insert before each line
+ * @param[in]     prettyprint insert \n and spaces tomake the xml more readable.
+ * @param[in]     label       string used for chunk allocation, typically __FUNCTION__
+ *
  * str is freed using (for example) unchunk_group(__FUNCTION__);
  * See also xml_to_file
  */
@@ -904,15 +901,14 @@ xml_parse(char **xml_str, struct xml_node *xn_parent, char *dtd_file,
     return 0;
 }
 
-/*!
- * \brief Read an XML definition from file and parse it into a parse-tree. 
+/*! Read an XML definition from file and parse it into a parse-tree. 
  *
- * Parameters:
- *   fd:      A file descriptor containing the XML file (as ASCII characters)
- *   xml_top: Pointer to an (on entry empty) pointer to an XML parse tree 
- *            _created_ by this function.
- *   eof:     If true, fd is at eof after reading the XML definition.
- *   endtag:  Read until you encounter "endtag" in the stream
+ * @param fd       A file descriptor containing the XML file (as ASCII characters)
+ * @param xml_top  Pointer to an (on entry empty) pointer to an XML parse tree 
+ *                 _created_ by this function.
+ * @param  eof     If true, fd is at eof after reading the XML definition.
+ * @param  endtag  Read until you encounter "endtag" in the stream
+ *
  * Note, you need to free the xml parse tree after use, using xml_free()
  * Returns: 0 on sucess, -1 on failure.
  * XXX: There is a potential leak here on some return values.
@@ -987,19 +983,22 @@ xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag)
 }
 
 
-/*!
- * \brief Read an XML definition from string and parse it into a parse-tree. 
+/*! Read an XML definition from string and parse it into a parse-tree. 
  *
- * Parameters:
- *   str:   Pointer to string containing XML definition. NOTE: destructively
+ * @code
+ *  str = strdup(...);
+ *  str0 = str;
+ *  xml_parse_str(&str, &xml_node)
+ *  free(str0);
+ *  xml_free(xml_node);
+ * @endcode
+ *
+ * @param str   Pointer to string containing XML definition. NOTE: destructively
  *          modified. This means if str is malloced, you need tomake a copy
- *          of str before use and free that. Example:
- *             str = strdup(...);
- *             str0 = str;
- *             xml_parse_str(&str, &xml_node)
- *             free(str0);
- *             xml_free(xml_node);
- *   xml_top: Top of the XML parse tree created by this function.
+ *          of str before use and free that. 
+ *
+ * @param  xml_top Top of the XML parse tree created by this function.
+ *
  * Note, you need to free the xml parse tree after use, using xml_free()
  * Update: with yacc parser I dont think it changes,....
  */
@@ -1024,14 +1023,14 @@ xml_cp1(struct xml_node *xn0, struct xml_node *xn1)
     return 0;
 }
 
-/*!
- * \brief Copy xml tree to other existing tree
+/*! Copy xml tree to other existing tree
  *
  * x1 should be a created placeholder. If x1 is non-empty,
  * the copied tree is appended to the existing tree.
- * Example: 
+ * @code
  *   x1 = xml_new("new", xc);
  *   xml_cp(x0, x1);
+ * @endcode
  */
 int
 xml_cp(struct xml_node *x0, struct xml_node *x1)
@@ -1052,12 +1051,12 @@ xml_cp(struct xml_node *x0, struct xml_node *x1)
     return 0;
 }
 
-/*!
- * \brief Create and return a copy of xml tree.
+/*! Create and return a copy of xml tree.
  *
- * Example:
+ * @code
  *   struct xml_node *x1;
  *   x1 = xml_dup(x0);
+ * @endcode
  * Note, returned tree should be freed as: xml_free(x1)
  */
 struct xml_node *

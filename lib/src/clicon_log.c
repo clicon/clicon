@@ -56,19 +56,17 @@ static void                *_log_notify_arg = NULL;
 /* Set to open file to bypass logging and write debug messages directly to file */
 static FILE *_debugfile = NULL;
 
-/*!
- * \brief Initialize system logger.
+/*! Initialize system logger.
  *
  * Make syslog(3) calls with specified ident and gates calls of level upto specified level (upto).
  * May also print to stderr, if err is set.
  * Applies to clicon_err() and clicon_debug too
  *
- * Args:
- * IN    ident       prefix that appears on syslog (eg 'cli')
- * IN    upto        log priority, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG (see syslog(3)).
- * IN    flags       bitmask: if CLICON_LOG_STDERR, then print logs to stderr
-                              if CLICON_LOG_SYSLOG, then print logs to syslog
-			      You can do a combination of both
+ * @param[in]  ident   prefix that appears on syslog (eg 'cli')
+ * @param[in]  upto    log priority, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG (see syslog(3)).
+ * @param[in]  flags   bitmask: if CLICON_LOG_STDERR, then print logs to stderr
+                                if CLICON_LOG_SYSLOG, then print logs to syslog
+				You can do a combination of both
  */
 int
 clicon_log_init(char *ident, int upto, int flags)
@@ -80,8 +78,8 @@ clicon_log_init(char *ident, int upto, int flags)
     openlog(ident, LOG_PID, LOG_USER); /* LOG_PUSER is achieved by direct stderr logs in clicon_log */
     return 0;
 }
-/*!
- * \brief Register log callback, return old setting
+
+/*! Register log callback, return old setting
  */
 clicon_log_notify_t *
 clicon_log_register_callback(clicon_log_notify_t *cb, void *arg)
@@ -134,15 +132,13 @@ slogtime(void)
 }
 
 
-/*!
- * \brief Make a logging call to syslog.
+/*! Make a logging call to syslog.
  *
  * This is the _only_ place the actual syslog (or stderr) logging is made in clicon,..
  * See also clicon_log()
  *
- * Args:
- * IN   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
- * IN   format   Message to print as argv.
+ * @param[in]   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
+ * @param[in]   format   Message to print as argv.
  */
 int
 clicon_log_str(int level, char *msg)
@@ -183,14 +179,12 @@ clicon_log_str(int level, char *msg)
     return 0;
 }
 
-/*!
- * \brief Make a logging call to syslog using variable arg syntax.
+/*! Make a logging call to syslog using variable arg syntax.
  *
  * See also clicon_log_init() and clicon_log_str()
  *
- * Args:
- * IN   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
- * IN   format   Message to print as argv.
+ * @param[in]   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
+ * @param[in]   format   Message to print as argv.
  */
 int
 clicon_log(int level, char *format, ...)
@@ -230,8 +224,7 @@ clicon_log(int level, char *format, ...)
 }
 
 
-/*!
- * \brief Initialize debug messages. Set debug level.
+/*! Initialize debug messages. Set debug level.
  *
  * Initialize debug module. The level is used together with clicon_debug(dbglevel) calls as follows: 
  * print message if level >= dbglevel.
@@ -241,11 +234,11 @@ clicon_log(int level, char *format, ...)
  * independently of log or errors. This is to ensure that a syslog of normal logs is unpolluted by extensive
  * debugging.
  *
- * Args:
- * IN    dbglevel   0 is show no debug messages, 1 is normal, 2.. is high debug. Note this is not
- *                  level from syslog(3)
- * IN    f          Debug-file. Open file where debug messages are directed. This overrides the clicon_log settings
- *                  which is otherwise where debug messages are directed.
+ * @param[in] dbglevel  0 is show no debug messages, 1 is normal, 2.. is high debug. 
+                        Note this is _not_ level from syslog(3)
+ * @param[in] f         Debug-file. Open file where debug messages are directed. 
+                        This overrides the clicon_log settings which is otherwise where 
+			debug messages are directed.
  */
 int
 clicon_debug_init(int dbglevel, FILE *f)
@@ -255,8 +248,7 @@ clicon_debug_init(int dbglevel, FILE *f)
 }
 
 
-/*!
- * \brief Print a debug message with debug-level. Settings determine where msg appears.
+/*! Print a debug message with debug-level. Settings determine where msg appears.
  *
  * If the dbglevel passed in the function is equal to or lower than the one set by 
  * clicon_debug_init(level).  That is, only print debug messages <= than what you want:
@@ -264,12 +256,10 @@ clicon_debug_init(int dbglevel, FILE *f)
  * The message is sent to clicon_log. EIther to syslog, stderr or both, depending on 
  * clicon_log_init() setting
  * 
- * Args:
- * IN dbglevel   0 always called (dont do this: not really a dbg message)
- *               1 default level if passed -D
- *               2.. Higher debug levels
- * IN format     Message to print as argv.
- * 
+ * @param[in] dbglevel   0 always called (dont do this: not really a dbg message)
+ *                       1 default level if passed -D
+ *                       2.. Higher debug levels
+ * @param[in] format     Message to print as argv.
  */
 int
 clicon_debug(int dbglevel, char *format, ...)
@@ -313,8 +303,7 @@ clicon_debug(int dbglevel, char *format, ...)
     return retval;
 }
 
-/*!
- * \brief Translate month number (0..11) to a three letter month name
+/*! Translate month number (0..11) to a three letter month name
  */
 char *
 mon2name(int md)

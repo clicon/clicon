@@ -327,8 +327,7 @@ clicon_proc_killbyname (const char *name, int sig)
 #endif /* BSD */
 #endif
 
-/*
- * \brief Translate group name to gid. Return -1 if error or not found.
+/*! Translate group name to gid. Return -1 if error or not found.
  */
 int
 group_name2gid(char *name, gid_t *gid)

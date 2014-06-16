@@ -101,8 +101,7 @@ clicon_strerror1(int err, struct errvec vec[])
     return ev?(ev->ev_str?ev->ev_str:"unknown"):"CLICON unknown error";
 }
 
-/*!
- * \brief Clear error state and continue.
+/*! Clear error state and continue.
  *
  * Clear error state and get on with it, typically non-fatal error and you wish to continue.
  */
@@ -172,8 +171,7 @@ err_print1(FILE *f, char *prestr, int time,
 }
 #endif /* notused */
 
-/*!
- * \brief Report an error.
+/*! Report an error.
  *
  * Library routines should call this function when an error occurs.
  * The function does he following:
@@ -181,12 +179,12 @@ err_print1(FILE *f, char *prestr, int time,
  * - Set global error variable name clicon_errno
  * - Set global reason string clicon_err_reason
  * NOTE: err direction (syslog and/or stderr) controlled by clicon_log_init()
- * Args:
- * IN    fn       Inline function name (when called from clicon_err() macro)
- * IN    line     Inline file line number (when called from clicon_err() macro)
- * IN    err      Error number, typically errno
- * IN    suberr   Sub-error number   
- * IN    reason   Error string, format with argv
+ *
+ * @param    fn       Inline function name (when called from clicon_err() macro)
+ * @param    line     Inline file line number (when called from clicon_err() macro)
+ * @param    err      Error number, typically errno
+ * @param    suberr   Sub-error number   
+ * @param    reason   Error string, format with argv
  */
 int
 clicon_err_fn(const char *fn, const int line, int category, int suberr, char *reason, ...)
@@ -240,8 +238,7 @@ clicon_err_fn(const char *fn, const int line, int category, int suberr, char *re
     return retval;
 }
 
-/*!
- * \brief Translate from numeric error to string representation
+/*! Translate from numeric error to string representation
  */
 char *
 clicon_strerror(int err)
@@ -249,8 +246,7 @@ clicon_strerror(int err)
     return clicon_strerror1(err, EV);
 }
 
-/*!
- * \brief Push an error state, if recursive error handling
+/*! Push an error state, if recursive error handling
  */
 void*
 clicon_err_save(void)
@@ -265,8 +261,7 @@ clicon_err_save(void)
     return (void*)es;
 }
 
-/*!
- * \brief Pop an error state, if recursive error handling
+/*! Pop an error state, if recursive error handling
  */
 int
 clicon_err_restore(void* handle)

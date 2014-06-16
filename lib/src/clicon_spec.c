@@ -97,8 +97,7 @@ db_spec_free1(struct db_spec *ds)
     return 0;
 }
 
-/*
- * \brief Add db_spec element to end of list. Merge vars if same key
+/*! Add db_spec element to end of list. Merge vars if same key
  * 
  * Note, ds may be freed.
  */
@@ -284,12 +283,10 @@ db_spec_parse_file(const char *filename)
     return db_spec_list;
 }
 
-/*!
- * \brief Parse a string containing a CLICON dbspec into a parse-tree
+/*! Parse a string containing a CLICON dbspec into a parse-tree
  * 
  * Syntax parsing. A string is input and a syntax-tree is returned (or error). 
  * A variable record is also returned containing a list of (global) variable values.
-
  * (cloned from cligen)
  */
 static int
@@ -357,8 +354,7 @@ clicon_dbspec_parse_str(clicon_handle h,
 }
 
 
-/*! 
- * \brief Parse a file containing a CLICON dbspec into a parse-tree
+/*! Parse a file containing a CLICON dbspec into a parse-tree
  *
  * Similar to clicon_dbspec_str(), just read a file first
  * (cloned from cligen)
@@ -407,8 +403,7 @@ clicon_dbspec_parse_file(clicon_handle h,
     return retval;
 }
 
-/*
- * \brief Parse dbspec using cligen spec format
+/*! Parse dbspec using cligen spec format
  *
  * The database symbols are inserted in alphabetical order.
  */

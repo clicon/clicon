@@ -156,11 +156,9 @@ dbmatch_fn(void *handle,
     return retval;
 }
 
-/*!
- * \brief Return matching database entries using an attribute and string pattern
+/*! Return matching database entries using an attribute and string pattern
  *
- * Usage example:
- *
+ * @code
     int          len;
     char       **keyv;
     cvec       **cvecv;
@@ -170,6 +168,7 @@ dbmatch_fn(void *handle,
     for (i=0; i<len; i++)
        keyv[i],... cvecv[i],....
     dbmatch_vec_free(keyv, cvecv, len);
+ * @endcode
  */
 int
 dbmatch_vec(void *handle,
@@ -264,8 +263,7 @@ dbmatch_vec(void *handle,
     return retval;
 }
 
-/*!
- * \brief Free all structures allocated by dbmatch_vec()
+/*! Free all structures allocated by dbmatch_vec()
  */
 int
 dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
@@ -361,23 +359,23 @@ dbmatch_one(void *handle,
 }
 
 
-/*!
- * \brief Given a key array, return a NULL terminated list of actual keys
+/*! Given a key array, return a NULL terminated list of actual keys
  *
  * Given a vector key in 'key[]' format, return a NULL terminated
  * list of actual keys found in the database. Size of list is returned 
  * in 'len'. On error, NULL is returned.
- * Args:
- *   IN  dbname 
- *   IN  basekey  
- *   OUT len      Length of returned vector.
- * Returns:
- *   Allocated list of keys
+ *
+ * @param[in]  dbname 
+ * @param[in]  basekey  
+ * @param[out] len      Length of returned vector.
+ * @retval     list     Allocated list of keys
+
  * NOTE: return value must be freed after use.
- * Example:
+ * @code
  * char **vec = dbvectorkeys(running, "key[]", &len);
  * ...
  * free(vec);
+ * @endcode
  */
 char **
 dbvectorkeys(char *dbname, char *basekey, size_t *len)
@@ -428,8 +426,7 @@ quit:
     return NULL;
 }
 
-/*!
- * \brief Delete objects given key and attribute pattern matching
+/*! Delete objects given key and attribute pattern matching
  *
  * Specific function using dbmatch. NOTE: cannot be used by backend
  */

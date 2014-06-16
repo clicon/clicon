@@ -62,8 +62,7 @@
 #include "config_lib.h"
 #include "config_client.h"
 
-/*
- * \brief open a unix-domain socket and bind it to a file.
+/*! Open a unix-domain socket and bind it to a file.
  *
  * The socket is accessed via CLICON_SOCK option, has 770 permissions
  * and group according to CLICON_SOCK_GROUP option.

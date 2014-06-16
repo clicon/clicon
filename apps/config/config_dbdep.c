@@ -99,8 +99,7 @@ dbdep_create()
     return dp;
 }
 
-/*!
- * \brief Create plugin commit/validate dependency and register callback
+/*! Create plugin commit/validate dependency and register callback
  *
  * Create config dependency component named 'name' and register the
  * callback 'cb' and callback argument 'arg'. 
@@ -108,13 +107,14 @@ dbdep_create()
  * The optional following arguments will be treated as depencency 
  * entries that in the form of "<db-key>[:<variable>]". These entries
  * can be set separately via the dbdep_ent() function. 
- * IN Parameters:
- *  h     Config handle
- *  row   weight / row. The lower the number, the earlier it is called.
- *  cb    Callback to call
- *  arg   Arg to send to callback
- *  nkeys Number of keys to follow
- *  ...   Keys
+ *
+ * @param h     Config handle
+ * @param row   weight / row. The lower the number, the earlier it is called.
+ * @param cb    Callback to call
+ * @param arg   Arg to send to callback
+ * @param nkeys Number of keys to follow
+ * @param ...   Keys
+ *
  *  return value needs to be freed.
  * NOTE: this function should replace dbdep()!
  */
@@ -164,8 +164,7 @@ catch:
     return NULL;
 }
 
-/*!
- * \brief Create plugin commit/validate dependency and register callback
+/*! Create plugin commit/validate dependency and register callback
  *
  * Create config dependency component named 'name' and register the
  * callback 'cb' and callback argument 'arg'. 
@@ -173,12 +172,13 @@ catch:
  * The optional following arguments will be treated as depencency 
  * entries that in the form of "<db-key>[:<variable>]". These entries
  * can be set separately via the dbdep_ent() function. 
- * IN Parameters:
- *  h     Config handle
- *  cb    Callback to call
- *  arg   Arg to send to callback
- *  nkeys Number of keys to follow
- *  ...   Keys
+ *
+ * @param  h    Config handle
+ * @param cb    Callback to call
+ * @param arg   Arg to send to callback
+ * @param nkeys Number of keys to follow
+ * @param ...   Keys
+ *
  *  return value needs to be freed.
  * NOTE: this function should be replaced by dbdep_row()!
  */

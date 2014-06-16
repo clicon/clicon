@@ -91,8 +91,7 @@
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
 
-/*!
- * \brief Append a new cligen variable (cv) to cligen variable vector (cvec),
+/*! Append a new cligen variable (cv) to cligen variable vector (cvec),
  *
  * Copy contents to new cv and return it. A utility function to cvec_add
  * See also cvec_add() 
@@ -109,16 +108,13 @@ cvec_add_cv(cvec *vr, cg_var *cv)
     return new;
 }
 
-/*!
- * \brief Merge two cvec's, no overlap.
+/*! Merge two cvec's, no overlap.
  *
- * Arguments:
- *	orig		- Original variable vector
- *	add		- New variable vector
- *	overwrite	- If the same variable exist in both 'orig' and 'add',
- *			  should 'old' variables be overwritten by 'add'.
- *
- * Returns: Number of added/overwritten keys to 'old'
+ * @param orig		Original variable vector
+ * @param add		New variable vector
+ * @param overwrite	If the same variable exist in both 'orig' and 'add',
+ *			should 'old' variables be overwritten by 'add'.
+ * @retval              Number of added/overwritten keys to 'old'
  */
 int
 cvec_merge(cvec *orig, cvec *add)
@@ -139,8 +135,7 @@ cvec_merge(cvec *orig, cvec *add)
     return retval;
 }
 
-/*!
- * \brief Merge two cvec's, accept overlap
+/*! Merge two cvec's, accept overlap
  *
  * Same as cvec_merge but same variable name may occur several times.
  * Example: assume variables eg x, y below 
@@ -217,20 +212,18 @@ catch:
     return cv;
 }
 
-/*!
- * \brief Seacrh for key in database and return a vector of cligen variables.
+/*! Search for key in database and return a vector of cligen variables.
  *
  * Find a key in the db and return its vector of values as a vector of cligen
  * variables.
  * Note: if key not found an empty cvec will be returned (not NULL).
+ * Note: Returned cvec needs to be freed with cvec_free().
  *
- * Args:
- *  IN   dname  Name of database to search in (filename including dir path)
- *  IN   key    String containing key to look for.
- * Returns:
- *  A cligen vector containing all variables found. This vector contains no 
- *  variables (length == 0) if key is not found.
- *  Returned cvec needs to be freed with cvec_free().
+ * @param   dname  Name of database to search in (filename including dir path)
+ * @param   key    String containing key to look for.
+ *
+ * @retval cv  A cligen vector containing all variables found. This vector contains no 
+ *             variables (length == 0) if key is not found.
  */
 cvec *
 dbkey2cvec(char *dbname, char *key)

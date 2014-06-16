@@ -57,8 +57,7 @@ struct clicon_handle {
 };
 
 
-/*
- * \brief Internal call to allocate a CLICON handle. 
+/*! Internal call to allocate a CLICON handle. 
  *
  * There may be different variants of handles with some common options.
  * So far the only common options is a MAGIC cookie for sanity checks and 
@@ -89,8 +88,7 @@ clicon_handle_init0(int size)
     return h;
 }
 
-/*
- * \brief Basic CLICON init functions returning a handle for API access.
+/*! Basic CLICON init functions returning a handle for API access.
  *
  * This is the first call to CLICON basic API which returns a handle to be 
  * used in the API functions. There are other clicon_init functions for more 

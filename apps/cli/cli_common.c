@@ -1295,8 +1295,7 @@ quit:
 }
 
 
-/*!
- * \brief An rpc call from a frontend module to a function in a backend module
+/*! An rpc call from a frontend module to a function in a backend module
  *
  * A CLI/netconf frontend module can make a functional call to a backend
  * module and get return value back. 
@@ -1304,20 +1303,21 @@ quit:
  * parameters can be sent, and value returned.
  * A function (func) must be defined in the backend module (plugin)
  * An example signature of such a downcall function is:
+ * @code
 int
 downcall(clicon_handle h, uint16_t op, uint16_t len, void *arg, 
 	      uint16_t *reply_data_len, void **reply_data)
+ * @endcode
  *
- * Arguments:
- *  IN   h
- *  IN   op       Generic application-defined operation
- *  IN   plugin   Name of backend plugin (XXX look in backend plugin dir)
- *  IN   func     Name of function i backend (ie downcall above) as string
- *  IN   param    Input parameter given to function (void* arg in downcall)
- *  IN   paramlen Length of input parameter
- *  OUT  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
- *  OUT  retlen   Length of returned data
- *  IN   label    Label used in chunk (de)allocation.
+ * @param[in]   h
+ * @param[in]   op       Generic application-defined operation
+ * @param[in]   plugin   Name of backend plugin (XXX look in backend plugin dir)
+ * @param[in]   func     Name of function i backend (ie downcall above) as string
+ * @param[in]   param    Input parameter given to function (void* arg in downcall)
+ * @param[in]   paramlen Length of input parameter
+ * @param[out]  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
+ * @param[out]  retlen   Length of returned data
+ * @param[in]   label    Label used in chunk (de)allocation.
  */
 int
 cli_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
@@ -1806,8 +1806,7 @@ cli_notification_cb(int s, void *arg)
 
 }
 
-/*!
- * \brief send a notify subscription to backend and register callback for return messages.
+/*! Send a notify subscription to backend and register callback for return messages.
  */
 int
 cli_getlog(clicon_handle h, cvec *vars, cg_var *arg)

@@ -109,8 +109,7 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
     return 0;
 }
 
-/*!
- * \brief Define a notify log message, part of the notify mechanism
+/*! Define a notify log message, part of the notify mechanism
  * 
  * Stream is a string used to qualify the event-stream. Distribute the event to
  * all clients registered to this backend.

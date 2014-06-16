@@ -230,8 +230,7 @@ catch:
 }
 
 
-/*
- * \brief Create backend server socket and register callback
+/*! Create backend server socket and register callback
  */
 static int
 server_socket(clicon_handle h)
