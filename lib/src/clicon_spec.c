@@ -1458,3 +1458,161 @@ dbspec2dtd(FILE *f, parse_tree *pt)
   done:
     return retval;
 }
+
+/* XXX -------------- YANG PARSER MISPLACED ----------------------- */
+#include "clicon_yang_parse.h"
+
+/*! Parse a string containing a YANG spec into a parse-tree
+ * 
+ * Syntax parsing. A string is input and a syntax-tree is returned (or error). 
+ * A variable record is also returned containing a list of (global) variable values.
+ * (cloned from cligen)
+ */
+static int
+clicon_yang_parse_str(clicon_handle h,
+		 char *str,
+		 const char *name, /* just for errs */
+		 parse_tree *pt,
+		 cvec *vr
+    )
+{
+    int                retval = -1;
+    int                i;
+    struct clicon_yang_yacc_arg ya = {0,};
+    cg_obj            *co;
+    cg_obj             co0; /* tmp top object: NOT malloced */
+    cg_obj            *co_top = &co0;
+
+    memset(&co0, 0, sizeof(co0));
+    ya.ya_handle       = h; 
+    ya.ya_name         = (char*)name;
+    ya.ya_linenum      = 1;
+    ya.ya_parse_string = str;
+    ya.ya_stack        = NULL;
+    co_top->co_pt      = *pt;
+    if (vr)
+	ya.ya_globals       = vr; 
+    else
+	if ((ya.ya_globals = cvec_new(0)) == NULL){
+	    fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno)); 
+	    goto done;
+	}
+
+    if (strlen(str)){ /* Not empty */
+	if (yang_scan_init(&ya) < 0)
+	    goto done;
+	if (yang_parse_init(&ya, co_top) < 0)
+	    goto done;
+	if (clicon_yangparse(&ya) != 0) {
+	    yang_parse_exit(&ya);
+	    yang_scan_exit(&ya);
+	    goto done;
+	}
+	if (yang_parse_exit(&ya) < 0)
+	    goto done;		
+	if (yang_scan_exit(&ya) < 0)
+	    goto done;		
+    }
+    if (vr)
+	vr= ya.ya_globals;
+    else
+	cvec_free(ya.ya_globals);
+    /*
+     * Remove the fake top level object and remove references to it.
+     */
+    *pt = co_top->co_pt;
+    for (i=0; i<co_top->co_max; i++){
+	co=co_top->co_next[i];
+	if (co)
+	    co_up_set(co, NULL);
+    }
+    retval = 0;
+  done:
+    return retval;
+
+}
+
+
+
+/*! Parse a file containing a YANG into a parse-tree
+ *
+ * Similar to clicon_yang_str(), just read a file first
+ * (cloned from cligen)
+ * The database symbols are inserted in alphabetical order.
+ */
+static int
+clicon_yang_parse_file(clicon_handle h,
+			 FILE *f,
+			 const char *name, /* just for errs */
+			 parse_tree *pt,
+			 cvec *globals)
+{
+    char         *buf;
+    int           i;
+    int           c;
+    int           len;
+    int           retval = -1;
+
+    len = 1024; /* any number is fine */
+    if ((buf = malloc(len)) == NULL){
+	perror("pt_file malloc");
+	return -1;
+    }
+    memset(buf, 0, len);
+
+    i = 0; /* position in buf */
+    while (1){ /* read the whole file */
+	if ((c =  fgetc(f)) == EOF)
+	    break;
+	if (len==i){
+	    if ((buf = realloc(buf, 2*len)) == NULL){
+		fprintf(stderr, "%s: realloc: %s\n", __FUNCTION__, strerror(errno));
+		goto done;
+	    }	    
+	    memset(buf+len, 0, len);
+	    len *= 2;
+	}
+	buf[i++] = (char)(c&0xff);
+    } /* read a line */
+    if (clicon_yang_parse_str(h, buf, name, pt, globals) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (buf)
+	free(buf);
+    return retval;
+}
+
+/*! Parse dbspec using yang format
+ *
+ * The database symbols are inserted in alphabetical order.
+ */
+int
+yang_parse(clicon_handle h, const char *filename, parse_tree *pt)
+{
+    FILE       *f;
+    cvec       *cvec = NULL;   /* global variables from syntax */
+    int         retval = -1;
+    char       *name;
+
+    if ((f = fopen(filename, "r")) == NULL){
+	clicon_err(OE_UNIX, errno, "fopen(%s)", filename);	
+	goto done;
+    }
+    if ((cvec = cvec_new(0)) == NULL){ /* global variables from syntax */
+	clicon_err(OE_UNIX, errno, "cvec_new()");	
+	goto done;
+    }   
+    if (clicon_yang_parse_file(h, f, filename, pt, cvec) < 0)
+	goto done;
+    /* pick up name="myname"; from spec */
+    if ((name = cvec_find_str(cvec, "name")) != NULL)
+	clicon_dbspec_name_set(h, name);
+    retval = 0;
+  done:
+    if (cvec)
+	cvec_free(cvec);
+    if (f)
+	fclose(f);
+    return retval;
+}

@@ -233,26 +233,36 @@ spec_main_cli(clicon_handle h, int printspec)
 	    cligen_parsetree_free(pt2, 1);
 	}
     }
-    else{ /* Parse KEY syntax */
-	if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
-	    goto quit;
-	if (printspec && debug) 
-	    db_spec_dump(stdout, db_spec);
-	clicon_dbspec_key_set(h, db_spec);	
-	/* 1: single arg, 2: doublearg */
-
-	if (dbspec_key2cli(h, db_spec, pt) < 0)
-	    goto quit;
-	if (printspec)
-	    cligen_print(stdout, *pt, 0);
-	clicon_dbspec_pt_set(h, pt);
-	if (debug>1){ 
-	    if ((db_spec2 = dbspec_cli2key(pt)) == NULL) /* To dbspec */
+    else
+	if (strcmp(syntax, "PT") == 0){ /* Parse KEY syntax */
+	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 		goto quit;
-	    if (printspec) /* XXX */
-		db_spec_dump(stderr, db_spec2);
+	    if (printspec && debug) 
+		db_spec_dump(stdout, db_spec);
+	    clicon_dbspec_key_set(h, db_spec);	
+	    /* 1: single arg, 2: doublearg */
+	    
+	    if (dbspec_key2cli(h, db_spec, pt) < 0)
+		goto quit;
+	    if (printspec)
+		cligen_print(stdout, *pt, 0);
+	    clicon_dbspec_pt_set(h, pt);
+	    if (debug>1){ 
+		if ((db_spec2 = dbspec_cli2key(pt)) == NULL) /* To dbspec */
+		    goto quit;
+		if (printspec) /* XXX */
+		    db_spec_dump(stderr, db_spec2);
+	    }
 	}
-    }
+	else
+	    if (strcmp(syntax, "YANG") == 0){ /* Parse KEY syntax */
+		if (yang_parse(h, db_spec_file, pt) < 0)
+		    goto quit;
+		cligen_print(stdout, *pt, 0);
+		clicon_log(LOG_INFO, "YANG PARSING OK");
+		goto quit; /* XXX */
+	    }
+
     retval = 0;
   quit:
     return retval;

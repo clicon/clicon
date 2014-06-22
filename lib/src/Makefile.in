@@ -65,7 +65,8 @@ YACC_SRC	= xml.y
 LEX_SRC		= xml.l
 
 YACCOBJS := lex.xml.o xml.tab.o clicon_dbvars.yy.o clicon_dbvars.tab.o \
-	lex.clicon_dbspec.o clicon_dbspec.tab.o clicon_db2txt.yy.o clicon_db2txt.tab.o 
+	lex.clicon_dbspec.o clicon_dbspec.tab.o lex.clicon_yang.o clicon_yang.tab.o \
+	clicon_db2txt.yy.o clicon_db2txt.tab.o 
 
 
 # Generated src 
@@ -90,6 +91,8 @@ clean:
 	rm -f clicon_db2txt.tab.[ch] clicon_db2txt.yy.[co]
 	rm -f clicon_dbspec.tab.[ch] clicon_dbspec.[co]
 	rm -f lex.clicon_dbspec.c
+	rm -f clicon_yang.tab.[ch] clicon_yang.[co]
+	rm -f lex.clicon_yang.c
 	rm -f lex.xml.c
 
 #############################################################################
@@ -127,6 +130,19 @@ clicon_dbspec.tab.c clicon_dbspec.tab.h: clicon_dbspec.y
 
 lex.clicon_dbspec.o : lex.clicon_dbspec.c clicon_dbspec.tab.h
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
+
+# clicon_yang parser
+lex.clicon_yang.c : clicon_yang.l clicon_yang.tab.h
+	$(LEX) -d -Pclicon_yang clicon_yang.l # -d is debug
+
+clicon_yang.tab.c clicon_yang.tab.h: clicon_yang.y
+	$(YACC) -l -d -p clicon_yang clicon_yang.y # -t is debug
+	mv y.tab.c clicon_yang.tab.c
+	mv y.tab.h clicon_yang.tab.h
+
+lex.clicon_yang.o : lex.clicon_yang.c clicon_yang.tab.h
+	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
+
 
 # clicon_dbvars parser
 clicon_dbvars.yy.c : clicon_dbvars.l clicon_dbvars.tab.h

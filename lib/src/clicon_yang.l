@@ -1,0 +1,238 @@
+/*
+ *  CVS Version: $Id: clicon_dbspec.l,v 1.3 2013/09/13 15:05:14 olof Exp $
+ *
+  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+
+  This file is part of CLICON.
+
+  CLICON is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 3 of the License, or
+  (at your option) any later version.
+
+  CLICON is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with CLICON; see the file COPYING.  If not, see
+  <http://www.gnu.org/licenses/>.
+
+ * Database specification parser cli syntax
+ * (Cloned from cligen parser)
+ */
+
+%{
+
+
+#include "clicon_config.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+#include <errno.h>
+#include <netinet/in.h>
+
+#include "clicon_yang.tab.h" /* generated */
+
+#include <cligen/cligen.h>
+
+#include "clicon_queue.h"
+#include "clicon_hash.h"
+#include "clicon_handle.h"
+#include "clicon_yang_parse.h"
+
+/* Redefine main lex function so that you can send arguments to it */
+#define YY_DECL int clicon_yanglex(void *_ya)
+
+/* Dont use input function (use user-buffer) */
+#define YY_NO_INPUT
+
+/* typecast macro */
+#define _YA ((struct clicon_yang_yacc_arg *)_ya)
+
+#define     MAXBUF  4*4*64*1024
+
+#define MAX(x,y) ((x)>(y)?(x):(y))
+#define MIN(x,y) ((x)<(y)?(x):(y))
+
+#undef clicon_yangwrap
+int 
+clicon_yangwrap(void)
+{
+  return 1;
+}
+
+/* like strdup but strip \:s */
+static char *
+stripdup(char *s0)
+{
+  char *s1;
+  char *s;
+
+  if ((s1 = strdup(s0)) == NULL){
+    fprintf(stderr, "%s: strdup: %s\n", __FUNCTION__, strerror(errno));
+    return NULL;
+  }
+  while ((s = index(s1, '\\')) != NULL)
+    memmove(s, s+1, strlen(s)); 
+  return s1;
+}
+
+/*
+   statement = keyword [argument] (";" / "{" *statement "}") 
+   The argument is a string
+
+   Example: keyword argument ; keyword ; keyword { keyword argument; } keyword
+*/
+
+
+%}
+
+%x KEYWORD
+%s ARGUMENT
+%s STRING
+%s ESCAPE
+%s COMMENT1
+%s COMMENT2
+
+%%
+<KEYWORD>[ \t]            
+<KEYWORD><<EOF>>          { return MY_EOF; }
+<KEYWORD>\}               { return *yytext; }
+<KEYWORD>\n               { _YA->ya_linenum++; }
+<KEYWORD,ARGUMENT>"/*"    { _YA->ya_lex_state = YYSTATE; BEGIN(COMMENT1); }
+<KEYWORD,ARGUMENT>"//"    { _YA->ya_lex_state = YYSTATE; BEGIN(COMMENT2); }
+
+ /* RFC 6020 keywords */
+<KEYWORD>anyxml           { BEGIN(ARGUMENT); return K_ANYXML; }
+<KEYWORD>argument         { BEGIN(ARGUMENT); return K_ARGUMENT; }
+<KEYWORD>augment          { BEGIN(ARGUMENT); return K_AUGMENT; }
+<KEYWORD>base             { BEGIN(ARGUMENT); return K_BASE; }
+<KEYWORD>belongs-to       { BEGIN(ARGUMENT); return K_BELONGS_TO; }
+<KEYWORD>bit              { BEGIN(ARGUMENT); return K_BIT; }
+<KEYWORD>case             { BEGIN(ARGUMENT); return K_CASE; }
+<KEYWORD>choice           { BEGIN(ARGUMENT); return K_CHOICE; }
+<KEYWORD>config           { BEGIN(ARGUMENT); return K_CONFIG; }
+<KEYWORD>contact          { BEGIN(ARGUMENT); return K_CONTACT; }
+<KEYWORD>container        { BEGIN(ARGUMENT); return K_CONTAINER; }
+<KEYWORD>default          { BEGIN(ARGUMENT); return K_DEFAULT; }
+<KEYWORD>description      { BEGIN(ARGUMENT); return K_DESCRIPTION; }
+<KEYWORD>deviate          { BEGIN(ARGUMENT); return K_DEVIATE; }
+<KEYWORD>deviation        { BEGIN(ARGUMENT); return K_DEVIATION; }
+<KEYWORD>enum             { BEGIN(ARGUMENT); return K_ENUM; }
+<KEYWORD>error-app-tag    { BEGIN(ARGUMENT); return K_ERROR_APP_TAG; }
+<KEYWORD>error-message    { BEGIN(ARGUMENT); return K_ERROR_MESSAGE; }
+<KEYWORD>extension        { BEGIN(ARGUMENT); return K_EXTENSION; }
+<KEYWORD>feature          { BEGIN(ARGUMENT); return K_FEATURE; }
+<KEYWORD>fraction-digits  { BEGIN(ARGUMENT); return K_FRACTION_DIGITS; }
+<KEYWORD>grouping         { BEGIN(ARGUMENT); return K_GROUPING; }
+<KEYWORD>identity         { BEGIN(ARGUMENT); return K_IDENTITY; }
+<KEYWORD>if-feature       { BEGIN(ARGUMENT); return K_IF_FEATURE; }
+<KEYWORD>import           { BEGIN(ARGUMENT); return K_IMPORT; }
+<KEYWORD>include          { BEGIN(ARGUMENT); return K_INCLUDE; }
+<KEYWORD>input            { BEGIN(ARGUMENT); return K_INPUT; }
+<KEYWORD>key              { BEGIN(ARGUMENT); return K_KEY; }
+<KEYWORD>leaf             { BEGIN(ARGUMENT); return K_LEAF; }
+<KEYWORD>leaf-list        { BEGIN(ARGUMENT); return K_LEAF_LIST; }
+<KEYWORD>length           { BEGIN(ARGUMENT); return K_LENGTH; }
+<KEYWORD>list             { BEGIN(ARGUMENT); return K_LIST; }
+<KEYWORD>mandatory        { BEGIN(ARGUMENT); return K_MANDATORY; }
+<KEYWORD>max-elements     { BEGIN(ARGUMENT); return K_MAX_ELEMENTS; }
+<KEYWORD>min-elements     { BEGIN(ARGUMENT); return K_MIN_ELEMENTS; }
+<KEYWORD>module           { BEGIN(ARGUMENT); return K_MODULE; }
+<KEYWORD>must             { BEGIN(ARGUMENT); return K_MUST; }
+<KEYWORD>namespace        { BEGIN(ARGUMENT); return K_NAMESPACE; }
+<KEYWORD>notification     { BEGIN(ARGUMENT); return K_NOTIFICATION; }
+<KEYWORD>ordered-by       { BEGIN(ARGUMENT); return K_ORDERED_BY; }
+<KEYWORD>organization     { BEGIN(ARGUMENT); return K_ORGANIZATION; }
+<KEYWORD>output           { BEGIN(ARGUMENT); return K_OUTPUT; }
+<KEYWORD>path             { BEGIN(ARGUMENT); return K_PATH; }
+<KEYWORD>pattern          { BEGIN(ARGUMENT); return K_PATTERN; }
+<KEYWORD>position         { BEGIN(ARGUMENT); return K_POSITION; }
+<KEYWORD>prefix           { BEGIN(ARGUMENT); return K_PREFIX; }
+<KEYWORD>presence         { BEGIN(ARGUMENT); return K_PRESENCE; }
+<KEYWORD>range            { BEGIN(ARGUMENT); return K_RANGE; }
+<KEYWORD>reference        { BEGIN(ARGUMENT); return K_REFERENCE; }
+<KEYWORD>refine           { BEGIN(ARGUMENT); return K_REFINE; }
+<KEYWORD>require-instance { BEGIN(ARGUMENT); return K_REQUIRE_INSTANCE; }
+<KEYWORD>revision         { BEGIN(ARGUMENT); return K_REVISION; }
+<KEYWORD>revision-date    { BEGIN(ARGUMENT); return K_REVISION_DATE; }
+<KEYWORD>rpc              { BEGIN(ARGUMENT); return K_RPC; }
+<KEYWORD>status           { BEGIN(ARGUMENT); return K_STATUS; }
+<KEYWORD>submodule        { BEGIN(ARGUMENT); return K_SUBMODULE; }
+<KEYWORD>type             { BEGIN(ARGUMENT); return K_TYPE; }
+<KEYWORD>typedef          { BEGIN(ARGUMENT); return K_TYPEDEF; }
+<KEYWORD>unique           { BEGIN(ARGUMENT); return K_UNIQUE; }
+<KEYWORD>units            { BEGIN(ARGUMENT); return K_UNITS; }
+<KEYWORD>uses             { BEGIN(ARGUMENT); return K_USES; }
+<KEYWORD>value            { BEGIN(ARGUMENT); return K_VALUE; }
+<KEYWORD>when             { BEGIN(ARGUMENT); return K_WHEN; }
+<KEYWORD>yang-version     { BEGIN(ARGUMENT); return K_YANG_VERSION; }
+<KEYWORD>yin-element      { BEGIN(ARGUMENT); return K_YIN_ELEMENT; }
+
+<KEYWORD>.                { clicon_yangerror(_ya, "No such keyword"); return K_UNKNOWN; }
+
+<ARGUMENT>[ \t]            
+<ARGUMENT><<EOF>>          { return MY_EOF; }
+<ARGUMENT>;                { BEGIN(KEYWORD); return *yytext; }
+<ARGUMENT>\"               { _YA->ya_lex_string_state =ARGUMENT; BEGIN(STRING); return DQ; }
+<ARGUMENT>\{               {  BEGIN(KEYWORD); return *yytext; }
+<ARGUMENT>\n               { _YA->ya_linenum++; }
+<ARGUMENT>.                 { clicon_yanglval.string = strdup(yytext);
+                            return CHAR;}
+
+
+<STRING>\n                { _YA->ya_linenum++; }
+<STRING>\\                { _YA->ya_lex_state = STRING; BEGIN(ESCAPE); }
+<STRING>\"                { BEGIN(_YA->ya_lex_string_state); return DQ; }
+<STRING>.                 { clicon_yanglval.string = strdup(yytext);
+                            return CHAR;}
+
+<ESCAPE>.                 { BEGIN(_YA->ya_lex_state); 
+                             clicon_yanglval.string = strdup(yytext); 
+                             return CHAR; }
+<COMMENT1>[^*\n]*        /* eat anything that's not a '*' */
+<COMMENT1>"*"+[^*/\n]*   /* eat up '*'s not followed by '/'s */
+<COMMENT1>\n             { _YA->ya_linenum++; }
+<COMMENT1>"*"+"/"        BEGIN(_YA->ya_lex_state);
+
+<COMMENT2>[^\n]*        /* eat anything that's not a '/' */
+<COMMENT2>\n             { _YA->ya_linenum++; BEGIN(_YA->ya_lex_state); }
+%%
+
+/*
+ * yang_parse_init
+ * Initialize scanner.
+ */
+int
+yang_scan_init(struct clicon_yang_yacc_arg *ya)
+{
+  BEGIN(KEYWORD);
+  ya->ya_lexbuf = yy_scan_string (ya->ya_parse_string);
+#if 1 /* XXX: just to use unput to avoid warning  */
+  if (0)
+    yyunput(0, ""); 
+#endif
+
+  return 0;
+}
+
+/*
+ * yang_parse_exit
+ * free buffers
+ * Even within Flex version 2.5 (this is assumed), freeing buffers is different.
+ */
+int
+yang_scan_exit(struct clicon_yang_yacc_arg *ya)
+{
+    yy_delete_buffer(ya->ya_lexbuf);
+#if defined(YY_FLEX_SUBMINOR_VERSION) && YY_FLEX_SUBMINOR_VERSION >= 9
+    clicon_yanglex_destroy();  /* modern */
+#else
+    yy_init = 1;      /* This does not quite free all buffers */
+#endif
+    return 0;
+}
+
