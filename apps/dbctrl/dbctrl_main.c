@@ -161,7 +161,7 @@ main(int argc, char **argv)
     int              use_syslog;
     char            *syntax;
     dbspec_tree     *pt;
-    struct db_spec  *db_spec;
+    struct db_spec  *db_spec = NULL;
     struct stat      st;
 
     /* In the startup, logs to stderr & debug flag set later */

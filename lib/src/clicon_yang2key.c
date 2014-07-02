@@ -214,7 +214,7 @@ yang2key_leaf(yang_stmt       *ys,
     int             retval = -1;
     cg_var         *cv;
     struct db_spec *ds = NULL;
-    char           *keyspec;
+    char           *keyspec = NULL;
 
     /* get the (already generated) cligen variable */
     if ((cv = cvec_add_cv(vars0, ys->ys_cv)) == NULL){
@@ -253,7 +253,7 @@ yang2key_leaf_list(yang_stmt       *ys,
     int             retval = -1;
     cg_var         *cv;
     struct db_spec *ds = NULL;
-    char           *keyspec;
+    char           *keyspec = NULL;
     char           *keyspec2;
 
     /* get the (already generated) cligen variable */

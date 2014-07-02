@@ -60,3 +60,9 @@ plugin_exit(clicon_handle h)
     return 0;
 }
 
+int
+test(clicon_handle h, int argc, char *argv[])
+{
+    fprintf(stderr, "%s\n", __FUNCTION__);
+    return 0;
+}

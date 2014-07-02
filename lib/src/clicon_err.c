@@ -197,7 +197,6 @@ clicon_err_fn(const char *fn, const int line, int category, int suberr, char *re
     /* Set the global variables */
     clicon_errno    = category;
     clicon_suberrno = suberr;
-    strncpy(clicon_err_reason, reason, ERR_STRLEN-1);
 
     /* first round: compute length of error message */
     va_start(args, reason);
@@ -218,6 +217,8 @@ clicon_err_fn(const char *fn, const int line, int category, int suberr, char *re
 	goto done;
     }
     va_end(args);
+    strncpy(clicon_err_reason, msg, ERR_STRLEN-1);
+
     /* Actually log it */
     if (suberr){
 	/* Here we could take care of specific suberr, like application-defined errors */

@@ -499,7 +499,7 @@ static int
 ys_populate_leaf(yang_stmt *ys, void *arg)
 {
     int             retval = -1;
-    cg_var         *cv;
+    cg_var         *cv = NULL;
     yang_node      *yparent; 
     yang_stmt      *ytype; 
     yang_stmt      *yman; 

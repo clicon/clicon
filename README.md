@@ -2,7 +2,7 @@ CLICON
 ======
 
 CLICON is a software suite for configuration management including CLI
-generation, transaction support, netconf and embedded databases.
+generation, transaction support, YANG, NETCONF and embedded databases.
 
 Presentations and tutorial is found on the [CLICON project
 page](http://www.clicon.org)
