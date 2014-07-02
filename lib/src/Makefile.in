@@ -55,7 +55,8 @@ INCLUDES = -I. @INCLUDES@ -I$(top_srcdir)/lib/clicon -I$(top_srcdir)/include -I$
 SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
 	  clicon_lvalue.c clicon_lvmap.c clicon_chunk.c clicon_proc.c \
 	  clicon_string.c clicon_handle.c \
-	  clicon_xml.c clicon_spec.c clicon_file.c clicon_dbutil.c clicon_dbmatch.c \
+	  clicon_xml.c clicon_file.c clicon_dbutil.c clicon_dbmatch.c \
+	  clicon_spec.c clicon_dbspec_parsetree.c clicon_dbspec_xxx.c clicon_yang.c clicon_yang2key.c \
 	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
 	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \
 	  xmlgen_xf.c xmlgen_xml.c xmlgen_xsl.c
@@ -65,14 +66,14 @@ YACC_SRC	= xml.y
 LEX_SRC		= xml.l
 
 YACCOBJS := lex.xml.o xml.tab.o clicon_dbvars.yy.o clicon_dbvars.tab.o \
-	lex.clicon_dbspec.o clicon_dbspec.tab.o lex.clicon_yang.o clicon_yang.tab.o \
+	lex.clicon_dbspec.o clicon_dbspec.tab.o lex.clicon_yang_parse.o clicon_yang_parse.tab.o \
 	clicon_db2txt.yy.o clicon_db2txt.tab.o 
 
 
 # Generated src 
 GENSRC  = build.c 
 
-OBJS    = $(SRC:.c=.o) $(YACCOBJS)
+OBJS    = $(YACCOBJS) $(SRC:.c=.o) 
 GENOBJS  = $(GENSRC:.c=.o) 
 
 # Linker-name: libclicon.so
@@ -91,8 +92,8 @@ clean:
 	rm -f clicon_db2txt.tab.[ch] clicon_db2txt.yy.[co]
 	rm -f clicon_dbspec.tab.[ch] clicon_dbspec.[co]
 	rm -f lex.clicon_dbspec.c
-	rm -f clicon_yang.tab.[ch] clicon_yang.[co]
-	rm -f lex.clicon_yang.c
+	rm -f clicon_yang_parse.tab.[ch] clicon_yang_parse.[co]
+	rm -f lex.clicon_yang_parse.c
 	rm -f lex.xml.c
 
 #############################################################################
@@ -132,17 +133,16 @@ lex.clicon_dbspec.o : lex.clicon_dbspec.c clicon_dbspec.tab.h
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
 
 # clicon_yang parser
-lex.clicon_yang.c : clicon_yang.l clicon_yang.tab.h
-	$(LEX) -d -Pclicon_yang clicon_yang.l # -d is debug
+lex.clicon_yang_parse.c : clicon_yang_parse.l clicon_yang_parse.tab.h
+	$(LEX) -Pclicon_yang_parse clicon_yang_parse.l # -d is debug
 
-clicon_yang.tab.c clicon_yang.tab.h: clicon_yang.y
-	$(YACC) -l -d -p clicon_yang clicon_yang.y # -t is debug
-	mv y.tab.c clicon_yang.tab.c
-	mv y.tab.h clicon_yang.tab.h
+clicon_yang_parse.tab.c clicon_yang_parse.tab.h: clicon_yang_parse.y
+	$(YACC) -l -d -p clicon_yang_parse clicon_yang_parse.y # -t is debug
+	mv y.tab.c clicon_yang_parse.tab.c
+	mv y.tab.h clicon_yang_parse.tab.h
 
-lex.clicon_yang.o : lex.clicon_yang.c clicon_yang.tab.h
+lex.clicon_yang_parse.o : lex.clicon_yang_parse.c clicon_yang_parse.tab.h
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
-
 
 # clicon_dbvars parser
 clicon_dbvars.yy.c : clicon_dbvars.l clicon_dbvars.tab.h

@@ -34,10 +34,10 @@
 # CLICON_CONFIGFILE $(APPDIR)/clicon.conf
 
 # Database specification file syntax, Parse-tree or key. PT(default) or KEY(old)
-# CLICON_DBSPEC_TYPE      PT
+CLICON_DBSPEC_TYPE      YANG
 
 # Database specification file. Syntax either CLI or KEY given by DB_SPEC_SYNTAX
-CLICON_DBSPEC_FILE        @APPDIR@/ntp.spec
+CLICON_DBSPEC_FILE        @APPDIR@/ntp.yang
 
 # Candidate qdbm database
 # CLICON_CANDIDATE_DB        $(APPDIR)/db/candidate_db
@@ -78,7 +78,7 @@ CLICON_AUTOCOMMIT 1
 
 # Optional name of syntax group to start from if many. 
 # Should be subdir of CLICON_CLI_DIR. Only frontend.
-# CLICON_CLI_GROUP
+# CLICON_CLI_GROUP olof
 
 # Startup CLI mode
 CLICON_CLI_MODE ntp

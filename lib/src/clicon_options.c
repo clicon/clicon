@@ -77,6 +77,9 @@
 #include "clicon_handle.h"
 #include "clicon_chunk.h"
 #include "clicon_log.h"
+#include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
+#include "clicon_yang.h"
 #include "clicon_options.h"
 
 /*
@@ -666,11 +669,13 @@ clicon_dbspec_key_set(clicon_handle h, struct db_spec *ds)
     return 0;
 }
 
+#if 1 /* This should at some time migrate to clicon_dbspec_yang, or just be 
+	 replaced bythat code */
 /* 
  * Get dbspec (PARSE-TREE variant)
  * Must use hash functions directly since they are not strings.
  */
-parse_tree *
+dbspec_tree *
 clicon_dbspec_pt(clicon_handle h)
 {
     clicon_hash_t  *copt = clicon_options(h);
@@ -678,7 +683,7 @@ clicon_dbspec_pt(clicon_handle h)
     void           *p;
 
     if ((p = hash_value(copt, "dbspec_pt", &len)) != NULL)
-	return *(struct parse_tree **)p;
+	return *(struct dbspec_tree **)p;
     return NULL;
 }
 
@@ -686,7 +691,7 @@ clicon_dbspec_pt(clicon_handle h)
  * Set dbspec (PARSE-TREE variant)
  */
 int
-clicon_dbspec_pt_set(clicon_handle h, struct parse_tree *pt)
+clicon_dbspec_pt_set(clicon_handle h, struct dbspec_tree *pt)
 {
     clicon_hash_t  *copt = clicon_options(h);
 
@@ -697,9 +702,45 @@ clicon_dbspec_pt_set(clicon_handle h, struct parse_tree *pt)
 	return -1;
     return 0;
 }
+#endif
+
+/* 
+ * Get dbspec (YANG variant)
+ * Must use hash functions directly since they are not strings.
+ */
+yang_spec *
+clicon_dbspec_yang(clicon_handle h)
+{
+    clicon_hash_t  *copt = clicon_options(h);
+    size_t          len;
+    void           *p;
+
+    if ((p = hash_value(copt, "dbspec_yang", &len)) != NULL)
+	return *(yang_spec **)p;
+    return NULL;
+}
+
+/* 
+ * Set dbspec (YANG variant)
+ * ys must be a malloced pointer
+ */
+int
+clicon_dbspec_yang_set(clicon_handle h, struct yang_spec *ys)
+{
+    clicon_hash_t  *copt = clicon_options(h);
+
+    /* It is the pointer to ys that should be copied by hash,
+       so we send a ptr to the ptr to indicate what to copy.
+     */
+    if (hash_add(copt, "dbspec_yang", &ys, sizeof(ys)) == NULL)
+	return -1;
+    return 0;
+}
+
 
 /* 
  * Get dbspec name as read from spec. Can be used in CLI '@' syntax.
+ * XXX: this we muśt change,...
  */
 char *
 clicon_dbspec_name(clicon_handle h)

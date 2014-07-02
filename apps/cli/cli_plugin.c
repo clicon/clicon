@@ -682,8 +682,14 @@ clicon_eval(clicon_handle h, char *cmd, cg_obj *match_obj, cvec *vr)
 #endif
     if (!cli_exiting(h)) {	
 	clicon_err_reset();
-	if (cligen_eval(cli_cligen(h), match_obj, vr) < 0) 
-	    cli_handler_err(stdout);
+	if (cligen_eval(cli_cligen(h), match_obj, vr) < 0) {
+#if 0 /* This is removed since we get two error messages on failure.
+	 But maybe only sometime?
+	 Both a real log when clicon_err is called, and the  here again.
+	 (Before clicon_err was silent)  */
+	    cli_handler_err(stdout); 
+#endif
+	}
     }
     return 0;
 }

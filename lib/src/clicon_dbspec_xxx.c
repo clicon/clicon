@@ -19,27 +19,8 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
- *
- * Database specification
- * Syntax:
- * <line> ::= <key> <var>*
- * <var>  ::= $[!]<name>[:<type>]
- * Example: system.hostname a:string !b:number
- * Comment sign is '#'
- * The resulting parse-tree is in a linked list of db_spec:s
- * Each db_spec contains a key and a variable-headm which in turn contains
- * a list of variables (see osr_var.h).
- *
- * Translation between database specs
- *     db_spec                      parse_tree                    parse_tree
- *  +-------------+ dbspec_key2cli +-------------+ dbspec2cli    +-------------+
- *  |  dbspec     | -------------> | dbclispec   | ------------> | cli         |
- *  |  A[].B !$a  | dbspec_cli2key | A <!a>{ B;} |               | syntax      |
- *  +-------------+ <------------  +-------------+               +-------------+
- *        ^                               ^
- *        |db_spec_parse_file             | dbclispec_parse
- *        |                               |
- *      <file>                          <file>
+ * This is an extract and copy of cligen necessary files for dbcli parser to work.
+ * Plan is to replace this with yang parser.
   */
 
 #ifdef HAVE_CONFIG_H
@@ -69,15 +50,15 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
 #include "clicon_chunk.h"
+#include "clicon_yang.h"
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
 #include "clicon_dbspec_xxx.h"
-
-static int co_free2(dbspec_obj *co, int recursive);
 
 int
 cv_validate2(cg_var *cv, cg_varspec2 *cs, char **reason)
@@ -205,7 +186,7 @@ pt_free12(dbspec_tree pt, int recursive)
 }
 
 
-static int 
+int 
 co_free2(dbspec_obj *co, int recursive)
 {
     if (recursive && co->do_next)

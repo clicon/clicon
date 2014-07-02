@@ -1,14 +1,16 @@
-CLICON_MODE="ntp";
+CLICON_MODE="ntp"; # The cligen tree will be called "ntp"
 CLICON_PLUGIN="ntp_cli";
 CLICON_PROMPT="%U@%H> ";
 
 show("Show running system information"){
     associations("NTP associations"), cli_run("ntpq -p");
-    configuration("Show configuration as cli commands"), show_conf_as_cli("running ^.*$");
-    netconf("Show configuration as netconf"), show_conf_as_netconf("running ^.*$");
+    configuration("Show configuration as cli commands"), show_conf_as_cli("candidate ^.*$");
+    netconf("Show configuration as netconf"), show_conf_as_netconf("candidate ^.*$");
 }
+validate, cli_validate();
+
 # Set and delete syntax
-@datamodel, cli_merge();
-no("Negate a syntax-statement") @datamodel, cli_del();
+@datamodel:ntp, cli_merge();
+no("Negate a syntax-statement") @datamodel:ntp, cli_del();
 
 quit("Quit CLI"), cli_quit();

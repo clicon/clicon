@@ -41,6 +41,8 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
+#include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
 #include "clicon_dbspec.h"
 
 /* Redefine main lex function so that you can send arguments to it */
@@ -173,7 +175,6 @@ stripdup(char *s0)
                                  clicon_dbspeclval.string = strdup(yytext);
                                  return NAME; }
 <OPTION>.                 { return -1;}
-
 
 <STRING>\n                { _YA->ya_linenum++; }
 <STRING>\\                { _YA->ya_lex_state = STRING; BEGIN(ESCAPE); }

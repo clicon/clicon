@@ -39,6 +39,9 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_err.h"
+#include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
+#include "clicon_yang.h"
 #include "clicon_options.h"
 
 #define CLICON_MAGIC 0x99aafabe

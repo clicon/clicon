@@ -60,6 +60,7 @@
 #include "config_handle.h"
 #include "config_commit.h"
 
+#include <src/clicon_yang_parse.tab.h> /* XXX for constants */
 /*
  * plugin_modify_key_value
  * A wrapper function for invoking the plugin dependency set/del call
@@ -103,33 +104,103 @@ plugin_modify_key_value(clicon_handle h,
     return retval;
 }
 
-/*
- * generic_validate
- *
- * key values are checked for validity independent of user-defined callbacks
- * They are checked as follows:
- * 1. If no value and default value defined, add it.
- * 2. If no value and mandatory flag set in spec, report error.
- * 3. Validate value versus spec, and report error if no match. Currently only int ranges and
- *    string regexp checked.
- */
 static int
-generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
+generic_validate_yang(clicon_handle        h, 
+		      char                *dbname, 
+		      const struct dbdiff *dd,     
+		      yang_spec           *yspec)
+{
+    int             retval = -1;
+    int             i, j;
+    char           *dbkey;
+    yang_stmt      *ys;
+    yang_stmt      *ym; /* module */
+    yang_stmt      *yleaf;
+    cvec           *cvec = NULL;
+    cg_var         *cv;
+
+    /* dd->df_ents[].dfe_key1 (running),  
+       dd->df_ents[].dfe_key2 (candidate) */
+    /* Get top-level module */
+    if ((ym = yang_find((yang_node*)yspec, K_MODULE, clicon_dbspec_name(h))) == NULL){
+	clicon_err(OE_DB, 0, "No such module: %s", clicon_dbspec_name(h));
+	goto done;
+    }
+    /* Loop through dbkeys that have changed on this commit */
+    for (i = 0; i < dd->df_nr; i++) {
+	/* Get the dbkey that changed (eg a.b) in a.b $x $y*/
+	if ((dbkey = dd->df_ents[i].dfe_key2) == NULL)
+	    continue;
+	/* Given changed dbkey, find corresponding yang syntax node 
+	   ie container or list. SHould not be leaf or leaf-lists since they are vars
+	*/
+	if ((ys = dbkey2yang((yang_node*)ym, dbkey)) == NULL)
+	    continue;
+	/* Get the list of variables and values for this key, eg $x $y */
+	if ((cvec = dbkey2cvec(dbname, dbkey)) == NULL) 
+	    goto done;
+	/* Loop over all leafs and check if actual values in db(cv) satisfies them */
+	for (j=0; j<ys->ys_len; j++){
+	    /* Get the leaf yang-stmt under a container/list, e.g $x */
+	    yleaf = ys->ys_stmt[j];
+	    if (yleaf->ys_keyword != K_LEAF)
+		continue;
+	    if (cvec_find(cvec, yleaf->ys_argument) == NULL){  /* No db-value */
+		/* If default value, set that */
+		if (!cv_flag(yleaf->ys_cv, V_UNSET)){  /* Default value exists */
+		    if (cvec_add_cv(cvec, yleaf->ys_cv) < 0){
+			clicon_err(OE_CFG, 0, "cvec_add_cv");
+			goto done;
+		    }
+		    /* Write to database */
+		    if (cvec2dbkey(dbname, dbkey, cvec) < 0)
+			goto done;
+		}
+		else
+		    if (yleaf->ys_mandatory){
+			clicon_err(OE_CFG, 0, 
+				   "key %s: Missing mandatory variable: %s\n",
+				   dbkey, yleaf->ys_argument);
+			goto done;
+		    }
+		/* If mandatory a value is required */
+	    }
+	}
+	/* Loop over all actual db/cv:s och check their validity, eg ranges */	
+	cv = NULL;
+	while ((cv = cvec_each(cvec, cv))) {
+	    /* XXX */
+	}
+	if (cvec){
+	    cvec_free(cvec);
+	    cvec = NULL;
+	}
+    } /* for */
+
+    retval = 0;
+  done:
+    if (cvec)
+	cvec_free(cvec);
+    return retval;
+}
+
+static int
+generic_validate_pt(clicon_handle        h, 
+		    char                *dbname, 
+		    const struct dbdiff *dd,     
+		    dbspec_tree         *dbspec_co)
 {
     int             i, j;
     char           *key;
     cvec           *cvec = NULL;
     cg_var         *cv;
-    cg_varspec     *cs;
+    cg_varspec2    *cs;
     int             retval = -1;
-    cg_obj         *co;
-    cg_obj         *cov;
-    parse_tree     *dbspec_co;
+    dbspec_obj     *co;
+    dbspec_obj     *cov;
     char           *reason = NULL;
-    parse_tree     *pt;
+    dbspec_tree    *pt;
 
-    if ((dbspec_co = clicon_dbspec_pt(h)) == NULL)
-	goto done;
     /* dd->df_ents[].dfe_key1 (running),  
        dd->df_ents[].dfe_key2 (candidate) */
     for (i = 0; i < dd->df_nr; i++) {
@@ -142,15 +213,14 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 	    goto done;
 	/* Loop over all co:s children (spec) and check if actual values
 	   in db(cv) satisfies them */
-	pt = &co->co_pt;
-	for (j=0; j<pt->pt_len; j++){
-	    if ((cov = pt->pt_vec[j]) == NULL)
+	pt = &co->do_pt;
+	for (j=0; j<pt->dt_len; j++){
+	    if ((cov = pt->dt_vec[j]) == NULL)
 		continue;
-	    if (cov->co_type == CO_VARIABLE){
-
+	    if (cov->do_type == CO_VARIABLE){
 		/* There is no db-value, but dbspec has default value */
 		if ((cv = dbspec_default_get(cov)) != NULL &&
-		    cvec_find(cvec, cov->co_command) == NULL){
+		    cvec_find(cvec, cov->do_command) == NULL){
 		    cv_flag_set(cv, V_DEFAULT); /* mark it as default XXX not survive DB */
 		    /* add default value to cvec */
 		    if (cvec_add_cv(cvec, cv) < 0){
@@ -162,10 +232,10 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 			goto done;
 		}
 		else
-		if (!dbspec_optional_get(cov) && cvec_find(cvec, cov->co_command) == NULL){
+		if (!dbspec_optional_get(cov) && cvec_find(cvec, cov->do_command) == NULL){
 		    clicon_err(OE_CFG, 0, 
 			       "key %s: Missing mandatory variable: %s\n",
-			       key, cov->co_command);
+			       key, cov->do_command);
 		    goto done;
 		}
 	    }
@@ -173,17 +243,17 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 	cv = NULL;
 	/* Loop over all actual db/cv:s och check their validity */	
 	while ((cv = cvec_each(cvec, cv))) {
-	    if ((cov = co_find_one(*pt, cv_name_get(cv))) == NULL){
+	    if ((cov = co_find_one2(*pt, cv_name_get(cv))) == NULL){
 		clicon_err(OE_CFG, 0, "key %s: variable %s not found in co-spec", 
 			   key, cv_name_get(cv));
 		goto done;
 	    }
-	    if ((cs = co2varspec(cov)) == NULL)
+	    if ((cs = do2varspec(cov)) == NULL)
 		continue;
-	    if (cv_validate(cv, cs, &reason) != 1){ /* We ignore errors */
+	    if (cv_validate2(cv, cs, &reason) != 1){ /* We ignore errors */
 		clicon_err(OE_DB, 0, 
 			   "key %s: validation of %s failed\n",
-			   key, cov->co_command);
+			   key, cov->do_command);
 		goto done;
 	    }
 
@@ -199,6 +269,45 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 	cvec_free(cvec);
     if (reason)
 	free(reason);
+    return retval;
+}
+
+
+/*! Key values are checked for validity independent of user-defined callbacks
+ *
+ * Key values are checked as follows:
+ * 1. If no value and default value defined, add it.
+ * 2. If no value and mandatory flag set in spec, report error.
+ * 3. Validate value versus spec, and report error if no match. Currently only int ranges and
+ *    string regexp checked.
+ * See also db_lv_set() where defaults are also filled in. The case here for defaults
+ * are if code comes via XML/NETCONF.
+ */
+static int
+generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
+{
+    dbspec_tree    *dbspec_co;   /* pt spec */
+    yang_spec      *yspec;       /* yang spec */
+    int             retval = -1; 
+
+    if (strcmp(clicon_dbspec_type(h), "YANG")==0) {
+	if ((yspec = clicon_dbspec_yang(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "No DB_SPEC");
+	    goto done;
+	}	
+	if (generic_validate_yang(h, dbname, dd, yspec) < 0)
+	    goto done;
+    }
+    else{ /* PT or KEY */
+	if ((dbspec_co = clicon_dbspec_pt(h)) == NULL){
+	    clicon_err(OE_CFG, 0, "%s: No dbspec", __FUNCTION__);
+	    goto done;
+	}
+	if (generic_validate_pt(h, dbname, dd, dbspec_co) < 0)
+	    goto done;
+    }
+    retval = 0;
+  done:
     return retval;
 }
 

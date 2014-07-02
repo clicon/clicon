@@ -48,6 +48,7 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
 #include "clicon_lvalue.h"
 #include "clicon_db2txt.h"
 #include "clicon_db2txt.y.h"

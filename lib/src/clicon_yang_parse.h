@@ -29,8 +29,12 @@
  * Types
  */
 
+struct ys_stack{
+    struct ys_stack    *ys_next;
+    struct yang_node   *ys_node;
+};
 
-struct clicon_yang_yacc_arg{
+struct clicon_yang_yacc_arg{ /* XXX: mostly unrelevant */
     clicon_handle         ya_handle;       /* cligen_handle */
     char                 *ya_name;         /* Name of syntax (for error string) */
     int                   ya_linenum;      /* Number of \n in parsed buffer */
@@ -38,8 +42,7 @@ struct clicon_yang_yacc_arg{
     void                 *ya_lexbuf;       /* internal parse buffer from lex */
     cvec                 *ya_globals;     /* global variables after parsing */
     cvec                 *ya_cvec;     /* local variables (per-command) */
-    struct dbs_stack     *ya_stack;     /* Stack of levels: push/pop on () and [] */
-    struct dbs_list      *ya_list;      /* (Parallel) List of objects currently 'active' */
+    struct ys_stack      *ya_stack;     /* Stack of levels: push/pop on () and [] */
     cg_obj               *ya_var;
     int                   ya_lex_state;  /* lex start condition (ESCAPE/COMMENT) */
     int                   ya_lex_string_state; /* lex start condition (STRING) */
@@ -64,22 +67,23 @@ struct yang_userdata{
 /*
  * Variables
  */
-extern char *clicon_yangtext;
+extern char *clicon_yang_parsetext;
 
 /*
  * Prototypes
  */
-
-
 int yang_scan_init(struct clicon_yang_yacc_arg *ya);
 int yang_scan_exit(struct clicon_yang_yacc_arg *ya);
 
-int yang_parse_init(struct clicon_yang_yacc_arg *ya, cg_obj *co_top);
+int yang_parse_init(struct clicon_yang_yacc_arg *ya, yang_spec *ysp);
 int yang_parse_exit(struct clicon_yang_yacc_arg *ya);
 
-int clicon_yanglex(void *_ya);
-int clicon_yangparse(void *);
-void clicon_yangerror(void *_ya, char*);
-int clicon_yang_debug(int d);
+int clicon_yang_parselex(void *_ya);
+int clicon_yang_parseparse(void *);
+void clicon_yang_parseerror(void *_ya, char*);
+int clicon_yang_parsedebug(int d);
+
+int ystack_pop(struct clicon_yang_yacc_arg *ya);
+struct ys_stack *ystack_push(struct clicon_yang_yacc_arg *ya, yang_node *yn);
 
 #endif	/* _CLICON_YANG_PARSE_H_ */

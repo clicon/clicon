@@ -21,7 +21,8 @@
   <http://www.gnu.org/licenses/>.
 
  *
- * Database specification
+ * Database specification. This is the KEY variant that corresponds to the keys in the
+ * embedded database.
  */
 
 #ifndef _CLICON_SPEC_H_
@@ -41,7 +42,7 @@ struct db_spec{
     char           *ds_key;    /* Keyword. eg foo[].bar */
     cvec           *ds_vec;    /* List of variables */
     int             ds_vector; /* allow list of variables to have same names, but
-				not same values */
+				not same values XXX but $a[] should be in ds_vec?*/
 };
 
 /*
@@ -50,34 +51,16 @@ struct db_spec{
 struct db_spec *db_spec_new(void); // static?
 int db_spec_tailadd(struct db_spec **db_sp0, struct db_spec *db_s);// static?
 struct db_spec *db_spec_parse_file(const char *filename);
-int dbclispec_parse(clicon_handle h, const char *filename, parse_tree *pt);
 int db_spec_free(struct db_spec *db_spec);
+int db_spec_free1(struct db_spec *ds);
+char *db_spec2str(struct db_spec *db);
 int db_spec_dump(FILE *f, struct db_spec *db_spec);
 
 #define db_spec_match(dbs, key) key2spec_key((dbs), (key)) /* obsolete */
+
 struct db_spec *key2spec_key(struct db_spec *db_speclist, char *key);
-struct cg_obj *key2spec_co(parse_tree *pt, char *key);
-
 int match_key(char *key, char *skey);
-
 int sanity_check_cvec(char *key, struct db_spec *db_spec, cvec *vec);
 
-int dbspec_key2cli(clicon_handle h, struct db_spec *db_spec, parse_tree *pt);
-struct db_spec *dbspec_cli2key(parse_tree *pt);
-
-char *dbspec_indexvar_get(cg_obj *co);
-int dbspec_indexvar_set(cg_obj *co, char *val);
-char *dbspec_key_get(cg_obj *co);
-int dbspec_key_set(cg_obj *co, char *val);
-int dbspec_optional_get(cg_obj *co);
-int dbspec_optional_set(cg_obj *co, int val);
-struct cg_var *dbspec_default_get(cg_obj *co);
-int dbspec_default_set(cg_obj *co, struct cg_var *val);
-char dbspec_vector_get(cg_obj *co);
-int dbspec_vector_set(cg_obj *co, char val);
-
-int dbspec_userdata_add(clicon_handle h, cg_obj *co);
-int dbspec_userdata_delete(cg_obj *co, void *arg);
-int dbspec2dtd(FILE *f, parse_tree *pt);
 
 #endif  /* _CLICON_SPEC_H_ */

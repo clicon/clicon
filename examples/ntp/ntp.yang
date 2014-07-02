@@ -1,0 +1,59 @@
+// key syntax
+// ntp.logging $status:bool 
+// ntp.server[] $!ipv4addr:ipv4addr 
+module ntp { // In CLIgen, this datamodel will be called datamodel:ntp
+     prefix ntp;
+
+     organization
+       "CLICON";
+
+     description
+       "This module contains a YANG definitions for CLICON NTP
+        Copyright (c) 2014 Olof Hagsand and Benny Holmgren.
+        All rights reserved.";
+
+     revision 2014-06-26 {
+       description
+         "Initial revision.";
+     }
+
+     container ntp{
+        description "Network Time Protocol";
+        container logging{
+           description "Configure NTP message logging";
+	   leaf b{
+	      type int16;
+	      mandatory true;
+	   }
+	   leaf a{
+	      type int16;
+	      default 24;
+	   }
+	   leaf status{
+	       type boolean;
+           }
+        }
+	list server{
+           description "Configure NTP Server";
+	   key ipv4addr; 
+	   leaf ipv4addr{
+	      description "IPv4 address of peer";
+	      type ipv4-address; /* see RFC 6991 */
+           }
+        }
+	container leffe {
+
+           leaf-list leffelist {
+              type uint64;
+              description
+                 "A list of references to interfaces layered on top of this
+                  interface.";
+            reference
+                 "RFC 2863: The Interfaces Group MIB - ifStackTable";
+            }
+         }
+    }
+}
+
+
+

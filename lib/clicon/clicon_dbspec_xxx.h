@@ -88,8 +88,6 @@ typedef struct dbspec_obj dbspec_obj; /* in cli_var.h */
 
 #define do2varspec(co)  &(co)->u.dou_var
 
-
-
 typedef int (cg_applyfn2_t)(dbspec_obj *co, void *arg);
 
 /*
@@ -109,5 +107,6 @@ int        cligen_parsetree2_free(dbspec_tree pt, int recursive);
 dbspec_obj *co_insert2(dbspec_tree *pt, dbspec_obj *co1);
 dbspec_obj *co_find_one2(dbspec_tree pt, char *name);
 int         cv_validate2(cg_var *cv, cg_varspec2 *cs, char **reason);
+int         co_free2(dbspec_obj *co, int recursive);
 
 #endif  /* _CLICON_DBSPEC_XXX_H_ */

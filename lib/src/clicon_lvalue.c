@@ -553,7 +553,7 @@ db_lv_vec_find(struct db_spec *dbspec, /* spec list */
 	goto quit;
     }
     if ((ds = key2spec_key(dbspec, key)) == NULL){
-	clicon_log(LOG_ERR, "%s: %s not found in database spec\n",
+	clicon_err(OE_DB, 0, "%s: %s not found in database spec\n",
 		   __FUNCTION__, key);
 	goto quit;
     }

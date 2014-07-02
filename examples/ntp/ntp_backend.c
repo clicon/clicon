@@ -116,7 +116,6 @@ plugin_start(clicon_handle h, int argc, char **argv)
 int
 transaction_begin(clicon_handle h)
 {
-    fprintf(stderr, "%s\n", __FUNCTION__);    
     ntp_reload = 0;
     return 0;
 }
@@ -131,7 +130,6 @@ transaction_end(clicon_handle h)
     int retval = -1;
     FILE *out = NULL;
 
-    fprintf(stderr, "%s\n", __FUNCTION__);    
     if (ntp_reload == 0)
 	return 0; /* Nothing has changed */
 

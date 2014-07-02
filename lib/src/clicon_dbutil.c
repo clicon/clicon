@@ -85,8 +85,10 @@
 #include "clicon_db.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
 #include "clicon_log.h"
 #include "clicon_lvalue.h"
+#include "clicon_yang.h"
 #include "clicon_options.h"
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
@@ -108,12 +110,27 @@ cvec_add_cv(cvec *vr, cg_var *cv)
     return new;
 }
 
+/*! Append a new cligen variable (cv) to cligen variable vector (cvec) with name
+ *
+ * Extends cvec_add() with adding a name. A utility function to save some lines of code.
+ */
+cg_var *
+cvec_add_name(cvec *vec, enum cv_type type, char *name)
+{
+    cg_var *cv;
+
+    if ((cv = cvec_add(vec, type)) == NULL)
+	return NULL;
+    if (cv_name_set(cv, name) == NULL)
+	return NULL;
+    return cv;
+}
+
 /*! Merge two cvec's, no overlap.
  *
  * @param orig		Original variable vector
  * @param add		New variable vector
- * @param overwrite	If the same variable exist in both 'orig' and 'add',
- *			should 'old' variables be overwritten by 'add'.
+ *
  * @retval              Number of added/overwritten keys to 'old'
  */
 int
@@ -134,6 +151,7 @@ cvec_merge(cvec *orig, cvec *add)
     }
     return retval;
 }
+
 
 /*! Merge two cvec's, accept overlap
  *

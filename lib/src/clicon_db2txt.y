@@ -47,6 +47,8 @@
 #include "clicon_file.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
+#include "clicon_yang.h"
 #include "clicon_lvalue.h"
 #include "clicon_options.h"
 #include "clicon_plugin.h"

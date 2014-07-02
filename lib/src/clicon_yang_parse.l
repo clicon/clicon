@@ -34,7 +34,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 
-#include "clicon_yang.tab.h" /* generated */
+#include "clicon_yang_parse.tab.h" /* generated */
 
 #include <cligen/cligen.h>
 
@@ -42,10 +42,12 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h" /* XXX shouldnt be necessary */
+#include "clicon_yang.h"
 #include "clicon_yang_parse.h"
 
 /* Redefine main lex function so that you can send arguments to it */
-#define YY_DECL int clicon_yanglex(void *_ya)
+#define YY_DECL int clicon_yang_parselex(void *_ya)
 
 /* Dont use input function (use user-buffer) */
 #define YY_NO_INPUT
@@ -58,13 +60,14 @@
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
-#undef clicon_yangwrap
+#undef clicon_yang_parsewrap
 int 
-clicon_yangwrap(void)
+clicon_yang_parsewrap(void)
 {
   return 1;
 }
 
+#ifdef notused
 /* like strdup but strip \:s */
 static char *
 stripdup(char *s0)
@@ -80,6 +83,7 @@ stripdup(char *s0)
     memmove(s, s+1, strlen(s)); 
   return s1;
 }
+#endif /* notused */
 
 /*
    statement = keyword [argument] (";" / "{" *statement "}") 
@@ -93,18 +97,21 @@ stripdup(char *s0)
 
 %x KEYWORD
 %s ARGUMENT
-%s STRING
+%s STRING1
+%s STRING2
 %s ESCAPE
 %s COMMENT1
 %s COMMENT2
 
 %%
-<KEYWORD>[ \t]            
-<KEYWORD><<EOF>>          { return MY_EOF; }
-<KEYWORD>\}               { return *yytext; }
-<KEYWORD>\n               { _YA->ya_linenum++; }
+ /* Common tokens */
+<KEYWORD,ARGUMENT>[ \t]            
+<KEYWORD,ARGUMENT><<EOF>> { return MY_EOF; }
+<KEYWORD,ARGUMENT,STRING1,COMMENT1>\n   { _YA->ya_linenum++; }
 <KEYWORD,ARGUMENT>"/*"    { _YA->ya_lex_state = YYSTATE; BEGIN(COMMENT1); }
 <KEYWORD,ARGUMENT>"//"    { _YA->ya_lex_state = YYSTATE; BEGIN(COMMENT2); }
+
+<KEYWORD>\}               { return *yytext; }
 
  /* RFC 6020 keywords */
 <KEYWORD>anyxml           { BEGIN(ARGUMENT); return K_ANYXML; }
@@ -173,30 +180,32 @@ stripdup(char *s0)
 <KEYWORD>yang-version     { BEGIN(ARGUMENT); return K_YANG_VERSION; }
 <KEYWORD>yin-element      { BEGIN(ARGUMENT); return K_YIN_ELEMENT; }
 
-<KEYWORD>.                { clicon_yangerror(_ya, "No such keyword"); return K_UNKNOWN; }
+<KEYWORD>.                { clicon_yang_parseerror(_ya, "No such keyword"); return K_UNKNOWN; }
 
-<ARGUMENT>[ \t]            
-<ARGUMENT><<EOF>>          { return MY_EOF; }
 <ARGUMENT>;                { BEGIN(KEYWORD); return *yytext; }
-<ARGUMENT>\"               { _YA->ya_lex_string_state =ARGUMENT; BEGIN(STRING); return DQ; }
+<ARGUMENT>\"               { _YA->ya_lex_string_state =ARGUMENT; BEGIN(STRING1); return DQ; }
+<ARGUMENT>\'               { _YA->ya_lex_string_state =ARGUMENT; BEGIN(STRING2); return DQ; }
+<ARGUMENT>\+               { return *yytext; }
 <ARGUMENT>\{               {  BEGIN(KEYWORD); return *yytext; }
-<ARGUMENT>\n               { _YA->ya_linenum++; }
-<ARGUMENT>.                 { clicon_yanglval.string = strdup(yytext);
+<ARGUMENT>.                { clicon_yang_parselval.string = strdup(yytext);
+                             return CHAR;}
+
+<STRING1>\\                { _YA->ya_lex_state = STRING1; BEGIN(ESCAPE); }
+<STRING1>\"                { BEGIN(_YA->ya_lex_string_state); return DQ; }
+<STRING1>.                 { clicon_yang_parselval.string = strdup(yytext);
                             return CHAR;}
 
-
-<STRING>\n                { _YA->ya_linenum++; }
-<STRING>\\                { _YA->ya_lex_state = STRING; BEGIN(ESCAPE); }
-<STRING>\"                { BEGIN(_YA->ya_lex_string_state); return DQ; }
-<STRING>.                 { clicon_yanglval.string = strdup(yytext);
-                            return CHAR;}
+<STRING2>\\                { _YA->ya_lex_state = STRING2; BEGIN(ESCAPE); }
+<STRING2>\'                { BEGIN(_YA->ya_lex_string_state); return DQ; }
+<STRING2>\n                { _YA->ya_linenum++; clicon_yang_parselval.string = strdup(yytext); }
+<STRING2>.                 { clicon_yang_parselval.string = strdup(yytext);
+                             return CHAR;}
 
 <ESCAPE>.                 { BEGIN(_YA->ya_lex_state); 
-                             clicon_yanglval.string = strdup(yytext); 
+                             clicon_yang_parselval.string = strdup(yytext); 
                              return CHAR; }
 <COMMENT1>[^*\n]*        /* eat anything that's not a '*' */
 <COMMENT1>"*"+[^*/\n]*   /* eat up '*'s not followed by '/'s */
-<COMMENT1>\n             { _YA->ya_linenum++; }
 <COMMENT1>"*"+"/"        BEGIN(_YA->ya_lex_state);
 
 <COMMENT2>[^\n]*        /* eat anything that's not a '/' */
@@ -230,7 +239,7 @@ yang_scan_exit(struct clicon_yang_yacc_arg *ya)
 {
     yy_delete_buffer(ya->ya_lexbuf);
 #if defined(YY_FLEX_SUBMINOR_VERSION) && YY_FLEX_SUBMINOR_VERSION >= 9
-    clicon_yanglex_destroy();  /* modern */
+    clicon_yang_parselex_destroy();  /* modern */
 #else
     yy_init = 1;      /* This does not quite free all buffers */
 #endif

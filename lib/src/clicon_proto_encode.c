@@ -303,6 +303,8 @@ clicon_msg_change_decode(struct clicon_msg *msg,
 	memcpy(*lvec, msg->op_body+p, *lvec_len);
 	p += *lvec_len;
     }
+    else
+	*lvec = NULL;
     clicon_debug(2, "%s: op: %d lvec_len: %d db: %s key: '%s'", 
 	    __FUNCTION__, 
 	    *op, *lvec_len, *db, *key);

@@ -39,6 +39,7 @@
 #include <sys/socket.h>
 #include <sys/param.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -156,9 +157,12 @@ main(int argc, char **argv)
     int              brief;
     char             dbname[MAXPATHLEN] = {0,};
     char            *db_spec_file;
-    struct db_spec  *dbspec;
     clicon_handle    h;
     int              use_syslog;
+    char            *syntax;
+    dbspec_tree     *pt;
+    struct db_spec  *db_spec;
+    struct stat      st;
 
     /* In the startup, logs to stderr & debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
@@ -265,25 +269,71 @@ main(int argc, char **argv)
     argc -= optind;
     argv += optind;
 
-    /* Get db_spec file */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
-	return -1;
-
     /* Parse db specification */
-    if ((dbspec = db_spec_parse_file(db_spec_file)) == NULL)
-	return -1;
+    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
+	goto quit;
+    if (stat(db_spec_file, &st) < 0){
+	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
+	goto quit;
+    }
+    /* pt must be malloced since it is saved in options/hash-value */
+    if ((pt = malloc(sizeof(*pt))) == NULL){
+	clicon_err(OE_FATAL, errno, "malloc");
+	goto quit;
+    }
+    memset(pt, 0, sizeof(*pt));
+    syntax = clicon_dbspec_type(h);
+    if ((syntax == NULL) || strcmp(syntax, "PT") == 0){ /* Parse CLI spec syntax */
+	if (dbclispec_parse(h, db_spec_file, pt) < 0)
+	    goto quit;
+	/* The dbspec parse-tree is in pt*/
+	clicon_dbspec_pt_set(h, pt);	
+	/* Translate from the dbspec as cligen parse-tree to dbspec key fmt */
+	if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
+	    goto quit;
+	if (dumpdb)
+	    db_spec_dump(stdout, db_spec);
+	clicon_dbspec_key_set(h, db_spec);	
+    }
+    else
+	if (strcmp(syntax, "KEY") == 0){ /* Parse KEY syntax */
+	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
+		goto quit;
+	    if (dumpdb && debug) 
+		db_spec_dump(stdout, db_spec);
+	    clicon_dbspec_key_set(h, db_spec);	
+	    /* 1: single arg, 2: doublearg */
+	    /* XXX: to YANG */
+	    if (dbspec_key2cli(h, db_spec, pt) < 0)
+		goto quit;
+	    clicon_dbspec_pt_set(h, pt);
 
+	}
+	else
+	    if (strcmp(syntax, "YANG") == 0){ /* Parse YANG syntax */
+		yang_spec      *yspec;
+		
+		free(pt);
+		if ((yspec = yspec_new()) == NULL)
+		    goto quit;
+		if (yang_parse(h, db_spec_file, yspec) < 0)
+		    goto quit;
+		clicon_dbspec_yang_set(h, yspec);	
+		if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
+		    goto quit;
+		clicon_dbspec_key_set(h, db_spec);	
+	    }
     if (dumpdb)
-        if (dump_database(dbname, NULL, brief, dbspec) < 0)
+        if (dump_database(dbname, NULL, brief, db_spec) < 0)
 	    goto quit;
 
     if (matchent)
-        if (dump_database(dbname, matchkey, brief, dbspec)) {
+        if (dump_database(dbname, matchkey, brief, db_spec)) {
 	    fprintf(stderr, "Match error\n");
 	    goto quit;
 	}
     if (addent) /* add entry */
-	if (db_lv_op(dbspec, dbname, LV_SET, addstr, NULL) < 0){
+	if (db_lv_op(db_spec, dbname, LV_SET, addstr, NULL) < 0){
 	    fprintf(stderr, "Failed to add entry\n");
 	    goto quit;
 	}
@@ -297,7 +347,7 @@ main(int argc, char **argv)
 	    goto quit;
 
   quit:
-    db_spec_free(dbspec);
+    db_spec_free(db_spec);
     clicon_handle_exit(h);
     return 0;
 }

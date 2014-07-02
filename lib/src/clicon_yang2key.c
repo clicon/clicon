@@ -67,17 +67,328 @@
 #include "clicon_hash.h"
 #include "clicon_spec.h"
 #include "clicon_dbspec_parsetree.h"
+#include "clicon_yang.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
 #include "clicon_chunk.h"
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
-#include "clicon_yang.h"
 #include "clicon_yang2key.h"
+#include "clicon_yang_parse.tab.h" /* for constants */
 
-struct db_spec *
-yang2key(yang_spec *ys)
+static int yang2key_stmt(yang_stmt *ys, cvec *keys, cvec *vars, struct db_spec **ds_list);
+
+/*! Create a dbspeckey by concatenating previous keys eg a.b.c
+ */
+static int
+cli2db_genkey(cvec *keys, cvec *vars, struct db_spec **dsp)
 {
+    char           *key = NULL;
+    cg_var         *cv = NULL;
+    struct db_spec *ds = NULL;
+
+    while ((cv = cvec_each(keys, cv)) != NULL) 
+	if ((key = chunk_sprintf(__FUNCTION__, "%s%s%s%s",
+			    key?key:"",
+			    key?".":"",
+			    cv_name_get(cv),
+				 cv_flag(cv, V_UNIQUE)?"[]":"")) == NULL){
+	    clicon_err(OE_DB, errno, "%s: chunk_sprintf", __FUNCTION__); 
+	    goto err;
+	}
+    if (key==NULL){
+	*dsp = NULL;
+	return 0;
+    }
+    if ((ds = db_spec_new()) == NULL) /* XXX */
+	goto err;
+    if ((ds->ds_key = strdup(key)) == NULL){
+	clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__); 
+	goto err;
+    }
+    if ((ds->ds_vec = cvec_dup(vars)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cvec_dup", __FUNCTION__); 
+	goto err;
+    }
+    unchunk_group(__FUNCTION__);
+    *dsp = ds;
+    return 0;
+  err:
+    if (ds)
+	db_spec_free(ds);
+    unchunk_group(__FUNCTION__);
+    return -1;
+}
+
+
+/*! Translate yang container to dbspec key
+ */
+static int
+yang2key_container(yang_stmt       *ys, 
+		   cvec            *keys0,   /* inherited keys */
+		   cvec            *vars0,   /* inherited vars */
+		   struct db_spec **ds_list)
+{
+    int             retval = -1;
+    cg_var         *cv;
+    char           *str = NULL;
+    struct db_spec *ds = NULL;
+
+    /* 1. Append a key to dbspec for every container. */
+    if ((cv = cvec_add_name(keys0, CGV_STRING, ys->ys_argument)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cvec_add", __FUNCTION__); 
+	goto done;
+    }
+    /* 2. Add symbol to dbspec structure (used in callback) */
+    if (cli2db_genkey(keys0, vars0, &ds) < 0)
+	goto done;
+    /* Add symbol but only if there are variables */
+    if (cvec_len(vars0) &&
+	db_spec_tailadd(ds_list, ds) < 0) /* ds is consumed and may be freed in this call */
+	goto done;
+    /* XXX: Many problems with this code:
+       1. ds may leak or may be freed maturely?
+       2. I dont think it sould be here, the ds is added by leaf function anyhow,...
+     */
+    if ((str = db_spec2str(ds)) == NULL) /* XXX: isnt this the same as the one in ds? */
+	goto done;
+    /* Get the key and store the it back in the parse-tree spec for cli generation */
+    if (yang_dbkey_set(ys, str) < 0)
+	goto done;
+
+    retval = 0;
+  done:
+    if (str)
+	free(str);
+    return retval;
+}
+
+/*! Translate yang list to dbspec key
+ */
+static int
+yang2key_list(yang_stmt       *ys, 
+	      cvec            *keys0,   /* inherited keys */
+	      cvec            *vars0,   /* inherited vars */
+	      struct db_spec **ds_list)
+{
+    int             retval = -1;
+    cg_var         *cv;
+    char           *str = NULL;
+    struct db_spec *ds = NULL;
+
+    /* 1. Append a key to dbspec for every container. */
+    if ((cv = cvec_add_name(keys0, CGV_STRING, ys->ys_argument)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cvec_add", __FUNCTION__); 
+	goto done;
+    }
+    /* A list has a key(index) variable, mark it as CLICON list (print as x[]) */
+    cv_flag_set(cv, V_UNIQUE); 	
+
+    /* 2. Add symbol to dbspec structure (used in callback) */
+    if (cli2db_genkey(keys0, vars0, &ds) < 0)
+	goto done;
+    if ((str = db_spec2str(ds)) == NULL) /* XXX: isnt this the same as the one in ds? */
+	goto done;
+    if (db_spec_tailadd(ds_list, ds) < 0) 
+	goto done;
+    ds = NULL; /* ds is consumed and may be freed in the call above */
+
+    /* Get the key and store the it back in the parse-tree spec for cli generation */
+    if (yang_dbkey_set(ys, str) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (str)
+	free(str);
+    return retval;
+}
+
+/*! Translate yang leaf to dbspec key
+ */
+static int
+yang2key_leaf(yang_stmt       *ys, 
+	      cvec            *keys0,   /* inherited keys */
+	      cvec            *vars0,   /* inherited vars */
+	      struct db_spec **ds_list)
+{
+    int             retval = -1;
+    cg_var         *cv;
+    struct db_spec *ds = NULL;
+    char           *keyspec;
+
+    /* get the (already generated) cligen variable */
+    if ((cv = cvec_add_cv(vars0, ys->ys_cv)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cvec_add_cv", __FUNCTION__); 
+	goto done;
+    }
+    /* 2. Add symbol to dbspec structure (used in callback) */
+    if (cli2db_genkey(keys0, vars0, &ds) < 0)
+	goto done;
+    /* This adds the variables on the form $x:type */
+    if ((keyspec = db_spec2str(ds)) == NULL) 
+	goto done;
+    if (db_spec_tailadd(ds_list, ds) < 0) 
+	goto done;
+    ds = NULL; /* ds is consumed and may be freed in the call above */
+    /* Get the key and store the it back in the parse-tree spec for cli generation */
+    if (yang_dbkey_set(ys, keyspec) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (keyspec)
+	free(keyspec);
+    return retval;
+}
+
+/*! Translate yang leaf-list to dbspec key
+ * Similar to leaf but set the ds_vector flag to allow multiple values.
+ * Also append '[]' to variable name?
+ */
+static int
+yang2key_leaf_list(yang_stmt       *ys, 
+		   cvec            *keys0,   /* inherited keys */
+		   cvec            *vars0,   /* inherited vars */
+		   struct db_spec **ds_list)
+{
+    int             retval = -1;
+    cg_var         *cv;
+    struct db_spec *ds = NULL;
+    char           *keyspec;
+    char           *keyspec2;
+
+    /* get the (already generated) cligen variable */
+    if ((cv = cvec_add_cv(vars0, ys->ys_cv)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cvec_add_cv", __FUNCTION__); 
+	goto done;
+    }
+    /* 2. Add symbol to dbspec structure (used in callback) */
+    if (cli2db_genkey(keys0, vars0, &ds) < 0)
+	goto done;
+    ds->ds_vector = 1; 
+    /* This adds the variables on the form $x:type */
+    if ((keyspec = db_spec2str(ds)) == NULL) 
+	goto done;
+    /* XXX: %s[] */
+    if ((keyspec2 = chunk_sprintf(__FUNCTION__, "%s", keyspec)) == NULL)
+	goto done;
+    if (db_spec_tailadd(ds_list, ds) < 0) 
+	goto done;
+    ds = NULL; /* ds is consumed and may be freed in the call above */
+    /* Get the key and store the it back in the parse-tree spec for cli generation */
+//    fprintf(stderr, "%s: keyspec:%s\n", __FUNCTION__, keyspec);
+
+    if (yang_dbkey_set(ys, keyspec2) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (keyspec)
+	free(keyspec);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+
+/*! Translate generic yang_stmt to key dbspec.
+ */
+static int
+yang2key_stmt(yang_stmt       *ys, 
+	      cvec            *keys0,   /* inherited keys */
+	      cvec            *vars0,   /* inherited vars */
+	      struct db_spec **ds_list)
+{
+    yang_stmt *yc;
+    int        retval = -1;
+    int        i;
+    cvec      *keys = NULL;
+    cvec      *vars = NULL;
+
+    if (debug)
+	fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
+		yang_key2str(ys->ys_keyword), ys->ys_argument);
+    switch (ys->ys_keyword){
+    case K_CONTAINER:
+	if (yang2key_container(ys, keys0, vars0, ds_list) < 0)
+	    goto done;
+	break;
+    case K_LEAF:
+	if (yang2key_leaf(ys, keys0, vars0, ds_list) < 0)
+	    goto done;
+	break;
+    case K_LIST:
+	if (yang2key_list(ys, keys0, vars0, ds_list) < 0)
+	    goto done;
+	break;
+    case K_LEAF_LIST:
+	if (yang2key_leaf_list(ys, keys0, vars0, ds_list) < 0)
+	    goto done;
+	break;
+    default:
+	break;
+    }
+
+    for (i=0; i<ys->ys_len; i++)
+	if ((yc = ys->ys_stmt[i]) != NULL){
+	    if ((keys = cvec_dup(keys0)) == NULL){
+		clicon_err(OE_DB, errno, "%s: chunk", __FUNCTION__); 
+		goto done;
+	    }
+	    if ((vars = cvec_dup(vars0)) == NULL){
+		clicon_err(OE_DB, errno, "%s: cvec_dup", __FUNCTION__); 
+		goto done;
+	    }
+	    if (yang2key_stmt(yc, keys, vars, ds_list) < 0)
+		goto done;
+	    cvec_free(vars);
+	    cvec_free(keys);
+	}
+
+    retval = 0;
+  done:
+    return retval;
+}
+
+/*! Translate yang spec to a key-based dbspec used for qdb. 
+ *
+ * Translate yang spec to a dbspec. 
+ * There are four kinds, two for commands, two for variables:
+ *  list      -->   g[i] $!i <x>; g[].a...
+ *  container -->   g $x; g.a
+ *  leaf      -->   $x
+ *  leaf-list -->   $x[a]
+ */
+struct db_spec *
+yang2key(yang_spec *yspec)
+{
+    yang_stmt      *ys = NULL;
+    struct db_spec *ds_list = NULL; 
+    cvec           *keys;
+    cvec           *vars;
+    int i;
+
+    /* Traverse YANG specification: loop through statements */
+    for (i=0; i<yspec->yp_len; i++)
+	if ((ys = yspec->yp_stmt[i]) != NULL){
+	    if ((vars = cvec_new(0)) == NULL){
+		clicon_err(OE_DB, errno, "%s: cvec_new", __FUNCTION__); 
+		goto err;
+	    }
+	    if ((keys = cvec_new(0)) == NULL){
+		clicon_err(OE_DB, errno, "%s: cvec_new", __FUNCTION__); 
+		goto err;
+	    }
+	    if (yang2key_stmt(ys, keys, vars, &ds_list) < 0)
+		goto err;
+	    cvec_free(vars);
+	    cvec_free(keys);
+	}
+    if (ds_list == NULL){
+	clicon_err(OE_DB, errno, "%s: Empty database-spec", __FUNCTION__); 
+	goto err;
+    }
+    return ds_list;
+  err:
+    if (ds_list)
+	db_spec_free(ds_list);
     return NULL;
 }
 

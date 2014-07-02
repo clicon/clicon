@@ -38,7 +38,7 @@
  */
 struct dbs_list{
     struct dbs_list *cl_next;
-    cg_obj *cl_obj;
+    dbspec_obj *cl_obj;
 };
 
 struct dbs_stack{
@@ -59,7 +59,7 @@ struct clicon_dbspec_yacc_arg{
     cvec                 *ya_cvec;     /* local variables (per-command) */
     struct dbs_stack     *ya_stack;     /* Stack of levels: push/pop on () and [] */
     struct dbs_list      *ya_list;      /* (Parallel) List of objects currently 'active' */
-    cg_obj               *ya_var;
+    dbspec_obj               *ya_var;
     int                   ya_lex_state;  /* lex start condition (ESCAPE/COMMENT) */
     int                   ya_lex_string_state; /* lex start condition (STRING) */
 
@@ -93,7 +93,7 @@ extern char *clicon_dbspectext;
 int dbspec_scan_init(struct clicon_dbspec_yacc_arg *ya);
 int dbspec_scan_exit(struct clicon_dbspec_yacc_arg *ya);
 
-int dbspec_parse_init(struct clicon_dbspec_yacc_arg *ya, cg_obj *co_top);
+int dbspec_parse_init(struct clicon_dbspec_yacc_arg *ya, dbspec_obj *co_top);
 int dbspec_parse_exit(struct clicon_dbspec_yacc_arg *ya);
 
 int clicon_dbspeclex(void *_ya);

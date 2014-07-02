@@ -81,6 +81,8 @@
 #include "clicon_spec.h"
 #include "clicon_err.h"
 #include "clicon_log.h"
+#include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
 #include "clicon_dbspec.h"
 
 extern int clicon_dbspecget_lineno  (void);
@@ -190,23 +192,7 @@ dbs_assignment(struct clicon_dbspec_yacc_arg *ya, char *var, char *val)
 
 
 static int
-expand_arg(struct clicon_dbspec_yacc_arg *ya, char *type, char *arg)
-{
-    int                 retval = -1;
-    cg_var             *cgv;
-    cg_obj             *co;
-
-    co = ya->ya_var;
-    if ((cgv = create_cv(ya, co->co_command, type, arg)) == NULL)
-	goto done;
-    ya->ya_var->co_expand_fn_arg = cgv;
-    retval = 0;
-  done:
-    return retval;
-}
-
-static int
-dbs_list_push(cg_obj *co, struct dbs_list **cl0)
+dbs_list_push(dbspec_obj *co, struct dbs_list **cl0)
 {
     struct dbs_list *cl;
 
@@ -242,19 +228,19 @@ dbs_list_delete(struct dbs_list **cl0)
  * And completed by the '_post' function
  * Returns: tmp variable object
  */
-static cg_obj *
+static dbspec_obj *
 dbs_var_pre(struct clicon_dbspec_yacc_arg *ya)
 {
-    cg_obj *co_new;
+    dbspec_obj *co_new;
 
-    if ((co_new = malloc(sizeof(cg_obj))) == NULL){
+    if ((co_new = malloc(sizeof(dbspec_obj))) == NULL){
 	fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno));
 	clicon_dbspecerror(ya, "Allocating cligen object"); 
 	return NULL;
     }
-    memset(co_new, 0, sizeof(cg_obj));
-    co_new->co_type      = CO_VARIABLE;
-    co_new->co_max       = 0;
+    memset(co_new, 0, sizeof(dbspec_obj));
+    co_new->do_type      = CO_VARIABLE;
+    co_new->do_max       = 0;
     if (dbspec_userdata_add(ya->ya_handle, co_new) < 0){
 	clicon_dbspecerror(ya, "Allocating cligen object"); 
 	return NULL;
@@ -288,17 +274,17 @@ static int
 dbs_var_post(struct clicon_dbspec_yacc_arg *ya)
 {
     struct dbs_list *cl; 
-    cg_obj *cv1; /* variable copy object */
-    cg_obj *cop; /* parent */
-    cg_obj *co;  /* new obj/sister */
-    cg_obj *cv = ya->ya_var;
+    dbspec_obj *cv1; /* variable copy object */
+    dbspec_obj *cop; /* parent */
+    dbspec_obj *co;  /* new obj/sister */
+    dbspec_obj *cv = ya->ya_var;
 
-    if (cv->co_vtype == CGV_ERR) /* unassigned */
-	cv->co_vtype = cv_str2type(cv->co_command);
+    if (cv->do_vtype == CGV_ERR) /* unassigned */
+	cv->do_vtype = cv_str2type(cv->do_command);
     clicon_debug(2, "%s: cmd:%s vtype:%d", __FUNCTION__, 
-		cv->co_command,
-		cv->co_vtype );
-    if (cv->co_vtype == CGV_ERR){
+		cv->do_command,
+		cv->do_vtype );
+    if (cv->do_vtype == CGV_ERR){
 	clicon_dbspecerror(ya, "Wrong or unassigned variable type"); 	
 	return -1;
     }
@@ -316,13 +302,13 @@ dbs_var_post(struct clicon_dbspec_yacc_arg *ya)
     for (; cl; cl = cl->cl_next){
 	cop = cl->cl_obj;
 	if (cl->cl_next){
-	    if (co_copy(cv, cop, &cv1) < 0)
-		return -1;
+// XXX	    if (co_copy2(cv, cop, &cv1) < 0)
+//		return -1;
 	}
 	else
 	    cv1 = cv; /* Dont copy if last in list */
-	co_up_set(cv1, cop);
-	if ((co = co_insert(&cop->co_pt, cv1)) == NULL) /* co_new may be deleted */
+	co_up_set2(cv1, cop);
+	if ((co = co_insert2(&cop->do_pt, cv1)) == NULL) /* co_new may be deleted */
 	    return -1;
 	cl->cl_obj = co;
     }
@@ -341,15 +327,15 @@ static int
 dbs_cmd(struct clicon_dbspec_yacc_arg *ya, char *cmd, char *indexvar)
 {
     struct dbs_list *cl; 
-    cg_obj *cop; /* parent */
-    cg_obj *conew; /* new obj */
-    cg_obj *co; /* new/sister */
+    dbspec_obj *cop; /* parent */
+    dbspec_obj *conew; /* new obj */
+    dbspec_obj *co; /* new/sister */
 
     for (cl=ya->ya_list; cl; cl = cl->cl_next){
 	cop = cl->cl_obj;
 	clicon_debug(2, "%s: %s parent:%s",
-		    __FUNCTION__, cmd, cop->co_command);
-	if ((conew = co_new(cmd, cop)) == NULL) { 
+		    __FUNCTION__, cmd, cop->do_command);
+	if ((conew = co_new2(cmd, cop)) == NULL) { 
 	    clicon_dbspecerror(ya, "Allocating cligen object"); 
 	    return -1;
 	}
@@ -363,7 +349,7 @@ dbs_cmd(struct clicon_dbspec_yacc_arg *ya, char *cmd, char *indexvar)
 		clicon_dbspecerror(ya, "strdup"); 
 		return -1;
 	    }
-	if ((co = co_insert(&cop->co_pt, conew)) == NULL)  /* co_new may be deleted */
+	if ((co = co_insert2(&cop->do_pt, conew)) == NULL)  /* co_new may be deleted */
 	    return -1;
 	cl->cl_obj = co; /* Replace parent in dbs_list */
     }
@@ -382,13 +368,13 @@ static int
 dbs_reference(struct clicon_dbspec_yacc_arg *ya, char *name)
 {
     struct dbs_list *cl; 
-    cg_obj          *cop;   /* parent */
-    cg_obj          *cot;   /* tree */
+    dbspec_obj          *cop;   /* parent */
+    dbspec_obj          *cot;   /* tree */
 
     for (cl=ya->ya_list; cl; cl = cl->cl_next){
 	/* Add a treeref 'stub' which is expanded in pt_expand to a sub-tree */
 	cop = cl->cl_obj;
-	if ((cot = co_new(name, cop)) == NULL) { 
+	if ((cot = co_new2(name, cop)) == NULL) { 
 	    clicon_dbspecerror(ya, "Allocating cligen object"); 
 	    return -1;
 	}
@@ -397,8 +383,8 @@ dbs_reference(struct clicon_dbspec_yacc_arg *ya, char *name)
 	    return -1;
 	}
 
-	cot->co_type    = CO_REFERENCE;
-	if (co_insert(&cop->co_pt, cot) == NULL)  /* cot may be deleted */
+	cot->do_type    = CO_REFERENCE;
+	if (co_insert2(&cop->do_pt, cot) == NULL)  /* cot may be deleted */
 	    return -1;
 	/* Replace parent in dbs_list: not allowed after ref?
 	   but only way to add callbacks to it.
@@ -415,12 +401,12 @@ static int
 dbs_comment(struct clicon_dbspec_yacc_arg *ya, char *comment)
 {
     struct dbs_list *cl; 
-    cg_obj *co; 
+    dbspec_obj *co; 
 
     for (cl = ya->ya_list; cl; cl = cl->cl_next){
 	co = cl->cl_obj;
-	if (co->co_help == NULL) /* Why would it already have a comment? */
-	    if ((co->co_help = strdup(comment)) == NULL){
+	if (co->do_help == NULL) /* Why would it already have a comment? */
+	    if ((co->do_help = strdup(comment)) == NULL){
 		clicon_dbspecerror(ya, "Allocating comment"); 
 		return -1;
 	    }
@@ -455,7 +441,7 @@ int
 dbs_terminal(struct clicon_dbspec_yacc_arg *ya)
 {
     struct dbs_list    *cl; 
-    cg_obj             *co; 
+    dbspec_obj             *co; 
     int                 i;
     int                 retval = -1;
     
@@ -467,20 +453,13 @@ dbs_terminal(struct clicon_dbspec_yacc_arg *ya)
 	    if ((cv = cvec_find_var(ya->ya_cvec, "auth")) != NULL)
 		co->co_auth = strdup(cv_string_get(cv));
 #endif
-	    if (cvec_find_var(ya->ya_cvec, "hide") != NULL)
-		co->co_hide = 1;
-	    /* generic variables */
-	    if ((co->co_cvec = cvec_dup(ya->ya_cvec)) == NULL){
-		fprintf(stderr, "%s: cvec_dup: %s\n", __FUNCTION__, strerror(errno));
-		goto done;
-	    }
 	}
 	/* misc */
-	for (i=0; i<co->co_max; i++)
-	    if (co->co_next[i]==NULL)
+	for (i=0; i<co->do_max; i++)
+	    if (co->do_next[i]==NULL)
 		break;
-	if (i == co->co_max) /* Insert empty child if ';' */
-	    co_insert(&co->co_pt, NULL);
+	if (i == co->do_max) /* Insert empty child if ';' */
+	    co_insert2(&co->do_pt, NULL);
     }
     /* cleanup */
     if (ya->ya_cvec){
@@ -488,7 +467,6 @@ dbs_terminal(struct clicon_dbspec_yacc_arg *ya)
 	ya->ya_cvec = NULL;
     }
     retval = 0;
-  done:
     return retval;  
 }
 
@@ -526,7 +504,7 @@ ctx_peek_swap(struct clicon_dbspec_yacc_arg *ya)
 {
     struct dbs_stack *cs; 
     struct dbs_list *cl; 
-    cg_obj *co; 
+    dbspec_obj *co; 
 
     if ((cs = ya->ya_stack) == NULL){
 #if 1
@@ -562,7 +540,7 @@ ctx_peek_swap2(struct clicon_dbspec_yacc_arg *ya)
 {
     struct dbs_stack *cs; 
     struct dbs_list  *cl; 
-    cg_obj           *co; 
+    dbspec_obj           *co; 
 
     if ((cs = ya->ya_stack) == NULL){
 #if 1
@@ -603,7 +581,7 @@ ctx_pop(struct clicon_dbspec_yacc_arg *ya)
 {
     struct dbs_stack *cs; 
     struct dbs_list *cl; 
-    cg_obj *co; 
+    dbspec_obj *co; 
 
     if ((cs = ya->ya_stack) == NULL){
 	fprintf(stderr, "%s: dbs_stack empty\n", __FUNCTION__);
@@ -622,8 +600,8 @@ ctx_pop(struct clicon_dbspec_yacc_arg *ya)
 static int
 cg_regexp(struct clicon_dbspec_yacc_arg *ya, char *rx)
 {
-    ya->ya_var->co_regex = rx;  
-    ya->ya_var->co_vtype=CGV_STRING;
+    ya->ya_var->do_regex = rx;  
+    ya->ya_var->do_vtype=CGV_STRING;
     return 0;
 }
 
@@ -631,10 +609,10 @@ static int
 cg_default(struct clicon_dbspec_yacc_arg *ya, char *type, char *val)
 {
     cg_var          *cv; 
-    cg_obj             *co;
+    dbspec_obj             *co;
 
     co = ya->ya_var;
-    if ((cv = create_cv(ya, co->co_command, type, val)) == NULL){
+    if ((cv = create_cv(ya, co->do_command, type, val)) == NULL){
 	clicon_dbspecerror(ya, "error when creating default value"); 
 	return -1;
     }
@@ -650,7 +628,7 @@ cg_range(struct clicon_dbspec_yacc_arg *ya, char *low, char *high)
     int   retval;
     char *reason = NULL;
 
-    if ((retval = parse_int64(low, &ya->ya_var->co_range_low, &reason)) < 0){
+    if ((retval = parse_int64(low, &ya->ya_var->do_range_low, &reason)) < 0){
 	fprintf(stderr, "range: %s\n", strerror(errno));
 	return -1;
     }
@@ -658,7 +636,7 @@ cg_range(struct clicon_dbspec_yacc_arg *ya, char *low, char *high)
 	clicon_dbspecerror(ya, reason); 
 	return 0;
     }
-    if ((retval = parse_int64(high, &ya->ya_var->co_range_high, &reason)) < 0){
+    if ((retval = parse_int64(high, &ya->ya_var->do_range_high, &reason)) < 0){
 	fprintf(stderr, "range: %s\n", strerror(errno));
 	return -1;
     }
@@ -666,12 +644,12 @@ cg_range(struct clicon_dbspec_yacc_arg *ya, char *low, char *high)
 	clicon_dbspecerror(ya, reason); 
 	return 0;
     }
-    ya->ya_var->co_range++;
+    ya->ya_var->do_range++;
     return 0;
 }
 
 int
-dbspec_parse_init(struct clicon_dbspec_yacc_arg *ya, cg_obj *co_top)
+dbspec_parse_init(struct clicon_dbspec_yacc_arg *ya, dbspec_obj *co_top)
 {
     /* Add top-level object */
     if (dbs_list_push(co_top, &ya->ya_list) < 0)
@@ -761,15 +739,15 @@ cmd         : NAME { clicon_debug(2, "cmd->NAME");if (dbs_cmd(_ya, $1, NULL) < 0
                variable '>'  { if (dbs_var_post(_ya) < 0) YYERROR; }
             ;
 
-variable    : varname { _YA->ya_var->co_command = $1;}
+variable    : varname { _YA->ya_var->do_command = $1;}
             | varname ':' NAME{ 
-		_YA->ya_var->co_command = $1; 
-		_YA->ya_var->co_vtype = cv_str2type($3); free($3);
+		_YA->ya_var->do_command = $1; 
+		_YA->ya_var->do_vtype = cv_str2type($3); free($3);
 	       }
-            | varname ' ' keypairs { _YA->ya_var->co_command = $1; }
+            | varname ' ' keypairs { _YA->ya_var->do_command = $1; }
             | varname ':' NAME ' ' { 
-		 _YA->ya_var->co_command = $1; 
-		 _YA->ya_var->co_vtype = cv_str2type($3); free($3); 
+		 _YA->ya_var->do_command = $1; 
+		 _YA->ya_var->do_vtype = cv_str2type($3); free($3); 
                } keypairs
             ;
 
@@ -781,22 +759,15 @@ keypairs    : keypair
             | keypairs ' ' keypair
             ;
 
-keypair     : NAME '(' ')' { _YA->ya_var->co_expand_fn_str = $1; }
-            | NAME '(' DQ DQ ')' {_YA->ya_var->co_expand_fn_str = $1; }
-            | NAME '(' DQ charseq DQ ')' {
-		_YA->ya_var->co_expand_fn_str = $1; 
-		expand_arg(_ya, "string", $4);
-		free($4); 
-	      }
-            | V_RANGE '[' NUMBER ':' NUMBER ']' { 
+keypair     : V_RANGE '[' NUMBER ':' NUMBER ']' { 
 		if (cg_range(_ya, $3, $5) < 0) YYERROR; ; 
 	      }
             | V_MANDATORY { dbspec_optional_set(_YA->ya_var, 0);}
             | V_OPTIONAL { dbspec_optional_set(_YA->ya_var, 1);}
-            | V_CHOICE ':' choices { _YA->ya_var->co_choice = $3; }
+            | V_CHOICE ':' choices { _YA->ya_var->do_choice = $3; }
             | V_KEYWORD ':' NAME { 
-		_YA->ya_var->co_keyword = $3;  
-		_YA->ya_var->co_vtype=CGV_STRING; 
+		_YA->ya_var->do_keyword = $3;  
+		_YA->ya_var->do_vtype=CGV_STRING; 
 	      }
             | V_REGEXP  ':' DQ charseq DQ { cg_regexp(_ya, $4); }
             | V_DEFAULT ':' DQ charseq DQ { cg_default(_ya, NULL, $4); free($4);}

@@ -223,7 +223,9 @@ from_client_change(clicon_handle h,
     if((vr = lvec2cvec (lvec, lvec_len)) == NULL)
 	goto done;
     if (db_lv_op_exec(dbspec, dbname, basekey, op, vr) < 0){
-	send_msg_err(s, OE_DB, 0, "Executing operation on %s", dbname);
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+//	send_msg_err(s, OE_DB, 0, "Executing operation on %s", dbname);
 	goto done;
     }
     if (send_msg_ok(s) < 0)

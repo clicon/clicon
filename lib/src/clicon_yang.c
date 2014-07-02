@@ -19,6 +19,7 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
+ * Yang functions
   */
 
 #ifdef HAVE_CONFIG_H
@@ -48,6 +49,8 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#include "clicon_dbspec_parsetree.h"
+#include "clicon_yang.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
@@ -55,7 +58,533 @@
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
 #include "clicon_dbspec.h"
+#include "clicon_yang.h"
 #include "clicon_yang_parse.h"
+#include "clicon_yang_parse.tab.h" /* for constants */
+
+yang_spec *
+yspec_new(void)
+{
+    yang_spec *yspec;
+
+    if ((yspec = malloc(sizeof(*yspec))) == NULL){
+	clicon_err(OE_DB, errno, "%s: malloc", __FUNCTION__);
+	return NULL;
+    }
+    memset(yspec, 0, sizeof(*yspec));
+    return yspec;
+}
+
+yang_stmt *
+ys_new(int keyw)
+{
+    yang_stmt *ys;
+
+    if ((ys = malloc(sizeof(*ys))) == NULL){
+	clicon_err(OE_DB, errno, "%s: malloc", __FUNCTION__);
+	return NULL;
+    }
+    memset(ys, 0, sizeof(*ys));
+    ys->ys_keyword    = keyw;
+    return ys;
+}
+
+/*! Free a single yang statement */
+static int 
+ys_free1(yang_stmt *ys)
+{
+    if (ys->ys_argument)
+	free(ys->ys_argument);
+    if (ys->ys_dbkey)
+	free(ys->ys_dbkey);
+    if (ys->ys_cv)
+	cv_free(ys->ys_cv);
+    free(ys);
+    return 0;
+}
+
+/*! Free a tree of yang statements recursively */
+int 
+ys_free(yang_stmt *ys)
+{
+    int i;
+    yang_stmt *yc;
+
+    for (i=0; i<ys->ys_len; i++){
+	if ((yc = ys->ys_stmt[i]) != NULL)
+	    ys_free(yc);
+    }
+    if (ys->ys_stmt)
+	free(ys->ys_stmt);
+    ys_free1(ys);
+    return 0;
+}
+
+/*! Free a yang specification recursively */
+int 
+yspec_free(yang_spec *yspec)
+{
+    int i;
+    yang_stmt *ys;
+
+    for (i=0; i<yspec->yp_len; i++){
+	if ((ys = yspec->yp_stmt[i]) != NULL)
+	    ys_free(ys);
+    }
+    if (yspec->yp_stmt)
+	free(yspec->yp_stmt);
+    free(yspec);
+    return 0;
+}
+
+/*! Allocate larger yang statement vector */
+static int 
+yn_realloc(yang_node *yn)
+{
+    yn->yn_len++;
+
+    if ((yn->yn_stmt = realloc(yn->yn_stmt, (yn->yn_len)*sizeof(yang_stmt *))) == 0){
+	clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
+	return -1;
+    }
+    yn->yn_stmt[yn->yn_len - 1] = NULL; /* init field */
+    return 0;
+}
+
+/*! Insert yang statement as child of a parent yang_statement, last in list 
+ *
+ * Also add parent to child as up-pointer
+ */
+int
+yn_insert(yang_node *yn_parent, yang_stmt *ys_child)
+{
+    int pos = yn_parent->yn_len;
+
+    if (yn_realloc(yn_parent) < 0)
+	return -1;
+    yn_parent->yn_stmt[pos] = ys_child;
+    ys_child->ys_parent = yn_parent;
+    return 0;
+}
+
+/*! Iterate through all yang statements from a yang node 
+ *
+ * Note that this is not optimized, one could use 'i' as index?
+ * @code
+ *   yang_stmt *ys = NULL;
+ *   while ((ys = yn_each(yn, ys)) != NULL) {
+ *     ...ys...
+ *   }
+ * @endcode
+ */
+yang_stmt *
+yn_each(yang_node *yn, yang_stmt *ys)
+{
+    yang_stmt *yc = NULL;
+    int i;
+
+    for (i=0; i<yn->yn_len; i++){
+	yc = yn->yn_stmt[i];
+	if (ys==NULL)
+	    return yc;
+	if (ys==yc)
+	    ys = NULL;
+    }
+    return NULL;
+}
+
+/*! Find a child yang_stmt with matching keyword and argument
+ *
+ * If argument is NULL, match any argument.
+ * If key is 0 match any keyword
+ * This however means that if you actually want to match only a yang-stmt with 
+ * argument==NULL you cannot, but I have not seen any such examples.
+ */
+yang_stmt *
+yang_find(yang_node *yn, int keyword, char *argument)
+{
+    yang_stmt *ys = NULL;
+    int i;
+    int match = 0;
+
+    for (i=0; i<yn->yn_len; i++){
+	ys = yn->yn_stmt[i];
+	if (keyword == 0 || ys->ys_keyword == keyword){
+	    if (argument == NULL)
+		match++;
+	    else
+		if (ys->ys_argument && strcmp(argument, ys->ys_argument) == 0)
+		    match++;
+	    if (match)
+		break;
+	    }
+
+    }
+    return match ? ys : NULL;
+}
+
+/*! Find a child syntax yang_stmt with matching argument (container, leaf, etc)
+ *
+ * See also yang_find() but this looks only for the yang specification nodes with
+ * the following keyword: container, leaf, list, leaf-list
+ * That is, basic syntax nodes.
+ */
+yang_stmt *
+yang_find_syntax(yang_node *yn, char *argument)
+{
+    yang_stmt *ys = NULL;
+    int i;
+    int match = 0;
+
+    for (i=0; i<yn->yn_len; i++){
+	ys = yn->yn_stmt[i];
+	if (ys->ys_keyword == K_CONTAINER || ys->ys_keyword == K_LEAF || 
+	    ys->ys_keyword == K_LIST || ys->ys_keyword == K_LEAF_LIST){
+	    if (argument == NULL)
+		match++;
+	    else
+		if (ys->ys_argument && strcmp(argument, ys->ys_argument) == 0)
+		    match++;
+	    if (match)
+		break;
+	    }
+    }
+    return match ? ys : NULL;
+}
+
+
+/* RFC 6020 keywords */
+char *
+yang_key2str(int keyword)
+{
+    switch(keyword){
+    case K_ANYXML:
+	return "anyxml";
+	break;
+    case K_ARGUMENT:
+	return "argument";
+	break;
+    case K_AUGMENT:
+	return "augment";
+	break;
+    case K_BASE:
+	return "base";
+	break;
+    case K_BELONGS_TO:
+	return "belongs-to";
+	break;
+    case K_BIT:
+	return "bit";
+	break;
+    case K_CASE:
+	return "case";
+	break;
+    case K_CHOICE:
+	return "choice";
+	break;
+    case K_CONFIG:
+	return "config";
+	break;
+    case K_CONTACT:
+	return "contact";
+	break;
+    case K_CONTAINER:
+	return "container";
+	break;
+    case K_DEFAULT:
+	return "default";
+	break;
+    case K_DESCRIPTION:
+	return "description";
+	break;
+    case K_DEVIATE:
+	return "deviate";
+	break;
+    case K_DEVIATION:
+	return "deviation";
+	break;
+    case K_ENUM:
+	return "enum";
+	break;
+    case K_ERROR_APP_TAG:
+	return "error-app-tag";
+	break;
+    case K_ERROR_MESSAGE:
+	return "error-message";
+	break;
+    case K_EXTENSION:
+	return "extension";
+	break;
+    case K_FEATURE:
+	return "feature";
+	break;
+    case K_FRACTION_DIGITS:
+	return "fraction-digits";
+	break;
+    case K_GROUPING:
+	return "grouping";
+	break;
+    case K_IDENTITY:
+	return "identity";
+	break;
+    case K_IF_FEATURE:
+	return "if-feature";
+	break;
+    case K_IMPORT:
+	return "import";
+	break;
+    case K_INCLUDE:
+	return "include";
+	break;
+    case K_INPUT:
+	return "input";
+	break;
+    case K_KEY:
+	return "key";
+	break;
+    case K_LEAF:
+	return "leaf";
+	break;
+    case K_LEAF_LIST:
+	return "leaf-list";
+	break;
+    case K_LENGTH:
+	return "length";
+	break;
+    case K_LIST:
+	return "list";
+	break;
+    case K_MANDATORY:
+	return "mandatory";
+	break;
+    case K_MAX_ELEMENTS:
+	return "max-elements";
+	break;
+    case K_MIN_ELEMENTS:
+	return "min-elements";
+	break;
+    case K_MODULE:
+	return "module";
+	break;
+    case K_MUST:
+	return "must";
+	break;
+    case K_NAMESPACE:
+	return "namespace";
+	break;
+    case K_NOTIFICATION:
+	return "notification";
+	break;
+    case K_ORDERED_BY:
+	return "ordered-by";
+	break;
+    case K_ORGANIZATION:
+	return "organization";
+	break;
+    case K_OUTPUT:
+	return "output";
+	break;
+    case K_PATH:
+	return "path";
+	break;
+    case K_PATTERN:
+	return "pattern";
+	break;
+    case K_POSITION:
+	return "position";
+	break;
+    case K_PREFIX:
+	return "prefix";
+	break;
+    case K_PRESENCE:
+	return "presence";
+	break;
+    case K_RANGE:
+	return "range";
+	break;
+    case K_REFERENCE:
+	return "reference";
+	break;
+    case K_REFINE:
+	return "refine";
+	break;
+    case K_REQUIRE_INSTANCE:
+	return "require-instance";
+	break;
+    case K_REVISION:
+	return "revision";
+	break;
+    case K_REVISION_DATE:
+	return "revision-date";
+	break;
+    case K_RPC:
+	return "rpc";
+	break;
+    case K_STATUS:
+	return "status";
+	break;
+    case K_SUBMODULE:
+	return "submodule";
+	break;
+    case K_TYPE:
+	return "type";
+	break;
+    case K_TYPEDEF:
+	return "typedef";
+	break;
+    case K_UNIQUE:
+	return "unique";
+	break;
+    case K_UNITS:
+	return "units";
+	break;
+    case K_USES:
+	return "uses";
+	break;
+    case K_VALUE:
+	return "value";
+	break;
+    case K_WHEN:
+	return "when";
+	break;
+    case K_YANG_VERSION:
+	return "yang-version";
+	break;
+    case K_YIN_ELEMENT:
+	return "yin-element";
+	break;
+    }
+    return NULL;
+}
+
+/*! string is quoted if it contains space or tab, needs double '' */
+static int inline
+quotedstring(char *s)
+{
+    int len = strlen(s);
+    int i;
+
+    for (i=0; i<len; i++)
+	if (isblank(s[i]))
+	    break;
+    return i < len;
+}
+
+int
+yang_print(FILE *f, yang_node *yn, int marginal)
+{
+    yang_stmt *ys = NULL;
+
+    while ((ys = yn_each(yn, ys)) != NULL) {
+	fprintf(f, "%*s%s", marginal, "", yang_key2str(ys->ys_keyword));
+	if (ys->ys_argument){
+	    if (quotedstring(ys->ys_argument))
+		fprintf(f, " \"%s\"", ys->ys_argument);
+	    else
+		fprintf(f, " %s", ys->ys_argument);
+	}
+	if (ys->ys_len){
+	    fprintf(f, " {\n");
+	    yang_print(f, (yang_node*)ys, marginal+3);
+	    fprintf(f, "%*s%s\n", marginal, "", "}");
+	}
+	else
+	    fprintf(f, ";\n");
+    }
+    return 0;
+}
+
+/*! Populate yang leafs. Create a CV, check mandatory and default */
+static int
+ys_populate_leaf(yang_stmt *ys, void *arg)
+{
+    int             retval = -1;
+    cg_var         *cv;
+    yang_node      *yparent; 
+    yang_stmt      *ytype; 
+    yang_stmt      *yman; 
+    yang_stmt      *ydef; 
+    yang_stmt      *ykey = NULL; 
+    enum cv_type    cvtype = CGV_ERR;
+    int             cvret;
+    char           *reason = NULL;
+
+    /* 1. Find parent and matching 'key'-statemnt */
+    if ((yparent = ys->ys_parent) != NULL && yparent->yn_keyword == K_LIST)
+	ykey = yang_find(yparent, K_KEY, ys->ys_argument);
+
+    /* 2. Find type specification and set cv type accordingly */
+    if ((ytype = yang_find((yang_node*)ys, K_TYPE, NULL)) != NULL){
+	if (yang2cv_type(ytype->ys_argument, &cvtype) < 0)
+	    goto done;
+    }
+    if (cvtype == CGV_ERR){
+	clicon_err(OE_DB, 0, "%s: No mapping to cv-type from yang type: %s\n", 
+		   __FUNCTION__, ytype->ys_argument);
+	goto done;
+    }
+	
+    /* 3. Check if default value. Here we parse the cv in the default-stmt
+          Or should we parse this into the key-stmt itself? YES YES
+     */
+    if ((cv = cv_new(cvtype)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
+	goto done;
+    }
+    if ((ydef = yang_find((yang_node*)ys, K_DEFAULT, NULL)) != NULL){
+	if ((cvret = cv_parse1(ydef->ys_argument, cv, &reason)) < 0){ /* error */
+	    clicon_err(OE_DB, errno, "parsing cv");
+	    goto done;
+	}
+	if (cvret == 0){ /* parsing failed */
+	    clicon_err(OE_DB, errno, "Parsing CV: %s", reason);
+	    free(reason);
+	    goto done;
+	}
+    }
+    else{
+	/* 3b. If not default value, just create a var. */
+	cv_flag_set(cv, V_UNSET); /* no value (no default) */
+    }
+    if (cv_name_set(cv, ys->ys_argument) == NULL){
+	clicon_err(OE_DB, errno, "%s: cv_new_set", __FUNCTION__); 
+	goto done;
+    }
+
+    /* 4. Check if leaf is part of list and this is the key */
+    if (ykey)
+	cv_flag_set(cv, V_UNIQUE);
+
+    /* 5. Check if mandatory */
+    if ((yman = yang_find((yang_node*)ys, K_MANDATORY, NULL)) != NULL)
+	ys->ys_mandatory = cv_bool_get(yman->ys_cv);
+
+    ys->ys_cv = cv;
+    retval = 0;
+  done:
+    if (cv && retval < 0)
+	cv_free(cv);
+    return retval;
+}
+
+/*! Populate with cligen-variables, default values etc
+ *
+ * We do this in 2nd pass after complete parsing to be sure to have a complete parse-tree
+ */
+static int
+ys_populate(yang_stmt *ys, void *arg)
+{
+    int retval = -1;
+
+    if (ys->ys_keyword == K_LEAF || ys->ys_keyword == K_LEAF_LIST){
+	if (ys_populate_leaf(ys, arg) < 0)
+	    goto done;
+    }
+    retval = 0;
+  done:
+    return retval;
+}
+
 
 /*! Parse a string containing a YANG spec into a parse-tree
  * 
@@ -64,39 +593,27 @@
  * (cloned from cligen)
  */
 static int
-clicon_yang_parse_str(clicon_handle h,
-		 char *str,
-		 const char *name, /* just for errs */
-		 dbspec_tree *pt,
-		 cvec *vr
+yang_parse_str(clicon_handle h,
+	       char *str,
+	       const char *name, /* just for errs */
+	       yang_spec *yspec
     )
 {
     int                retval = -1;
-    int                i;
     struct clicon_yang_yacc_arg ya = {0,};
-    dbspec_obj            *co;
-    dbspec_obj             co0; /* tmp top object: NOT malloced */
-    dbspec_obj            *co_top = &co0;
 
-    memset(&co0, 0, sizeof(co0));
     ya.ya_handle       = h; 
     ya.ya_name         = (char*)name;
     ya.ya_linenum      = 1;
     ya.ya_parse_string = str;
     ya.ya_stack        = NULL;
-    co_top->do_pt      = *pt;
-    if (vr)
-	ya.ya_globals       = vr; 
-    else
-	if ((ya.ya_globals = cvec_new(0)) == NULL){
-	    fprintf(stderr, "%s: malloc: %s\n", __FUNCTION__, strerror(errno)); 
-	    goto done;
-	}
 
+    if (ystack_push(&ya, (yang_node*)yspec) == NULL)
+	goto done;
     if (strlen(str)){ /* Not empty */
 	if (yang_scan_init(&ya) < 0)
 	    goto done;
-	if (yang_parse_init(&ya, co_top) < 0)
+	if (yang_parse_init(&ya, yspec) < 0)
 	    goto done;
 	if (clicon_yang_parseparse(&ya) != 0) {
 	    yang_parse_exit(&ya);
@@ -107,22 +624,14 @@ clicon_yang_parse_str(clicon_handle h,
 	    goto done;		
 	if (yang_scan_exit(&ya) < 0)
 	    goto done;		
-    }
-    if (vr)
-	vr= ya.ya_globals;
-    else
-	cvec_free(ya.ya_globals);
-    /*
-     * Remove the fake top level object and remove references to it.
-     */
-    *pt = co_top->do_pt;
-    for (i=0; i<co_top->do_max; i++){
-	co=co_top->do_next[i];
-	if (co)
-	    co_up_set2(co, NULL);
+	/* Go through parse tree and populate it with cv types */
+	if (yang_apply((yang_node*)yspec, ys_populate, NULL) < 0)
+	    goto done;
     }
     retval = 0;
   done:
+    ystack_pop(&ya);
+
     return retval;
 
 }
@@ -136,11 +645,11 @@ clicon_yang_parse_str(clicon_handle h,
  * The database symbols are inserted in alphabetical order.
  */
 static int
-clicon_yang_parse_file(clicon_handle h,
-			 FILE *f,
-			 const char *name, /* just for errs */
-			 dbspec_tree *pt,
-			 cvec *globals)
+yang_parse_file(clicon_handle h,
+		FILE *f,
+		const char *name, /* just for errs */
+		yang_spec *ysp
+    )
 {
     char         *buf;
     int           i;
@@ -169,7 +678,7 @@ clicon_yang_parse_file(clicon_handle h,
 	}
 	buf[i++] = (char)(c&0xff);
     } /* read a line */
-    if (clicon_yang_parse_str(h, buf, name, pt, globals) < 0)
+    if (yang_parse_str(h, buf, name, ysp) < 0)
 	goto done;
     retval = 0;
   done:
@@ -178,36 +687,258 @@ clicon_yang_parse_file(clicon_handle h,
     return retval;
 }
 
+
 /*! Parse dbspec using yang format
  *
  * The database symbols are inserted in alphabetical order.
  */
 int
-yang_parse(clicon_handle h, const char *filename, dbspec_tree *pt)
+yang_parse(clicon_handle h, const char *filename, yang_spec *ysp)
 {
     FILE       *f;
-    cvec       *cvec = NULL;   /* global variables from syntax */
     int         retval = -1;
-    char       *name;
+    yang_stmt  *ys;
 
     if ((f = fopen(filename, "r")) == NULL){
 	clicon_err(OE_UNIX, errno, "fopen(%s)", filename);	
 	goto done;
     }
-    if ((cvec = cvec_new(0)) == NULL){ /* global variables from syntax */
-	clicon_err(OE_UNIX, errno, "cvec_new()");	
-	goto done;
-    }   
-    if (clicon_yang_parse_file(h, f, filename, pt, cvec) < 0)
+    if (yang_parse_file(h, f, filename, ysp) < 0)
 	goto done;
     /* pick up name="myname"; from spec */
-    if ((name = cvec_find_str(cvec, "name")) != NULL)
-	clicon_dbspec_name_set(h, name);
+    if ((ys = yang_find((yang_node*)ysp, K_MODULE, NULL)) == NULL){
+	clicon_err(OE_DB, 0, "No module found in %s", filename);	
+	goto done;
+    }
+    clicon_dbspec_name_set(h, ys->ys_argument);
+
     retval = 0;
   done:
-    if (cvec)
-	cvec_free(cvec);
     if (f)
 	fclose(f);
     return retval;
+}
+
+struct yang2cv_type{
+    char         *yt_yang; /* string as in 4.2.4 in RFC 6020 */
+    enum cv_type  yt_cv;
+};
+
+static struct yang2cv_type ytmap[] = {
+    {"binary",      CGV_INT}, /* XXX not really int */
+    {"bits",        CGV_INT}, /* XXX not really int */
+    {"boolean",     CGV_BOOL},
+    {"decimal64",   CGV_INT},  /* XXX not really int */
+    {"empty",       CGV_INT},  /* XXX not really int */
+    {"enumeration", CGV_INT},  /* XXX not really int */
+    {"identityref", CGV_INT},  /* XXX not really int */
+    {"instance-identifier", CGV_INT}, /* XXX not really int */
+    {"int8",        CGV_INT},  /* XXX not really int */
+    {"int16",       CGV_INT},  /* XXX not really int */
+    {"int32",       CGV_INT},
+    {"int64",       CGV_LONG},
+    {"leafref",     CGV_INT},  /* XXX not really int */
+    {"string",      CGV_STRING},
+    {"uint8",       CGV_INT},  /* XXX not really int */
+    {"uint16",      CGV_INT},  /* XXX not really int */
+    {"uint32",      CGV_INT},  /* XXX not really int */
+    {"uint64",      CGV_LONG}, /* XXX not really int */
+    {"union",       CGV_INT},  /* XXX not really int */
+    {NULL, -1}
+};
+
+
+/*! Translate from a yang type to a cligen variable type
+ *
+ * Currently many built-in types from RFC6020 and some RFC6991 types.
+ * But not all, neither built-in nor 6991.
+ * Also, there is no support for derived types, eg yang typedefs.
+ * See 4.2.4 in RFC6020
+ * Return 0 if no match but set cv_type to CGV_ERR
+ */
+int
+yang2cv_type(char *ytype, enum cv_type *cv_type)
+{
+    struct yang2cv_type *yt;
+
+    *cv_type = CGV_ERR;
+    /* built-in types */
+    for (yt = &ytmap[0]; yt->yt_yang; yt++)
+	if (strcmp(yt->yt_yang, ytype) == 0){
+	    *cv_type = yt->yt_cv;
+	    return 0;
+	}
+
+    /* special derived types */
+    if (strcmp("ipv4-address", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_IPV4ADDR;
+	return 0;
+    }
+    if (strcmp("ipv6-address", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_IPV6ADDR;
+	return 0;
+    }
+    if (strcmp("ipv4-prefix", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_IPV4PFX;
+	return 0;
+    }
+    if (strcmp("ipv6-prefix", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_IPV6PFX;
+	return 0;
+    }
+    if (strcmp("date-and-time", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_TIME;
+	return 0;
+    }
+    if (strcmp("mac-address", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_MACADDR;
+	return 0;
+    }
+    if (strcmp("uuid", ytype) == 0){ /* RFC6991 */
+	*cv_type = CGV_UUID;
+	return 0;
+    }
+    return 0;
+}
+
+/*! Get dbspec key of a yang statement, used when generating cli
+ *
+ * This key is computed when generating a dbspec key syntax from yang specification.
+ * It is necessary to know which database key corresponds to a specific node in the
+ * yang specification, used in, for example, cli_set() callbacks in the generated CLI
+ * code
+ */
+char *
+yang_dbkey_get(yang_stmt *ys)
+{
+    return ys->ys_dbkey;
+}
+
+/*! Set dbspec key of a yang statement, used when generating cli 
+ *
+ * @param   val   string (copied) defining the db key string.
+ */
+int 
+yang_dbkey_set(yang_stmt *ys, char *val)
+{
+    if ((ys->ys_dbkey = strdup(val)) == NULL){
+	clicon_err(OE_UNIX, errno, "%s: strdup", __FUNCTION__); 
+	return -1;
+    }
+    return 0;
+}
+
+/*! Apply a function call recursively on all yang-stmt s recursively
+ *
+ * Recursively traverse all yang-nodes in a parse-tree and apply fn(arg) for each
+ * object found. The function is called with the yang-stmt and an argument as args.
+ */
+int
+yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg)
+{
+    yang_stmt *ys = NULL;
+    int     i;
+    int     retval = -1;
+
+    for (i=0; i<yn->yn_len; i++){
+	ys = yn->yn_stmt[i];
+	if (fn(ys, arg) < 0)
+	    goto done;
+	if (yang_apply((yang_node*)ys, fn, arg) < 0)
+	    goto done;
+    }
+    retval = 0;
+  done:
+    return retval;
+}
+
+static yang_stmt *
+yang_xpath_vec(yang_node *yn, char **vec, int nvec)
+{
+    char            *key;
+    yang_stmt       *ys;
+
+    if (nvec <= 0)
+	return NULL;
+    key = vec[0];
+    if ((ys = yang_find_syntax(yn, key)) == NULL)
+	goto done;
+    if (nvec == 1)
+	return ys;
+    return yang_xpath_vec((yang_node*)ys, vec+1, nvec-1);
+  done:
+    return NULL;
+}
+
+/*! Given a dbkey (eg a.b.0) find matching yang specification
+ *
+ * e.g. a.0 matches the db_spec corresponding to a[].
+ * Input args:
+ * @param key  key to find in dbspec
+ */
+yang_stmt *
+dbkey2yang(yang_node *yn, char *dbkey)
+{
+    char           **vec;
+    int              nvec;
+    yang_stmt       *ys;
+
+    if ((vec = clicon_strsplit(dbkey, ".", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
+	return NULL;
+    }
+    ys = yang_xpath_vec(yn, vec, nvec);
+    unchunk_group(__FUNCTION__);
+    return ys;
+}
+
+/*! Given an xpath (eg /a/b/c) find matching yang specification
+ */
+yang_stmt *
+yang_xpath(yang_node *yn, char *xpath)
+{
+    char           **vec;
+    int              nvec;
+    yang_stmt       *ys;
+
+    if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
+	return NULL;
+    }
+    ys = yang_xpath_vec(yn, vec, nvec);
+    unchunk_group(__FUNCTION__);
+    return ys;
+}
+
+/*! Parse argument as CV and save result in yang cv variable
+ *
+ * Note that some CV:s are parsed directly (eg mandatory) while others are parsed in second pass
+ * (yang_populate). The reason being that all information is not available in the first pass.
+ */
+cg_var *
+ys_parse(yang_stmt *ys, enum cv_type cvtype)
+{
+    int             cvret;
+    char           *reason = NULL;
+
+    assert(ys->ys_cv == NULL); /* Cv:s are parsed in different places, difficult to separate */
+    if ((ys->ys_cv = cv_new(cvtype)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
+	goto done;
+    }
+    if ((cvret = cv_parse1(ys->ys_argument, ys->ys_cv, &reason)) < 0){ /* error */
+	clicon_err(OE_DB, errno, "parsing cv");
+	ys->ys_cv = NULL;
+	goto done;
+    }
+    if (cvret == 0){ /* parsing failed */
+	clicon_err(OE_DB, errno, "Parsing CV: %s", reason);
+	ys->ys_cv = NULL;
+	goto done;
+    }
+    /* cvret == 1 means parsing is OK */
+  done:
+    if (reason)
+	free(reason);
+    return ys->ys_cv;
 }

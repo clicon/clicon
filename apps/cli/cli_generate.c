@@ -67,17 +67,17 @@
  * Find variable in pt with a certain name 
  * very similar to co_find_one(), only Variable-check differs.
  */
-static cg_obj *
-find_index_variable(parse_tree *pt, char *name)
+static dbspec_obj *
+find_index_variable(dbspec_tree *pt, char *name)
 {
     int i;
-    cg_obj *co = NULL;
+    dbspec_obj *co = NULL;
 
-    for (i=0; i<pt->pt_len; i++){
-	co = pt->pt_vec[i];
+    for (i=0; i<pt->dt_len; i++){
+	co = pt->dt_vec[i];
 	if (co && 
-	    co->co_type == CO_VARIABLE && 
-	    strcmp(name, co->co_command)==0)
+	    co->do_type == CO_VARIABLE && 
+	    strcmp(name, co->do_command)==0)
 	    break; /* found */
 	co = NULL; /* only inde variable should be cov */
     }
@@ -86,37 +86,37 @@ find_index_variable(parse_tree *pt, char *name)
 
 
 int
-print_symbol(xf_t *xf, cg_obj *co)
+print_symbol(xf_t *xf, dbspec_obj *co)
 {
-    xprintf(xf, " %s", co->co_command);
-    if (co->co_help)
-	xprintf(xf, "(\"%s\")", co->co_help);
+    xprintf(xf, " %s", co->do_command);
+    if (co->do_help)
+	xprintf(xf, "(\"%s\")", co->do_help);
     return 0;
 }
 
 /* forward */
 static int
-dbspec2cli_co(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt);
+dbspec2cli_co(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt);
 
 static int
-dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
+dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt)
 {
     int         retval = -1;
-    parse_tree *pt;
-    cg_obj     *cov;
-    cg_obj     *co1;
+    dbspec_tree *pt;
+    dbspec_obj    *cov;
+    dbspec_obj    *co1;
     int         i;
     int         subs; /* yes, there are children */
     char       *ivar;
     
-    pt = &co->co_pt;
+    pt = &co->do_pt;
     print_symbol(xf, co);
     cov = NULL;
     if ((ivar = dbspec_indexvar_get(co)) != NULL){
 	/* Find the index variable */
 	if ((cov = find_index_variable(pt, ivar)) == NULL){
 	    clicon_err(OE_DB, errno, "%s: %s has no indexvariable %s\n", 
-		       __FUNCTION__, co->co_command, ivar); 
+		       __FUNCTION__, co->do_command, ivar); 
 	    goto done;
 	}
 	if (gt == GT_ALL) /* Add extra keyword for index variable */
@@ -140,8 +140,8 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
 #endif
     }
     subs = 0; /* Loop thru all other children (skip indexvariable) */
-    for (i=0; i<pt->pt_len; i++){ 
-	if ((co1 = pt->pt_vec[i]) == NULL)
+    for (i=0; i<pt->dt_len; i++){ 
+	if ((co1 = pt->dt_vec[i]) == NULL)
 	    continue;
 	if (cov && co1 == cov) /* skip index variable */
 	    continue;
@@ -151,7 +151,7 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
 	    subs++;
 	}
 	/* Add extra keyword regular variables */
-	if (co1->co_type == CO_VARIABLE &&
+	if (co1->do_type == CO_VARIABLE &&
 	    (gt == GT_ALL || gt == GT_VARS))
 	    print_symbol(xf, co1);
 	if (dbspec2cli_co(h, xf, co1, gt) < 0)
@@ -165,34 +165,22 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
 }
 
 static int 
-mycov_print(xf_t *xf, cg_obj *co, int brief)
+mycov_print(xf_t *xf, dbspec_obj *co, int brief)
 {
-    char          *cvstr;
-
-    if (co->co_choice){
-	xprintf(xf, "<type:string choice:%s>", co->co_choice);
+    if (co->do_choice){
+	xprintf(xf, "<type:string choice:%s>", co->do_choice);
     }
     else{
 	if (brief)
-	    xprintf(xf, "<%s>", co->co_command);   
+	    xprintf(xf, "<%s>", co->do_command);   
 	else{
-	    xprintf(xf, "<%s:%s", co->co_command, cv_type2str(co->co_vtype));
-	    if (co->co_range){
+	    xprintf(xf, "<%s:%s", co->do_command, cv_type2str(co->do_vtype));
+	    if (co->do_range){
 		xprintf(xf, " range[%" PRId64 ":%" PRId64 "]", 
-			co->co_range_low, co->co_range_high);
+			co->do_range_low, co->do_range_high);
 	    }
-	    if (co->co_expand_fn_str){
-		if (co->co_expand_fn_arg)
-		    cvstr = cv2str_dup(co->co_expand_fn_arg);
-		else
-		    cvstr = NULL;
-		xprintf(xf, " %s(\"%s\")",  /* XXX: cv2str() */
-			co->co_expand_fn_str, cvstr?cvstr:"");
-		if (cvstr)
-		    free(cvstr);
-	    }
-	    if (co->co_regex){
-		xprintf(xf, " regexp:\"%s\"", co->co_regex);
+	    if (co->do_regex){
+		xprintf(xf, " regexp:\"%s\"", co->do_regex);
 	    }
 	    xprintf(xf, ">");
 	}
@@ -203,7 +191,7 @@ mycov_print(xf_t *xf, cg_obj *co, int brief)
 
 
 static int
-dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
+dbspec2cli_co_var(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt)
 {
     char *s0, *key;
     int retval = -1;
@@ -211,8 +199,8 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
     /* In some cases we should add keyword before variables */	
     xprintf(xf, " (");
     mycov_print(xf, co, 0);
-    if (co->co_help)
-	xprintf(xf, "(\"%s\")", co->co_help);
+    if (co->do_help)
+	xprintf(xf, "(\"%s\")", co->do_help);
     if (clicon_cli_genmodel_completion(h)){
 	char *ds = dbspec_key_get(co);
 	assert(ds); 
@@ -224,13 +212,13 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
 	if (key){
 	    xprintf(xf, "|");
 	    xprintf(xf, "<%s:%s expand_dbvar_auto(\"candidate %s\")>",
-		    co->co_command, 
-		    cv_type2str(co->co_vtype),
+		    co->do_command, 
+		    cv_type2str(co->do_vtype),
 		    dbspec_key_get(co)
 		);
 	    free(s0); /* includes token */
-	    if (co->co_help)
-		xprintf(xf, "(\"%s\")", co->co_help);
+	    if (co->do_help)
+		xprintf(xf, "(\"%s\")", co->do_help);
 	}
     }
     xprintf(xf, ")");
@@ -247,11 +235,11 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
  * Miss callbacks here
  */
 static int
-dbspec2cli_co(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
+dbspec2cli_co(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt)
 {
     int         retval = -1;
 
-    switch (co->co_type){
+    switch (co->do_type){
     case CO_COMMAND: 
 	if (dbspec2cli_co_cmd(h, xf, co, gt) < 0)
 	    goto done;
@@ -277,10 +265,10 @@ dbspec2cli_co(clicon_handle h, xf_t *xf, cg_obj *co, enum genmodel_type gt)
  *      ALL:  generate keywords for all variables including index
   */
 int
-dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_type gt)
+dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_type gt)
 {
     int             i;
-    cg_obj         *co;
+    dbspec_obj     *co;
     int             retval = -1;
     xf_t           *xf;
     cvec           *globals;       /* global variables from syntax */
@@ -291,8 +279,8 @@ dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_typ
     }
     
     /* Go through parse-tree and print a CLIgen tree. */
-    for (i=0; i<pt->pt_len; i++)
-	if ((co = pt->pt_vec[i]) != NULL)
+    for (i=0; i<pt->dt_len; i++)
+	if ((co = pt->dt_vec[i]) != NULL)
 	    if (dbspec2cli_co(h, xf, co, gt) < 0)
 		goto done;
     /* Parse the buffer using cligen parser. */
@@ -307,10 +295,179 @@ dbspec2cli(clicon_handle h, parse_tree *pt, parse_tree *ptnew, enum genmodel_typ
     /* resolve expand function names */
     if (cligen_expand_str2fn(*ptnew, expand_str2fn, NULL) < 0)     
 	goto done;
-
     retval = 0;
   done:
     xf_free(xf);
     return retval;
 }
 
+/*=====================================================================
+ * YANG generate CLI
+ *=====================================================================*/
+#ifdef XXX
+ ntp("Network Time Protocol"),cli_set("ntp");{ 
+     logging("Configure NTP message logging"),cli_set("ntp.logging");{ 
+	 status (<status:bool>),cli_set("ntp.logging $status:bool");
+     } 
+     server("Configure NTP Server") (<ipv4addr:ipv4addr>("IPv4 address of peer")),cli_set("ntp.server[] $!ipv4addr:ipv4addr");
+ }
+#endif
+
+#include <src/clicon_yang_parse.tab.h> /* XXX for constants */
+
+static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys, 
+			 xf_t         *xf,    
+			 enum genmodel_type gt,
+			 int           level);
+
+static int
+yang2cli_container(clicon_handle h, 
+		   yang_stmt    *ys, 
+		   xf_t         *xf,
+		   enum genmodel_type gt,
+		   int           level)
+{
+    yang_stmt    *yc;
+    yang_stmt    *yd;
+    char         *keyspec;
+    int           i;
+    int           retval = -1;
+
+    xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
+    if ((yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL)) != NULL)
+	xprintf(xf, "(\"%s\")", yd->ys_argument);
+    if ((keyspec = yang_dbkey_get(ys)) != NULL)
+	xprintf(xf, ",cli_set(\"%s\");", keyspec);
+   xprintf(xf, "{\n");
+    /* Check if there are sub-leafs, then print {} (or always?) */
+    for (i=0; i<ys->ys_len; i++)
+	if ((yc = ys->ys_stmt[i]) != NULL)
+	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
+		goto done;
+    xprintf(xf, "%*s}\n", level*3, "");
+    retval = 0;
+  done:
+    return retval;
+}
+
+static int
+yang2cli_leaf(clicon_handle h, 
+	      yang_stmt    *ys, 
+	      xf_t         *xf,
+	      enum genmodel_type gt,
+	      int           level)
+{
+    yang_stmt    *yd;
+    int           retval = -1;
+    char         *keyspec;
+    enum cv_type  cvtype;
+
+    cvtype = cv_type_get(ys->ys_cv);
+    yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL); /* description */
+    xprintf(xf, "%*s", level*3, "");
+    if (gt == GT_ALL || gt == GT_VARS){
+	xprintf(xf, "%s ", ys->ys_argument);
+	if (yd != NULL)
+	    xprintf(xf, "(\"%s\")", yd->ys_argument);
+	xprintf(xf, "<%s:%s>", ys->ys_argument, cv_type2str(cvtype));
+    }
+    else
+	xprintf(xf, "<%s:%s>", level*3, "", ys->ys_argument, cv_type2str(cvtype));
+
+    if (yd != NULL)
+	xprintf(xf, "(\"%s\")", yd->ys_argument);
+    if ((keyspec = yang_dbkey_get(ys)) != NULL)
+	xprintf(xf, ",cli_set(\"%s\")", keyspec);
+   xprintf(xf, ";\n");
+
+    retval = 0;
+//  done:
+    return retval;
+}
+
+/*! Translate yang-stmt to CLIgen syntax.
+ */
+static int
+yang2cli_stmt(clicon_handle h, 
+	      yang_stmt    *ys, 
+	      xf_t         *xf,
+	      enum genmodel_type gt,
+	      int           level /* indentation level for pretty-print */
+    )
+{
+    yang_stmt    *yc;
+    int           retval = -1;
+    int           i;
+
+//    fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
+//	    yang_key2str(ys->ys_keyword), ys->ys_argument);
+    switch (ys->ys_keyword){
+    case K_CONTAINER:
+    case K_LIST:
+	if (yang2cli_container(h, ys, xf, gt, level) < 0)
+	    goto done;
+	break;
+    case K_LEAF_LIST:
+    case K_LEAF:
+	if (yang2cli_leaf(h, ys, xf, gt, level) < 0)
+	    goto done;
+	break;
+    default:
+    for (i=0; i<ys->ys_len; i++)
+	if ((yc = ys->ys_stmt[i]) != NULL)
+	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
+		goto done;
+	break;
+    }
+
+    retval = 0;
+  done:
+    return retval;
+
+}
+
+/*! Translate from a yang specification into a CLIgen syntax.
+ *
+ * Print a CLIgen syntax to xf string, then parse it.
+ * @param gt - how to generate CLI: 
+ *             VARS: generate keywords for regular vars only not index
+ *             ALL:  generate keywords for all variables including index
+ */
+int
+yang2cli(clicon_handle h, 
+	 yang_spec *yspec, 
+	 parse_tree *ptnew, 
+	 enum genmodel_type gt)
+{
+    xf_t           *xf;
+    int             i;
+    int             retval = -1;
+    yang_stmt      *ys = NULL;
+    cvec           *globals;       /* global variables from syntax */
+
+    if ((xf = xf_alloc()) == NULL){
+	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+	goto done;
+    }
+    /* Traverse YANG specification: loop through statements */
+    for (i=0; i<yspec->yp_len; i++)
+	if ((ys = yspec->yp_stmt[i]) != NULL){
+	    if (yang2cli_stmt(h, ys, xf, gt, 0) < 0)
+		goto done;
+	}
+    if (debug)
+	fprintf(stderr, "%s: buf\n%s\n", __FUNCTION__, xf_buf(xf));
+    /* Parse the buffer using cligen parser. XXX why this?*/
+    if ((globals = cvec_new(0)) == NULL)
+	goto done;
+    /* load cli syntax */
+    if (cligen_parse_str(cli_cligen(h), xf_buf(xf), 
+			 "yang2cli", ptnew, globals) < 0)
+	goto done;
+    cvec_free(globals);
+
+    retval = 0;
+  done:
+    xf_free(xf);
+    return retval;
+}

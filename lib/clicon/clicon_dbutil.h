@@ -37,6 +37,8 @@ int cvec_del(cvec *vec, cg_var *cv);
 
 cg_var *cvec_add_cv(cvec *vec, cg_var *cv);
 
+cg_var *cvec_add_name(cvec *vec, enum cv_type type, char *name);
+
 int cvec_merge(cvec *orig, cvec *add);
 
 int cvec_merge2(cvec *orig, cvec *add);
