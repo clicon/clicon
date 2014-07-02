@@ -172,7 +172,7 @@ void clicon_yangerror(void *_ya, char *s)
 }
 
 int
-yang_parse_init(struct clicon_yang_yacc_arg *ya, cg_obj *co_top)
+yang_parse_init(struct clicon_yang_yacc_arg *ya, dbspec_obj *co_top)
 {
     return 0;
 }
@@ -438,6 +438,10 @@ reference_stmt: K_REFERENCE string ';'
               ;
 
 type_stmt     : K_TYPE id_arg_str ';' /* XXX identifier_ref_arg_str */
+              | K_TYPE id_arg_str '{' type_body_stmts '}'
+              ;
+
+type_body_stmts : /* XXX restrictions */
               ;
 
 key_stmt      : K_KEY id_arg_str ';' /* XXX key_arg_str */

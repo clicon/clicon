@@ -41,6 +41,7 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
+#include "clicon_spec.h"
 #include "clicon_yang_parse.h"
 
 /* Redefine main lex function so that you can send arguments to it */
