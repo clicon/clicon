@@ -42,10 +42,10 @@ clean:
 distclean: clean
 	rm -f clicon.conf Makefile *~ .depend
 
-install:	clicon.conf datamodel.spec datamodel_cli.cli 
+install:	clicon.conf datamodel.yang datamodel_cli.cli 
 	install -m 755 -d $(DESTDIR)$(APPDIR) 
 	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
-	install -m 755 datamodel.spec $(DESTDIR)$(APPDIR)
+	install -m 755 datamodel.yang $(DESTDIR)$(APPDIR)
 	install -m 755 -d $(DESTDIR)$(APPDIR)/frontend
 	install -m 755 -d $(DESTDIR)$(APPDIR)/backend
 	install -m 755 -d $(DESTDIR)$(APPDIR)/db
@@ -58,7 +58,7 @@ uninstall:
 	rm -rf $(APPDIR)/frontend
 	rm -rf $(APPDIR)/db
 	rm -rf $(APPDIR)/archive
-	rm -rf $(APPDIR)/datamodel.spec
+	rm -rf $(APPDIR)/datamodel.yang
 	rm -rf $(APPDIR)/*
 
 install-include:	

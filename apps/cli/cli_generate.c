@@ -286,7 +286,7 @@ dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_ty
     /* Parse the buffer using cligen parser. */
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
-    clicon_debug(2, "xbuf: %s", xf_buf(xf));
+    clicon_debug(1, "xbuf: %s", xf_buf(xf));
     /* load cli syntax */
     if (cligen_parse_str(cli_cligen(h), xf_buf(xf), "dbspec2cli", ptnew, globals) < 0)
 	goto done;
@@ -304,13 +304,38 @@ dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_ty
 /*=====================================================================
  * YANG generate CLI
  *=====================================================================*/
-#ifdef XXX
+#if 0 /* examples/ntp */
  ntp("Network Time Protocol"),cli_set("ntp");{ 
      logging("Configure NTP message logging"),cli_set("ntp.logging");{ 
 	 status (<status:bool>),cli_set("ntp.logging $status:bool");
      } 
      server("Configure NTP Server") (<ipv4addr:ipv4addr>("IPv4 address of peer")),cli_set("ntp.server[] $!ipv4addr:ipv4addr");
  }
+#endif
+#if 0 /* examples/datamodel */
+ a x <x:number>,cli_set("a[] $!x");{
+     b,cli_set("a[].b");{ <<<<ska vara: "a[].b $!x" XXXX
+         y <y:string>,cli_set("a[].b $y");
+      }
+      z <z:string>,cli_set("a[] $z");
+   }
+
+
+ a <x:number>,cli_set("a[] $!x");{
+     b,cli_set("a[].b $!x");{ 
+	 y <y:string>,cli_set("a[].b $!x $y");
+     } 
+     z <z:string>,cli_set("a[] $!x $z");
+ }
+
+WITH COMPLETION:
+ a (<x:number>|<x:number expand_dbvar_auto("candidate a[] $!x")>),cli_set("a[] $!x");{
+     b,cli_set("a[].b $!x");{ 
+	 y (<y:string>|<y:string expand_dbvar_auto("candidate a[].b $!x $y")>),cli_set("a[].b $!x $y");
+     } 
+     z (<z:string>|<z:string expand_dbvar_auto("candidate a[] $!x $z")>),cli_set("a[] $!x $z");
+ }
+
 #endif
 
 #include <src/clicon_yang_parse.tab.h> /* XXX for constants */
@@ -319,36 +344,6 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
 			 xf_t         *xf,    
 			 enum genmodel_type gt,
 			 int           level);
-
-static int
-yang2cli_container(clicon_handle h, 
-		   yang_stmt    *ys, 
-		   xf_t         *xf,
-		   enum genmodel_type gt,
-		   int           level)
-{
-    yang_stmt    *yc;
-    yang_stmt    *yd;
-    char         *keyspec;
-    int           i;
-    int           retval = -1;
-
-    xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
-    if ((yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL)) != NULL)
-	xprintf(xf, "(\"%s\")", yd->ys_argument);
-    if ((keyspec = yang_dbkey_get(ys)) != NULL)
-	xprintf(xf, ",cli_set(\"%s\");", keyspec);
-   xprintf(xf, "{\n");
-    /* Check if there are sub-leafs, then print {} (or always?) */
-    for (i=0; i<ys->ys_len; i++)
-	if ((yc = ys->ys_stmt[i]) != NULL)
-	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
-		goto done;
-    xprintf(xf, "%*s}\n", level*3, "");
-    retval = 0;
-  done:
-    return retval;
-}
 
 static int
 yang2cli_leaf(clicon_handle h, 
@@ -385,6 +380,82 @@ yang2cli_leaf(clicon_handle h,
     return retval;
 }
 
+
+static int
+yang2cli_container(clicon_handle h, 
+		   yang_stmt    *ys, 
+		   xf_t         *xf,
+		   enum genmodel_type gt,
+		   int           level)
+{
+    yang_stmt    *yc;
+    yang_stmt    *yd;
+    char         *keyspec;
+    int           i;
+    int           retval = -1;
+
+    xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
+    if ((yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL)) != NULL)
+	xprintf(xf, "(\"%s\")", yd->ys_argument);
+    if ((keyspec = yang_dbkey_get(ys)) != NULL)
+	xprintf(xf, ",cli_set(\"%s\");", keyspec);
+   xprintf(xf, "{\n");
+    for (i=0; i<ys->ys_len; i++)
+	if ((yc = ys->ys_stmt[i]) != NULL)
+	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
+		goto done;
+    xprintf(xf, "%*s}\n", level*3, "");
+    retval = 0;
+  done:
+    return retval;
+}
+
+static int
+yang2cli_list(clicon_handle h, 
+	      yang_stmt    *ys, 
+	      xf_t         *xf,
+	      enum genmodel_type gt,
+	      int           level)
+{
+    yang_stmt    *yc;
+    yang_stmt    *yd;
+    yang_stmt    *ykey;
+    yang_stmt    *yleaf;
+    int           i;
+    int           retval = -1;
+
+    xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
+    if ((yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL)) != NULL)
+	xprintf(xf, "(\"%s\")", yd->ys_argument);
+    /* Look for key variable */
+    if ((ykey = yang_find((yang_node*)ys, K_KEY, NULL)) == NULL){
+	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
+	goto done;
+    }
+    if ((yleaf = yang_find((yang_node*)ys, K_LEAF, ykey->ys_argument)) == NULL){
+	clicon_err(OE_XML, errno, "List statement \"%s\" has no key leaf \"%s\"", 
+		   ys->ys_argument, ykey->ys_argument);
+	goto done;
+    }
+    /* Print key variable now, and skip it in loop below */
+    if (yang2cli_leaf(h, yleaf, xf, gt, level+1) < 0)
+	goto done;
+    xprintf(xf, "{\n");
+    for (i=0; i<ys->ys_len; i++)
+	if ((yc = ys->ys_stmt[i]) != NULL){
+	    if (yc == yleaf) /* skip key leaf since done above */
+		continue;
+	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
+		goto done;
+	}
+    xprintf(xf, "%*s}\n", level*3, "");
+    retval = 0;
+  done:
+    return retval;
+}
+
+
+
 /*! Translate yang-stmt to CLIgen syntax.
  */
 static int
@@ -403,8 +474,11 @@ yang2cli_stmt(clicon_handle h,
 //	    yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
     case K_CONTAINER:
-    case K_LIST:
 	if (yang2cli_container(h, ys, xf, gt, level) < 0)
+	    goto done;
+	break;
+    case K_LIST:
+	if (yang2cli_list(h, ys, xf, gt, level) < 0)
 	    goto done;
 	break;
     case K_LEAF_LIST:

@@ -74,10 +74,9 @@ clean:
 distclean: clean
 	rm -f clicon.conf Makefile *~ .depend
 
-install:	clicon.conf ntp.spec ntp.yang ntp_cli.cli $(PLUGINS)
+install:	clicon.conf ntp.yang ntp_cli.cli $(PLUGINS)
 	install -m 755 -d $(DESTDIR)$(APPDIR) 
 	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
-	install -m 755 ntp.spec $(DESTDIR)$(APPDIR)
 	install -m 755 ntp.yang $(DESTDIR)$(APPDIR)
 	install -m 755 -d $(DESTDIR)$(APPDIR)/frontend
 	install -m 755 -d $(DESTDIR)$(APPDIR)/netconf
@@ -103,7 +102,6 @@ uninstall:
 	rm -rf $(APPDIR)/netconf
 	rm -rf $(APPDIR)/db
 	rm -rf $(APPDIR)/archive
-	rm -rf $(APPDIR)/ntp.spec
 	rm -rf $(APPDIR)/ntp.yang
 	rm -rf $(APPDIR)/*
 

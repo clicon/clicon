@@ -3,8 +3,8 @@
 CLICON_MODE="datamodel";
 CLICON_PROMPT="%U@%H> ";
 
-set @model, cli_merge();
-delete("Delete a configuration item") @model, cli_del();
+set @datamodel:datamodel, cli_merge();
+delete("Delete a configuration item") @datamodel:model, cli_del();
 
 validate("Validate changes"), cli_validate();
 commit("Commit the changes"), cli_commit((int)0); # snapshot

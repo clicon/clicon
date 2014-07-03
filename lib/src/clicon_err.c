@@ -114,63 +114,6 @@ clicon_err_reset(void)
     return 0;
 }
 
-#ifdef notused
-/* XXX: hardcoded to QUAGGA, move to app-layer */
-static struct errvec QV[] = {
-    {"QUAGGA_SUCCESS",              0},
-    {"QUAGGA_WARNING",              1},
-    {"QUAGGA_ERR_NO_MATCH",         2},
-    {"QUAGGA_ERR_AMBIGUOUS",        3},
-    {"QUAGGA_ERR_INCOMPLETE",       4},
-    {"QUAGGA_ERR_EXEED_ARGC_MAX",   5},
-    {"QUAGGA_ERR_NOTHING_TODO",     6},
-    {"QUAGGA_COMPLETE_FULL_MATCH",  7},
-    {"QUAGGA_COMPLETE_MATCH",       8},
-    {"QUAGGA_COMPLETE_LIST_MATCH",  9},
-    {"QUAGGA_SUCCESS_DAEMON",      10},
-    {"QUAGGA_NO_CONTACT",          11},
-    {NULL,            -1}
-};
-
-static int
-err_print1(FILE *f, char *prestr, int time, 
-	   int errno, int suberrno, char *reason)
-{
-    struct timeval tv;
-    struct tm *tm;
-
-    if (time){
-	gettimeofday(&tv, NULL);
-	tm = localtime((time_t*)&tv.tv_sec);
-	fprintf(f, "%s %2d %02d:%02d:%02d: ", 
-		mon2name(tm->tm_mon), tm->tm_mday,
-		tm->tm_hour, tm->tm_min, tm->tm_sec);
-    }
-    if (prestr && strlen(prestr))
-	fprintf(f, "%s: ", prestr);
-    if (errno)
-	fprintf(f, "%s: ", clicon_strerror(errno));
-    switch (errno){
-    case OE_ROUTING: 
-	if (suberrno)
-	    fprintf(f, "%s: ", clicon_strerror1(suberrno, QV));
-	break;
-    default:
-	if (suberrno)
-	    fprintf(f, "%s: ", strerror(suberrno));
-	break;
-    }
-    if (strlen(reason)){
-	fprintf(f, "%s", reason);
-	if (index(reason, '\n') == NULL)
-	    fprintf(f, "\n");
-    }
-    else
-	fprintf(f, "\n");
-    return 0;
-}
-#endif /* notused */
-
 /*! Report an error.
  *
  * Library routines should call this function when an error occurs.

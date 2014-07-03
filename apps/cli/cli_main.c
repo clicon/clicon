@@ -206,8 +206,10 @@ spec_main_cli(clicon_handle h, int printspec)
     memset(pt, 0, sizeof(*pt));
 
     /* Parse db specification */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
+    if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
+	clicon_err(OE_FATAL, errno, "No CLICON_DBSPEC_FILE given");
 	goto quit;
+    }
     if (stat(db_spec_file, &st) < 0){
 	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
 	goto quit;

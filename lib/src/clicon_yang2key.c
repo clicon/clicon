@@ -163,59 +163,34 @@ yang2key_container(yang_stmt       *ys,
     return retval;
 }
 
-/*! Translate yang list to dbspec key
- */
-static int
-yang2key_list(yang_stmt       *ys, 
-	      cvec            *keys0,   /* inherited keys */
-	      cvec            *vars0,   /* inherited vars */
-	      struct db_spec **ds_list)
-{
-    int             retval = -1;
-    cg_var         *cv;
-    char           *str = NULL;
-    struct db_spec *ds = NULL;
-
-    /* 1. Append a key to dbspec for every container. */
-    if ((cv = cvec_add_name(keys0, CGV_STRING, ys->ys_argument)) == NULL){
-	clicon_err(OE_DB, errno, "%s: cvec_add", __FUNCTION__); 
-	goto done;
-    }
-    /* A list has a key(index) variable, mark it as CLICON list (print as x[]) */
-    cv_flag_set(cv, V_UNIQUE); 	
-
-    /* 2. Add symbol to dbspec structure (used in callback) */
-    if (cli2db_genkey(keys0, vars0, &ds) < 0)
-	goto done;
-    if ((str = db_spec2str(ds)) == NULL) /* XXX: isnt this the same as the one in ds? */
-	goto done;
-    if (db_spec_tailadd(ds_list, ds) < 0) 
-	goto done;
-    ds = NULL; /* ds is consumed and may be freed in the call above */
-
-    /* Get the key and store the it back in the parse-tree spec for cli generation */
-    if (yang_dbkey_set(ys, str) < 0)
-	goto done;
-    retval = 0;
-  done:
-    if (str)
-	free(str);
-    return retval;
-}
-
 /*! Translate yang leaf to dbspec key
  */
 static int
 yang2key_leaf(yang_stmt       *ys, 
 	      cvec            *keys0,   /* inherited keys */
 	      cvec            *vars0,   /* inherited vars */
+	      int              fromlist,/* Called from yang list-stmt fn */
 	      struct db_spec **ds_list)
 {
     int             retval = -1;
     cg_var         *cv;
     struct db_spec *ds = NULL;
     char           *keyspec = NULL;
+    yang_node      *yparent; 
+    yang_stmt      *ykey = NULL; 
 
+    /* If called from generic loop in yang2key_stmt, 
+       check if this leaf is a key leaf by finding parent and its key node 
+       If it is, we have already added it, see yang2key_list()
+     */
+    if (!fromlist &&
+	(yparent = ys->ys_parent) != NULL && yparent->yn_keyword == K_LIST){
+	if ((ykey = yang_find(yparent, K_KEY, ys->ys_argument)) != NULL){
+	    retval = 0; /* We are good */
+	    goto done;
+	}
+    }
+    
     /* get the (already generated) cligen variable */
     if ((cv = cvec_add_cv(vars0, ys->ys_cv)) == NULL){
 	clicon_err(OE_DB, errno, "%s: cvec_add_cv", __FUNCTION__); 
@@ -239,6 +214,62 @@ yang2key_leaf(yang_stmt       *ys,
 	free(keyspec);
     return retval;
 }
+
+/*! Translate yang list to dbspec key
+ */
+static int
+yang2key_list(yang_stmt       *ys, 
+	      cvec            *keys0,   /* inherited keys */
+	      cvec            *vars0,   /* inherited vars */
+	      struct db_spec **ds_list)
+{
+    int             retval = -1;
+    cg_var         *cv;
+    char           *str = NULL;
+    struct db_spec *ds = NULL;
+    yang_stmt      *ykey;
+    yang_stmt      *yleaf;
+
+    /* 1. Append a key to dbspec for every container. */
+    if ((cv = cvec_add_name(keys0, CGV_STRING, ys->ys_argument)) == NULL){
+	clicon_err(OE_DB, errno, "%s: cvec_add", __FUNCTION__); 
+	goto done;
+    }
+    /* A list has a key(index) variable, mark it as CLICON list (print as x[]) */
+    cv_flag_set(cv, V_UNIQUE); 	
+
+    if ((ykey = yang_find((yang_node*)ys, K_KEY, NULL)) == NULL){
+	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
+	goto done;
+    }
+    if ((yleaf = yang_find((yang_node*)ys, K_LEAF, ykey->ys_argument)) == NULL){
+	clicon_err(OE_XML, errno, "List statement \"%s\" has no key leaf \"%s\"", 
+		   ys->ys_argument, ykey->ys_argument);
+	goto done;
+    }
+    /* Call leaf directly, then ensure it is not called again in yang2key_stmt() */
+    if (yang2key_leaf(yleaf, keys0, vars0, 1, ds_list) < 0)
+	goto done;
+    }
+    /* 2. Add symbol to dbspec structure (used in callback) */
+    if (cli2db_genkey(keys0, vars0, &ds) < 0)
+	goto done;
+    if ((str = db_spec2str(ds)) == NULL) /* XXX: isnt this the same as the one in ds? */
+	goto done;
+    if (db_spec_tailadd(ds_list, ds) < 0) 
+	goto done;
+    ds = NULL; /* ds is consumed and may be freed in the call above */
+
+    /* Get the key and store the it back in the parse-tree spec for cli generation */
+    if (yang_dbkey_set(ys, str) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (str)
+	free(str);
+    return retval;
+}
+
 
 /*! Translate yang leaf-list to dbspec key
  * Similar to leaf but set the ds_vector flag to allow multiple values.
@@ -274,9 +305,7 @@ yang2key_leaf_list(yang_stmt       *ys,
     if (db_spec_tailadd(ds_list, ds) < 0) 
 	goto done;
     ds = NULL; /* ds is consumed and may be freed in the call above */
-    /* Get the key and store the it back in the parse-tree spec for cli generation */
-//    fprintf(stderr, "%s: keyspec:%s\n", __FUNCTION__, keyspec);
-
+    /* Get the key and store the it back in the spec for cli generation */
     if (yang_dbkey_set(ys, keyspec2) < 0)
 	goto done;
     retval = 0;
@@ -311,7 +340,7 @@ yang2key_stmt(yang_stmt       *ys,
 	    goto done;
 	break;
     case K_LEAF:
-	if (yang2key_leaf(ys, keys0, vars0, ds_list) < 0)
+	if (yang2key_leaf(ys, keys0, vars0, 0, ds_list) < 0)
 	    goto done;
 	break;
     case K_LIST:

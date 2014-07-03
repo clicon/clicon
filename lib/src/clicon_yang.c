@@ -913,7 +913,7 @@ yang_xpath(yang_node *yn, char *xpath)
 /*! Parse argument as CV and save result in yang cv variable
  *
  * Note that some CV:s are parsed directly (eg mandatory) while others are parsed in second pass
- * (yang_populate). The reason being that all information is not available in the first pass.
+ * (ys_populate). The reason being that all information is not available in the first pass.
  */
 cg_var *
 ys_parse(yang_stmt *ys, enum cv_type cvtype)
