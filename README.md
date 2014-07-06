@@ -1,7 +1,7 @@
 CLICON
 ======
 
-CLICON is a software suite for configuration management including CLI
+CLICON is an automatic configuration manager including CLI
 generation, transaction support, YANG, NETCONF and embedded databases.
 
 Presentations and tutorial is found on the [CLICON project
@@ -16,13 +16,13 @@ A typical installation is as follows:
 
 Several example applications are provided, including Hello, NTP, and datamodel.
 
-CLIgen [CLIgen](http://www.clicon.org) is required for building CLICON. If you need 
+CLIgen [CLIgen](http://www.cligen.se) is required for building CLICON. If you need 
 to build and install CLIgen: 
 
     git clone https://github.com/olofhagsand/cligen.git
     cd cligen; configure; make; make install
 
-CLICON is covered by GPLv3, but can be obtained with a commercial license.
+CLICON is covered by GPLv3, and is also available with commercial license.
 
 See COPYING for license, CHANGELOG for recent changes.
 
