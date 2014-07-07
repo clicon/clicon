@@ -507,8 +507,6 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     cg_var         *cv = NULL;
     yang_node      *yparent; 
     yang_stmt      *ytype; 
-    yang_stmt      *yman; 
-    yang_stmt      *yrange; 
     yang_stmt      *ydef; 
     yang_stmt      *ykey = NULL; 
     enum cv_type    cvtype = CGV_ERR;
@@ -561,9 +559,11 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     if (ykey)
 	cv_flag_set(cv, V_UNIQUE);
 
+#ifdef moved_to_ys_parse_sub
     /* 5. Check if mandatory */
     if ((yman = yang_find((yang_node*)ys, K_MANDATORY, NULL)) != NULL)
 	ys->ys_mandatory = cv_bool_get(yman->ys_cv);
+#endif
 
     ys->ys_cv = cv;
     retval = 0;
@@ -1046,7 +1046,8 @@ ys_parse_range(yang_stmt *ys)
 int
 ys_parse_sub(yang_stmt *ys)
 {
-    int  retval = -1;
+    int        retval = -1;
+    yang_stmt *yp;
     
     switch (ys->ys_keyword){
     case K_RANGE: 
@@ -1056,7 +1057,9 @@ ys_parse_sub(yang_stmt *ys)
 	break;
     case K_MANDATORY:
 	if (ys_parse(ys, CGV_BOOL) == NULL) 
-	    return -1;
+	    goto done;
+	if ((yp = (yang_stmt*)ys->ys_parent) != NULL)
+	    yp->ys_mandatory = cv_bool_get(ys->ys_cv);
 	break;
     default:
 	break;

@@ -1,0 +1,22 @@
+module datamodel{
+    list a{
+	key x;
+	leaf x{
+	    type int32{
+	        range "0..255";
+	    }
+	}
+	container b{
+	    leaf-list y{
+		type string;
+	    }
+	}
+	leaf z{
+	    type string{
+	        pattern "[0-9][a-fA-F]*";
+	        length 4;
+	    }
+	    mandatory true;
+	}
+    }
+}
