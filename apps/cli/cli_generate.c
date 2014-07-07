@@ -313,20 +313,6 @@ dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_ty
  }
 #endif
 #if 0 /* examples/datamodel */
- a x <x:number>,cli_set("a[] $!x");{
-     b,cli_set("a[].b");{ <<<<ska vara: "a[].b $!x" XXXX
-         y <y:string>,cli_set("a[].b $y");
-      }
-      z <z:string>,cli_set("a[] $z");
-   }
-
-
- a <x:number>,cli_set("a[] $!x");{
-     b,cli_set("a[].b $!x");{ 
-	 y <y:string>,cli_set("a[].b $!x $y");
-     } 
-     z <z:string>,cli_set("a[] $!x $z");
- }
 
 WITH COMPLETION:
  a (<x:number>|<x:number expand_dbvar_auto("candidate a[] $!x")>),cli_set("a[] $!x");{
@@ -345,6 +331,44 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
 			 enum genmodel_type gt,
 			 int           level);
 
+/*
+ * Check for completion (of already existent values), ranges (eg range[min:max]) and
+ * patterns, (eg regexp:"[0.9]*").
+ */
+static int
+yang2cli_var(yang_stmt    *ys, 
+	     xf_t         *xf,    
+	     enum cv_type  cvtype,
+	     int completion)
+{
+    yang_stmt    *yt;        /* type */
+    yang_stmt    *yr = NULL; /* range */
+    yang_stmt    *yp = NULL; /* pattern */
+    int           retval = -1;
+
+    if ((yt = yang_find((yang_node*)ys, K_TYPE, NULL)) != NULL){        /* type */
+	yr =  yang_find((yang_node*)yt, K_RANGE, NULL);
+	yp =  yang_find((yang_node*)yt, K_PATTERN, NULL);
+    }
+    xprintf(xf, "(<%s:%s", ys->ys_argument, cv_type2str(cvtype));
+    if (yr != NULL)
+	xprintf(xf, " range[%" PRId64 ":%" PRId64 "]", 
+		yr->ys_range_min, yr->ys_range_max);	
+    if (yp != NULL)
+	xprintf(xf, " regexp:\"%s\"", yp->ys_argument);
+    if (completion){
+	xprintf(xf, ">|<%s:%s expand_dbvar_auto(\"candidate %s\")",
+		ys->ys_argument, 
+		cv_type2str(cvtype),
+		yang_dbkey_get(ys));
+	/* XXX: maybe yr, yp? */
+    }
+    xprintf(xf, ">)");
+    retval = 0;
+//  done:
+    return retval;
+}
+
 static int
 yang2cli_leaf(clicon_handle h, 
 	      yang_stmt    *ys, 
@@ -352,22 +376,25 @@ yang2cli_leaf(clicon_handle h,
 	      enum genmodel_type gt,
 	      int           level)
 {
-    yang_stmt    *yd;
+    yang_stmt    *yd;  /* description */
     int           retval = -1;
     char         *keyspec;
     enum cv_type  cvtype;
+    int           completion;
 
+    completion = clicon_cli_genmodel_completion(h);
     cvtype = cv_type_get(ys->ys_cv);
     yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL); /* description */
     xprintf(xf, "%*s", level*3, "");
     if (gt == GT_ALL || gt == GT_VARS){
-	xprintf(xf, "%s ", ys->ys_argument);
+	xprintf(xf, "%s", ys->ys_argument);
 	if (yd != NULL)
 	    xprintf(xf, "(\"%s\")", yd->ys_argument);
-	xprintf(xf, "<%s:%s>", ys->ys_argument, cv_type2str(cvtype));
+	xprintf(xf, " ");
+	yang2cli_var(ys, xf, cvtype, completion);
     }
     else
-	xprintf(xf, "<%s:%s>", level*3, "", ys->ys_argument, cv_type2str(cvtype));
+	yang2cli_var(ys, xf, cvtype, completion);
 
     if (yd != NULL)
 	xprintf(xf, "(\"%s\")", yd->ys_argument);

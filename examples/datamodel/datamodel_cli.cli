@@ -3,8 +3,10 @@
 CLICON_MODE="datamodel";
 CLICON_PROMPT="%U@%H> ";
 
+# Note, when switching to PT, change datamodel to only @datamodel
+#set @datamodel, cli_merge();
 set @datamodel:datamodel, cli_merge();
-delete("Delete a configuration item") @datamodel:model, cli_del();
+delete("Delete a configuration item") @datamodel:datamodel, cli_del();
 
 validate("Validate changes"), cli_validate();
 commit("Commit the changes"), cli_commit((int)0); # snapshot
@@ -31,5 +33,3 @@ load("Load configuration from XML file") <filename:string>("Filename (local file
     replace("Replace candidate with file contents"), load_config_file("filename replace");
     merge("Merge file with existent candidate"), load_config_file("filename merge");
 }
-
-

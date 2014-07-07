@@ -46,7 +46,6 @@
  * CLICON_CLI_COMMENT      # # comment char in CLI (default is '#').
  * CLICON_CLI_VARONLY      1 # Dont include keys in cvec in cli vars callbacks
  * CLICON_CLI_GENMODEL_COMPLETION 0 # Generate code for completion
- * CLICON_CLI_GENMODEL_OPTIONAL 0 # If 0, all model variables are mandatory, if 1 all are optional
  * CLICON_NETCONF_DIR      $APPDIR/netconf    # Dir of netconf plugins
  *
  * See also appendix in clicon tutorial
@@ -290,10 +289,6 @@ clicon_option_default(clicon_hash_t  *copt)
     }
     if (!hash_lookup(copt, "CLICON_CLI_GENMODEL_COMPLETION")){
 	if (hash_add(copt, "CLICON_CLI_GENMODEL_COMPLETION", "0", strlen("0")+1) < 0)
-	    goto catch;
-    }
-    if (!hash_lookup(copt, "CLICON_CLI_GENMODEL_OPTIONAL")){
-	if (hash_add(copt, "CLICON_CLI_GENMODEL_OPTIONAL", "0", strlen("0")+1) < 0)
 	    goto catch;
     }
     retval = 0;
@@ -631,11 +626,6 @@ clicon_cli_genmodel_completion(clicon_handle h)
     return clicon_option_int(h, "CLICON_CLI_GENMODEL_COMPLETION");
 }
 
-int
-clicon_cli_genmodel_optional(clicon_handle h)
-{
-    return clicon_option_int(h, "CLICON_CLI_GENMODEL_OPTIONAL");
-}
 
 /* 
  * Get dbspec (KEY variant)

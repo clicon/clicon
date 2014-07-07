@@ -118,6 +118,7 @@ generic_validate_yang(clicon_handle        h,
     yang_stmt      *yleaf;
     cvec           *cvec = NULL;
     cg_var         *cv;
+    char           *reason = NULL;
 
     /* dd->df_ents[].dfe_key1 (running),  
        dd->df_ents[].dfe_key2 (candidate) */
@@ -132,14 +133,14 @@ generic_validate_yang(clicon_handle        h,
 	if ((dbkey = dd->df_ents[i].dfe_key2) == NULL)
 	    continue;
 	/* Given changed dbkey, find corresponding yang syntax node 
-	   ie container or list. SHould not be leaf or leaf-lists since they are vars
+	   ie container or list. Should not be leaf or leaf-lists since they are vars
 	*/
 	if ((ys = dbkey2yang((yang_node*)ym, dbkey)) == NULL)
 	    continue;
 	/* Get the list of variables and values for this key, eg $x $y */
 	if ((cvec = dbkey2cvec(dbname, dbkey)) == NULL) 
 	    goto done;
-	/* Loop over all leafs and check if actual values in db(cv) satisfies them */
+	/* Loop over all leafs and check default and mandatory settings */
 	for (j=0; j<ys->ys_len; j++){
 	    /* Get the leaf yang-stmt under a container/list, e.g $x */
 	    yleaf = ys->ys_stmt[j];
@@ -159,23 +160,36 @@ generic_validate_yang(clicon_handle        h,
 		else
 		    if (yleaf->ys_mandatory){
 			clicon_err(OE_CFG, 0, 
-				   "key %s: Missing mandatory variable: %s\n",
+				   "key %s: Missing mandatory variable: %s",
 				   dbkey, yleaf->ys_argument);
 			goto done;
 		    }
 		/* If mandatory a value is required */
 	    }
 	}
-	/* Loop over all actual db/cv:s och check their validity, eg ranges */	
+	/* Loop over all actual db/cv:s och check their validity, eg ranges and regex */	
 	cv = NULL;
 	while ((cv = cvec_each(cvec, cv))) {
-	    /* XXX */
+	    if ((yleaf = yang_find_specnode((yang_node*)ys, cv_name_get(cv))) == NULL)
+		continue;
+	    if (yleaf->ys_keyword != K_LEAF && yleaf->ys_keyword != K_LEAF_LIST)
+		continue;
+	    /* Validate this leaf */
+	    if ((ys_cv_validate(cv, yleaf, &reason)) != 1){ 
+		clicon_err(OE_DB, 0, 
+			   "key %s: validation of %s failed %s\n",
+			   dbkey, yleaf->ys_argument, reason?reason:"");
+		if (reason)
+		    free(reason);
+		goto done;
+	    }
+
 	}
 	if (cvec){
 	    cvec_free(cvec);
 	    cvec = NULL;
 	}
-    } /* for */
+    } /* for dd */
 
     retval = 0;
   done:
@@ -262,7 +276,7 @@ generic_validate_pt(clicon_handle        h,
 	    cvec_free(cvec);
 	    cvec = NULL;
 	}
-    } /* for */
+    } /* for dd */
     retval = 0;
   done:
     if (cvec)
@@ -282,6 +296,9 @@ generic_validate_pt(clicon_handle        h,
  *    string regexp checked.
  * See also db_lv_set() where defaults are also filled in. The case here for defaults
  * are if code comes via XML/NETCONF.
+ * @param   h       Clicon handle
+ * @param   dbname  Name of database, typically candidate
+ * @param   dd      dbdiff structure containing a list of diffs of the two db:s.
  */
 static int
 generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)

@@ -328,7 +328,6 @@ spec_main_config(clicon_handle h, int printspec)
 		    goto quit;
 		if (yang_parse(h, db_spec_file, yspec) < 0)
 		    goto quit;
-		clicon_log(LOG_INFO, "YANG PARSING OK");
 		if (printspec)
 		    yang_print(stdout, (yang_node*)yspec, 0);
 		clicon_dbspec_yang_set(h, yspec);	

@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <limits.h>
 #include <ctype.h>
 #define __USE_GNU /* strverscmp */
 #include <string.h>
@@ -223,14 +224,14 @@ yang_find(yang_node *yn, int keyword, char *argument)
     return match ? ys : NULL;
 }
 
-/*! Find a child syntax yang_stmt with matching argument (container, leaf, etc)
+/*! Find a child spec-node yang_stmt with matching argument (container, leaf, etc)
  *
  * See also yang_find() but this looks only for the yang specification nodes with
  * the following keyword: container, leaf, list, leaf-list
  * That is, basic syntax nodes.
  */
 yang_stmt *
-yang_find_syntax(yang_node *yn, char *argument)
+yang_find_specnode(yang_node *yn, char *argument)
 {
     yang_stmt *ys = NULL;
     int i;
@@ -494,7 +495,11 @@ yang_print(FILE *f, yang_node *yn, int marginal)
     return 0;
 }
 
-/*! Populate yang leafs. Create a CV, check mandatory and default */
+/*! Populate yang leafs after first round of parsing. Create a cv and fill it in.
+ *
+ * A leaf should consist of a cligen variable (cv) for type information and
+ * mandatory status, default value, and key in a list.
+ */
 static int
 ys_populate_leaf(yang_stmt *ys, void *arg)
 {
@@ -503,6 +508,7 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     yang_node      *yparent; 
     yang_stmt      *ytype; 
     yang_stmt      *yman; 
+    yang_stmt      *yrange; 
     yang_stmt      *ydef; 
     yang_stmt      *ykey = NULL; 
     enum cv_type    cvtype = CGV_ERR;
@@ -525,7 +531,7 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     }
 	
     /* 3. Check if default value. Here we parse the cv in the default-stmt
-          Or should we parse this into the key-stmt itself? YES YES
+          Or should we parse this into the key-stmt itself?
      */
     if ((cv = cv_new(cvtype)) == NULL){
 	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
@@ -853,19 +859,30 @@ yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg)
 }
 
 static yang_stmt *
-yang_xpath_vec(yang_node *yn, char **vec, int nvec)
+yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
 {
     char            *key;
     yang_stmt       *ys;
+    long             i;
 
     if (nvec <= 0)
 	return NULL;
     key = vec[0];
-    if ((ys = yang_find_syntax(yn, key)) == NULL)
+    if (yn->yn_keyword == K_LIST){
+	i = strtol(key, (char **) NULL, 10);
+	if ((i == LONG_MIN || i == LONG_MAX) && errno)
+	    goto done;
+	if (nvec == 1)
+	    return (yang_stmt*)yn;
+	vec++;
+	nvec--;
+	key = vec[0];
+    }
+    if ((ys = yang_find_specnode(yn, key)) == NULL)
 	goto done;
     if (nvec == 1)
 	return ys;
-    return yang_xpath_vec((yang_node*)ys, vec+1, nvec-1);
+    return yang_dbkey_vec((yang_node*)ys, vec+1, nvec-1);
   done:
     return NULL;
 }
@@ -887,9 +904,28 @@ dbkey2yang(yang_node *yn, char *dbkey)
 	clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
 	return NULL;
     }
-    ys = yang_xpath_vec(yn, vec, nvec);
+    ys = yang_dbkey_vec(yn, vec, nvec);
     unchunk_group(__FUNCTION__);
     return ys;
+}
+
+
+static yang_stmt *
+yang_xpath_vec(yang_node *yn, char **vec, int nvec)
+{
+    char            *key;
+    yang_stmt       *ys;
+
+    if (nvec <= 0)
+	return NULL;
+    key = vec[0];
+    if ((ys = yang_find_specnode(yn, key)) == NULL)
+	goto done;
+    if (nvec == 1)
+	return ys;
+    return yang_xpath_vec((yang_node*)ys, vec+1, nvec-1);
+  done:
+    return NULL;
 }
 
 /*! Given an xpath (eg /a/b/c) find matching yang specification
@@ -941,4 +977,186 @@ ys_parse(yang_stmt *ys, enum cv_type cvtype)
     if (reason)
 	free(reason);
     return ys->ys_cv;
+}
+
+/*
+ * Actually: min..max [| min..max]*  
+ *   where min,max is integer or keywords 'min' or 'max. 
+ * We only allow:
+ * - numbers in min..max, no keywords
+ * - only int64
+ * - only one range, ie not 1..2|4..5
+ * - both min..max and max, ie both 1..3 and 3.
+ */
+static int
+ys_parse_range(yang_stmt *ys)
+{
+    int     retval = -1;
+    int     retval2;
+    char   *minstr;
+    char   *maxstr;
+    char   *reason = NULL;
+
+    if ((minstr = strdup(ys->ys_argument)) == NULL){
+	clicon_err(OE_DB, errno, "strdup");
+	goto done;
+    }
+    if ((maxstr = strstr(minstr, "..")) != NULL){
+	if (strlen(maxstr) < 2){
+	    clicon_err(OE_DB, 0, "range statement: %s not on the form: <int>..<int>", minstr);
+	    goto done;
+	}
+	minstr[maxstr-minstr] = '\0';
+	maxstr += 2;
+	if ((retval2 = parse_int64(minstr, &ys->ys_range_min, &reason)) < 0){
+	    clicon_err(OE_DB, errno, "range statement, min str not well-formed: %s", minstr);
+	    goto done;
+	}
+	if (retval2 == 0){
+	    clicon_err(OE_DB, errno, "range statement, min str %s: %s", minstr, reason);
+	    free(reason);
+	    goto done;
+	}
+    }
+    else{
+	ys->ys_range_min = LLONG_MIN;
+	maxstr = minstr;
+    }
+    if ((retval2 = parse_int64(maxstr, &ys->ys_range_max, &reason)) < 0){
+	clicon_err(OE_DB, errno, "range statement, min str not well-formed: %s", maxstr);
+	goto done;
+    }
+    if (retval2 == 0){
+	clicon_err(OE_DB, errno, "range statement, min str %s: %s", maxstr, reason);
+	free(reason);
+	goto done;
+    }
+  done:
+    if (minstr)
+	free(minstr);
+    return retval;
+}
+
+
+/*! First round yang syntactic statement specific checks. No context checks.
+ *
+ * Specific syntax checks for yang statements where one cannot assume the context is parsed. 
+ * That is, siblings, etc, may not be there. Complete checks are made in ys_populate instead.
+ */
+int
+ys_parse_sub(yang_stmt *ys)
+{
+    int  retval = -1;
+    
+    switch (ys->ys_keyword){
+    case K_RANGE: 
+    case K_LENGTH: 
+	if (ys_parse_range(ys) < 0)
+	    goto done;
+	break;
+    case K_MANDATORY:
+	if (ys_parse(ys, CGV_BOOL) == NULL) 
+	    return -1;
+	break;
+    default:
+	break;
+    }
+    retval = 0;
+  done:
+    return retval;
+}
+
+/*! Validate cligen variable cv using yang statement as spec
+ *
+ * @param [in]  cv      A cligen variable to validate. This is a correctly parsed cv.
+ * @param [in]  ys      A yang statement, must be leaf of leaf-list.
+ * @param [out] reason  If given, and if return value is 0, contains a malloced string
+ *                      describing the reason why the validation failed. Must be freed.
+ * @retval -1  Error (fatal), with errno set to indicate error
+ * @retval 0   Validation not OK, malloced reason is returned. Free reason with free()
+ * @retval 1   Validation OK
+ */
+int
+ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
+{
+    int             retval = 1; /* OK */
+    cg_var         *ycv;        /* cv of yang-statement */  
+    long long       i = 0;
+    char           *str;
+    yang_stmt      *ytype;
+    yang_stmt      *yrange;
+    yang_stmt      *ypattern;
+    int             retval2;
+    char           *pattern;
+
+    if (ys->ys_keyword != K_LEAF && ys->ys_keyword != K_LEAF_LIST)
+	return 0;
+    ycv = ys->ys_cv;
+    
+    if ((ytype = yang_find((yang_node*)ys, K_TYPE, NULL)) == NULL){
+	clicon_err(OE_DB, 0, "type not found under leaf %s", ys->ys_argument);
+	return -1;
+    }
+    switch (cv_type_get(ycv)){
+    case CGV_INT:
+	i = cv_int_get(cv);
+    case CGV_LONG: /* fallthru */
+	 /* Check range if specified */
+	if (cv_type_get(ycv) == CGV_LONG)
+	    i = cv_long_get(cv);
+	if ((yrange = yang_find((yang_node*)ytype, K_RANGE, NULL)) != NULL){
+	    if (i < yrange->ys_range_min || i > yrange->ys_range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %i", i);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_STRING:
+	str = cv_string_get(cv);
+	i = strlen(str);
+	if ((yrange = yang_find((yang_node*)ytype, K_LENGTH, NULL)) != NULL){
+	    if (i < yrange->ys_range_min || i > yrange->ys_range_max) {
+		if (reason)
+		    *reason = cligen_reason("String length out of range: %i", i);
+		retval = 0;
+	    }
+	}
+	if ((ypattern = yang_find((yang_node*)ytype, K_PATTERN, NULL)) != NULL){
+	    pattern = ypattern->ys_argument;
+	    if ((retval2 = match_regexp(str, pattern)) < 0){
+		clicon_err(OE_DB, 0, "match_regexp: %s", pattern);
+		return -1;
+	    }
+	    if (retval2 == 0){
+		if (reason)
+		    *reason = cligen_reason("regexp match fail: %s does not match %s",
+					    str, pattern);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_ERR:
+    case CGV_VOID:
+	retval = 0;
+	if (reason)
+	    *reason = cligen_reason("Invalid cv");
+	retval = 0;
+	break;
+    case CGV_BOOL:
+    case CGV_INTERFACE:
+    case CGV_REST:
+    case CGV_IPV4ADDR: 
+    case CGV_IPV6ADDR: 
+    case CGV_IPV4PFX: 
+    case CGV_IPV6PFX: 
+    case CGV_MACADDR:
+    case CGV_URL: 
+    case CGV_UUID: 
+    case CGV_TIME: 
+	break;
+    }
+    if (reason && *reason)
+	assert(retval == 0);
+    return retval;
 }

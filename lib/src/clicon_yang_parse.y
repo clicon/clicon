@@ -239,9 +239,12 @@ ysp_add(struct clicon_yang_yacc_arg *ya, int keyword, char *argument)
 	goto err;
     /* NOTE: does not make a copy of string, ie argument is 'consumed' here */
     ys->ys_argument = argument;
+    /* Check statement-specific syntax */
     if (yn_insert(yn, ys) < 0)
-	goto err;
-//  done:
+	goto err; 
+    if (ys_parse_sub(ys) < 0)
+	goto done; /* dont free since part of tree */
+  done:
     return ys;
   err:
     if (ys)
@@ -582,7 +585,7 @@ type_body_stmt/* numerical-restrictions */
               /* enum-specification */ 
               | enum_stmt             { clicon_debug(2,"type-body-stmt -> enum-stmt"); }
               /* leafref-specifications */
-              | path_stmt             { clicon_debug(2,"type-body-stmt -> pattern-stmt"); }
+              | path_stmt             { clicon_debug(2,"type-body-stmt -> path-stmt"); }
               | require_instance_stmt { clicon_debug(2,"type-body-stmt -> require-instance-stmt"); }
               /* identityref-specification */
               | base_stmt             { clicon_debug(2,"type-body-stmt -> base-stmt"); }
@@ -698,9 +701,9 @@ range_stmt   : K_RANGE string ';' /* XXX range-arg-str */
 			   clicon_debug(2,"range-stmt -> RANGE string ;"); }
 
               | K_RANGE string
-                          { if (ysp_add_push(_ya, K_RANGE, $2) < 0) YYERROR; }
+	                  { if (ysp_add_push(_ya, K_RANGE, $2) < 0) YYERROR; }
 	       '{' range_substmts '}' 
-                           { if (ystack_pop(_ya) < 0) YYERROR;
+                          { if (ystack_pop(_ya) < 0) YYERROR;
 			     clicon_debug(2,"range-stmt -> RANGE string { range-substmts }"); }
               ;
 
@@ -844,7 +847,6 @@ reference_stmt: K_REFERENCE string ';'
 mandatory_stmt: K_MANDATORY string ';' 
                          { yang_stmt *ys;
                            if ((ys = ysp_add(_ya, K_MANDATORY, $2)) < 0) YYERROR; 
-			   if (ys_parse(ys, CGV_BOOL) == NULL) YYERROR;
 			   clicon_debug(2,"mandatory-stmt -> MANDATORY mandatory-arg-str ;");}
               ;
 

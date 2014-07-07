@@ -38,6 +38,8 @@ struct yang_stmt{
     char              *ys_dbkey;     /* dbspec key corresponding to this yang node */
     cg_var            *ys_cv;        /* cligen variable corresponding to this (if leaf) node */
     int                ys_mandatory; /* mandatory false|true */
+    int64_t            ys_range_min; /* for range and length stmts */
+    int64_t            ys_range_max; /* for range and length stmts */
 };
 typedef struct yang_stmt yang_stmt;
 
@@ -74,7 +76,7 @@ int        yn_insert(yang_node *yn_parent, yang_stmt *ys_child);
 yang_stmt *yn_each(yang_node *yn, yang_stmt *ys);
 char      *yang_key2str(int keyword);
 yang_stmt *yang_find(yang_node *yn, int keyword, char *argument);
-yang_stmt *yang_find_syntax(yang_node *yn, char *argument);
+yang_stmt *yang_find_specnode(yang_node *yn, char *argument);
 
 int        yang_print(FILE *f, yang_node *yn, int marginal);
 int        yang_parse(clicon_handle h, const char *filename, yang_spec *ysp);
@@ -86,5 +88,7 @@ int        yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg);
 yang_stmt *dbkey2yang(yang_node *yn, char *dbkey);
 yang_stmt *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
+int        ys_parse_sub(yang_stmt *ys);
+int        ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason);
 
 #endif  /* _CLICON_YANG_H_ */

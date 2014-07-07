@@ -93,7 +93,6 @@ int   clicon_cli_genmodel(clicon_handle h);
 int   clicon_cli_varonly(clicon_handle h);
 int   clicon_cli_varonly_set(clicon_handle h, int val);
 int   clicon_cli_genmodel_completion(clicon_handle h);
-int   clicon_cli_genmodel_optional(clicon_handle h);
 
 char *clicon_quiet_mode(clicon_handle h);
 enum genmodel_type clicon_cli_genmodel_type(clicon_handle h);

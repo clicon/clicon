@@ -96,9 +96,6 @@ CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 # How to generate and show CLI syntax: VARS|ALL
 # CLICON_CLI_GENMODEL_TYPE   VARS
 
-# If 0, all model variables are mandatory, if 1 all are optional
-# CLICON_CLI_GENMODEL_OPTIONAL 0
-
 # Comment character in CLI
 # CLICON_CLI_COMMENT      #
 

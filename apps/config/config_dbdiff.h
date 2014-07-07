@@ -35,9 +35,16 @@ enum dbdiff_op{
   DBDIFF_OP_BOTH = (DBDIFF_OP_FIRST|DBDIFF_OP_SECOND)
 };
 
-/*
- * There are two keys because the vector index can be different in the
- * two databases.
+/*! Differences between two databases in terms of add, delete change per database key.
+ *
+ * Each entity contains two keys and an operation. There are two keys because the vector (.n) 
+ * index can be different in the two databases. In most CLICON usages, the first db is 
+ * typically running and the second is candidate, but the function is more general.
+ *
+ * The operation is one of:
+ *  FIRST  - the key exists only in database 1, ie delete (removed in 2nd)
+ *  SECOND - the key exists only in database 2, ie add (added in 2nd)
+ *  BOTH   - the key exists in both databases, ie changed
  */
 struct dbdiff_ent {
     char            *dfe_key1;	/* lvmap basekey (FIRST/BOTH) */
@@ -45,6 +52,12 @@ struct dbdiff_ent {
     enum dbdiff_op   dfe_op;	/* added, removed or changed */
 };
 
+/*! Top-level difference list between two databases.
+ *
+ * Given two databases, typically running and candidate, the dbdiff structure 
+ * contains a list of entities (dbdiff_ent), each stating a database symbol and what the
+ * difference is between the two. This top-level struct just contains the list of entities.
+ */
 struct dbdiff {
     int                  df_nr;	  /* Number of diffs */
     struct dbdiff_ent   *df_ents;   /* Vector of diff entries */

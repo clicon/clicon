@@ -199,6 +199,10 @@ yang2key_leaf(yang_stmt       *ys,
     /* 2. Add symbol to dbspec structure (used in callback) */
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
+    if (ds == NULL){
+	clicon_err(OE_DB, 0, "No db key, leaf directly under root"); 
+	goto done;
+    }
     /* This adds the variables on the form $x:type */
     if ((keyspec = db_spec2str(ds)) == NULL) 
 	goto done;
@@ -250,7 +254,7 @@ yang2key_list(yang_stmt       *ys,
     /* Call leaf directly, then ensure it is not called again in yang2key_stmt() */
     if (yang2key_leaf(yleaf, keys0, vars0, 1, ds_list) < 0)
 	goto done;
-    }
+
     /* 2. Add symbol to dbspec structure (used in callback) */
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
@@ -295,6 +299,10 @@ yang2key_leaf_list(yang_stmt       *ys,
     /* 2. Add symbol to dbspec structure (used in callback) */
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
+    if (ds == NULL){
+	clicon_err(OE_DB, 0, "No db key, leaf directly under root"); 
+	goto done;
+    }
     ds->ds_vector = 1; 
     /* This adds the variables on the form $x:type */
     if ((keyspec = db_spec2str(ds)) == NULL) 

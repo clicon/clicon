@@ -941,7 +941,7 @@ dbspec_userdata_add(clicon_handle h, dbspec_obj *co)
     }
     du = (struct dbspec_userdata *)co->do_userdata;
     memset(du, 0, sizeof (struct dbspec_userdata));
-    du->du_optional = clicon_cli_genmodel_optional(h);
+    du->du_optional = 1;
     return 0;
 }
 
