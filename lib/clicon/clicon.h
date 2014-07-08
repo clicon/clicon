@@ -41,7 +41,9 @@
 #include <clicon/clicon_handle.h>
 #include <clicon/clicon_db.h>
 #include <clicon/clicon_spec.h>
+#ifdef USE_DBSPEC_PT
 #include <clicon/clicon_dbspec_parsetree.h>
+#endif /* USE_DBSPEC_PT */
 #include <clicon/clicon_yang.h>
 #include <clicon/clicon_yang2key.h>
 #include <clicon/clicon_lvalue.h>

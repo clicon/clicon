@@ -77,18 +77,20 @@ static int
 terminate(clicon_handle h)
 {
     struct db_spec *dbspec;
-    dbspec_tree    *pt;
     yang_spec      *yspec;
     char           *pidfile = clicon_backend_pidfile(h);
     char           *sockpath = clicon_sock(h);
+#ifdef USE_DBSPEC_PT
+    dbspec_tree    *pt;
 
-    if ((dbspec = clicon_dbspec_key(h)) != NULL)
-	db_spec_free(dbspec);
     if ((pt = clicon_dbspec_pt(h)) != NULL){
 	pt_apply2(*pt, dbspec_userdata_delete, h);
 	cligen_parsetree2_free(*pt, 1);
 	free(pt);
     }
+#endif /* USE_DBSPEC_PT */
+    if ((dbspec = clicon_dbspec_key(h)) != NULL)
+	db_spec_free(dbspec);
     if ((yspec = clicon_dbspec_yang(h)) != NULL)
 	yspec_free(yspec);
     plugin_finish(h);
@@ -266,20 +268,16 @@ config_log_cb(int level, char *msg, void *arg)
 static int
 spec_main_config(clicon_handle h, int printspec)
 {
-    char            *syntax;
+    char            *dbspec_type;
     char            *db_spec_file;
     struct db_spec  *db_spec;
     struct stat      st;
+#ifdef USE_DBSPEC_PT
     dbspec_tree      *pt;
+#endif /* USE_DBSPEC_PT */
     int              retval = -1;
-//    cligen_handle    ch; /* XXX */
+    yang_spec      *yspec;
 
-    /* pt must be malloced since it is saved in options/hash-value */
-    if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err(OE_FATAL, errno, "malloc");
-	goto quit;
-    }
-    memset(pt, 0, sizeof(*pt));
 
     /* Parse db specification */
     if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
@@ -292,51 +290,68 @@ spec_main_config(clicon_handle h, int printspec)
 	goto quit;
     }
 
-    syntax = clicon_dbspec_type(h);
-
-    if ((syntax == NULL) || strcmp(syntax, "PT") == 0){     /* Parse CLI syntax */
-	if (dbclispec_parse(h, db_spec_file, pt) < 0)
+    dbspec_type = clicon_dbspec_type(h);
+#ifdef USE_DBSPEC_PT
+    /* pt must be malloced since it is saved in options/hash-value */
+    if ((pt = malloc(sizeof(*pt))) == NULL){
+	clicon_err(OE_FATAL, errno, "malloc");
+	goto quit;
+    }
+    memset(pt, 0, sizeof(*pt));
+#endif /* USE_DBSPEC_PT */
+    if ((dbspec_type == NULL) || strcmp(dbspec_type, "YANG") == 0){     /* Parse YANG syntax */
+	if ((yspec = yspec_new()) == NULL)
 	    goto quit;
-	if (clicon_dbspec_pt_set(h, pt) < 0)
-	    return -1;
-	if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
+	if (yang_parse(h, db_spec_file, yspec) < 0)
 	    goto quit;
 	if (printspec)
+	    yang_print(stdout, (yang_node*)yspec, 0);
+	clicon_dbspec_yang_set(h, yspec);	
+	if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
+	    goto quit;
+	clicon_dbspec_key_set(h, db_spec);	
+	if (printspec)
 	    db_spec_dump(stdout, db_spec);
-	if (clicon_dbspec_key_set(h, db_spec) < 0)
-	    return -1;
     }
     else
-	if (strcmp(syntax, "PT") == 0){ /* Parse KEY syntax */
+	if (strcmp(dbspec_type, "PT") == 0){ /* Parse KEY syntax */
 	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 		goto quit;
 	    if (clicon_dbspec_key_set(h, db_spec) < 0)
 		return -1;
-	    /* 1: single arg, 2: doublearg */
+	    /* Translate to yang spec */
+	    if ((yspec = key2yang(db_spec)) == NULL)
+		goto quit;
+	    clicon_dbspec_yang_set(h, yspec);
+	    if (printspec)
+		yang_print(stdout, (yang_node*)yspec, 0);
+#ifdef USE_DBSPEC_PT
 	    if (dbspec_key2cli(h, db_spec, pt) < 0)
 		goto quit;
-//	if (printspec)
-//	    cligen_print1(stdout, *pt, 0);
 	    if (clicon_dbspec_pt_set(h, pt) < 0)
 		return -1;
+#endif
 	}
+#ifdef USE_DBSPEC_PT
 	else
-	    if (strcmp(syntax, "YANG") == 0){ /* Parse KEY syntax */
-		yang_spec      *yspec;
-
-		if ((yspec = yspec_new()) == NULL)
+	    if (strcmp(dbspec_type, "PT") == 0){ /* Parse KEY syntax */
+		if (dbclispec_parse(h, db_spec_file, pt) < 0)
 		    goto quit;
-		if (yang_parse(h, db_spec_file, yspec) < 0)
+		if (clicon_dbspec_pt_set(h, pt) < 0)
+		    return -1;
+		if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
 		    goto quit;
-		if (printspec)
-		    yang_print(stdout, (yang_node*)yspec, 0);
-		clicon_dbspec_yang_set(h, yspec);	
-		if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
-		    goto quit;
-		clicon_dbspec_key_set(h, db_spec);	
 		if (printspec)
 		    db_spec_dump(stdout, db_spec);
+		if (clicon_dbspec_key_set(h, db_spec) < 0)
+		    return -1;
 	    }
+#endif /* USE_DBSPEC_PT */
+	    else{
+		clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+		goto quit;
+	    }
+
     retval = 0;
   quit:
     return retval;

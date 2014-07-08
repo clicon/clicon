@@ -198,6 +198,7 @@ generic_validate_yang(clicon_handle        h,
     return retval;
 }
 
+#ifdef USE_DBSPEC_PT
 static int
 generic_validate_pt(clicon_handle        h, 
 		    char                *dbname, 
@@ -285,7 +286,7 @@ generic_validate_pt(clicon_handle        h,
 	free(reason);
     return retval;
 }
-
+#endif /* USE_DBSPEC_PT */
 
 /*! Key values are checked for validity independent of user-defined callbacks
  *
@@ -303,11 +304,13 @@ generic_validate_pt(clicon_handle        h,
 static int
 generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 {
-    dbspec_tree    *dbspec_co;   /* pt spec */
     yang_spec      *yspec;       /* yang spec */
     int             retval = -1; 
+    char            *dbspec_type;
 
-    if (strcmp(clicon_dbspec_type(h), "YANG")==0) {
+    dbspec_type = clicon_dbspec_type(h);
+    if ((dbspec_type == NULL) || 
+	strcmp(dbspec_type, "YANG") == 0){     /* Default or YANG syntax */
 	if ((yspec = clicon_dbspec_yang(h)) == NULL){
 	    clicon_err(OE_FATAL, 0, "No DB_SPEC");
 	    goto done;
@@ -315,14 +318,23 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 	if (generic_validate_yang(h, dbname, dd, yspec) < 0)
 	    goto done;
     }
-    else{ /* PT or KEY */
-	if ((dbspec_co = clicon_dbspec_pt(h)) == NULL){
-	    clicon_err(OE_CFG, 0, "%s: No dbspec", __FUNCTION__);
-	    goto done;
+#ifdef USE_DBSPEC_PT
+    else
+	if (strcmp(dbspec_type, "PT") == 0){ /* PT */
+	    dbspec_tree    *dbspec_co;   /* pt spec */
+
+	    if ((dbspec_co = clicon_dbspec_pt(h)) == NULL){
+		clicon_err(OE_CFG, 0, "%s: No dbspec", __FUNCTION__);
+		goto done;
+	    }
+	    if (generic_validate_pt(h, dbname, dd, dbspec_co) < 0)
+		goto done;
 	}
-	if (generic_validate_pt(h, dbname, dd, dbspec_co) < 0)
-	    goto done;
-    }
+#endif /* USE_DBSPEC_PT */
+	    else{
+		clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+		goto done;
+	    }
     retval = 0;
   done:
     return retval;

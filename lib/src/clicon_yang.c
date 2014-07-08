@@ -50,7 +50,9 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
+#ifdef USE_DBSPEC_PT
 #include "clicon_dbspec_parsetree.h"
+#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
@@ -58,7 +60,9 @@
 #include "clicon_chunk.h"
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
+#ifdef USE_DBSPEC_PT
 #include "clicon_dbspec.h"
+#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_yang_parse.h"
 #include "clicon_yang_parse.tab.h" /* for constants */
@@ -730,7 +734,9 @@ struct yang2cv_type{
     enum cv_type  yt_cv;
 };
 
+/* Note, first match used wne translating from cv to yang --> order is significant */
 static struct yang2cv_type ytmap[] = {
+    {"int32",       CGV_INT},
     {"binary",      CGV_INT}, /* XXX not really int */
     {"bits",        CGV_INT}, /* XXX not really int */
     {"boolean",     CGV_BOOL},
@@ -741,7 +747,6 @@ static struct yang2cv_type ytmap[] = {
     {"instance-identifier", CGV_INT}, /* XXX not really int */
     {"int8",        CGV_INT},  /* XXX not really int */
     {"int16",       CGV_INT},  /* XXX not really int */
-    {"int32",       CGV_INT},
     {"int64",       CGV_LONG},
     {"leafref",     CGV_INT},  /* XXX not really int */
     {"string",      CGV_STRING},
@@ -806,6 +811,46 @@ yang2cv_type(char *ytype, enum cv_type *cv_type)
     }
     return 0;
 }
+
+/*! Translate from a cligen variable type to a yang type
+ */
+char *
+cv2yang_type(enum cv_type cv_type)
+{
+    struct yang2cv_type *yt;
+    char                *ytype;
+
+    ytype = "empty";
+    /* built-in types */
+    for (yt = &ytmap[0]; yt->yt_yang; yt++)
+	if (yt->yt_cv == cv_type)
+	    return yt->yt_yang;
+
+    /* special derived types */
+    if (cv_type == CGV_IPV4ADDR) /* RFC6991 */
+	return "ipv4_address";
+
+    if (cv_type == CGV_IPV6ADDR) /* RFC6991 */
+	return "ipv6_address";
+
+    if (cv_type == CGV_IPV4PFX) /* RFC6991 */
+	return "ipv4_prefix";
+
+    if (cv_type == CGV_IPV6PFX) /* RFC6991 */
+	return "ipv6_prefix";
+
+    if (cv_type == CGV_TIME) /* RFC6991 */
+	return "date-and-time";
+
+    if (cv_type == CGV_MACADDR) /* RFC6991 */
+	return "mac-address";
+
+    if (cv_type == CGV_UUID) /* RFC6991 */
+	return "uuid";
+
+    return ytype;
+}
+
 
 /*! Get dbspec key of a yang statement, used when generating cli
  *

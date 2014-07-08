@@ -61,6 +61,8 @@
 
 #include "clicon_config.h"
 
+#ifdef USE_DBSPEC_PT
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -797,3 +799,4 @@ charseq    : charseq CHAR
 
 %%
 
+#endif /* USE_DBSPEC_PT */

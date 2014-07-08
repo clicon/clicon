@@ -63,16 +63,18 @@ static int
 terminate(clicon_handle h)
 {
     struct db_spec *dbspec;
-    dbspec_tree    *pt;
     yang_spec      *yspec;
+#ifdef USE_DBSPEC_PT
+    dbspec_tree    *pt;
 
-    if ((dbspec = clicon_dbspec_key(h)) != NULL)
-	db_spec_free(dbspec);
     if ((pt = clicon_dbspec_pt(h)) != NULL){
 	pt_apply2(*pt, dbspec_userdata_delete, h);
 	cligen_parsetree2_free(*pt, 1);
 	free(pt);
     }
+#endif
+    if ((dbspec = clicon_dbspec_key(h)) != NULL)
+	db_spec_free(dbspec);
     if ((yspec = clicon_dbspec_yang(h)) != NULL)
 	yspec_free(yspec);
     cli_plugin_finish(h);    
@@ -189,22 +191,17 @@ set_default_syntax_group(clicon_handle h, char *dir)
 static int
 spec_main_cli(clicon_handle h, int printspec)
 {
-    char            *syntax;
+    char            *dbspec_type;
     int              retval = -1;
-    dbspec_tree     *pt;
     struct db_spec  *db_spec;
-    struct db_spec  *db_spec2;
     char            *db_spec_file;
-    dbspec_tree      pt2;
     struct stat      st;
+    yang_spec      *yspec;
+#ifdef USE_DBSPEC_PT
+    dbspec_tree     *pt;
+    dbspec_tree      pt2;
+#endif
     
-    /* pt must be malloced since it is saved in options/hash-value */
-    if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err(OE_FATAL, errno, "malloc");
-	goto quit;
-    }
-    memset(pt, 0, sizeof(*pt));
-
     /* Parse db specification */
     if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
 	clicon_err(OE_FATAL, errno, "No CLICON_DBSPEC_FILE given");
@@ -215,69 +212,84 @@ spec_main_cli(clicon_handle h, int printspec)
 	goto quit;
     }
     clicon_debug(1, "CLICON_DBSPEC_FILE=%s", db_spec_file);
-    syntax = clicon_dbspec_type(h);
+    dbspec_type = clicon_dbspec_type(h);
 
-    if ((syntax == NULL) || strcmp(syntax, "PT") == 0){ /* Parse CLI spec syntax */
-	if (dbclispec_parse(h, db_spec_file, pt) < 0)
+#ifdef USE_DBSPEC_PT
+    /* pt must be malloced since it is saved in options/hash-value */
+    if ((pt = malloc(sizeof(*pt))) == NULL){
+	clicon_err(OE_FATAL, errno, "malloc");
+	goto quit;
+    }
+    memset(pt, 0, sizeof(*pt));
+#endif
+    if ((dbspec_type == NULL) || strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG spec syntax */
+	if ((yspec = yspec_new()) == NULL)
 	    goto quit;
-	/* The dbspec parse-tree is in pt*/
-//	if (printspec && debug) 
-//	    cligen_print(stdout, *pt, 0);
-	clicon_dbspec_pt_set(h, pt);	
-	/* Translate from the dbspec as cligen parse-tree to dbspec key fmt */
-	if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
+	clicon_dbspec_yang_set(h, yspec);	
+	if (yang_parse(h, db_spec_file, yspec) < 0)
 	    goto quit;
+	clicon_log(LOG_INFO, "YANG PARSING OK");
+	if (printspec)
+	    yang_print(stdout, (yang_node*)yspec, 0);
+	if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
+	    goto quit;
+	clicon_dbspec_key_set(h, db_spec);	
 	if (printspec)
 	    db_spec_dump(stdout, db_spec);
-	clicon_dbspec_key_set(h, db_spec);	
-	if (debug>1){ 
-	    if (dbspec_key2cli(h, db_spec, &pt2) < 0)
+	if (0){ /* for testing mapping back to original */
+	    yang_spec *yspec2;
+	    if ((yspec2 = key2yang(db_spec)) == NULL)
 		goto quit;
-//	    if (printspec) /* XXX */
-//		cligen_print(stderr, pt2, 0);
-	    cligen_parsetree2_free(pt2, 1);
+	    clicon_dbspec_yang_set(h, yspec2);
+	    if (printspec)
+		yang_print(stdout, (yang_node*)yspec2, 0);
 	}
     }
     else
-	if (strcmp(syntax, "KEY") == 0){ /* Parse KEY syntax */
+	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
 	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 		goto quit;
 	    if (printspec && debug) 
 		db_spec_dump(stdout, db_spec);
 	    clicon_dbspec_key_set(h, db_spec);	
-	    /* 1: single arg, 2: doublearg */
-	    /* XXX: to YANG */
+	    /* Translate to yang spec */
+	    if ((yspec = key2yang(db_spec)) == NULL)
+		goto quit;
+	    clicon_dbspec_yang_set(h, yspec);
+	    if (printspec)
+		yang_print(stdout, (yang_node*)yspec, 0);
+#ifdef USE_DBSPEC_PT
 	    if (dbspec_key2cli(h, db_spec, pt) < 0)
 		goto quit;
-//	    if (printspec)
-//		cligen_print(stdout, *pt, 0);
 	    clicon_dbspec_pt_set(h, pt);
-	    if (debug>1){ 
-		if ((db_spec2 = dbspec_cli2key(pt)) == NULL) /* To dbspec */
-		    goto quit;
-		if (printspec) /* XXX */
-		    db_spec_dump(stderr, db_spec2);
-	    }
+#endif
 	}
+#ifdef USE_DBSPEC_PT
 	else
-	    if (strcmp(syntax, "YANG") == 0){ /* Parse YANG syntax */
-		yang_spec      *yspec;
-		
-		free(pt);
-		if ((yspec = yspec_new()) == NULL)
+	    if (strcmp(dbspec_type, "PT") == 0){ /* Parse PT SPEC syntax */
+
+		if (dbclispec_parse(h, db_spec_file, pt) < 0)
 		    goto quit;
-		clicon_dbspec_yang_set(h, yspec);	
-		if (yang_parse(h, db_spec_file, yspec) < 0)
+		/* The dbspec parse-tree is in pt*/
+		clicon_dbspec_pt_set(h, pt);	
+		/* Translate from the dbspec as cligen parse-tree to dbspec key fmt */
+		if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
 		    goto quit;
-		clicon_log(LOG_INFO, "YANG PARSING OK");
-		if (printspec)
-		    yang_print(stdout, (yang_node*)yspec, 0);
-		if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
-		    goto quit;
-		clicon_dbspec_key_set(h, db_spec);	
 		if (printspec)
 		    db_spec_dump(stdout, db_spec);
+		clicon_dbspec_key_set(h, db_spec);	
+		if (0){ 
+		    if (dbspec_key2cli(h, db_spec, &pt2) < 0)
+			goto quit;
+		    cligen_parsetree2_free(pt2, 1);
+		}
 	    }
+#endif /* USE_DBSPEC_PT */
+	    else{
+		clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+		goto quit;
+	    }
+
 
     retval = 0;
   quit:
@@ -504,11 +516,15 @@ main(int argc, char **argv)
 	goto quit;
 
     if (dumpdtd) { /* Dump database specification as DTD */
+#ifdef USE_DBSPEC_PT
 	dbspec_tree *pt;
 	if ((pt = clicon_dbspec_pt(h)) != NULL){
 	    if (dbspec2dtd(stdout, pt) < 0)
 		goto quit;
 	}
+#else
+	clicon_log(LOG_NOTICE, "%s: dump to dtd not supported", __PROGRAM__);
+#endif
 	exit(1);
     }
 
@@ -525,11 +541,14 @@ main(int argc, char **argv)
 	    goto quit;
     /* Create tree generated from dataspec */
     if (clicon_cli_genmodel(h)){
-	dbspec_tree       *pts;        /* dbspec cli */
 	yang_spec         *yspec;      /* yang spec */
 	parse_tree         pt = {0,};  /* cli parse tree */
+	char              *dbspec_type;
 
-	if (strcmp(clicon_dbspec_type(h), "YANG")==0) {
+	dbspec_type = clicon_dbspec_type(h);
+	if ((dbspec_type == NULL) || 
+	    strcmp(dbspec_type, "YANG") == 0 ||
+	    strcmp(dbspec_type, "KEY") == 0){ 
 	    if ((yspec = clicon_dbspec_yang(h)) == NULL){
 		clicon_err(OE_FATAL, 0, "No YANG DB_SPEC");
 		goto quit;
@@ -538,18 +557,26 @@ main(int argc, char **argv)
 	    if (yang2cli(h, yspec, &pt, clicon_cli_genmodel_type(h)) < 0)
 		goto quit;
 	}
-	else{ /* PT or KEY */
-	    if ((pts = clicon_dbspec_pt(h)) == NULL){
-		clicon_err(OE_FATAL, 0, "No PT DB_SPEC");
-		goto quit;
+#ifdef USE_DBSPEC_PT
+	else
+	    if (strcmp(dbspec_type, "PT") == 0){ /* PT */
+		dbspec_tree       *pts;        /* dbspec cli */
+		if ((pts = clicon_dbspec_pt(h)) == NULL){
+		    clicon_err(OE_FATAL, 0, "No PT DB_SPEC");
+		    goto quit;
+		}
+		if (pts->dt_len == 0){
+		    clicon_err(OE_FATAL, 0, "DB_SPEC length is zero");
+		    goto quit;
+		}
+		/* Create cli command tree from dbspec */
+		if (dbspec2cli(h, pts, &pt, clicon_cli_genmodel_type(h)) < 0)
+		    goto quit;
 	    }
-	    if (pts->dt_len == 0){
-		clicon_err(OE_FATAL, 0, "DB_SPEC length is zero");
-		goto quit;
-	    }
-	    /* Create cli command tree from dbspec */
-	    if (dbspec2cli(h, pts, &pt, clicon_cli_genmodel_type(h)) < 0)
-		goto quit;
+#endif /* USE_DBSPEC_PT */
+	else{
+	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+	    goto quit;
 	}
 	if (strcmp(clicon_dbspec_type(h), "KEY")==0)  
 	    treename = "datamodel";  /* key syntax hardwire to 'datamodel' */

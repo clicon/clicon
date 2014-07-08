@@ -104,8 +104,10 @@ int clicon_autocommit_set(clicon_handle h, int val);
 struct db_spec *clicon_dbspec_key(clicon_handle h);
 int clicon_dbspec_key_set(clicon_handle h, struct db_spec *ds);
 
+#ifdef USE_DBSPEC_PT
 dbspec_tree *clicon_dbspec_pt(clicon_handle h);
 int clicon_dbspec_pt_set(clicon_handle h, struct dbspec_tree *tree2);
+#endif /* USE_DBSPEC_PT */
 
 yang_spec * clicon_dbspec_yang(clicon_handle h);
 int clicon_dbspec_yang_set(clicon_handle h, struct yang_spec *ys);

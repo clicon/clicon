@@ -66,7 +66,9 @@
 #include "clicon_handle.h"
 #include "clicon_hash.h"
 #include "clicon_spec.h"
+#ifdef USE_DBSPEC_PT
 #include "clicon_dbspec_parsetree.h"
+#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
@@ -429,8 +431,149 @@ yang2key(yang_spec *yspec)
     return NULL;
 }
 
+/*===================================================================================
+ * key2yang
+ *==================================================================================*/
 yang_spec *
-key2yang(struct db_spec *ds)
+key2yang(struct db_spec *db_spec)
 {
+    struct db_spec  *ds;
+    cvec            *subvh;
+    cg_var          *v = NULL;
+    char           **vec;
+    int              nvec;
+    int              i;
+    char            *key;
+    int              isvec;
+    yang_spec       *yspec = NULL;
+    yang_stmt       *ym; /* module */
+    yang_node       *yp; /* parent */
+    yang_stmt       *ys;
+    yang_stmt       *yl;
+    yang_stmt       *yt;
+    char            *str;
+
+    if ((yspec = yspec_new()) == NULL)
+	goto err;
+    if ((ym = ys_new(K_MODULE)) == NULL)
+	goto err;
+    ym->ys_argument = strdup("my module");
+    if (yn_insert((yang_node*)yspec, ym) < 0)
+	goto err; 
+    /* Parse through all spec lines */
+    for (ds=db_spec; ds; ds=ds->ds_next){
+	clicon_debug(1, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
+	subvh = db_spec2cvec(ds);
+	if ((vec = clicon_strsplit(ds->ds_key, ".", &nvec, __FUNCTION__)) == NULL){
+	    clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
+	    goto err;
+	}
+	ys = NULL;
+	yp = (yang_node*)ym; /* parent is module, starting point */
+
+	/* Parse through all keys in a spec-line, eg "a.b.c" */
+	for (i=0; i<nvec; i++){ 
+	    key = vec[i];
+	    clicon_debug(1, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
+	    isvec = 0;
+	    if (key_isvector(key)){
+		isvec++;
+		key[strlen(key)-2] = '\0';
+	    }
+	    if (!isvec){
+		/* Create container node */
+		if ((ys = yang_find_specnode(yp, key)) == NULL){
+		    if ((ys = ys_new(K_CONTAINER)) == NULL)
+			goto err;
+		    ys->ys_argument = strdup(key);
+		    if (yn_insert(yp, ys) < 0)
+			goto err;
+		}
+	    }
+	    else {
+		/* Find unique key and add that as sub (if it does not already exist) */
+		v = NULL; /* unique variable */
+		while ((v = cvec_each(subvh, v))) 
+		    if (cv_flag(v, V_UNIQUE))
+			break;
+		if (v == NULL){
+		    clicon_err(OE_DB, 0, "Spec has no matching unique variable\n"); 
+		    goto err;
+		}
+		/* Create list node */
+		if ((ys = yang_find_specnode(yp, key)) == NULL){
+		    if ((ys = ys_new(K_LIST)) == NULL)
+			goto err;
+		    ys->ys_argument = strdup(key);
+		    if (yn_insert(yp, ys) < 0)
+			goto err;
+		    /* Create key */
+		    if ((yl = ys_new(K_KEY)) == NULL) 
+			goto err;
+		    yl->ys_argument = strdup(cv_name_get(v));
+		    if (yn_insert((yang_node*)ys, yl) < 0)
+			goto err; 
+		    /* Create leaf */
+		    if ((yl = ys_new(K_LEAF)) == NULL) 
+			goto err; 
+		    yl->ys_argument = strdup(cv_name_get(v));
+		    if (yn_insert((yang_node*)ys, yl) < 0)
+			goto err;
+		    if ((str = db_spec2str(ds)) == NULL)
+			goto err;
+		    if (yang_dbkey_set(yl, str) < 0) /* XXX ys? */
+			goto err;
+		    if ((yl->ys_cv = cv_dup(v)) == NULL){
+			clicon_err(OE_DB, errno, "%s: cv_dup", __FUNCTION__); 
+			goto err;
+		    }
+		    if ((yt = ys_new(K_TYPE)) == NULL) 
+			goto err; 
+		    yt->ys_argument = strdup(cv2yang_type(cv_type_get(v)));
+		    if (yn_insert((yang_node*)yl, yt) < 0)
+			goto err;
+		}
+		yp = (yang_node*)ys;
+	    } /* isvec */
+	} /* for i */
+#ifdef notyet
+	/* Remaining unique variables are added at the end */
+	while ((v = cvec_each(subvh, v))) 
+	    if (!cv_flag(v, V_UNIQUE))
+		continue;
+#endif
+	/* Go through all non-unique variables and append to syntax */
+	v = NULL;
+	while ((v = cvec_each(subvh, v))) {
+	    if (cv_flag(v, V_UNIQUE))
+		continue; /* LEAF_LIST */
+	    if ((yl = ys_new(ds->ds_vector?K_LEAF_LIST:K_LEAF)) == NULL) 
+		goto err; 
+	    yl->ys_argument = strdup(cv_name_get(v));
+	    if (yn_insert((yang_node*)ys, yl) < 0)
+		goto err;
+	    /* The unique variable is added as indexvar in co */
+	    if ((str = db_spec2str(ds)) == NULL)
+		goto err;
+	    if (yang_dbkey_set(yl, str) < 0) /* XXX ys? */
+		goto err;
+	    if ((yl->ys_cv = cv_dup(v)) == NULL){
+		clicon_err(OE_DB, errno, "%s: cv_dup", __FUNCTION__); 
+		goto err;
+	    }
+	    if ((yt = ys_new(K_TYPE)) == NULL) 
+		goto err; 
+	    yt->ys_argument = strdup(cv2yang_type(cv_type_get(v)));
+	    if (yn_insert((yang_node*)yl, yt) < 0)
+		goto err;
+	}
+    } /* for ds */
+//  ok:
+    unchunk_group(__FUNCTION__);  
+    return yspec;
+  err:
+    if (yspec)
+	yspec_free(yspec);
+    unchunk_group(__FUNCTION__);  
     return NULL;
 }

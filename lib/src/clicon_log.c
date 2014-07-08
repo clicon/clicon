@@ -183,6 +183,9 @@ clicon_log_str(int level, char *msg)
  *
  * See also clicon_log_init() and clicon_log_str()
  *
+ * @code
+	clicon_log(LOG_NOTICE, "%s: dump to dtd not supported", __PROGRAM__);
+ * @endcode
  * @param[in]   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
  * @param[in]   format   Message to print as argv.
  */

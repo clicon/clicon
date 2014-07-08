@@ -77,7 +77,9 @@
 #include "clicon_chunk.h"
 #include "clicon_log.h"
 #include "clicon_spec.h"
+#ifdef USE_DBSPEC_PT
 #include "clicon_dbspec_parsetree.h"
+#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_options.h"
 
@@ -659,8 +661,8 @@ clicon_dbspec_key_set(clicon_handle h, struct db_spec *ds)
     return 0;
 }
 
-#if 1 /* This should at some time migrate to clicon_dbspec_yang, or just be 
-	 replaced bythat code */
+#ifdef USE_DBSPEC_PT /* This should at some time migrate to clicon_dbspec_yang, or just be 
+			replaced bythat code */
 /* 
  * Get dbspec (PARSE-TREE variant)
  * Must use hash functions directly since they are not strings.
@@ -692,7 +694,7 @@ clicon_dbspec_pt_set(clicon_handle h, struct dbspec_tree *pt)
 	return -1;
     return 0;
 }
-#endif
+#endif /* USE_DBSPEC_PT */
 
 /* 
  * Get dbspec (YANG variant)
