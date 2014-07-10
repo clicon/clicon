@@ -82,10 +82,9 @@ int strverscmp (__const char *__s1, __const char *__s2);
 /* This is the in-compiled clicon application dir, overruled by -a or env-variable */
 #undef APPDIR
 
-/* I think we are phasing out clicon_dbspec_pt format, ie db spec format looking
+/* We are phasing out clicon_dbspec_pt format, ie db spec format looking
    like CLIGEN specs. Note that the lex and yacc rules of clicon_dbparse.[yl] need
    to be manually disabled in lib/src/Makefile.in
 */
-#define USE_DBSPEC_PT 1
-//#undef USE_DBSPEC_PT
+#undef USE_DBSPEC_PT
 

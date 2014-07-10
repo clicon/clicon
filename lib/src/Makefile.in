@@ -56,19 +56,23 @@ SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
 	  clicon_lvalue.c clicon_lvmap.c clicon_chunk.c clicon_proc.c \
 	  clicon_string.c clicon_handle.c \
 	  clicon_xml.c clicon_file.c clicon_dbutil.c clicon_dbmatch.c \
-	  clicon_spec.c clicon_dbspec_parsetree.c clicon_dbspec_xxx.c clicon_yang.c clicon_yang2key.c \
+	  clicon_spec.c clicon_yang.c clicon_yang2key.c \
 	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
 	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \
 	  xmlgen_xf.c xmlgen_xml.c xmlgen_xsl.c
+# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
+#clicon_dbspec_parsetree.c clicon_dbspec_xxx.c 
 
 # XML parser src
 YACC_SRC	= xml.y
 LEX_SRC		= xml.l
 
 YACCOBJS := lex.xml.o xml.tab.o clicon_dbvars.yy.o clicon_dbvars.tab.o \
-	lex.clicon_dbspec.o clicon_dbspec.tab.o lex.clicon_yang_parse.o clicon_yang_parse.tab.o \
+	lex.clicon_yang_parse.o clicon_yang_parse.tab.o \
 	clicon_db2txt.yy.o clicon_db2txt.tab.o 
 
+# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
+# lex.clicon_dbspec.o clicon_dbspec.tab.o
 
 # Generated src 
 GENSRC  = build.c 
@@ -90,11 +94,12 @@ clean:
 	rm -f xml.tab.[ch] lex.[co]
 	rm -f clicon_dbvars.tab.[ch] clicon_dbvars.yy.[co]
 	rm -f clicon_db2txt.tab.[ch] clicon_db2txt.yy.[co]
-	rm -f clicon_dbspec.tab.[ch] clicon_dbspec.[co]
-	rm -f lex.clicon_dbspec.c
 	rm -f clicon_yang_parse.tab.[ch] clicon_yang_parse.[co]
 	rm -f lex.clicon_yang_parse.c
 	rm -f lex.xml.c
+# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
+#	rm -f clicon_dbspec.tab.[ch] clicon_dbspec.[co]
+#	rm -f lex.clicon_dbspec.c
 
 #############################################################################
 # Implicit rules for lex and yacc.
@@ -120,17 +125,18 @@ xml.tab.c xml.tab.h: xml.y
 lex.xml.o : lex.xml.c xml.tab.h # special rule to for make clean to work
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
 
+# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
 # clicon_dbspec parser
-lex.clicon_dbspec.c : clicon_dbspec.l clicon_dbspec.tab.h
-	$(LEX) -Pclicon_dbspec clicon_dbspec.l # -d is debug
+#lex.clicon_dbspec.c : clicon_dbspec.l clicon_dbspec.tab.h
+#	$(LEX) -Pclicon_dbspec clicon_dbspec.l # -d is debug
 
-clicon_dbspec.tab.c clicon_dbspec.tab.h: clicon_dbspec.y
-	$(YACC) -l -d -p clicon_dbspec clicon_dbspec.y # -t is debug
-	mv y.tab.c clicon_dbspec.tab.c
-	mv y.tab.h clicon_dbspec.tab.h
+#clicon_dbspec.tab.c clicon_dbspec.tab.h: clicon_dbspec.y
+#	$(YACC) -l -d -p clicon_dbspec clicon_dbspec.y # -t is debug
+#	mv y.tab.c clicon_dbspec.tab.c
+#	mv y.tab.h clicon_dbspec.tab.h
 
-lex.clicon_dbspec.o : lex.clicon_dbspec.c clicon_dbspec.tab.h
-	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
+#lex.clicon_dbspec.o : lex.clicon_dbspec.c clicon_dbspec.tab.h
+#	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
 
 # clicon_yang parser
 lex.clicon_yang_parse.c : clicon_yang_parse.l clicon_yang_parse.tab.h
