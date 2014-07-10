@@ -65,7 +65,113 @@
 #endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_yang_parse.h"
-#include "clicon_yang_parse.tab.h" /* for constants */
+
+/*
+ * Private data types
+ */
+/* Struct used to map between int and strings. Used  for:
+ * - mapping yang types/typedefs (strings) and cligen types (ints). 
+ * - mapping yang keywords (strings) and enum (clicon)
+ */
+struct map_str2int{
+    char         *ms_str; /* string as in 4.2.4 in RFC 6020 */
+    int           ms_int;
+};
+
+/* Mapping between yang types <--> cligen types
+   Note, first match used wne translating from cv to yang --> order is significant */
+static const struct map_str2int ytmap[] = {
+    {"int32",       CGV_INT},
+    {"binary",      CGV_INT}, /* XXX not really int */
+    {"bits",        CGV_INT}, /* XXX not really int */
+    {"boolean",     CGV_BOOL},
+    {"decimal64",   CGV_INT},  /* XXX not really int */
+    {"empty",       CGV_INT},  /* XXX not really int */
+    {"enumeration", CGV_INT},  /* XXX not really int */
+    {"identityref", CGV_INT},  /* XXX not really int */
+    {"instance-identifier", CGV_INT}, /* XXX not really int */
+    {"int8",        CGV_INT},  /* XXX not really int */
+    {"int16",       CGV_INT},  /* XXX not really int */
+    {"int64",       CGV_LONG},
+    {"leafref",     CGV_INT},  /* XXX not really int */
+    {"string",      CGV_STRING},
+    {"uint8",       CGV_INT},  /* XXX not really int */
+    {"uint16",      CGV_INT},  /* XXX not really int */
+    {"uint32",      CGV_INT},  /* XXX not really int */
+    {"uint64",      CGV_LONG}, /* XXX not really int */
+    {"union",       CGV_INT},  /* XXX not really int */
+    {NULL, -1}
+};
+
+/* Mapping between yang keyword string <--> clicon constants */
+static const struct map_str2int ykmap[] = {
+    {"anyxml",           Y_ANYXML}, 
+    {"argument",         Y_ARGUMENT}, 
+    {"augment",          Y_AUGMENT}, 
+    {"base",             Y_BASE}, 
+    {"belongs-to",       Y_BELONGS_TO}, 
+    {"bit",              Y_BIT}, 
+    {"case",             Y_CASE}, 
+    {"choice",           Y_CHOICE}, 
+    {"config",           Y_CONFIG}, 
+    {"contact",          Y_CONTACT}, 
+    {"container",        Y_CONTAINER}, 
+    {"default",          Y_DEFAULT}, 
+    {"description",      Y_DESCRIPTION}, 
+    {"deviate",          Y_DEVIATE}, 
+    {"deviation",        Y_DEVIATION}, 
+    {"enum",             Y_ENUM}, 
+    {"error-app-tag",    Y_ERROR_APP_TAG}, 
+    {"error_message",    Y_ERROR_MESSAGE}, 
+    {"extension",        Y_EXTENSION}, 
+    {"feature",          Y_FEATURE}, 
+    {"fraction-digits",  Y_FRACTION_DIGITS}, 
+    {"grouping",         Y_GROUPING}, 
+    {"identity",         Y_IDENTITY}, 
+    {"if-feature",       Y_IF_FEATURE}, 
+    {"import",           Y_IMPORT}, 
+    {"include",          Y_INCLUDE}, 
+    {"input",            Y_INPUT}, 
+    {"key",              Y_KEY}, 
+    {"leaf",             Y_LEAF}, 
+    {"leaf-list",        Y_LEAF_LIST}, 
+    {"length",           Y_LENGTH}, 
+    {"list",             Y_LIST}, 
+    {"mandatory",        Y_MANDATORY}, 
+    {"max-elements",     Y_MAX_ELEMENTS}, 
+    {"min-elements",     Y_MIN_ELEMENTS}, 
+    {"module",           Y_MODULE}, 
+    {"must",             Y_MUST}, 
+    {"namespace",        Y_NAMESPACE}, 
+    {"notification",     Y_NOTIFICATION}, 
+    {"ordered-by",       Y_ORDERED_BY}, 
+    {"organization",     Y_ORGANIZATION}, 
+    {"output",           Y_OUTPUT}, 
+    {"path",             Y_PATH}, 
+    {"pattern",          Y_PATTERN}, 
+    {"position",         Y_POSITION}, 
+    {"prefix",           Y_PREFIX}, 
+    {"presence",         Y_PRESENCE}, 
+    {"range",            Y_RANGE}, 
+    {"reference",        Y_REFERENCE}, 
+    {"refine",           Y_REFINE}, 
+    {"require-instance", Y_REQUIRE_INSTANCE}, 
+    {"revision",         Y_REVISION}, 
+    {"revision-date",    Y_REVISION_DATE}, 
+    {"rpc",              Y_RPC}, 
+    {"status",           Y_STATUS}, 
+    {"submodule",        Y_SUBMODULE}, 
+    {"type",             Y_TYPE}, 
+    {"typedef",          Y_TYPEDEF}, 
+    {"unique",           Y_UNIQUE}, 
+    {"units",            Y_UNITS}, 
+    {"uses",             Y_USES}, 
+    {"value",            Y_VALUE}, 
+    {"when",             Y_WHEN}, 
+    {"yang-version",     Y_YANG_VERSION}, 
+    {"yin-element",      Y_YIN_ELEMENT}, 
+    {NULL,               -1}
+};
 
 yang_spec *
 yspec_new(void)
@@ -81,7 +187,7 @@ yspec_new(void)
 }
 
 yang_stmt *
-ys_new(int keyw)
+ys_new(enum rfc_6020 keyw)
 {
     yang_stmt *ys;
 
@@ -243,8 +349,8 @@ yang_find_specnode(yang_node *yn, char *argument)
 
     for (i=0; i<yn->yn_len; i++){
 	ys = yn->yn_stmt[i];
-	if (ys->ys_keyword == K_CONTAINER || ys->ys_keyword == K_LEAF || 
-	    ys->ys_keyword == K_LIST || ys->ys_keyword == K_LEAF_LIST){
+	if (ys->ys_keyword == Y_CONTAINER || ys->ys_keyword == Y_LEAF || 
+	    ys->ys_keyword == Y_LIST || ys->ys_keyword == Y_LEAF_LIST){
 	    if (argument == NULL)
 		match++;
 	    else
@@ -257,208 +363,17 @@ yang_find_specnode(yang_node *yn, char *argument)
     return match ? ys : NULL;
 }
 
-
-/* RFC 6020 keywords */
+/* RFC 6020 keywords mapping.
+   linear search,...
+ */
 char *
 yang_key2str(int keyword)
 {
-    switch(keyword){
-    case K_ANYXML:
-	return "anyxml";
-	break;
-    case K_ARGUMENT:
-	return "argument";
-	break;
-    case K_AUGMENT:
-	return "augment";
-	break;
-    case K_BASE:
-	return "base";
-	break;
-    case K_BELONGS_TO:
-	return "belongs-to";
-	break;
-    case K_BIT:
-	return "bit";
-	break;
-    case K_CASE:
-	return "case";
-	break;
-    case K_CHOICE:
-	return "choice";
-	break;
-    case K_CONFIG:
-	return "config";
-	break;
-    case K_CONTACT:
-	return "contact";
-	break;
-    case K_CONTAINER:
-	return "container";
-	break;
-    case K_DEFAULT:
-	return "default";
-	break;
-    case K_DESCRIPTION:
-	return "description";
-	break;
-    case K_DEVIATE:
-	return "deviate";
-	break;
-    case K_DEVIATION:
-	return "deviation";
-	break;
-    case K_ENUM:
-	return "enum";
-	break;
-    case K_ERROR_APP_TAG:
-	return "error-app-tag";
-	break;
-    case K_ERROR_MESSAGE:
-	return "error-message";
-	break;
-    case K_EXTENSION:
-	return "extension";
-	break;
-    case K_FEATURE:
-	return "feature";
-	break;
-    case K_FRACTION_DIGITS:
-	return "fraction-digits";
-	break;
-    case K_GROUPING:
-	return "grouping";
-	break;
-    case K_IDENTITY:
-	return "identity";
-	break;
-    case K_IF_FEATURE:
-	return "if-feature";
-	break;
-    case K_IMPORT:
-	return "import";
-	break;
-    case K_INCLUDE:
-	return "include";
-	break;
-    case K_INPUT:
-	return "input";
-	break;
-    case K_KEY:
-	return "key";
-	break;
-    case K_LEAF:
-	return "leaf";
-	break;
-    case K_LEAF_LIST:
-	return "leaf-list";
-	break;
-    case K_LENGTH:
-	return "length";
-	break;
-    case K_LIST:
-	return "list";
-	break;
-    case K_MANDATORY:
-	return "mandatory";
-	break;
-    case K_MAX_ELEMENTS:
-	return "max-elements";
-	break;
-    case K_MIN_ELEMENTS:
-	return "min-elements";
-	break;
-    case K_MODULE:
-	return "module";
-	break;
-    case K_MUST:
-	return "must";
-	break;
-    case K_NAMESPACE:
-	return "namespace";
-	break;
-    case K_NOTIFICATION:
-	return "notification";
-	break;
-    case K_ORDERED_BY:
-	return "ordered-by";
-	break;
-    case K_ORGANIZATION:
-	return "organization";
-	break;
-    case K_OUTPUT:
-	return "output";
-	break;
-    case K_PATH:
-	return "path";
-	break;
-    case K_PATTERN:
-	return "pattern";
-	break;
-    case K_POSITION:
-	return "position";
-	break;
-    case K_PREFIX:
-	return "prefix";
-	break;
-    case K_PRESENCE:
-	return "presence";
-	break;
-    case K_RANGE:
-	return "range";
-	break;
-    case K_REFERENCE:
-	return "reference";
-	break;
-    case K_REFINE:
-	return "refine";
-	break;
-    case K_REQUIRE_INSTANCE:
-	return "require-instance";
-	break;
-    case K_REVISION:
-	return "revision";
-	break;
-    case K_REVISION_DATE:
-	return "revision-date";
-	break;
-    case K_RPC:
-	return "rpc";
-	break;
-    case K_STATUS:
-	return "status";
-	break;
-    case K_SUBMODULE:
-	return "submodule";
-	break;
-    case K_TYPE:
-	return "type";
-	break;
-    case K_TYPEDEF:
-	return "typedef";
-	break;
-    case K_UNIQUE:
-	return "unique";
-	break;
-    case K_UNITS:
-	return "units";
-	break;
-    case K_USES:
-	return "uses";
-	break;
-    case K_VALUE:
-	return "value";
-	break;
-    case K_WHEN:
-	return "when";
-	break;
-    case K_YANG_VERSION:
-	return "yang-version";
-	break;
-    case K_YIN_ELEMENT:
-	return "yin-element";
-	break;
-    }
+    const struct map_str2int *yk;
+
+    for (yk = &ykmap[0]; yk->ms_str; yk++)
+	if (yk->ms_int == keyword)
+	    return yk->ms_str;
     return NULL;
 }
 
@@ -518,11 +433,11 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     char           *reason = NULL;
 
     /* 1. Find parent and matching 'key'-statemnt */
-    if ((yparent = ys->ys_parent) != NULL && yparent->yn_keyword == K_LIST)
-	ykey = yang_find(yparent, K_KEY, ys->ys_argument);
+    if ((yparent = ys->ys_parent) != NULL && yparent->yn_keyword == Y_LIST)
+	ykey = yang_find(yparent, Y_KEY, ys->ys_argument);
 
     /* 2. Find type specification and set cv type accordingly */
-    if ((ytype = yang_find((yang_node*)ys, K_TYPE, NULL)) != NULL){
+    if ((ytype = yang_find((yang_node*)ys, Y_TYPE, NULL)) != NULL){
 	if (yang2cv_type(ytype->ys_argument, &cvtype) < 0)
 	    goto done;
     }
@@ -539,7 +454,7 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
 	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
 	goto done;
     }
-    if ((ydef = yang_find((yang_node*)ys, K_DEFAULT, NULL)) != NULL){
+    if ((ydef = yang_find((yang_node*)ys, Y_DEFAULT, NULL)) != NULL){
 	if ((cvret = cv_parse1(ydef->ys_argument, cv, &reason)) < 0){ /* error */
 	    clicon_err(OE_DB, errno, "parsing cv");
 	    goto done;
@@ -565,7 +480,7 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
 
 #ifdef moved_to_ys_parse_sub
     /* 5. Check if mandatory */
-    if ((yman = yang_find((yang_node*)ys, K_MANDATORY, NULL)) != NULL)
+    if ((yman = yang_find((yang_node*)ys, Y_MANDATORY, NULL)) != NULL)
 	ys->ys_mandatory = cv_bool_get(yman->ys_cv);
 #endif
 
@@ -586,7 +501,7 @@ ys_populate(yang_stmt *ys, void *arg)
 {
     int retval = -1;
 
-    if (ys->ys_keyword == K_LEAF || ys->ys_keyword == K_LEAF_LIST){
+    if (ys->ys_keyword == Y_LEAF || ys->ys_keyword == Y_LEAF_LIST){
 	if (ys_populate_leaf(ys, arg) < 0)
 	    goto done;
     }
@@ -610,29 +525,29 @@ yang_parse_str(clicon_handle h,
     )
 {
     int                retval = -1;
-    struct clicon_yang_yacc_arg ya = {0,};
+    struct clicon_yang_yacc_arg yy = {0,};
 
-    ya.ya_handle       = h; 
-    ya.ya_name         = (char*)name;
-    ya.ya_linenum      = 1;
-    ya.ya_parse_string = str;
-    ya.ya_stack        = NULL;
+    yy.yy_handle       = h; 
+    yy.yy_name         = (char*)name;
+    yy.yy_linenum      = 1;
+    yy.yy_parse_string = str;
+    yy.yy_stack        = NULL;
 
-    if (ystack_push(&ya, (yang_node*)yspec) == NULL)
+    if (ystack_push(&yy, (yang_node*)yspec) == NULL)
 	goto done;
     if (strlen(str)){ /* Not empty */
-	if (yang_scan_init(&ya) < 0)
+	if (yang_scan_init(&yy) < 0)
 	    goto done;
-	if (yang_parse_init(&ya, yspec) < 0)
+	if (yang_parse_init(&yy, yspec) < 0)
 	    goto done;
-	if (clicon_yang_parseparse(&ya) != 0) {
-	    yang_parse_exit(&ya);
-	    yang_scan_exit(&ya);
+	if (clicon_yang_parseparse(&yy) != 0) {
+	    yang_parse_exit(&yy);
+	    yang_scan_exit(&yy);
 	    goto done;
 	}
-	if (yang_parse_exit(&ya) < 0)
+	if (yang_parse_exit(&yy) < 0)
 	    goto done;		
-	if (yang_scan_exit(&ya) < 0)
+	if (yang_scan_exit(&yy) < 0)
 	    goto done;		
 	/* Go through parse tree and populate it with cv types */
 	if (yang_apply((yang_node*)yspec, ys_populate, NULL) < 0)
@@ -640,7 +555,7 @@ yang_parse_str(clicon_handle h,
     }
     retval = 0;
   done:
-    ystack_pop(&ya);
+    ystack_pop(&yy);
 
     return retval;
 
@@ -716,7 +631,7 @@ yang_parse(clicon_handle h, const char *filename, yang_spec *ysp)
     if (yang_parse_file(h, f, filename, ysp) < 0)
 	goto done;
     /* pick up name="myname"; from spec */
-    if ((ys = yang_find((yang_node*)ysp, K_MODULE, NULL)) == NULL){
+    if ((ys = yang_find((yang_node*)ysp, Y_MODULE, NULL)) == NULL){
 	clicon_err(OE_DB, 0, "No module found in %s", filename);	
 	goto done;
     }
@@ -729,34 +644,6 @@ yang_parse(clicon_handle h, const char *filename, yang_spec *ysp)
     return retval;
 }
 
-struct yang2cv_type{
-    char         *yt_yang; /* string as in 4.2.4 in RFC 6020 */
-    enum cv_type  yt_cv;
-};
-
-/* Note, first match used wne translating from cv to yang --> order is significant */
-static struct yang2cv_type ytmap[] = {
-    {"int32",       CGV_INT},
-    {"binary",      CGV_INT}, /* XXX not really int */
-    {"bits",        CGV_INT}, /* XXX not really int */
-    {"boolean",     CGV_BOOL},
-    {"decimal64",   CGV_INT},  /* XXX not really int */
-    {"empty",       CGV_INT},  /* XXX not really int */
-    {"enumeration", CGV_INT},  /* XXX not really int */
-    {"identityref", CGV_INT},  /* XXX not really int */
-    {"instance-identifier", CGV_INT}, /* XXX not really int */
-    {"int8",        CGV_INT},  /* XXX not really int */
-    {"int16",       CGV_INT},  /* XXX not really int */
-    {"int64",       CGV_LONG},
-    {"leafref",     CGV_INT},  /* XXX not really int */
-    {"string",      CGV_STRING},
-    {"uint8",       CGV_INT},  /* XXX not really int */
-    {"uint16",      CGV_INT},  /* XXX not really int */
-    {"uint32",      CGV_INT},  /* XXX not really int */
-    {"uint64",      CGV_LONG}, /* XXX not really int */
-    {"union",       CGV_INT},  /* XXX not really int */
-    {NULL, -1}
-};
 
 
 /*! Translate from a yang type to a cligen variable type
@@ -770,13 +657,13 @@ static struct yang2cv_type ytmap[] = {
 int
 yang2cv_type(char *ytype, enum cv_type *cv_type)
 {
-    struct yang2cv_type *yt;
+    const struct map_str2int *yt;
 
     *cv_type = CGV_ERR;
     /* built-in types */
-    for (yt = &ytmap[0]; yt->yt_yang; yt++)
-	if (strcmp(yt->yt_yang, ytype) == 0){
-	    *cv_type = yt->yt_cv;
+    for (yt = &ytmap[0]; yt->ms_str; yt++)
+	if (strcmp(yt->ms_str, ytype) == 0){
+	    *cv_type = yt->ms_int;
 	    return 0;
 	}
 
@@ -817,14 +704,14 @@ yang2cv_type(char *ytype, enum cv_type *cv_type)
 char *
 cv2yang_type(enum cv_type cv_type)
 {
-    struct yang2cv_type *yt;
+    const struct map_str2int  *yt;
     char                *ytype;
 
     ytype = "empty";
     /* built-in types */
-    for (yt = &ytmap[0]; yt->yt_yang; yt++)
-	if (yt->yt_cv == cv_type)
-	    return yt->yt_yang;
+    for (yt = &ytmap[0]; yt->ms_str; yt++)
+	if (yt->ms_int == cv_type)
+	    return yt->ms_str;
 
     /* special derived types */
     if (cv_type == CGV_IPV4ADDR) /* RFC6991 */
@@ -913,7 +800,7 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
     if (nvec <= 0)
 	return NULL;
     key = vec[0];
-    if (yn->yn_keyword == K_LIST){
+    if (yn->yn_keyword == Y_LIST){
 	i = strtol(key, (char **) NULL, 10);
 	if ((i == LONG_MIN || i == LONG_MAX) && errno)
 	    goto done;
@@ -1095,12 +982,12 @@ ys_parse_sub(yang_stmt *ys)
     yang_stmt *yp;
     
     switch (ys->ys_keyword){
-    case K_RANGE: 
-    case K_LENGTH: 
+    case Y_RANGE: 
+    case Y_LENGTH: 
 	if (ys_parse_range(ys) < 0)
 	    goto done;
 	break;
-    case K_MANDATORY:
+    case Y_MANDATORY:
 	if (ys_parse(ys, CGV_BOOL) == NULL) 
 	    goto done;
 	if ((yp = (yang_stmt*)ys->ys_parent) != NULL)
@@ -1137,11 +1024,11 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     int             retval2;
     char           *pattern;
 
-    if (ys->ys_keyword != K_LEAF && ys->ys_keyword != K_LEAF_LIST)
+    if (ys->ys_keyword != Y_LEAF && ys->ys_keyword != Y_LEAF_LIST)
 	return 0;
     ycv = ys->ys_cv;
     
-    if ((ytype = yang_find((yang_node*)ys, K_TYPE, NULL)) == NULL){
+    if ((ytype = yang_find((yang_node*)ys, Y_TYPE, NULL)) == NULL){
 	clicon_err(OE_DB, 0, "type not found under leaf %s", ys->ys_argument);
 	return -1;
     }
@@ -1152,7 +1039,7 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	 /* Check range if specified */
 	if (cv_type_get(ycv) == CGV_LONG)
 	    i = cv_long_get(cv);
-	if ((yrange = yang_find((yang_node*)ytype, K_RANGE, NULL)) != NULL){
+	if ((yrange = yang_find((yang_node*)ytype, Y_RANGE, NULL)) != NULL){
 	    if (i < yrange->ys_range_min || i > yrange->ys_range_max) {
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %i", i);
@@ -1163,14 +1050,14 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     case CGV_STRING:
 	str = cv_string_get(cv);
 	i = strlen(str);
-	if ((yrange = yang_find((yang_node*)ytype, K_LENGTH, NULL)) != NULL){
+	if ((yrange = yang_find((yang_node*)ytype, Y_LENGTH, NULL)) != NULL){
 	    if (i < yrange->ys_range_min || i > yrange->ys_range_max) {
 		if (reason)
 		    *reason = cligen_reason("String length out of range: %i", i);
 		retval = 0;
 	    }
 	}
-	if ((ypattern = yang_find((yang_node*)ytype, K_PATTERN, NULL)) != NULL){
+	if ((ypattern = yang_find((yang_node*)ytype, Y_PATTERN, NULL)) != NULL){
 	    pattern = ypattern->ys_argument;
 	    if ((retval2 = match_regexp(str, pattern)) < 0){
 		clicon_err(OE_DB, 0, "match_regexp: %s", pattern);

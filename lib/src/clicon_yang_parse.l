@@ -47,13 +47,13 @@
 #include "clicon_yang_parse.h"
 
 /* Redefine main lex function so that you can send arguments to it */
-#define YY_DECL int clicon_yang_parselex(void *_ya)
+#define YY_DECL int clicon_yang_parselex(void *_yy)
 
 /* Dont use input function (use user-buffer) */
 #define YY_NO_INPUT
 
 /* typecast macro */
-#define _YA ((struct clicon_yang_yacc_arg *)_ya)
+#define _YY ((struct clicon_yang_yacc_arg *)_yy)
 
 #define     MAXBUF  4*4*64*1024
 
@@ -107,9 +107,9 @@ stripdup(char *s0)
  /* Common tokens */
 <KEYWORD,ARGUMENT>[ \t]            
 <KEYWORD,ARGUMENT><<EOF>> { return MY_EOF; }
-<KEYWORD,ARGUMENT,STRING1,COMMENT1>\n   { _YA->ya_linenum++; }
-<KEYWORD,ARGUMENT>"/*"    { _YA->ya_lex_state = YYSTATE; BEGIN(COMMENT1); }
-<KEYWORD,ARGUMENT>"//"    { _YA->ya_lex_state = YYSTATE; BEGIN(COMMENT2); }
+<KEYWORD,ARGUMENT,STRING1,COMMENT1>\n   { _YY->yy_linenum++; }
+<KEYWORD,ARGUMENT>"/*"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT1); }
+<KEYWORD,ARGUMENT>"//"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT2); }
 
 <KEYWORD>\}               { return *yytext; }
 
@@ -180,36 +180,36 @@ stripdup(char *s0)
 <KEYWORD>yang-version     { BEGIN(ARGUMENT); return K_YANG_VERSION; }
 <KEYWORD>yin-element      { BEGIN(ARGUMENT); return K_YIN_ELEMENT; }
 
-<KEYWORD>.                { clicon_yang_parseerror(_ya, "No such keyword"); return K_UNKNOWN; }
+<KEYWORD>.                { clicon_yang_parseerror(_yy, "No such keyword"); return K_UNKNOWN; }
 
 <ARGUMENT>;                { BEGIN(KEYWORD); return *yytext; }
-<ARGUMENT>\"               { _YA->ya_lex_string_state =ARGUMENT; BEGIN(STRING1); return DQ; }
-<ARGUMENT>\'               { _YA->ya_lex_string_state =ARGUMENT; BEGIN(STRING2); return DQ; }
+<ARGUMENT>\"               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING1); return DQ; }
+<ARGUMENT>\'               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING2); return DQ; }
 <ARGUMENT>\+               { return *yytext; }
 <ARGUMENT>\{               {  BEGIN(KEYWORD); return *yytext; }
 <ARGUMENT>.                { clicon_yang_parselval.string = strdup(yytext);
                              return CHAR;}
 
-<STRING1>\\                { _YA->ya_lex_state = STRING1; BEGIN(ESCAPE); }
-<STRING1>\"                { BEGIN(_YA->ya_lex_string_state); return DQ; }
+<STRING1>\\                { _YY->yy_lex_state = STRING1; BEGIN(ESCAPE); }
+<STRING1>\"                { BEGIN(_YY->yy_lex_string_state); return DQ; }
 <STRING1>.                 { clicon_yang_parselval.string = strdup(yytext);
                             return CHAR;}
 
-<STRING2>\\                { _YA->ya_lex_state = STRING2; BEGIN(ESCAPE); }
-<STRING2>\'                { BEGIN(_YA->ya_lex_string_state); return DQ; }
-<STRING2>\n                { _YA->ya_linenum++; clicon_yang_parselval.string = strdup(yytext); }
+<STRING2>\\                { _YY->yy_lex_state = STRING2; BEGIN(ESCAPE); }
+<STRING2>\'                { BEGIN(_YY->yy_lex_string_state); return DQ; }
+<STRING2>\n                { _YY->yy_linenum++; clicon_yang_parselval.string = strdup(yytext); }
 <STRING2>.                 { clicon_yang_parselval.string = strdup(yytext);
                              return CHAR;}
 
-<ESCAPE>.                 { BEGIN(_YA->ya_lex_state); 
+<ESCAPE>.                 { BEGIN(_YY->yy_lex_state); 
                              clicon_yang_parselval.string = strdup(yytext); 
                              return CHAR; }
 <COMMENT1>[^*\n]*        /* eat anything that's not a '*' */
 <COMMENT1>"*"+[^*/\n]*   /* eat up '*'s not followed by '/'s */
-<COMMENT1>"*"+"/"        BEGIN(_YA->ya_lex_state);
+<COMMENT1>"*"+"/"        BEGIN(_YY->yy_lex_state);
 
 <COMMENT2>[^\n]*        /* eat anything that's not a '/' */
-<COMMENT2>\n             { _YA->ya_linenum++; BEGIN(_YA->ya_lex_state); }
+<COMMENT2>\n             { _YY->yy_linenum++; BEGIN(_YY->yy_lex_state); }
 %%
 
 /*
@@ -217,10 +217,10 @@ stripdup(char *s0)
  * Initialize scanner.
  */
 int
-yang_scan_init(struct clicon_yang_yacc_arg *ya)
+yang_scan_init(struct clicon_yang_yacc_arg *yy)
 {
   BEGIN(KEYWORD);
-  ya->ya_lexbuf = yy_scan_string (ya->ya_parse_string);
+  yy->yy_lexbuf = yy_scan_string (yy->yy_parse_string);
 #if 1 /* XXX: just to use unput to avoid warning  */
   if (0)
     yyunput(0, ""); 
@@ -235,9 +235,9 @@ yang_scan_init(struct clicon_yang_yacc_arg *ya)
  * Even within Flex version 2.5 (this is assumed), freeing buffers is different.
  */
 int
-yang_scan_exit(struct clicon_yang_yacc_arg *ya)
+yang_scan_exit(struct clicon_yang_yacc_arg *yy)
 {
-    yy_delete_buffer(ya->ya_lexbuf);
+    yy_delete_buffer(yy->yy_lexbuf);
 #if defined(YY_FLEX_SUBMINOR_VERSION) && YY_FLEX_SUBMINOR_VERSION >= 9
     clicon_yang_parselex_destroy();  /* modern */
 #else

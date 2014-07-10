@@ -60,7 +60,6 @@
 #include "config_handle.h"
 #include "config_commit.h"
 
-#include <src/clicon_yang_parse.tab.h> /* XXX for constants */
 /*
  * plugin_modify_key_value
  * A wrapper function for invoking the plugin dependency set/del call
@@ -123,7 +122,7 @@ generic_validate_yang(clicon_handle        h,
     /* dd->df_ents[].dfe_key1 (running),  
        dd->df_ents[].dfe_key2 (candidate) */
     /* Get top-level module */
-    if ((ym = yang_find((yang_node*)yspec, K_MODULE, clicon_dbspec_name(h))) == NULL){
+    if ((ym = yang_find((yang_node*)yspec, Y_MODULE, clicon_dbspec_name(h))) == NULL){
 	clicon_err(OE_DB, 0, "No such module: %s", clicon_dbspec_name(h));
 	goto done;
     }
@@ -144,7 +143,7 @@ generic_validate_yang(clicon_handle        h,
 	for (j=0; j<ys->ys_len; j++){
 	    /* Get the leaf yang-stmt under a container/list, e.g $x */
 	    yleaf = ys->ys_stmt[j];
-	    if (yleaf->ys_keyword != K_LEAF)
+	    if (yleaf->ys_keyword != Y_LEAF)
 		continue;
 	    if (cvec_find(cvec, yleaf->ys_argument) == NULL){  /* No db-value */
 		/* If default value, set that */
@@ -172,7 +171,7 @@ generic_validate_yang(clicon_handle        h,
 	while ((cv = cvec_each(cvec, cv))) {
 	    if ((yleaf = yang_find_specnode((yang_node*)ys, cv_name_get(cv))) == NULL)
 		continue;
-	    if (yleaf->ys_keyword != K_LEAF && yleaf->ys_keyword != K_LEAF_LIST)
+	    if (yleaf->ys_keyword != Y_LEAF && yleaf->ys_keyword != Y_LEAF_LIST)
 		continue;
 	    /* Validate this leaf */
 	    if ((ys_cv_validate(cv, yleaf, &reason)) != 1){ 

@@ -76,7 +76,6 @@
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
 #include "clicon_yang2key.h"
-#include "clicon_yang_parse.tab.h" /* for constants */
 
 static int yang2key_stmt(yang_stmt *ys, cvec *keys, cvec *vars, struct db_spec **ds_list);
 
@@ -186,8 +185,8 @@ yang2key_leaf(yang_stmt       *ys,
        If it is, we have already added it, see yang2key_list()
      */
     if (!fromlist &&
-	(yparent = ys->ys_parent) != NULL && yparent->yn_keyword == K_LIST){
-	if ((ykey = yang_find(yparent, K_KEY, ys->ys_argument)) != NULL){
+	(yparent = ys->ys_parent) != NULL && yparent->yn_keyword == Y_LIST){
+	if ((ykey = yang_find(yparent, Y_KEY, ys->ys_argument)) != NULL){
 	    retval = 0; /* We are good */
 	    goto done;
 	}
@@ -244,11 +243,11 @@ yang2key_list(yang_stmt       *ys,
     /* A list has a key(index) variable, mark it as CLICON list (print as x[]) */
     cv_flag_set(cv, V_UNIQUE); 	
 
-    if ((ykey = yang_find((yang_node*)ys, K_KEY, NULL)) == NULL){
+    if ((ykey = yang_find((yang_node*)ys, Y_KEY, NULL)) == NULL){
 	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
 	goto done;
     }
-    if ((yleaf = yang_find((yang_node*)ys, K_LEAF, ykey->ys_argument)) == NULL){
+    if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, ykey->ys_argument)) == NULL){
 	clicon_err(OE_XML, errno, "List statement \"%s\" has no key leaf \"%s\"", 
 		   ys->ys_argument, ykey->ys_argument);
 	goto done;
@@ -345,19 +344,19 @@ yang2key_stmt(yang_stmt       *ys,
 	fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
 		yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
-    case K_CONTAINER:
+    case Y_CONTAINER:
 	if (yang2key_container(ys, keys0, vars0, ds_list) < 0)
 	    goto done;
 	break;
-    case K_LEAF:
+    case Y_LEAF:
 	if (yang2key_leaf(ys, keys0, vars0, 0, ds_list) < 0)
 	    goto done;
 	break;
-    case K_LIST:
+    case Y_LIST:
 	if (yang2key_list(ys, keys0, vars0, ds_list) < 0)
 	    goto done;
 	break;
-    case K_LEAF_LIST:
+    case Y_LEAF_LIST:
 	if (yang2key_leaf_list(ys, keys0, vars0, ds_list) < 0)
 	    goto done;
 	break;
@@ -455,7 +454,7 @@ key2yang(struct db_spec *db_spec)
 
     if ((yspec = yspec_new()) == NULL)
 	goto err;
-    if ((ym = ys_new(K_MODULE)) == NULL)
+    if ((ym = ys_new(Y_MODULE)) == NULL)
 	goto err;
     ym->ys_argument = strdup("my module");
     if (yn_insert((yang_node*)yspec, ym) < 0)
@@ -483,7 +482,7 @@ key2yang(struct db_spec *db_spec)
 	    if (!isvec){
 		/* Create container node */
 		if ((ys = yang_find_specnode(yp, key)) == NULL){
-		    if ((ys = ys_new(K_CONTAINER)) == NULL)
+		    if ((ys = ys_new(Y_CONTAINER)) == NULL)
 			goto err;
 		    ys->ys_argument = strdup(key);
 		    if (yn_insert(yp, ys) < 0)
@@ -502,19 +501,19 @@ key2yang(struct db_spec *db_spec)
 		}
 		/* Create list node */
 		if ((ys = yang_find_specnode(yp, key)) == NULL){
-		    if ((ys = ys_new(K_LIST)) == NULL)
+		    if ((ys = ys_new(Y_LIST)) == NULL)
 			goto err;
 		    ys->ys_argument = strdup(key);
 		    if (yn_insert(yp, ys) < 0)
 			goto err;
 		    /* Create key */
-		    if ((yl = ys_new(K_KEY)) == NULL) 
+		    if ((yl = ys_new(Y_KEY)) == NULL) 
 			goto err;
 		    yl->ys_argument = strdup(cv_name_get(v));
 		    if (yn_insert((yang_node*)ys, yl) < 0)
 			goto err; 
 		    /* Create leaf */
-		    if ((yl = ys_new(K_LEAF)) == NULL) 
+		    if ((yl = ys_new(Y_LEAF)) == NULL) 
 			goto err; 
 		    yl->ys_argument = strdup(cv_name_get(v));
 		    if (yn_insert((yang_node*)ys, yl) < 0)
@@ -527,7 +526,7 @@ key2yang(struct db_spec *db_spec)
 			clicon_err(OE_DB, errno, "%s: cv_dup", __FUNCTION__); 
 			goto err;
 		    }
-		    if ((yt = ys_new(K_TYPE)) == NULL) 
+		    if ((yt = ys_new(Y_TYPE)) == NULL) 
 			goto err; 
 		    yt->ys_argument = strdup(cv2yang_type(cv_type_get(v)));
 		    if (yn_insert((yang_node*)yl, yt) < 0)
@@ -547,7 +546,7 @@ key2yang(struct db_spec *db_spec)
 	while ((v = cvec_each(subvh, v))) {
 	    if (cv_flag(v, V_UNIQUE))
 		continue; /* LEAF_LIST */
-	    if ((yl = ys_new(ds->ds_vector?K_LEAF_LIST:K_LEAF)) == NULL) 
+	    if ((yl = ys_new(ds->ds_vector?Y_LEAF_LIST:Y_LEAF)) == NULL) 
 		goto err; 
 	    yl->ys_argument = strdup(cv_name_get(v));
 	    if (yn_insert((yang_node*)ys, yl) < 0)
@@ -561,7 +560,7 @@ key2yang(struct db_spec *db_spec)
 		clicon_err(OE_DB, errno, "%s: cv_dup", __FUNCTION__); 
 		goto err;
 	    }
-	    if ((yt = ys_new(K_TYPE)) == NULL) 
+	    if ((yt = ys_new(Y_TYPE)) == NULL) 
 		goto err; 
 	    yt->ys_argument = strdup(cv2yang_type(cv_type_get(v)));
 	    if (yn_insert((yang_node*)yl, yt) < 0)

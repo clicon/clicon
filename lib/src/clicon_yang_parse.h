@@ -35,18 +35,14 @@ struct ys_stack{
 };
 
 struct clicon_yang_yacc_arg{ /* XXX: mostly unrelevant */
-    clicon_handle         ya_handle;       /* cligen_handle */
-    char                 *ya_name;         /* Name of syntax (for error string) */
-    int                   ya_linenum;      /* Number of \n in parsed buffer */
-    char                 *ya_parse_string; /* original (copy of) parse string */
-    void                 *ya_lexbuf;       /* internal parse buffer from lex */
-    cvec                 *ya_globals;     /* global variables after parsing */
-    cvec                 *ya_cvec;     /* local variables (per-command) */
-    struct ys_stack      *ya_stack;     /* Stack of levels: push/pop on () and [] */
-    cg_obj               *ya_var;
-    int                   ya_lex_state;  /* lex start condition (ESCAPE/COMMENT) */
-    int                   ya_lex_string_state; /* lex start condition (STRING) */
-
+    clicon_handle         yy_handle;       /* cligen_handle */
+    char                 *yy_name;         /* Name of syntax (for error string) */
+    int                   yy_linenum;      /* Number of \n in parsed buffer */
+    char                 *yy_parse_string; /* original (copy of) parse string */
+    void                 *yy_lexbuf;       /* internal parse buffer from lex */
+    struct ys_stack      *yy_stack;     /* Stack of levels: push/pop on () and [] */
+    int                   yy_lex_state;  /* lex start condition (ESCAPE/COMMENT) */
+    int                   yy_lex_string_state; /* lex start condition (STRING) */
 };
 
 /* This is a malloced piece of code we attach to cligen objects used as db-specs.

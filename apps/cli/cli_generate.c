@@ -328,8 +328,6 @@ WITH COMPLETION:
 
 #endif
 
-#include <src/clicon_yang_parse.tab.h> /* XXX for constants */
-
 static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys, 
 			 xf_t         *xf,    
 			 enum genmodel_type gt,
@@ -350,9 +348,9 @@ yang2cli_var(yang_stmt    *ys,
     yang_stmt    *yp = NULL; /* pattern */
     int           retval = -1;
 
-    if ((yt = yang_find((yang_node*)ys, K_TYPE, NULL)) != NULL){        /* type */
-	yr =  yang_find((yang_node*)yt, K_RANGE, NULL);
-	yp =  yang_find((yang_node*)yt, K_PATTERN, NULL);
+    if ((yt = yang_find((yang_node*)ys, Y_TYPE, NULL)) != NULL){        /* type */
+	yr =  yang_find((yang_node*)yt, Y_RANGE, NULL);
+	yp =  yang_find((yang_node*)yt, Y_PATTERN, NULL);
     }
     xprintf(xf, "(<%s:%s", ys->ys_argument, cv_type2str(cvtype));
     if (yr != NULL)
@@ -388,7 +386,7 @@ yang2cli_leaf(clicon_handle h,
 
     completion = clicon_cli_genmodel_completion(h);
     cvtype = cv_type_get(ys->ys_cv);
-    yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL); /* description */
+    yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL); /* description */
     xprintf(xf, "%*s", level*3, "");
     if (gt == GT_ALL || gt == GT_VARS){
 	xprintf(xf, "%s", ys->ys_argument);
@@ -426,7 +424,7 @@ yang2cli_container(clicon_handle h,
     int           retval = -1;
 
     xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
-    if ((yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL)) != NULL)
+    if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
 	xprintf(xf, "(\"%s\")", yd->ys_argument);
     if ((keyspec = yang_dbkey_get(ys)) != NULL)
 	xprintf(xf, ",cli_set(\"%s\");", keyspec);
@@ -456,14 +454,14 @@ yang2cli_list(clicon_handle h,
     int           retval = -1;
 
     xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
-    if ((yd = yang_find((yang_node*)ys, K_DESCRIPTION, NULL)) != NULL)
+    if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
 	xprintf(xf, "(\"%s\")", yd->ys_argument);
     /* Look for key variable */
-    if ((ykey = yang_find((yang_node*)ys, K_KEY, NULL)) == NULL){
+    if ((ykey = yang_find((yang_node*)ys, Y_KEY, NULL)) == NULL){
 	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
 	goto done;
     }
-    if ((yleaf = yang_find((yang_node*)ys, K_LEAF, ykey->ys_argument)) == NULL){
+    if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, ykey->ys_argument)) == NULL){
 	clicon_err(OE_XML, errno, "List statement \"%s\" has no key leaf \"%s\"", 
 		   ys->ys_argument, ykey->ys_argument);
 	goto done;
@@ -504,16 +502,16 @@ yang2cli_stmt(clicon_handle h,
 //    fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
 //	    yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
-    case K_CONTAINER:
+    case Y_CONTAINER:
 	if (yang2cli_container(h, ys, xf, gt, level) < 0)
 	    goto done;
 	break;
-    case K_LIST:
+    case Y_LIST:
 	if (yang2cli_list(h, ys, xf, gt, level) < 0)
 	    goto done;
 	break;
-    case K_LEAF_LIST:
-    case K_LEAF:
+    case Y_LEAF_LIST:
+    case Y_LEAF:
 	if (yang2cli_leaf(h, ys, xf, gt, level) < 0)
 	    goto done;
 	break;
