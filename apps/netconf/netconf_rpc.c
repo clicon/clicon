@@ -71,7 +71,7 @@
  */
 static int
 netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter, 
-	       xf_t *xf, xf_t *xf_err, 
+	       cbuf *xf, cbuf *xf_err, 
 	       struct xml_node *xt, char *target)
 {
     struct xml_node *xdb; 
@@ -98,9 +98,9 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
     if (xfilter){
 	if ((ftype = xml_get(xfilter, "type")) != NULL){
 	    if (strcmp(ftype, "xpath")==0){ 
-		xprintf(xf, "<configuration>"); /* XXX: hardcoded */
+		cprintf(xf, "<configuration>"); /* XXX: hardcoded */
 		retval = netconf_xpath(xdb, xfilter, xf, xf_err, xt);
-		xprintf(xf, "</configuration>");
+		cprintf(xf, "</configuration>");
 		goto done;
 	    }
 	    else{
@@ -191,7 +191,7 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
 int
 netconf_get_config(clicon_handle h, struct db_spec *dbspec,
 		   struct xml_node *xn, 
-		   xf_t *xf, xf_t *xf_err, 
+		   cbuf *xf, cbuf *xf_err, 
 		   struct xml_node *xt)
 {
     struct xml_node *xfilter; /* filter */
@@ -235,7 +235,7 @@ get_edit_opts(struct xml_node *xn,
 		 enum operation_type *op, 
 		 enum test_option *testopt,
 		 enum error_option *erropt,
-		 xf_t *xf_err, 
+		 cbuf *xf_err, 
 		 struct xml_node *xt) 
 {
     struct xml_node *x;
@@ -351,8 +351,8 @@ int
 netconf_edit_config(clicon_handle h,
 		    struct db_spec *dbspec,
 		    struct xml_node *xn, 
-		    xf_t *xf, 
-		    xf_t *xf_err, 
+		    cbuf *xf, 
+		    cbuf *xf_err, 
 		    struct xml_node *xt)
 {
     int                 retval = -1;
@@ -464,7 +464,7 @@ netconf_edit_config(clicon_handle h,
 int
 netconf_copy_config(clicon_handle h,
 		    struct xml_node *xn, 
-		    xf_t *xf, xf_t *xf_err, 
+		    cbuf *xf, cbuf *xf_err, 
 		    struct xml_node *xt)
 {
     char              *source, *target; /* filenames */
@@ -531,7 +531,7 @@ netconf_copy_config(clicon_handle h,
 int
 netconf_delete_config(clicon_handle h,
 		      struct xml_node *xn, 
-		      xf_t *xf, xf_t *xf_err, 
+		      cbuf *xf, cbuf *xf_err, 
 		      struct xml_node *xt)
 {
     char              *target; /* filenames */
@@ -594,7 +594,7 @@ netconf_delete_config(clicon_handle h,
     <close-session/> 
 */
 int
-netconf_close_session(struct xml_node *xn, xf_t *xf, xf_t *xf_err, struct xml_node *xt)
+netconf_close_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_node *xt)
 {
     cc_closed++;
     netconf_ok_set(1);
@@ -611,7 +611,7 @@ netconf_close_session(struct xml_node *xn, xf_t *xf, xf_t *xf_err, struct xml_no
 int
 netconf_lock(clicon_handle h,
 	     struct xml_node *xn, 
-	     xf_t *xf, xf_t *xf_err, 
+	     cbuf *xf, cbuf *xf_err, 
 	     struct xml_node *xt)
 {
     char *target;
@@ -664,7 +664,7 @@ netconf_lock(clicon_handle h,
 int
 netconf_unlock(clicon_handle h, 
 	       struct xml_node *xn, 
-	       xf_t *xf, xf_t *xf_err, 
+	       cbuf *xf, cbuf *xf_err, 
 	       struct xml_node *xt)
 {
     char *target;
@@ -722,7 +722,7 @@ netconf_unlock(clicon_handle h,
   </kill-session> 
  */
 int
-netconf_kill_session(struct xml_node *xn, xf_t *xf, xf_t *xf_err, struct xml_node *xt)
+netconf_kill_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_node *xt)
 {
 #ifdef notyet
     struct xml_node *xsessionid;
@@ -769,7 +769,7 @@ netconf_kill_session(struct xml_node *xn, xf_t *xf, xf_t *xf_err, struct xml_nod
 int
 netconf_commit(clicon_handle h,
 	       struct xml_node *xn, 
-	       xf_t *xf, xf_t *xf_err, 
+	       cbuf *xf, cbuf *xf_err, 
 	       struct xml_node *xt)
 {
     struct clicon_msg *msg;     /* inline from cli_proto_commit */
@@ -811,7 +811,7 @@ netconf_commit(clicon_handle h,
  */
 int
 netconf_discard_changes(clicon_handle h,
-			struct xml_node *xn, xf_t *xf, xf_t *xf_err, 
+			struct xml_node *xn, cbuf *xf, cbuf *xf_err, 
 			struct xml_node *xt)
 {
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
@@ -845,7 +845,7 @@ netconf_discard_changes(clicon_handle h,
 int
 netconf_validate(clicon_handle h, 
 		 struct xml_node *xn, 
-		 xf_t *xf, xf_t *xf_err, 
+		 cbuf *xf, cbuf *xf_err, 
 		 struct xml_node *xt)
 {
     char *target;
@@ -893,7 +893,7 @@ netconf_notification_cb(int s, void *arg)
     char              *event = NULL;
     int                level;
     int                retval = -1;
-    xf_t              *xf;
+    cbuf              *xf;
     struct xml_node   *xe = NULL; /* event xml */
 
     if (0){
@@ -929,19 +929,19 @@ netconf_notification_cb(int s, void *arg)
 	    break;
 	}
 	/* create netconf message */
-	if ((xf = xf_alloc()) == NULL){
-	    clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+	if ((xf = cbuf_new()) == NULL){
+	    clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
 	    goto done;
 	}
 	add_preamble(xf); /* Make it well-formed netconf xml */
-	xprintf(xf, "%s", event); 
+	cprintf(xf, "%s", event); 
 	add_postamble(xf);
 	/* Send it to listening client on stdout */
 	if (netconf_output(1, xf, "notification") < 0){
-	    xf_free(xf);
+	    cbuf_free(xf);
 	    goto done;
 	}
-	xf_free(xf);
+	cbuf_free(xf);
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
@@ -971,7 +971,7 @@ netconf_notification_cb(int s, void *arg)
 static int
 netconf_create_subscription(clicon_handle h, 
 			    struct xml_node *xn, 
-			    xf_t *xf, xf_t *xf_err, 
+			    cbuf *xf, cbuf *xf_err, 
 			    struct xml_node *xt)
 {
     struct xml_node *xstream;
@@ -1050,8 +1050,8 @@ netconf_rpc_dispatch(clicon_handle h,
 		     struct db_spec *dbspec,
 		     struct xml_node *xorig, 
 		     struct xml_node *xn, 
-		     xf_t *xf, 
-		     xf_t *xf_err)
+		     cbuf *xf, 
+		     cbuf *xf_err)
 {
     struct xml_node *xe;
     int ret = 0;
@@ -1119,7 +1119,7 @@ netconf_rpc_dispatch(clicon_handle h,
  * Then send it using send_msg_to_client()
  */
 int 
-netconf_create_rpc_reply(xf_t *xf,            /* msg buffer */
+netconf_create_rpc_reply(cbuf *xf,            /* msg buffer */
 			 struct xml_node *xr, /* orig request */
 			 char *body,
 			 int ok
@@ -1129,25 +1129,25 @@ netconf_create_rpc_reply(xf_t *xf,            /* msg buffer */
     int i;
 
     add_preamble(xf);
-    xprintf(xf, "<rpc-reply"); /* attributes from rpc */
+    cprintf(xf, "<rpc-reply"); /* attributes from rpc */
     if (xr && (xn=xml_xpath(xr, "//rpc")) != NULL){
 	for (i=0; i<xn->xn_nrchildren; i++){
 	    xa = xn->xn_children[i];
 	    if (xa->xn_type != XML_ATTRIBUTE)
 		continue;
-	    xprintf(xf, " %s=\"%s\"", xa->xn_name, xa->xn_value);
+	    cprintf(xf, " %s=\"%s\"", xa->xn_name, xa->xn_value);
 	}
     }
-    xprintf(xf, ">");
+    cprintf(xf, ">");
     if (ok) /* Just _maybe_ we should send data instead of ok if (if there is any)
 	       even if ok is set? */
-	xprintf(xf, "<ok/>");
+	cprintf(xf, "<ok/>");
     else{
-	xprintf(xf, "<data>");
-	xprintf(xf, "%s", body);
-	xprintf(xf, "</data>");
+	cprintf(xf, "<data>");
+	cprintf(xf, "%s", body);
+	cprintf(xf, "</data>");
     }
-    xprintf(xf, "</rpc-reply>");
+    cprintf(xf, "</rpc-reply>");
     add_postamble(xf);
     return 0;
 }
@@ -1163,7 +1163,7 @@ netconf_create_rpc_reply(xf_t *xf,            /* msg buffer */
  *  ...  arguments to rpc-error reply message
  */
 int 
-netconf_create_rpc_error(xf_t *xf,            /* msg buffer */
+netconf_create_rpc_error(cbuf *xf,            /* msg buffer */
 			 struct xml_node *xr, /* orig request */
 			 char *tag, 
 			 char *type,
@@ -1172,18 +1172,18 @@ netconf_create_rpc_error(xf_t *xf,            /* msg buffer */
 			 char *info)
 {
     add_error_preamble(xf, tag);
-    xprintf(xf, "<rpc-reply>");
-    xprintf(xf, "<rpc-error>");
+    cprintf(xf, "<rpc-reply>");
+    cprintf(xf, "<rpc-error>");
     if (tag)
-	xprintf(xf, "<error-tag>%s</error-tag>", tag);
-    xprintf(xf, "<error-type>%s</error-type>", type);
-    xprintf(xf, "<error-severity>%s</error-severity>", severity);
+	cprintf(xf, "<error-tag>%s</error-tag>", tag);
+    cprintf(xf, "<error-type>%s</error-type>", type);
+    cprintf(xf, "<error-severity>%s</error-severity>", severity);
     if (message)
-	xprintf(xf, "<error-message>%s</error-message>", message);
+	cprintf(xf, "<error-message>%s</error-message>", message);
     if (info)
-	xprintf(xf, "<error-info>%s</error-info>", info);
-    xprintf(xf, "</rpc-error>");
-    xprintf(xf, "</rpc-reply>");
+	cprintf(xf, "<error-info>%s</error-info>", info);
+    cprintf(xf, "</rpc-error>");
+    cprintf(xf, "</rpc-reply>");
     add_error_postamble(xf);
     return 0;
 }

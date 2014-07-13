@@ -14,9 +14,12 @@ A typical installation is as follows:
     > sudo make install         # Install libs, binaries, and config-files
     > sudo make install-include # Install include files (for compiling)
 
-Several example applications are provided, including Hello, NTP, and datamodel.
+Several example applications are provided, including Hello, NTP, and
+datamodel. See also [ROST](https://github.com/clicon/rost) which is an
+open-source router using CLICON. It all origins from work at
+[KTH](http://www.csc.kth.se/~olofh/10G_OSR)
 
-CLIgen [CLIgen](http://www.cligen.se) is required for building CLICON. If you need 
+[CLIgen](http://www.cligen.se) is required for building CLICON. If you need 
 to build and install CLIgen: 
 
     git clone https://github.com/olofhagsand/cligen.git

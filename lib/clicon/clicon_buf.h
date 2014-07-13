@@ -1,5 +1,5 @@
 /*
- *  CVS Version: $Id: netconf_hello.h,v 1.4 2013/08/01 09:15:46 olof Exp $
+ *  CVS Version: $Id: xmlgen_xf.h,v 1.4 2013/08/01 09:15:46 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -18,18 +18,35 @@
   You should have received a copy of the GNU General Public License
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
+ */
 
- *
- *  Code for handling netconf hello messages
- *****************************************************************************/
-#ifndef _NETCONF_HELLO_H_
-#define _NETCONF_HELLO_H_
+/*
+ * CLICON dynamic buffers 
+ * Usage:
+ * cbuf *xf;
+ * xf = cbuf_new();
+ * write(f, cbuf_get(xf), cbuf_len(xf));
+ * cbuf_free(xf);
+ */
+
+#ifndef _CLICON_BUF_H
+#define _CLICON_BUF_H
+
+#include <stdarg.h> 
+
+/*
+ * Types
+ */
+typedef struct cbuf cbuf; /* clicon buffer type is fully defined in c-file */
 
 /*
  * Prototypes
- */ 
-int netconf_create_hello(cbuf *xf, int session_id);
+ */
+cbuf *cbuf_new(void);
+void  cbuf_free(cbuf *cb);
+char *cbuf_get(cbuf *cb);
+int   cbuf_len(cbuf *cb);
+int   cprintf(cbuf *cb, const char *format, ...);
+void  cbuf_reset(cbuf *cb);
 
-int netconf_hello_dispatch(struct xml_node *xn);
-
-#endif  /* _NETCONF_HELLO_H_ */
+#endif /* _CLICON_BUF_H */

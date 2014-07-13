@@ -25,7 +25,6 @@
 
 %{
 
-
 #include "clicon_config.h"
 
 #include <stdio.h>
@@ -46,7 +45,7 @@
 #include "clicon_yang.h"
 #include "clicon_yang_parse.h"
 
-/* Redefine main lex function so that you can send arguments to it */
+/* Redefine main lex function so that you can send arguments to it: _yy is added to arg list */
 #define YY_DECL int clicon_yang_parselex(void *_yy)
 
 /* Dont use input function (use user-buffer) */

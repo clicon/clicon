@@ -74,10 +74,10 @@ netconf_ok_get(void)
 }
 
 int
-add_preamble(xf_t *xf)
+add_preamble(cbuf *xf)
 {
     if (transport == NETCONF_SOAP)
-	xprintf(xf, "\n<soapenv:Envelope\n xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\">\n"
+	cprintf(xf, "\n<soapenv:Envelope\n xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\">\n"
 	"<soapenv:Body>");
     return 0;
 }
@@ -88,14 +88,14 @@ add_preamble(xf_t *xf)
  * for soap this is the envelope stuff, for ssh this is ]]>]]>
  */
 int
-add_postamble(xf_t *xf)
+add_postamble(cbuf *xf)
 {
     switch (transport){
     case NETCONF_SSH:
-	xprintf(xf, "]]>]]>");     /* Add RFC4742 end-of-message marker */
+	cprintf(xf, "]]>]]>");     /* Add RFC4742 end-of-message marker */
 	break;
     case NETCONF_SOAP:
-	xprintf(xf, "\n</soapenv:Body>" "</soapenv:Envelope>");
+	cprintf(xf, "\n</soapenv:Body>" "</soapenv:Envelope>");
 	break;
     }
     return 0;
@@ -107,11 +107,11 @@ add_postamble(xf_t *xf)
  * protocols (eg soap) by adding a longer and deeper header.
  */
 int
-add_error_preamble(xf_t *xf, char *reason)
+add_error_preamble(cbuf *xf, char *reason)
 {
     switch (transport){
     case NETCONF_SOAP:
-	xprintf(xf, "<soapenv:Envelope xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:xml=\"http://www.w3.org/XML/1998/namespace\">"
+	cprintf(xf, "<soapenv:Envelope xmlns:soapenv=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:xml=\"http://www.w3.org/XML/1998/namespace\">"
 		"<soapenv:Body>"
 		"<soapenv:Fault>"
 		"<soapenv:Code>"
@@ -136,11 +136,11 @@ add_error_preamble(xf_t *xf, char *reason)
  * protocols (eg soap) by adding a longer and deeper header.
  */
 int
-add_error_postamble(xf_t *xf)
+add_error_postamble(cbuf *xf)
 {
     switch (transport){
     case NETCONF_SOAP:
-	xprintf(xf, "</detail>" "</soapenv:Fault>");
+	cprintf(xf, "</detail>" "</soapenv:Fault>");
     default: /* fall through */
 	if (add_postamble(xf) < 0)
 	    return -1;
@@ -260,10 +260,10 @@ done:
 }
 
 int 
-netconf_output(int s, xf_t *xf, char *msg)
+netconf_output(int s, cbuf *xf, char *msg)
 {
-    char *buf = xf_buf(xf);
-    int len = xf_len(xf);
+    char *buf = cbuf_get(xf);
+    int len = cbuf_len(xf);
     int retval = -1;
 
     clicon_debug(1, "SEND %s", msg);

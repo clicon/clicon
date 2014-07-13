@@ -95,25 +95,25 @@ netconf_hello_dispatch(struct xml_node *xn)
  * create capability string (once)
  */
 int
-netconf_create_hello(xf_t *xf,            /* msg buffer */
+netconf_create_hello(cbuf *xf,            /* msg buffer */
 		     int session_id)
 {
     int retval = 0;
 
     add_preamble(xf);
-    xprintf(xf, "<hello>");
-    xprintf(xf, "<capabilities>");
-    xprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:base:1.0</capability>\n");
-    xprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:capability:candidate:1:0</capability>\n");
-    xprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:capability:validate:1.0</capability>\n");
-   xprintf(xf, "<capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>\n");
-   xprintf(xf, "<capability>urn:ietf:params:netconf:capability:notification:1.0</capability>\n");
+    cprintf(xf, "<hello>");
+    cprintf(xf, "<capabilities>");
+    cprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:base:1.0</capability>\n");
+    cprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:capability:candidate:1:0</capability>\n");
+    cprintf(xf, "<capability>urn:ietf:params:xml:ns:netconf:capability:validate:1.0</capability>\n");
+   cprintf(xf, "<capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>\n");
+   cprintf(xf, "<capability>urn:ietf:params:netconf:capability:notification:1.0</capability>\n");
 
 
-//    xprintf(xf, "<capability>urn:rnr:rnrapi:1:0</capability>");
-    xprintf(xf, "</capabilities>");
-    xprintf(xf, "<session-id>%lu</session-id>", 42+session_id);
-    xprintf(xf, "</hello>");
+//    cprintf(xf, "<capability>urn:rnr:rnrapi:1:0</capability>");
+    cprintf(xf, "</capabilities>");
+    cprintf(xf, "<session-id>%lu</session-id>", 42+session_id);
+    cprintf(xf, "</hello>");
     add_postamble(xf);
     return retval;
 }

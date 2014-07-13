@@ -45,6 +45,7 @@
 #include <clicon/clicon_dbspec_parsetree.h>
 #endif /* USE_DBSPEC_PT */
 #include <clicon/clicon_yang.h>
+#include <clicon/clicon_yang_type.h>
 #include <clicon/clicon_yang2key.h>
 #include <clicon/clicon_lvalue.h>
 #include <clicon/clicon_dbutil.h>
@@ -64,8 +65,8 @@
 #include <clicon/clicon_dbvars.h>
 #include <clicon/clicon_db2txt.h>
 #include <clicon/clicon_plugin.h>
+#include <clicon/clicon_buf.h>
 
-#include <clicon/xmlgen_xf.h>
 #include <clicon/xmlgen_xml.h>
 #include <clicon/xmlgen_xsl.h>
 

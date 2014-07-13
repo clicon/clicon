@@ -269,8 +269,8 @@ int
 netconf_plugin_callbacks(clicon_handle h,
 //			 struct db_spec *dbspec,
 			 struct xml_node *xn, 
-			 xf_t *xf, 
-			 xf_t *xf_err, 
+			 cbuf *xf, 
+			 cbuf *xf_err, 
 			 struct xml_node *xorig)
 {
     netconf_reg_t *nr;

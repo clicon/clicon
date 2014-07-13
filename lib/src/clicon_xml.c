@@ -58,7 +58,7 @@
 #include "clicon_lvalue.h"
 #include "clicon_dbutil.h"
 #include "clicon_lvmap.h"
-#include "xmlgen_xf.h"
+#include "clicon_buf.h"
 #include "xmlgen_xml.h"
 #include "xmlgen_xsl.h"
 #include "clicon_log.h"

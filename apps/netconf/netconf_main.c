@@ -61,28 +61,25 @@
 #define NETCONF_OPTS "hDa:f:Sqs:d:"
 
 static int
-packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
+packet(clicon_handle h, struct db_spec *ds, cbuf *xf)
 {
     char *str, *str0;
     struct xml_node *xml_req = NULL; /* Request (in) */
     int isrpc = 0;   /* either hello or rpc */
-    xf_t *xf_out;
-    xf_t *xf_err;
-    xf_t *xf1;
+    cbuf *xf_out;
+    cbuf *xf_err;
+    cbuf *xf1;
 
     clicon_debug(1, "RECV");
-    clicon_debug(2, "%s: RCV: \"%s\"", __FUNCTION__, xf_buf(xf));
-    if ((str0 = strdup(xf_buf(xf))) == NULL){
+    clicon_debug(2, "%s: RCV: \"%s\"", __FUNCTION__, cbuf_get(xf));
+    if ((str0 = strdup(cbuf_get(xf))) == NULL){
 	clicon_log(LOG_ERR, "%s: strdup: %s", __FUNCTION__, strerror(errno));
 	return -1;
     }
     str = str0;
     /* Parse incoming XML message */
     if (xml_parse_str(&str, &xml_req) < 0){
-	if ((xf = xf_alloc()) != NULL){
-//	    /* XXX: The errors in xml_parse() not translated to netconf errors */
-//	    if (xf_encode_attr(xf_err) < 0)
-//	    return -1;
+	if ((xf = cbuf_new()) != NULL){
 	    netconf_create_rpc_error(xf, NULL, 
 				     "operation-failed", 
 				     "rpc", "error",
@@ -90,10 +87,10 @@ packet(clicon_handle h, struct db_spec *ds, xf_t *xf)
 				     NULL);
 
 	    netconf_output(1, xf, "rpc-error");
-	    xf_free(xf);
+	    cbuf_free(xf);
 	}
 	else
-	    clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
+	    clicon_log(LOG_ERR, "%s: cbuf_new", __FUNCTION__);
 	free(str0);
 	goto done;
     }
@@ -110,14 +107,14 @@ ed");
             goto done;
         }
     /* Initialize response buffers */
-    if ((xf_out = xf_alloc()) == NULL){
-	clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
+    if ((xf_out = cbuf_new()) == NULL){
+	clicon_log(LOG_ERR, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
 
     /* Create error buf */
-    if ((xf_err = xf_alloc()) == NULL){
-	clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
+    if ((xf_err = cbuf_new()) == NULL){
+	clicon_log(LOG_ERR, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
     netconf_ok_set(0);
@@ -127,41 +124,41 @@ ed");
 				 xml_req, 
 				 xml_xpath(xml_req, "//rpc"), 
 				 xf_out, xf_err) < 0){
-	    assert(xf_len(xf_err));
-	    clicon_debug(1, "%s", xf_buf(xf_err));
+	    assert(cbuf_len(xf_err));
+	    clicon_debug(1, "%s", cbuf_get(xf_err));
 	    if (isrpc){
 		if (netconf_output(1, xf_err, "rpc-error") < 0)
 		    goto done;
 	    }
 	}
 	else{
-	    if ((xf1 = xf_alloc()) != NULL){
-		if (netconf_create_rpc_reply(xf1, xml_req, xf_buf(xf_out), netconf_ok_get()) < 0){
-		    xf_free(xf_out);
-		    xf_free(xf_err);
-		    xf_free(xf1);
+	    if ((xf1 = cbuf_new()) != NULL){
+		if (netconf_create_rpc_reply(xf1, xml_req, cbuf_get(xf_out), netconf_ok_get()) < 0){
+		    cbuf_free(xf_out);
+		    cbuf_free(xf_err);
+		    cbuf_free(xf1);
 		    goto done;
 		}
 		if (netconf_output(1, xf1, "rpc-reply") < 0){
-		    xf_reset(xf1);
+		    cbuf_reset(xf1);
 		    netconf_create_rpc_error(xf1, xml_req, "operation-failed", 
 					     "protocol", "error", 
-					     NULL, xf_buf(xf_err));
+					     NULL, cbuf_get(xf_err));
 		    netconf_output(1, xf1, "rpc-error");
-		    xf_free(xf_out);
-		    xf_free(xf_err);
-		    xf_free(xf1);
+		    cbuf_free(xf_out);
+		    cbuf_free(xf_err);
+		    cbuf_free(xf1);
 		    goto done;
 		}
-		xf_free(xf1);
+		cbuf_free(xf1);
 	    }
 	}
     }
     else{
 	netconf_hello_dispatch(xml_req); /* XXX: return-value */
     }
-    xf_free(xf_out);
-    xf_free(xf_err);
+    cbuf_free(xf_out);
+    cbuf_free(xf_err);
   done:
     if (xml_req)
 	xml_free(xml_req);
@@ -175,12 +172,12 @@ netconf_input_cb(int s, void *arg)
     clicon_handle h = arg;
     unsigned char buf[BUFSIZ];
     int i, len;
-    xf_t *xf;
+    cbuf *xf;
     int xml_state = 0;
     int retval = -1;
 
-    if ((xf = xf_alloc()) == NULL){
-	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+    if ((xf = cbuf_new()) == NULL){
+	clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
 	return retval;
     }
     memset(buf, 0, sizeof(buf));
@@ -201,7 +198,7 @@ netconf_input_cb(int s, void *arg)
     for (i=0; i<len; i++){
 	if (buf[i] == 0)
 	    continue; /* Skip NULL chars (eg from terminals) */
-	xprintf(xf, "%c", buf[i]);
+	cprintf(xf, "%c", buf[i]);
 	if (detect_endtag("]]>]]>",
 			  buf[i],
 			  &xml_state)) {
@@ -211,12 +208,12 @@ netconf_input_cb(int s, void *arg)
 	    }
 	    if (cc_closed)
 		break;
-	    xf_reset(xf);
+	    cbuf_reset(xf);
 	}
     }
     retval = 0;
   done:
-    xf_free(xf);
+    cbuf_free(xf);
     if (cc_closed) 
 	retval = -1;
     return retval;
@@ -229,11 +226,11 @@ netconf_input_cb(int s, void *arg)
 static int
 send_hello(int s)
 {
-    xf_t *xf;
+    cbuf *xf;
     int retval = -1;
     
-    if ((xf = xf_alloc()) == NULL){
-	clicon_log(LOG_ERR, "%s: xf_alloc", __FUNCTION__);
+    if ((xf = cbuf_new()) == NULL){
+	clicon_log(LOG_ERR, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
     if (netconf_create_hello(xf, getpid()) < 0)
@@ -243,7 +240,7 @@ send_hello(int s)
     retval = 0;
   done:
     if (xf)
-	xf_free(xf);
+	cbuf_free(xf);
     return retval;
 }
 

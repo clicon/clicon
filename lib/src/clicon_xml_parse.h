@@ -29,19 +29,24 @@
  */
 struct xml_parse_yacc_arg{
     char                 *ya_parse_string; /* original (copy of) parse string */
+    int                   ya_linenum;      /* Number of \n in parsed buffer */
     void                 *ya_lexbuf;       /* internal parse buffer from lex */
+
+    struct xml_node      *ya_xelement;     /* xml active element */
+    struct xml_node      *ya_xparent;      /* xml parent element*/
 };
+
+extern char *clicon_xml_parsetext;
 
 /*
  * Prototypes
  */
-int xmll_init(struct xml_parse_yacc_arg *ya);
-int xmll_exit(struct xml_parse_yacc_arg *ya);
-int xmly_init(struct xml_node *xn_parent, char *helpstr);
+int clicon_xml_parsel_init(struct xml_parse_yacc_arg *ya);
+int clicon_xml_parsel_exit(struct xml_parse_yacc_arg *ya);
 
-int xmll_linenum(void);
-int xmllex(void *);
-int xmlparse(void *);
+int clicon_xml_parsel_linenr(void);
+int clicon_xml_parselex(void *);
+int clicon_xml_parseparse(void *);
 void xmlgen_xmlerror(char*);
 
 #endif	/* _XMLGEN_PARSE_H_ */

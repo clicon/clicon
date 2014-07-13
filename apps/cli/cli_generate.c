@@ -89,20 +89,20 @@ find_index_variable(dbspec_tree *pt, char *name)
 
 
 int
-print_symbol(xf_t *xf, dbspec_obj *co)
+print_symbol(cbuf *xf, dbspec_obj *co)
 {
-    xprintf(xf, " %s", co->do_command);
+    cprintf(xf, " %s", co->do_command);
     if (co->do_help)
-	xprintf(xf, "(\"%s\")", co->do_help);
+	cprintf(xf, "(\"%s\")", co->do_help);
     return 0;
 }
 
 /* forward */
 static int
-dbspec2cli_co(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt);
+dbspec2cli_co(clicon_handle h, cbuf *xf, dbspec_obj *co, enum genmodel_type gt);
 
 static int
-dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt)
+dbspec2cli_co_cmd(clicon_handle h, cbuf *xf, dbspec_obj *co, enum genmodel_type gt)
 {
     int         retval = -1;
     dbspec_tree *pt;
@@ -129,8 +129,8 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type 
     }
     else{
 	if (dbspec_key_get(co))
-	    xprintf(xf, ",cli_set(\"%s\")", dbspec_key_get(co));
-	xprintf(xf, ";");	    
+	    cprintf(xf, ",cli_set(\"%s\")", dbspec_key_get(co));
+	cprintf(xf, ";");	    
 #if 0 /* obsolete? */
 	struct cg_callback *cc;
 	for (cc = co->co_callbacks; cc; cc=cc->cc_next){
@@ -150,7 +150,7 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type 
 	    continue;
 	/* Avoid empty brackets: {} by ensuring there are subs */
 	if (!subs){
-	    xprintf(xf, "{");
+	    cprintf(xf, "{");
 	    subs++;
 	}
 	/* Add extra keyword regular variables */
@@ -161,31 +161,31 @@ dbspec2cli_co_cmd(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type 
 	    goto done;
     }
     if (subs)
-	xprintf(xf, "}");
+	cprintf(xf, "}");
     retval = 0;
   done:
     return retval;
 }
 
 static int 
-mycov_print(xf_t *xf, dbspec_obj *co, int brief)
+mycov_print(cbuf *xf, dbspec_obj *co, int brief)
 {
     if (co->do_choice){
-	xprintf(xf, "<type:string choice:%s>", co->do_choice);
+	cprintf(xf, "<type:string choice:%s>", co->do_choice);
     }
     else{
 	if (brief)
-	    xprintf(xf, "<%s>", co->do_command);   
+	    cprintf(xf, "<%s>", co->do_command);   
 	else{
-	    xprintf(xf, "<%s:%s", co->do_command, cv_type2str(co->do_vtype));
+	    cprintf(xf, "<%s:%s", co->do_command, cv_type2str(co->do_vtype));
 	    if (co->do_range){
-		xprintf(xf, " range[%" PRId64 ":%" PRId64 "]", 
+		cprintf(xf, " range[%" PRId64 ":%" PRId64 "]", 
 			co->do_range_low, co->do_range_high);
 	    }
 	    if (co->do_regex){
-		xprintf(xf, " regexp:\"%s\"", co->do_regex);
+		cprintf(xf, " regexp:\"%s\"", co->do_regex);
 	    }
-	    xprintf(xf, ">");
+	    cprintf(xf, ">");
 	}
     }
 
@@ -194,16 +194,16 @@ mycov_print(xf_t *xf, dbspec_obj *co, int brief)
 
 
 static int
-dbspec2cli_co_var(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt)
+dbspec2cli_co_var(clicon_handle h, cbuf *xf, dbspec_obj *co, enum genmodel_type gt)
 {
     char *s0, *key;
     int retval = -1;
 
     /* In some cases we should add keyword before variables */	
-    xprintf(xf, " (");
+    cprintf(xf, " (");
     mycov_print(xf, co, 0);
     if (co->do_help)
-	xprintf(xf, "(\"%s\")", co->do_help);
+	cprintf(xf, "(\"%s\")", co->do_help);
     if (clicon_cli_genmodel_completion(h)){
 	char *ds = dbspec_key_get(co);
 	assert(ds); 
@@ -213,21 +213,21 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type 
 	}
 	key = strtok(s0, " ");
 	if (key){
-	    xprintf(xf, "|");
-	    xprintf(xf, "<%s:%s expand_dbvar_auto(\"candidate %s\")>",
+	    cprintf(xf, "|");
+	    cprintf(xf, "<%s:%s expand_dbvar_auto(\"candidate %s\")>",
 		    co->do_command, 
 		    cv_type2str(co->do_vtype),
 		    dbspec_key_get(co)
 		);
 	    free(s0); /* includes token */
 	    if (co->do_help)
-		xprintf(xf, "(\"%s\")", co->do_help);
+		cprintf(xf, "(\"%s\")", co->do_help);
 	}
     }
-    xprintf(xf, ")");
+    cprintf(xf, ")");
     if (dbspec_key_get(co)){
-	xprintf(xf, ",cli_set(\"%s\")", dbspec_key_get(co));
-	xprintf(xf, ";");
+	cprintf(xf, ",cli_set(\"%s\")", dbspec_key_get(co));
+	cprintf(xf, ";");
     }
     retval = 0;
   done:
@@ -238,7 +238,7 @@ dbspec2cli_co_var(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type 
  * Miss callbacks here
  */
 static int
-dbspec2cli_co(clicon_handle h, xf_t *xf, dbspec_obj *co, enum genmodel_type gt)
+dbspec2cli_co(clicon_handle h, cbuf *xf, dbspec_obj *co, enum genmodel_type gt)
 {
     int         retval = -1;
 
@@ -273,11 +273,11 @@ dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_ty
     int             i;
     dbspec_obj     *co;
     int             retval = -1;
-    xf_t           *xf;
+    cbuf           *xf;
     cvec           *globals;       /* global variables from syntax */
 
-    if ((xf = xf_alloc()) == NULL){
-	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+    if ((xf = cbuf_new()) == NULL){
+	clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
     
@@ -289,9 +289,9 @@ dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_ty
     /* Parse the buffer using cligen parser. */
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
-    clicon_debug(1, "xbuf: %s", xf_buf(xf));
+    clicon_debug(1, "xbuf: %s", cbuf_get(xf));
     /* load cli syntax */
-    if (cligen_parse_str(cli_cligen(h), xf_buf(xf), "dbspec2cli", ptnew, globals) < 0)
+    if (cligen_parse_str(cli_cligen(h), cbuf_get(xf), "dbspec2cli", ptnew, globals) < 0)
 	goto done;
     /* Dont check any variables for now (eg name="myspec") */
     cvec_free(globals);
@@ -300,7 +300,7 @@ dbspec2cli(clicon_handle h, dbspec_tree *pt, parse_tree *ptnew, enum genmodel_ty
 	goto done;
     retval = 0;
   done:
-    xf_free(xf);
+    cbuf_free(xf);
     return retval;
 }
 #endif /* USE_DBSPEC_PT */
@@ -329,7 +329,7 @@ WITH COMPLETION:
 #endif
 
 static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys, 
-			 xf_t         *xf,    
+			 cbuf         *xf,    
 			 enum genmodel_type gt,
 			 int           level);
 
@@ -339,70 +339,63 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
  */
 static int
 yang2cli_var(yang_stmt    *ys, 
-	     xf_t         *xf,    
-	     enum cv_type  cvtype,
-	     int completion)
+	     cbuf         *xf,    
+	     int           completion)
 {
-    yang_stmt    *yt;        /* type */
-    yang_stmt    *yr = NULL; /* range */
-    yang_stmt    *yp = NULL; /* pattern */
+    enum cv_type  cvtype;
+    int           options;
     int           retval = -1;
+    int64_t       range_min, range_max; 
+    char         *pattern;
 
-    if ((yt = yang_find((yang_node*)ys, Y_TYPE, NULL)) != NULL){        /* type */
-	yr =  yang_find((yang_node*)yt, Y_RANGE, NULL);
-	yp =  yang_find((yang_node*)yt, Y_PATTERN, NULL);
-    }
-    xprintf(xf, "(<%s:%s", ys->ys_argument, cv_type2str(cvtype));
-    if (yr != NULL)
-	xprintf(xf, " range[%" PRId64 ":%" PRId64 "]", 
-		yr->ys_range_min, yr->ys_range_max);	
-    if (yp != NULL)
-	xprintf(xf, " regexp:\"%s\"", yp->ys_argument);
-    if (completion){
-	xprintf(xf, ">|<%s:%s expand_dbvar_auto(\"candidate %s\")",
+    if (yang_type_get(ys, NULL, &cvtype, &options, &range_min, &range_max, &pattern) < 0)
+	goto done;
+    cprintf(xf, "(<%s:%s", ys->ys_argument, cv_type2str(cvtype));
+    if (options & YANG_OPTIONS_RANGE)
+	cprintf(xf, " range[%" PRId64 ":%" PRId64 "]", range_min, range_max);	
+    if (options & YANG_OPTIONS_PATTERN)
+	cprintf(xf, " regexp:\"%s\"", pattern);
+    if (completion)
+	cprintf(xf, ">|<%s:%s expand_dbvar_auto(\"candidate %s\")",
 		ys->ys_argument, 
 		cv_type2str(cvtype),
 		yang_dbkey_get(ys));
-	/* XXX: maybe yr, yp? */
-    }
-    xprintf(xf, ">)");
+    cprintf(xf, ">)");
     retval = 0;
-//  done:
+  done:
     return retval;
 }
 
 static int
 yang2cli_leaf(clicon_handle h, 
 	      yang_stmt    *ys, 
-	      xf_t         *xf,
+	      cbuf         *xf,
 	      enum genmodel_type gt,
 	      int           level)
 {
     yang_stmt    *yd;  /* description */
     int           retval = -1;
     char         *keyspec;
-    enum cv_type  cvtype;
     int           completion;
 
     completion = clicon_cli_genmodel_completion(h);
-    cvtype = cv_type_get(ys->ys_cv);
     yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL); /* description */
-    xprintf(xf, "%*s", level*3, "");
+    cprintf(xf, "%*s", level*3, "");
     if (gt == GT_ALL || gt == GT_VARS){
-	xprintf(xf, "%s", ys->ys_argument);
+	cprintf(xf, "%s", ys->ys_argument);
 	if (yd != NULL)
-	    xprintf(xf, "(\"%s\")", yd->ys_argument);
-	xprintf(xf, " ");
-	yang2cli_var(ys, xf, cvtype, completion);
+	    cprintf(xf, "(\"%s\")", yd->ys_argument);
+	cprintf(xf, " ");
+	yang2cli_var(ys, xf, completion);
     }
     else
-	yang2cli_var(ys, xf, cvtype, completion);
+	yang2cli_var(ys, xf, completion);
 
     if (yd != NULL)
-	xprintf(xf, "(\"%s\")", yd->ys_argument);
+	cprintf(xf, "(\"%s\")", yd->ys_argument);
     if ((keyspec = yang_dbkey_get(ys)) != NULL)
-	xprintf(xf, ",cli_set(\"%s\")", keyspec);
-   xprintf(xf, ";\n");
+	cprintf(xf, ",cli_set(\"%s\")", keyspec);
+   cprintf(xf, ";\n");
 
     retval = 0;
 //  done:
@@ -413,7 +406,7 @@ yang2cli_leaf(clicon_handle h,
 static int
 yang2cli_container(clicon_handle h, 
 		   yang_stmt    *ys, 
-		   xf_t         *xf,
+		   cbuf         *xf,
 		   enum genmodel_type gt,
 		   int           level)
 {
@@ -423,17 +416,17 @@ yang2cli_container(clicon_handle h,
     int           i;
     int           retval = -1;
 
-    xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
+    cprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
     if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
-	xprintf(xf, "(\"%s\")", yd->ys_argument);
+	cprintf(xf, "(\"%s\")", yd->ys_argument);
     if ((keyspec = yang_dbkey_get(ys)) != NULL)
-	xprintf(xf, ",cli_set(\"%s\");", keyspec);
-   xprintf(xf, "{\n");
+	cprintf(xf, ",cli_set(\"%s\");", keyspec);
+   cprintf(xf, "{\n");
     for (i=0; i<ys->ys_len; i++)
 	if ((yc = ys->ys_stmt[i]) != NULL)
 	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
 		goto done;
-    xprintf(xf, "%*s}\n", level*3, "");
+    cprintf(xf, "%*s}\n", level*3, "");
     retval = 0;
   done:
     return retval;
@@ -442,7 +435,7 @@ yang2cli_container(clicon_handle h,
 static int
 yang2cli_list(clicon_handle h, 
 	      yang_stmt    *ys, 
-	      xf_t         *xf,
+	      cbuf         *xf,
 	      enum genmodel_type gt,
 	      int           level)
 {
@@ -453,9 +446,9 @@ yang2cli_list(clicon_handle h,
     int           i;
     int           retval = -1;
 
-    xprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
+    cprintf(xf, "%*s%s", level*3, "", ys->ys_argument);
     if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
-	xprintf(xf, "(\"%s\")", yd->ys_argument);
+	cprintf(xf, "(\"%s\")", yd->ys_argument);
     /* Look for key variable */
     if ((ykey = yang_find((yang_node*)ys, Y_KEY, NULL)) == NULL){
 	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
@@ -469,7 +462,7 @@ yang2cli_list(clicon_handle h,
     /* Print key variable now, and skip it in loop below */
     if (yang2cli_leaf(h, yleaf, xf, gt, level+1) < 0)
 	goto done;
-    xprintf(xf, "{\n");
+    cprintf(xf, "{\n");
     for (i=0; i<ys->ys_len; i++)
 	if ((yc = ys->ys_stmt[i]) != NULL){
 	    if (yc == yleaf) /* skip key leaf since done above */
@@ -477,7 +470,7 @@ yang2cli_list(clicon_handle h,
 	    if (yang2cli_stmt(h, yc, xf, gt, level+1) < 0)
 		goto done;
 	}
-    xprintf(xf, "%*s}\n", level*3, "");
+    cprintf(xf, "%*s}\n", level*3, "");
     retval = 0;
   done:
     return retval;
@@ -490,7 +483,7 @@ yang2cli_list(clicon_handle h,
 static int
 yang2cli_stmt(clicon_handle h, 
 	      yang_stmt    *ys, 
-	      xf_t         *xf,
+	      cbuf         *xf,
 	      enum genmodel_type gt,
 	      int           level /* indentation level for pretty-print */
     )
@@ -542,14 +535,14 @@ yang2cli(clicon_handle h,
 	 parse_tree *ptnew, 
 	 enum genmodel_type gt)
 {
-    xf_t           *xf;
+    cbuf           *xf;
     int             i;
     int             retval = -1;
     yang_stmt      *ys = NULL;
     cvec           *globals;       /* global variables from syntax */
 
-    if ((xf = xf_alloc()) == NULL){
-	clicon_err(OE_XML, errno, "%s: xf_alloc", __FUNCTION__);
+    if ((xf = cbuf_new()) == NULL){
+	clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
     /* Traverse YANG specification: loop through statements */
@@ -559,18 +552,18 @@ yang2cli(clicon_handle h,
 		goto done;
 	}
     if (debug)
-	fprintf(stderr, "%s: buf\n%s\n", __FUNCTION__, xf_buf(xf));
+	fprintf(stderr, "%s: buf\n%s\n", __FUNCTION__, cbuf_get(xf));
     /* Parse the buffer using cligen parser. XXX why this?*/
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
     /* load cli syntax */
-    if (cligen_parse_str(cli_cligen(h), xf_buf(xf), 
+    if (cligen_parse_str(cli_cligen(h), cbuf_get(xf), 
 			 "yang2cli", ptnew, globals) < 0)
 	goto done;
     cvec_free(globals);
 
     retval = 0;
   done:
-    xf_free(xf);
+    cbuf_free(xf);
     return retval;
 }

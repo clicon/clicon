@@ -64,6 +64,7 @@
 #include "clicon_dbspec.h"
 #endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
+#include "clicon_yang_type.h"
 #include "clicon_yang_parse.h"
 
 /*
@@ -78,30 +79,6 @@ struct map_str2int{
     int           ms_int;
 };
 
-/* Mapping between yang types <--> cligen types
-   Note, first match used wne translating from cv to yang --> order is significant */
-static const struct map_str2int ytmap[] = {
-    {"int32",       CGV_INT},
-    {"binary",      CGV_INT}, /* XXX not really int */
-    {"bits",        CGV_INT}, /* XXX not really int */
-    {"boolean",     CGV_BOOL},
-    {"decimal64",   CGV_INT},  /* XXX not really int */
-    {"empty",       CGV_INT},  /* XXX not really int */
-    {"enumeration", CGV_INT},  /* XXX not really int */
-    {"identityref", CGV_INT},  /* XXX not really int */
-    {"instance-identifier", CGV_INT}, /* XXX not really int */
-    {"int8",        CGV_INT},  /* XXX not really int */
-    {"int16",       CGV_INT},  /* XXX not really int */
-    {"int64",       CGV_LONG},
-    {"leafref",     CGV_INT},  /* XXX not really int */
-    {"string",      CGV_STRING},
-    {"uint8",       CGV_INT},  /* XXX not really int */
-    {"uint16",      CGV_INT},  /* XXX not really int */
-    {"uint32",      CGV_INT},  /* XXX not really int */
-    {"uint64",      CGV_LONG}, /* XXX not really int */
-    {"union",       CGV_INT},  /* XXX not really int */
-    {NULL, -1}
-};
 
 /* Mapping between yang keyword string <--> clicon constants */
 static const struct map_str2int ykmap[] = {
@@ -414,10 +391,15 @@ yang_print(FILE *f, yang_node *yn, int marginal)
     return 0;
 }
 
+
 /*! Populate yang leafs after first round of parsing. Create a cv and fill it in.
  *
- * A leaf should consist of a cligen variable (cv) for type information and
- * mandatory status, default value, and key in a list.
+ * Populate leaf in 2nd round of yang parsing, now that context is complete:
+ * 1. Find type specification and set cv type accordingly 
+ * 2. Create the CV using cvtype and name it 
+ * 3. Check if default value. Here we parse the string in the default-stmt and add it to leafs cv.
+ * 4. Check if leaf is part of list, if key exists mark leaf as key/unique 
+ * XXX: extend type search
  */
 static int
 ys_populate_leaf(yang_stmt *ys, void *arg)
@@ -425,35 +407,48 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     int             retval = -1;
     cg_var         *cv = NULL;
     yang_node      *yparent; 
-    yang_stmt      *ytype; 
     yang_stmt      *ydef; 
     yang_stmt      *ykey = NULL; 
     enum cv_type    cvtype = CGV_ERR;
     int             cvret;
     char           *reason = NULL;
 
-    /* 1. Find parent and matching 'key'-statemnt */
-    if ((yparent = ys->ys_parent) != NULL && yparent->yn_keyword == Y_LIST)
-	ykey = yang_find(yparent, Y_KEY, ys->ys_argument);
+    yparent = ys->ys_parent;     /* Find parent: list/container */
 
-    /* 2. Find type specification and set cv type accordingly */
+    /*
+     * XXX: more elaborate type handling: how to get the type and create the CV accordingly?
+     * See also:
+     *   - ys_cv_validate() which looks for type, range and pattern
+     *   - yang2cli_var() which looks for type & range & pattern
+     * Kan man tänka sig en symbol-lista med typer + range/pattern info?
+     * Eller ska man spara det i parse-trädet som nu?
+     */
+    /* 1. Find type specification and set cv type accordingly */
+    if (yang_type_get(ys, NULL, &cvtype, NULL, NULL, NULL, NULL) < 0)
+	goto done;
+#if 0
     if ((ytype = yang_find((yang_node*)ys, Y_TYPE, NULL)) != NULL){
 	if (yang2cv_type(ytype->ys_argument, &cvtype) < 0)
 	    goto done;
     }
+#endif
     if (cvtype == CGV_ERR){
-	clicon_err(OE_DB, 0, "%s: No mapping to cv-type from yang type: %s\n", 
-		   __FUNCTION__, ytype->ys_argument);
+	clicon_err(OE_DB, 0, "%s: Wrong type", __FUNCTION__);
 	goto done;
     }
-	
-    /* 3. Check if default value. Here we parse the cv in the default-stmt
-          Or should we parse this into the key-stmt itself?
-     */
+		
+    /* 2. Create the CV using cvtype and name it */
     if ((cv = cv_new(cvtype)) == NULL){
 	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
 	goto done;
     }
+    if (cv_name_set(cv, ys->ys_argument) == NULL){
+	clicon_err(OE_DB, errno, "%s: cv_new_set", __FUNCTION__); 
+	goto done;
+    }
+    /* 3. Check if default value. Here we parse the string in the default-stmt
+     * and add it to the leafs cv.
+     */
     if ((ydef = yang_find((yang_node*)ys, Y_DEFAULT, NULL)) != NULL){
 	if ((cvret = cv_parse1(ydef->ys_argument, cv, &reason)) < 0){ /* error */
 	    clicon_err(OE_DB, errno, "parsing cv");
@@ -466,23 +461,14 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
 	}
     }
     else{
-	/* 3b. If not default value, just create a var. */
+	/* 3b. If not default value, indicate empty cv. */
 	cv_flag_set(cv, V_UNSET); /* no value (no default) */
     }
-    if (cv_name_set(cv, ys->ys_argument) == NULL){
-	clicon_err(OE_DB, errno, "%s: cv_new_set", __FUNCTION__); 
-	goto done;
-    }
 
-    /* 4. Check if leaf is part of list and this is the key */
-    if (ykey)
+    /* 4. Check if leaf is part of list, if key exists mark leaf as key/unique */
+    if (yparent && yparent->yn_keyword == Y_LIST &&
+	(ykey = yang_find(yparent, Y_KEY, ys->ys_argument)) != NULL)
 	cv_flag_set(cv, V_UNIQUE);
-
-#ifdef moved_to_ys_parse_sub
-    /* 5. Check if mandatory */
-    if ((yman = yang_find((yang_node*)ys, Y_MANDATORY, NULL)) != NULL)
-	ys->ys_mandatory = cv_bool_get(yman->ys_cv);
-#endif
 
     ys->ys_cv = cv;
     retval = 0;
@@ -646,97 +632,6 @@ yang_parse(clicon_handle h, const char *filename, yang_spec *ysp)
 
 
 
-/*! Translate from a yang type to a cligen variable type
- *
- * Currently many built-in types from RFC6020 and some RFC6991 types.
- * But not all, neither built-in nor 6991.
- * Also, there is no support for derived types, eg yang typedefs.
- * See 4.2.4 in RFC6020
- * Return 0 if no match but set cv_type to CGV_ERR
- */
-int
-yang2cv_type(char *ytype, enum cv_type *cv_type)
-{
-    const struct map_str2int *yt;
-
-    *cv_type = CGV_ERR;
-    /* built-in types */
-    for (yt = &ytmap[0]; yt->ms_str; yt++)
-	if (strcmp(yt->ms_str, ytype) == 0){
-	    *cv_type = yt->ms_int;
-	    return 0;
-	}
-
-    /* special derived types */
-    if (strcmp("ipv4-address", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_IPV4ADDR;
-	return 0;
-    }
-    if (strcmp("ipv6-address", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_IPV6ADDR;
-	return 0;
-    }
-    if (strcmp("ipv4-prefix", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_IPV4PFX;
-	return 0;
-    }
-    if (strcmp("ipv6-prefix", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_IPV6PFX;
-	return 0;
-    }
-    if (strcmp("date-and-time", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_TIME;
-	return 0;
-    }
-    if (strcmp("mac-address", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_MACADDR;
-	return 0;
-    }
-    if (strcmp("uuid", ytype) == 0){ /* RFC6991 */
-	*cv_type = CGV_UUID;
-	return 0;
-    }
-    return 0;
-}
-
-/*! Translate from a cligen variable type to a yang type
- */
-char *
-cv2yang_type(enum cv_type cv_type)
-{
-    const struct map_str2int  *yt;
-    char                *ytype;
-
-    ytype = "empty";
-    /* built-in types */
-    for (yt = &ytmap[0]; yt->ms_str; yt++)
-	if (yt->ms_int == cv_type)
-	    return yt->ms_str;
-
-    /* special derived types */
-    if (cv_type == CGV_IPV4ADDR) /* RFC6991 */
-	return "ipv4_address";
-
-    if (cv_type == CGV_IPV6ADDR) /* RFC6991 */
-	return "ipv6_address";
-
-    if (cv_type == CGV_IPV4PFX) /* RFC6991 */
-	return "ipv4_prefix";
-
-    if (cv_type == CGV_IPV6PFX) /* RFC6991 */
-	return "ipv6_prefix";
-
-    if (cv_type == CGV_TIME) /* RFC6991 */
-	return "date-and-time";
-
-    if (cv_type == CGV_MACADDR) /* RFC6991 */
-	return "mac-address";
-
-    if (cv_type == CGV_UUID) /* RFC6991 */
-	return "uuid";
-
-    return ytype;
-}
 
 
 /*! Get dbspec key of a yang statement, used when generating cli
@@ -1001,97 +896,3 @@ ys_parse_sub(yang_stmt *ys)
     return retval;
 }
 
-/*! Validate cligen variable cv using yang statement as spec
- *
- * @param [in]  cv      A cligen variable to validate. This is a correctly parsed cv.
- * @param [in]  ys      A yang statement, must be leaf of leaf-list.
- * @param [out] reason  If given, and if return value is 0, contains a malloced string
- *                      describing the reason why the validation failed. Must be freed.
- * @retval -1  Error (fatal), with errno set to indicate error
- * @retval 0   Validation not OK, malloced reason is returned. Free reason with free()
- * @retval 1   Validation OK
- */
-int
-ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
-{
-    int             retval = 1; /* OK */
-    cg_var         *ycv;        /* cv of yang-statement */  
-    long long       i = 0;
-    char           *str;
-    yang_stmt      *ytype;
-    yang_stmt      *yrange;
-    yang_stmt      *ypattern;
-    int             retval2;
-    char           *pattern;
-
-    if (ys->ys_keyword != Y_LEAF && ys->ys_keyword != Y_LEAF_LIST)
-	return 0;
-    ycv = ys->ys_cv;
-    
-    if ((ytype = yang_find((yang_node*)ys, Y_TYPE, NULL)) == NULL){
-	clicon_err(OE_DB, 0, "type not found under leaf %s", ys->ys_argument);
-	return -1;
-    }
-    switch (cv_type_get(ycv)){
-    case CGV_INT:
-	i = cv_int_get(cv);
-    case CGV_LONG: /* fallthru */
-	 /* Check range if specified */
-	if (cv_type_get(ycv) == CGV_LONG)
-	    i = cv_long_get(cv);
-	if ((yrange = yang_find((yang_node*)ytype, Y_RANGE, NULL)) != NULL){
-	    if (i < yrange->ys_range_min || i > yrange->ys_range_max) {
-		if (reason)
-		    *reason = cligen_reason("Number out of range: %i", i);
-		retval = 0;
-	    }
-	}
-	break;
-    case CGV_STRING:
-	str = cv_string_get(cv);
-	i = strlen(str);
-	if ((yrange = yang_find((yang_node*)ytype, Y_LENGTH, NULL)) != NULL){
-	    if (i < yrange->ys_range_min || i > yrange->ys_range_max) {
-		if (reason)
-		    *reason = cligen_reason("String length out of range: %i", i);
-		retval = 0;
-	    }
-	}
-	if ((ypattern = yang_find((yang_node*)ytype, Y_PATTERN, NULL)) != NULL){
-	    pattern = ypattern->ys_argument;
-	    if ((retval2 = match_regexp(str, pattern)) < 0){
-		clicon_err(OE_DB, 0, "match_regexp: %s", pattern);
-		return -1;
-	    }
-	    if (retval2 == 0){
-		if (reason)
-		    *reason = cligen_reason("regexp match fail: %s does not match %s",
-					    str, pattern);
-		retval = 0;
-	    }
-	}
-	break;
-    case CGV_ERR:
-    case CGV_VOID:
-	retval = 0;
-	if (reason)
-	    *reason = cligen_reason("Invalid cv");
-	retval = 0;
-	break;
-    case CGV_BOOL:
-    case CGV_INTERFACE:
-    case CGV_REST:
-    case CGV_IPV4ADDR: 
-    case CGV_IPV6ADDR: 
-    case CGV_IPV4PFX: 
-    case CGV_IPV6PFX: 
-    case CGV_MACADDR:
-    case CGV_URL: 
-    case CGV_UUID: 
-    case CGV_TIME: 
-	break;
-    }
-    if (reason && *reason)
-	assert(retval == 0);
-    return retval;
-}

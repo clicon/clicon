@@ -69,12 +69,12 @@ extern int cc_closed;
 void netconf_ok_set(int ok);
 int netconf_ok_get(void);
 
-int add_preamble(xf_t *xf);
-int add_postamble(xf_t *xf);
-int add_error_preamble(xf_t *xf, char *reason);
+int add_preamble(cbuf *xf);
+int add_postamble(cbuf *xf);
+int add_error_preamble(cbuf *xf, char *reason);
 int detect_endtag(char *tag, char ch, int *state);
 char *get_target(clicon_handle h, struct xml_node *xn, char *path);
-int add_error_postamble(xf_t *xf);
-int netconf_output(int s, xf_t *xf, char *msg);
+int add_error_postamble(cbuf *xf);
+int netconf_output(int s, cbuf *xf, char *msg);
 
 #endif  /* _NETCONF_LIB_H_ */

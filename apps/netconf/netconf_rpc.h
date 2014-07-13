@@ -33,13 +33,13 @@ netconf_rpc_dispatch(clicon_handle h,
 		     struct db_spec *ds,
 		     struct xml_node *xorig, 
 		     struct xml_node *xn, 
-		     xf_t *xf, 
-		     xf_t *xf_err);
+		     cbuf *xf, 
+		     cbuf *xf_err);
 
-int netconf_create_rpc_reply(xf_t *xf,            /* msg buffer */
+int netconf_create_rpc_reply(cbuf *xf,            /* msg buffer */
 			     struct xml_node *xr, /* orig request */
 			     char *body, int ok);
-int netconf_create_rpc_error(xf_t *xf,            /* msg buffer */
+int netconf_create_rpc_error(cbuf *xf,            /* msg buffer */
 			     struct xml_node *xr, /* orig request */
 			     char *tag, 
 			     char *type,

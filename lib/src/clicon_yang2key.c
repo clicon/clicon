@@ -70,6 +70,7 @@
 #include "clicon_dbspec_parsetree.h"
 #endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
+#include "clicon_yang_type.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
 #include "clicon_chunk.h"
@@ -433,6 +434,11 @@ yang2key(yang_spec *yspec)
 /*===================================================================================
  * key2yang
  *==================================================================================*/
+
+/*! Translate from key-based dbspec to yang spec
+ *
+ * See also yang2key
+ */
 yang_spec *
 key2yang(struct db_spec *db_spec)
 {

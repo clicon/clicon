@@ -33,7 +33,7 @@
 
 /* clicon */
 #include "clicon_err.h"
-#include "xmlgen_xf.h"
+#include "clicon_buf.h"
 #include "xmlgen_xml.h"
 #include "xmlgen_xsl.h"
 
@@ -169,8 +169,7 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
     size_t xv0_len=0, xv1_len=0;
 
     assert(xn_top);
-    if (xdebug)
-	fprintf(stderr, "xpath: %s\n", xpath);
+
     /* Transform eg "a/b[kalle]" -> "a/b" expr="kalle" */
     if (xpath[strlen(xpath)-1] == ']'){
 	xpath[strlen(xpath)-1] = '\0';
@@ -199,17 +198,8 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
     xv0_len=0;
     xv0[xv0_len++] = xn_top;
     xv1_len = 0;
-    if (xdebug > 1)
-	fprintf(stderr, "pre: %s %d\n", p, (int)strlen(p)); 
+
     while (p && strlen(p) && xv0_len){
-	if (xdebug > 1){
-	    fprintf(stderr, "node:\n"); 
-	    for (i=0; i<xv0_len; i++){
-//		fprintf(stderr, "  [%d:]%s\n", i, xv0[i]->xn_name); 
-//		xml_to_file(stderr, xv0[i], 4, 1);
-//		fprintf(stderr, "\n"); 
-	    }
-	}
 	deep = 0;
 	if (*p == '/') {
 	    p++;
@@ -260,14 +250,6 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 	xv0_len = xv1_len;
 	xv1_len = 0;
     }
-    if (xdebug > 1){
-	fprintf(stderr, "element:\n"); 
-	for (i=0; i<xv0_len; i++){
-	    fprintf(stderr, "  [%d:]%s\n", i, xv0[i]->xn_name); 
-	    xml_to_file(stderr, xv0[i], 4, 1);
-	    fprintf(stderr, "\n"); 
-	}
-    } 
     if (attr){
 	for (i=0; i<xv0_len; i++){
 	    xn = xv0[i];
@@ -285,14 +267,6 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 	memcpy(xv0, xv1, sizeof(struct xml_node*)*xv1_len);
 	xv0_len = xv1_len;
 	xv1_len = 0;
-	if (xdebug > 1){
-	    fprintf(stderr, "attr:\n"); 
-	    for (i=0; i<xv0_len; i++){
-		fprintf(stderr, "  [%d:]%s\n", i, xv0[i]->xn_name); 
-		xml_to_file(stderr, xv0[i], 4, 1);
-		fprintf(stderr, "\n"); 
-	    }
-	}
     } /* attr */
     if (expr){
 	if (*expr == '@'){ /* select attribute */
@@ -351,14 +325,6 @@ xml_xpath1(struct xml_node *xn_top, char *xpath0, int *xv00_len)
 	memcpy(xv0, xv1, sizeof(struct xml_node*)*xv1_len);
 	xv0_len = xv1_len;
 	xv1_len = 0;
-	if (xdebug > 1){
-	    fprintf(stderr, "expr:\n"); 
-	    for (i=0; i<xv0_len; i++){
-		fprintf(stderr, "  [%d:]%s\n", i, xv0[i]->xn_name); 
-		xml_to_file(stderr, xv0[i], 4, 1);
-		fprintf(stderr, "\n"); 
-	    }
-	}
     } /* expr */
   done:
     /* Result in xv0 (if any). Pick result after previous or first of NULL */
@@ -750,18 +716,14 @@ template(struct xml_node *stop, struct xml_node *xtop)
 	return 0;
     if (st->xn_namespace==NULL || strcmp(st->xn_namespace, "xsl"))
 	return 0;
-    if (xdebug)
-	fprintf(stderr, "%s: template found\n", __FUNCTION__);
+
     if ((match = xml_get(st, "match")) == NULL)
 	return 0;
-    if (xdebug)
-	fprintf(stderr, "%s: match:%s\n", __FUNCTION__, match);
-    if (xdebug)
-	fprintf(stderr, "%s: xtop name:%s\n", __FUNCTION__, xtop->xn_name);
+
+
     if ((xt = xml_xpath(xtop, match)) == NULL)
 	return 0;
-    if (xdebug)
-	fprintf(stderr, "%s: match obj:%s\n", __FUNCTION__, xt->xn_name);
+
     if ((rtop = xml_new("top", NULL)) == NULL)
 	return NULL;
     for (i=0; i<st->xn_nrchildren; i++){

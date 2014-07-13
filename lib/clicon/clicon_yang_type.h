@@ -1,8 +1,9 @@
 /*
- *  CVS Version: $Id: netconf_filter.h,v 1.4 2013/08/01 09:15:46 olof Exp $
+ *  CVS Version: $Id: clicon_spec.h,v 1.15 2013/09/20 11:45:08 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
-
+  Olof Hagsand
+ *
   This file is part of CLICON.
 
   CLICON is free software; you can redistribute it and/or modify
@@ -19,19 +20,32 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
- *
- *  netconf match & selection: get and edit operations
- *****************************************************************************/
-#ifndef _NETCONF_FILTER_H_
-#define _NETCONF_FILTER_H_
+ */
+
+#ifndef _CLICON_YANG_TYPE_H_
+#define _CLICON_YANG_TYPE_H_
+
+/*
+ * Constants
+ */
+/*! Bit-fields used in options argument in yang_type_get()
+ */
+#define YANG_OPTIONS_LENGTH   0x01
+#define YANG_OPTIONS_RANGE    YANG_OPTIONS_LENGTH
+#define YANG_OPTIONS_PATTERN  0x02
+
+/*
+ * Types
+ */
+
 
 /*
  * Prototypes
- */ 
-int xml_filter(struct xml_node *xf, struct xml_node *xn);
-int netconf_xpath(struct xml_node *xsearch,
-		  struct xml_node *xfilter, 
-		  cbuf *xf, cbuf *xf_err, 
-		  struct xml_node *xt);
+ */
+int        yang2cv_type(char *ytype, enum cv_type *cv_type);
+char      *cv2yang_type(enum cv_type cv_type);
+int        ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason);
+int        yang_type_get(yang_stmt *ys, char **type, enum cv_type *cvtype, 
+			 int *options, int64_t *min, int64_t *max, char **pattern);
 
-#endif  /* _NETCONF_FILTER_H_ */
+#endif  /* _CLICON_YANG_TYPE_H_ */

@@ -58,7 +58,7 @@ static int
 xml_edit(struct xml_node *filter, 
 	 struct xml_node *parent, 
 	 enum operation_type op,
-	 xf_t *xf_err, 
+	 cbuf *xf_err, 
 	 struct xml_node *xt);
 
 
@@ -199,7 +199,7 @@ xml_filter(struct xml_node *xf, struct xml_node *xn)
  */
 static int
 get_operation(struct xml_node *xn, enum operation_type *op,
-	      xf_t *xf_err, struct xml_node *xt)
+	      cbuf *xf_err, struct xml_node *xt)
 {
     char *opstr;
 
@@ -264,7 +264,7 @@ static int
 edit_selection(struct xml_node *filter, 
 	       struct xml_node *parent, 
 	       enum operation_type op,
-	       xf_t *xf_err, 
+	       cbuf *xf_err, 
 	       struct xml_node *xt)
 {
     int retval = -1;
@@ -319,7 +319,7 @@ static int
 edit_match(struct xml_node *filter, 
 	   struct xml_node *parent, 
 	   enum operation_type op,
-	   xf_t *xf_err, 
+	   cbuf *xf_err, 
 	   struct xml_node *xt,
 	   int match
     )
@@ -481,7 +481,7 @@ static int
 xml_edit(struct xml_node *filter, 
 	 struct xml_node *parent, 
 	 enum operation_type op,
-	 xf_t *xf_err, 
+	 cbuf *xf_err, 
 	 struct xml_node *xt)
 {
     struct xml_node *attr;
@@ -566,8 +566,8 @@ xml_edit(struct xml_node *filter,
 int 
 netconf_xpath(struct xml_node *xsearch,
 	      struct xml_node *xfilter, 
-	      xf_t *xf, 
-	      xf_t *xf_err, 
+	      cbuf *xf, 
+	      cbuf *xf_err, 
 	      struct xml_node *xt)
 {
     struct xml_node  *x;

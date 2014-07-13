@@ -25,6 +25,7 @@
 #ifndef _CLICON_YANG_H_
 #define _CLICON_YANG_H_
 
+
 /*
  * Types
  */
@@ -157,8 +158,6 @@ yang_stmt *yang_find_specnode(yang_node *yn, char *argument);
 
 int        yang_print(FILE *f, yang_node *yn, int marginal);
 int        yang_parse(clicon_handle h, const char *filename, yang_spec *ysp);
-int        yang2cv_type(char *ytype, enum cv_type *cv_type);
-char      *cv2yang_type(enum cv_type cv_type);
 char      *yang_dbkey_get(yang_stmt *ys);
 int        yang_dbkey_set(yang_stmt *ys, char *val);
 int        yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg);
@@ -166,6 +165,5 @@ yang_stmt *dbkey2yang(yang_node *yn, char *dbkey);
 yang_stmt *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
 int        ys_parse_sub(yang_stmt *ys);
-int        ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason);
 
 #endif  /* _CLICON_YANG_H_ */

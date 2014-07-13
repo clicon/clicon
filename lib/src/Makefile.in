@@ -56,21 +56,19 @@ SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
 	  clicon_lvalue.c clicon_lvmap.c clicon_chunk.c clicon_proc.c \
 	  clicon_string.c clicon_handle.c \
 	  clicon_xml.c clicon_file.c clicon_dbutil.c clicon_dbmatch.c \
-	  clicon_spec.c clicon_yang.c clicon_yang2key.c \
+	  clicon_spec.c clicon_yang.c clicon_yang_type.c clicon_yang2key.c \
 	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
 	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \
-	  xmlgen_xf.c xmlgen_xml.c xmlgen_xsl.c
+	  clicon_buf.c xmlgen_xml.c xmlgen_xsl.c
 # disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
 #clicon_dbspec_parsetree.c clicon_dbspec_xxx.c 
 
-# XML parser src
-YACC_SRC	= xml.y
-LEX_SRC		= xml.l
-
-YACCOBJS := lex.xml.o xml.tab.o clicon_dbvars.yy.o clicon_dbvars.tab.o \
-	lex.clicon_yang_parse.o clicon_yang_parse.tab.o \
-	clicon_db2txt.yy.o clicon_db2txt.tab.o 
-
+YACCOBJS := lex.clicon_xml_parse.o clicon_xml_parse.tab.o \
+	     clicon_dbvars.yy.o clicon_dbvars.tab.o \
+	    lex.clicon_yang_parse.o  clicon_yang_parse.tab.o \
+	   clicon_db2txt.yy.o clicon_db2txt.tab.o 
+# Logically, the below 4 should be in YACCOBJS?
+# clicon_xml_parse.yy.o lex.clicon_dbvars.o clicon_yang_parse.yy.o  lex.clicon_db2txt.o 
 # disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
 # lex.clicon_dbspec.o clicon_dbspec.tab.o
 
@@ -91,12 +89,12 @@ all:	 $(MYLIB) $(MYLIBLINK)
 
 clean:
 	rm -f $(OBJS) $(MYLIB) $(MYLIBLINK) $(GENOBJS) $(GENSRC) *.core
-	rm -f xml.tab.[ch] lex.[co]
+	rm -f clicon_xml_parse.tab.[ch] clicon_xml_parse.yy.[co]
 	rm -f clicon_dbvars.tab.[ch] clicon_dbvars.yy.[co]
 	rm -f clicon_db2txt.tab.[ch] clicon_db2txt.yy.[co]
 	rm -f clicon_yang_parse.tab.[ch] clicon_yang_parse.[co]
 	rm -f lex.clicon_yang_parse.c
-	rm -f lex.xml.c
+	rm -f lex.clicon_xml_parse.c
 # disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
 #	rm -f clicon_dbspec.tab.[ch] clicon_dbspec.[co]
 #	rm -f lex.clicon_dbspec.c
@@ -114,15 +112,15 @@ clean:
 %.c : %.l  # cancel implicit lex rule
 
 # xml parser
-lex.xml.c : xml.l xml.tab.h
-	$(LEX) -Pxml xml.l # -d is debug
+lex.clicon_xml_parse.c : clicon_xml_parse.l clicon_xml_parse.tab.h
+	$(LEX) -Pclicon_xml_parse clicon_xml_parse.l # -d is debug
 
-xml.tab.c xml.tab.h: xml.y
-	$(YACC) -l -d -p xml xml.y # -t is debug
-	mv y.tab.c xml.tab.c
-	mv y.tab.h xml.tab.h
+clicon_xml_parse.tab.c clicon_xml_parse.tab.h: clicon_xml_parse.y
+	$(YACC) -l -d -p clicon_xml_parse clicon_xml_parse.y # -t is debug
+	mv y.tab.c clicon_xml_parse.tab.c
+	mv y.tab.h clicon_xml_parse.tab.h
 
-lex.xml.o : lex.xml.c xml.tab.h # special rule to for make clean to work
+lex.clicon_xml_parse.o : lex.clicon_xml_parse.c clicon_xml_parse.tab.h # special rule to for make clean to work
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
 
 # disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in

@@ -36,9 +36,10 @@
 #include "clicon_err.h"
 #include "clicon_queue.h"
 #include "clicon_chunk.h"
-#include "xmlgen_xf.h"
+#include "clicon_buf.h"
+#include "clicon_xml_parse.h"
 #include "xmlgen_xml.h"
-#include "xmlgen_parse.h"
+
 
 /*
  * Kludge to make certain situations (eg Configure) continue
@@ -47,11 +48,6 @@
  */
 int ptxml_continue_on_error = 0;
 
-/*
- * XML debug variable. can be set in several steps
- * with increased debug detail.
- */
-int xdebug = 0;
 
 /*
  * statestr
@@ -64,18 +60,6 @@ statestr(char *tag, char ch, int state)
 	return state+1;
     else
 	return 0;
-}
-
-/*
- * Set debug on xml library
- * return old value.
- * debug output will appear on stderr.
- */
-int
-xml_debug(int value)
-{
-    xdebug = value;
-    return 0;
 }
 
 static int
@@ -801,11 +785,11 @@ xml_to_string(char *str,
  * xf_t *xf;
  * xf = xf_alloc();
  * xf = print_xml_xf_node(xf, xn, 0, 1);
- * xf_free(xf);
+ * cbuf_free(xf);
  * See also xml_to_string
  */
 int
-print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
+print_xml_xf_node(cbuf *xf, struct xml_node *xn, int level, int prettyprint)
 {
     int i;
     struct xml_node *xn_child;
@@ -815,23 +799,23 @@ print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
 
     switch(xn->xn_type){
     case XML_ATTRIBUTE:
-	xprintf(xf, " ");
+	cprintf(xf, " ");
 	if (xn->xn_namespace)
-	    xprintf(xf, "%s:", xn->xn_namespace);
-	xprintf(xf, "%s=\"%s\"", xn->xn_name, xn->xn_value);
+	    cprintf(xf, "%s:", xn->xn_namespace);
+	cprintf(xf, "%s=\"%s\"", xn->xn_name, xn->xn_value);
 	break;
     case XML_BODY:
 	/* The following is required in netconf but destroys xml pretty-printing
 	   in other code */
 #if 1
-	xprintf(xf, "%s", xn->xn_value);
+	cprintf(xf, "%s", xn->xn_value);
 #endif
 	break;
     case XML_ELEMENT:
-	xprintf(xf, "%*s", prettyprint?(level+1):0, "<");
+	cprintf(xf, "%*s", prettyprint?(level+1):0, "<");
 	if (xn->xn_namespace)
-	    xprintf(xf, "%s:", xn->xn_namespace);
-	xprintf(xf, "%s", xn->xn_name);
+	    cprintf(xf, "%s:", xn->xn_namespace);
+	cprintf(xf, "%s", xn->xn_name);
 	/* Two passes: first attributes */
 	for (i=0; i<xn->xn_nrchildren; i++){
 	    xn_child = xn->xn_children[i];
@@ -843,9 +827,9 @@ print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
 	}
 	body = xn->xn_nrchildren && xn->xn_children[0]->xn_type==XML_BODY;
 	if (prettyprint)
-	    xprintf(xf, ">%s", body?"":"\n");
+	    cprintf(xf, ">%s", body?"":"\n");
 	else
-	    xprintf(xf, ">"); /* No CR / want no xtra chars after end-tag */
+	    cprintf(xf, ">"); /* No CR / want no xtra chars after end-tag */
 	/* then nodes */
 	if (!empty){
 	    for (i=0; i<xn->xn_nrchildren; i++){
@@ -855,7 +839,7 @@ print_xml_xf_node(xf_t *xf, struct xml_node *xn, int level, int prettyprint)
 		else
 		    print_xml_xf_node(xf, xn_child, level+2, prettyprint);
 	    }
-	    xprintf(xf, "%*s%s>%s", 
+	    cprintf(xf, "%*s%s>%s", 
 		    (prettyprint&&!body)?(level+2):0, 
 		    "</", 
 		    xn->xn_name,
@@ -884,20 +868,17 @@ xml_parse(char **xml_str, struct xml_node *xn_parent, char *dtd_file,
 	return -1;
     }
     ya.ya_parse_string = str;
-    if (xmll_init(&ya) < 0){
+    ya.ya_xparent = xn_parent;
+    if (clicon_xml_parsel_init(&ya) < 0){
       	free(str);
 	return -1;
     }
-    if (xmly_init(xn_parent, "XML parse") < 0){
-      	free (str);
-	return -1;
-    }
-    if ((retval = xmlparse(&ya)) != 0) {
+    if ((retval = clicon_xml_parseparse(&ya)) != 0) {
 	free (str);
 	return -1;
     }
     free (str);
-    xmll_exit(&ya);
+    clicon_xml_parsel_exit(&ya);
     return 0;
 }
 
@@ -935,8 +916,6 @@ xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag)
     }
     memset(xmlbuf, 0, maxbuf);
     ptr = xmlbuf;
-    if (xdebug)
-	fprintf(stderr, "%s:\n", __FUNCTION__);
     while (1){
 	retval = read(fd, &ch, 1);
 	if (retval < 0){
@@ -950,8 +929,6 @@ xml_parse_fd(int fd, struct xml_node **xml_top, int *eof, char *endtag)
 		*eof = 1;
 	}
 	else{
-	    if (xdebug)
-		fputc(ch, stderr);
 	    state = statestr(endtag, ch, state);
 	    xmlbuf[len++] = ch;
 	}

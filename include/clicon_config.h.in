@@ -83,7 +83,7 @@ int strverscmp (__const char *__s1, __const char *__s2);
 #undef APPDIR
 
 /* We are phasing out clicon_dbspec_pt format, ie db spec format looking
-   like CLIGEN specs. Note that the lex and yacc rules of clicon_dbparse.[yl] need
+   like CLIGEN specs. Note that the lex and yacc rules of clicon_dbspec.[yl] need
    to be manually disabled in lib/src/Makefile.in
 */
 #undef USE_DBSPEC_PT

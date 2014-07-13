@@ -166,7 +166,7 @@ generic_validate_yang(clicon_handle        h,
 		/* If mandatory a value is required */
 	    }
 	}
-	/* Loop over all actual db/cv:s och check their validity, eg ranges and regex */	
+	/* Loop over all actual db/cv:s and check their validity, eg ranges and regexp */	
 	cv = NULL;
 	while ((cv = cvec_each(cvec, cv))) {
 	    if ((yleaf = yang_find_specnode((yang_node*)ys, cv_name_get(cv))) == NULL)
