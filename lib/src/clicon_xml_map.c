@@ -821,7 +821,6 @@ load_xml_to_db(char *xmlfile, struct db_spec *dbspec, char *dbname)
 {
     int fd = -1;
     int retval = -1;
-    int eof;
     cxobj *xt;
     cxobj *xn = NULL; 
     
@@ -830,7 +829,7 @@ load_xml_to_db(char *xmlfile, struct db_spec *dbspec, char *dbname)
 	return -1;
     }
     /* XXX: if non-xml file, why no error code? */
-    if (clicon_xml_parse_file(fd, &xt, &eof, "</clicon>") < 0)
+    if (clicon_xml_parse_file(fd, &xt, "</clicon>") < 0)
 	goto catch;
     if (!xml_child_nr(xt)){
 	clicon_err(OE_XML, errno, "%s: no children", __FUNCTION__);

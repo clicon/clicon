@@ -237,7 +237,10 @@ dbmatch_vec(void *handle,
 	    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 	    goto done;
 	}
-	keyv[match-1] = strdup(key);
+	if ((keyv[match-1] = strdup(key)) == NULL){
+	    clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
+	    goto done;
+	}
 	if ((cvecv = realloc(cvecv, sizeof(cvec *) * match)) == NULL){	
 	    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 	    goto done;
@@ -353,7 +356,10 @@ dbmatch_one(void *handle,
 	if (cvecp)
 	    *cvecp = vr;
 	if (keyp)
-	    *keyp = strdup(key);
+	    if ((*keyp = strdup(key)) == NULL){
+		clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
+		goto done;
+	    }
 	break;
     }
     retval = 0;

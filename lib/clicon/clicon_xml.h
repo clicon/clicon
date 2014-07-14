@@ -64,10 +64,8 @@ char     *xml_find_body(cxobj *xn, char *name);
 int       xml_free(cxobj *xn);
 int       xml_prune(cxobj *xp, cxobj *xc, int freeit);
 int       clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint);
-char     *clicon_xml2str(char *str,  cxobj *xn, 
-		    int level, int prettyprint, const char *label);
 int       clicon_xml2cbuf(cbuf *xf, cxobj *xn, int level, int prettyprint);
-int       clicon_xml_parse_file(int fd, cxobj **xml_top, int *eof, char *endtag);
+int       clicon_xml_parse_file(int fd, cxobj **xml_top, char *endtag);
 int       clicon_xml_parse_string(char **str, cxobj **xml_top);
 
 int       xml_copy(cxobj *x0, cxobj *x1);

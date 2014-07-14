@@ -552,7 +552,7 @@ xml_free(cxobj *x)
 
 /*! Print an XML tree structure to an output stream
  *
- * See also clicon_xml2str
+ * Uses clicon_xml2cbuf internally
  *
  * @param[in]   f           UNIX output stream
  * @param[in]   xn          xmlgen xml tree
@@ -562,152 +562,18 @@ xml_free(cxobj *x)
 int
 clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
 {
-    cxobj *x_child;
-    int empty = 0;
-    int body;
-    int subnodes = 0;
+    cbuf  *cb;
+    int    retval = -1;
 
-    if (xn == NULL)
-	return 0;
-    switch(xml_type(xn)){
-    case CX_ATTR:
-	fprintf(f, " ");
-	if (xml_namespace(xn))
-	    fprintf(f, "%s:", xml_namespace(xn));
-	fprintf(f, "%s=\"%s\"", xml_name(xn), xml_value(xn));
-	break;
-    case CX_BODY:
-	/* The following is required in netconf but destroys xml pretty-printing
-	   in other code */
-#if 1
-	fprintf(f, "%s", xml_value(xn));
-#endif
-	break;
-    case CX_ELMNT:
-	fprintf(f, "%*s", prettyprint?(level+1):0, "<");
-	if (xml_namespace(xn))
-	    fprintf(f, "%s:", xml_namespace(xn));
-	fprintf(f, "%s", xml_name(xn));
-	/* Two passes: first attributes */
-	x_child = NULL;
-	while ((x_child = xml_child_each(xn, x_child, -1)) != NULL) {
-	    if (xml_type(x_child) != CX_ATTR){
-		subnodes++;
-		continue;
-	    }
-	    clicon_xml2file(f, x_child, prettyprint?(level+2):0, prettyprint);
-	}
-	body = xml_child_nr(xn) && xml_type(xml_child_i(xn,0))==CX_BODY;
-	if (prettyprint)
-	    fprintf(f, ">%s", body?"":"\n");
-	else
-	    fprintf(f, ">"); /* No CR / want no xtra chars after end-tag */
-	/* then nodes */
-	if (!empty){
-	    x_child = NULL;
-	    while ((x_child = xml_child_each(xn, x_child, -1)) != NULL) {
-		if (xml_type(x_child) == CX_ATTR)
-		    continue;
-		else
-		    clicon_xml2file(f, x_child, level+2, prettyprint);
-		
-	    }
-	    fprintf(f, "%*s%s>%s", 
-		    (prettyprint&&!body)?(level+2):0, 
-		    "</", 
-		    xml_name(xn),
-		    prettyprint?"\n":""
-		);
-	}
-	break;
-    default:
-	break;
-    }/* switch */
-    return 0;
-}
-
-/*! Print an XML tree structure to a string
- *
- * @param[in,out] str         String to write to
- * @param[in]     xn          xmlgen xml tree
- * @param[in]     level       how many spaces to insert before each line
- * @param[in]     prettyprint insert \n and spaces tomake the xml more readable.
- * @param[in]     label       string used for chunk allocation, typically __FUNCTION__
- *
- * str is freed using (for example) unchunk_group(__FUNCTION__);
- * See also clicon_xml2file
- */
-char *
-clicon_xml2str(char *str,
-	      cxobj *xn, 
-	      int level, 
-	      int prettyprint, 
-	      const char *label)
-{
-    cxobj *x_child;
-    int empty = 0;
-    int body;
-    int subnodes = 0;
-
-    if (xn == NULL)
-	return 0;
-    switch(xml_type(xn)){
-    case CX_ATTR:
-	str = chunk_sprintf(label, "%s ", str);
-	if (xml_namespace(xn))
-	    str = chunk_sprintf(label, "%s%s:", str, xml_namespace(xn));
-	str = chunk_sprintf(label, "%s%s=\"%s\"", str, xml_name(xn), xml_value(xn));
-	break;
-    case CX_BODY:
-	/* The following is required in netconf but destroys xml pretty-printing
-	   in other code */
-#if 1
-	str = chunk_sprintf(label, "%s%s", str, xml_value(xn));
-#endif
-	break;
-    case CX_ELMNT:
-	str = chunk_sprintf(label, "%s%*s", str, prettyprint?(level+1):0, "<");
-	if (xml_namespace(xn))
-	    str = chunk_sprintf(label, "%s%s:", str, xml_namespace(xn));
-	str = chunk_sprintf(label, "%s%s", str, xml_name(xn));
-	/* Two passes: first attributes */
-	x_child = NULL;
-	while ((x_child = xml_child_each(xn, x_child, -1)) != NULL) {
-	    if (xml_type(x_child) != CX_ATTR){
-		subnodes++;
-		continue;
-	    }
-	    str = clicon_xml2str(str, x_child, prettyprint?(level+2):0, prettyprint, 
-			  label);
-	}
-	body = xml_child_nr(xn) && xml_type(xml_child_i(xn, 0))==CX_BODY;
-	if (prettyprint)
-	    str = chunk_sprintf(label, "%s>%s", str, body?"":"\n");
-	else
-	    str = chunk_sprintf(label, "%s>", str); /* No CR / want no xtra chars after end-tag */
-	/* then nodes */
-	if (!empty){
-	    x_child = NULL;
-	    while ((x_child = xml_child_each(xn, x_child, -1)) != NULL) {
-		if (xml_type(x_child) == CX_ATTR)
-		    continue;
-		else
-		    str = clicon_xml2str(str, x_child, level+2, prettyprint, label);
-		
-	    }
-	    str = chunk_sprintf(label, "%s%*s%s>%s", 
-			  str,
-			  (prettyprint&&!body)?(level+2):0, 
-			  "</", 
-				xml_name(xn),
-			  prettyprint?"\n":""
-		);
-	}
-	break;
-    default:
-	break;
-    }/* switch */
-    return str;
+    if ((cb = cbuf_new()) == NULL)
+	goto done;
+    if (clicon_xml2cbuf(cb, xn, level, prettyprint) < 0)
+	goto done;
+    fprintf(f, "%s", cbuf_get(cb));
+  done:
+    if (cb)
+	cbuf_free(cb);
+    return retval;
 }
 
 /*! Print an XML tree structure to a clicon buffer
@@ -720,68 +586,54 @@ clicon_xml2str(char *str,
  * @code
  * cbuf *cb;
  * cb = cbuf_new();
- * cb = clicon_xml2cbuf(cb, xn, 0, 1);
+ * if (clicon_xml2cbuf(cb, xn, 0, 1) < 0)
+ *   goto err;
  * cbuf_free(cb);
  * @endcode
  * See also clicon_xml2str
  */
 int
-clicon_xml2cbuf(cbuf *xf, cxobj *xn, int level, int prettyprint)
+clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 {
-    cxobj *x_child;
-    int empty = 0;
-    int body;
-    int subnodes = 0;
+    cxobj *xc;
+    int    body;
 
-    switch(xml_type(xn)){
-    case CX_ATTR:
-	cprintf(xf, " ");
-	if (xml_namespace(xn))
-	    cprintf(xf, "%s:", xml_namespace(xn));
-	cprintf(xf, "%s=\"%s\"", xml_name(xn), xml_value(xn));
-	break;
+    switch(xml_type(cx)){
     case CX_BODY:
-	/* The following is required in netconf but destroys xml pretty-printing
-	   in other code */
-#if 1
-	cprintf(xf, "%s", xml_value(xn));
-#endif
+	cprintf(cb, "%s", xml_value(cx));
+	break;
+    case CX_ATTR:
+	cprintf(cb, " ");
+	if (xml_namespace(cx))
+	    cprintf(cb, "%s:", xml_namespace(cx));
+	cprintf(cb, "%s=\"%s\"", xml_name(cx), xml_value(cx));
 	break;
     case CX_ELMNT:
-	cprintf(xf, "%*s", prettyprint?(level+1):0, "<");
-	if (xml_namespace(xn))
-	    cprintf(xf, "%s:", xml_namespace(xn));
-	cprintf(xf, "%s", xml_name(xn));
-	/* Two passes: first attributes */
-	x_child = NULL;
-	while ((x_child = xml_child_each(xn, x_child, -1)) != NULL) {
-	    if (xml_type(x_child) != CX_ATTR){
-		subnodes++;
+	cprintf(cb, "%*s", prettyprint?(level+1):0, "<");
+	if (xml_namespace(cx))
+	    cprintf(cb, "%s:", xml_namespace(cx));
+	cprintf(cb, "%s", xml_name(cx));
+	xc = NULL;
+	while ((xc = xml_child_each(cx, xc, -1)) != NULL) {
+	    if (xml_type(xc) != CX_ATTR)
 		continue;
-	    }
-	    clicon_xml2cbuf(xf, x_child, prettyprint?(level+2):0, prettyprint);
+	    clicon_xml2cbuf(cb, xc, prettyprint?(level+2):0, prettyprint);
 	}
-	body = xml_child_nr(xn) && xml_type(xml_child_i(xn, 0))==CX_BODY;
-	if (prettyprint)
-	    cprintf(xf, ">%s", body?"":"\n");
-	else
-	    cprintf(xf, ">"); /* No CR / want no xtra chars after end-tag */
-	/* then nodes */
-	if (!empty){
-	    x_child = NULL;
-	    while ((x_child = xml_child_each(xn, x_child, -1)) != NULL) {
-		if (xml_type(x_child) == CX_ATTR)
-		    continue;
-		else
-		    clicon_xml2cbuf(xf, x_child, level+2, prettyprint);
-	    }
-	    cprintf(xf, "%*s%s>%s", 
-		    (prettyprint&&!body)?(level+2):0, 
-		    "</", 
-		    xml_name(xn),
-		    prettyprint?"\n":""
-		);
+	body = xml_child_nr(cx) && xml_type(xml_child_i(cx, 0))==CX_BODY;
+	cprintf(cb, ">%s", prettyprint?"\n":"");
+	xc = NULL;
+	while ((xc = xml_child_each(cx, xc, -1)) != NULL) {
+	    if (xml_type(xc) == CX_ATTR)
+		continue;
+	    else
+		clicon_xml2cbuf(cb, xc, level+2, prettyprint);
 	}
+	cprintf(cb, "%*s%s>%s", 
+		(prettyprint&&!body)?(level+2):0, 
+		"</", 
+		xml_name(cx),
+		prettyprint?"\n":""
+	    );
 	break;
     default:
 	break;
@@ -838,21 +690,22 @@ FSM(char *tag, char ch, int state)
  * XXX: There is a potential leak here on some return values.
  */
 int 
-clicon_xml_parse_file(int fd, cxobj **xml_top, int *eof, char *endtag)
+clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)
 {
-    int len = 0;
-    char ch;
-    int retval;
-    char *xmlbuf, *ptr;
-    int maxbuf = BUFLEN;
-    int endtaglen = strlen(endtag);
-    int state = 0;
+    int   len = 0;
+    char  ch;
+    int   retval;
+    char *xmlbuf;
+    char *ptr;
+    int   maxbuf = BUFLEN;
+    int   endtaglen = strlen(endtag);
+    int   state = 0;
 
     if (endtag == NULL){
 	clicon_err(OE_XML, 0, "%s: endtag required\n", __FUNCTION__);
 	return -1;
     }
-    *xml_top = NULL;
+    *cx = NULL;
     if ((xmlbuf = malloc(maxbuf)) == NULL){
 	clicon_err(OE_XML, errno, "%s: malloc", __FUNCTION__);
 	return -1;
@@ -860,30 +713,22 @@ clicon_xml_parse_file(int fd, cxobj **xml_top, int *eof, char *endtag)
     memset(xmlbuf, 0, maxbuf);
     ptr = xmlbuf;
     while (1){
-	retval = read(fd, &ch, 1);
-	if (retval < 0){
+	if ((retval = read(fd, &ch, 1)) < 0){
 	    clicon_err(OE_XML, errno, "%s: read: [pid:%d]\n", 
 		    __FUNCTION__,
 		    (int)getpid());
 	    break;
 	}
-	if (retval == 0){
-	    if (eof)
-		*eof = 1;
-	}
-	else{
+	if (retval != 0){
 	    state = FSM(endtag, ch, state);
 	    xmlbuf[len++] = ch;
 	}
 	if (retval == 0 || state == endtaglen){
 	    state = 0;
-	    if ((*xml_top = xml_new("top", NULL)) == NULL)
+	    if ((*cx = xml_new("top", NULL)) == NULL)
 		break;
-
-	    if (xml_parse(&ptr, *xml_top) < 0)
+	    if (xml_parse(&ptr, *cx) < 0)
 		return -1;
-
-
 	    break;
 	}
 	if (len>=maxbuf-1){ /* Space: one for the null character */
@@ -899,7 +744,7 @@ clicon_xml_parse_file(int fd, cxobj **xml_top, int *eof, char *endtag)
 	}
     } /* while */
     free(xmlbuf);
-    return (*xml_top)?0:-1;
+    return (*cx)?0:-1;
 }
 
 
