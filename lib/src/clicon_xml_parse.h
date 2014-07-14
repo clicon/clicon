@@ -32,8 +32,8 @@ struct xml_parse_yacc_arg{
     int                   ya_linenum;      /* Number of \n in parsed buffer */
     void                 *ya_lexbuf;       /* internal parse buffer from lex */
 
-    struct xml_node      *ya_xelement;     /* xml active element */
-    struct xml_node      *ya_xparent;      /* xml parent element*/
+    cxobj      *ya_xelement;     /* xml active element */
+    cxobj      *ya_xparent;      /* xml parent element*/
 };
 
 extern char *clicon_xml_parsetext;

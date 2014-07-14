@@ -64,7 +64,7 @@ static int
 packet(clicon_handle h, struct db_spec *ds, cbuf *xf)
 {
     char *str, *str0;
-    struct xml_node *xml_req = NULL; /* Request (in) */
+    cxobj *xml_req = NULL; /* Request (in) */
     int isrpc = 0;   /* either hello or rpc */
     cbuf *xf_out;
     cbuf *xf_err;
@@ -78,7 +78,7 @@ packet(clicon_handle h, struct db_spec *ds, cbuf *xf)
     }
     str = str0;
     /* Parse incoming XML message */
-    if (xml_parse_str(&str, &xml_req) < 0){
+    if (clicon_xml_parse_string(&str, &xml_req) < 0){
 	if ((xf = cbuf_new()) != NULL){
 	    netconf_create_rpc_error(xf, NULL, 
 				     "operation-failed", 
@@ -95,11 +95,11 @@ packet(clicon_handle h, struct db_spec *ds, cbuf *xf)
 	goto done;
     }
     free(str0);
-    if (xml_xpath(xml_req, "//rpc") != NULL){
+    if (xpath_first(xml_req, "//rpc") != NULL){
         isrpc++;
     }
     else
-        if (xml_xpath(xml_req, "//hello") != NULL)
+        if (xpath_first(xml_req, "//hello") != NULL)
 	    ;
         else{
             clicon_log(LOG_WARNING, "Illegal netconf msg: neither rpc or hello: dropp\
@@ -122,7 +122,7 @@ ed");
 	if (netconf_rpc_dispatch(h, 
 				 ds,
 				 xml_req, 
-				 xml_xpath(xml_req, "//rpc"), 
+				 xpath_first(xml_req, "//rpc"), 
 				 xf_out, xf_err) < 0){
 	    assert(cbuf_len(xf_err));
 	    clicon_debug(1, "%s", cbuf_get(xf_err));

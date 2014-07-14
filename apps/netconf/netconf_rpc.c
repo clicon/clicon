@@ -70,13 +70,13 @@
  * sub-function., focus on xfilter part here.
  */
 static int
-netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter, 
+netconf_filter(struct db_spec *dbspec, cxobj *xfilter, 
 	       cbuf *xf, cbuf *xf_err, 
-	       struct xml_node *xt, char *target)
+	       cxobj *xt, char *target)
 {
-    struct xml_node *xdb; 
-    struct xml_node *xc; 
-    struct xml_node *xfilterconf = NULL; 
+    cxobj *xdb; 
+    cxobj *xc; 
+    cxobj *xfilterconf = NULL; 
     char            *type;
     char            *ftype;
     int              retval = -1;
@@ -96,7 +96,7 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
      * return nothing.
      */
     if (xfilter){
-	if ((ftype = xml_get(xfilter, "type")) != NULL){
+	if ((ftype = xml_find_value(xfilter, "type")) != NULL){
 	    if (strcmp(ftype, "xpath")==0){ 
 		cprintf(xf, "<configuration>"); /* XXX: hardcoded */
 		retval = netconf_xpath(xdb, xfilter, xf, xf_err, xt);
@@ -115,7 +115,7 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
 	}
 
 
-	xfilterconf = xml_xpath(xfilter, "//configuration");
+	xfilterconf = xpath_first(xfilter, "//configuration");
 	if (xfilterconf == NULL){ 
 	    retval = 0;
 	    goto done;
@@ -133,7 +133,7 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
 	goto done;
     }
     if (xfilterconf != NULL){
-	if ((type = xml_get(xfilterconf, "type")) != NULL && strcmp(type, "subtree")){
+	if ((type = xml_find_value(xfilterconf, "type")) != NULL && strcmp(type, "subtree")){
 	    netconf_create_rpc_error(xf_err, xt, 
 				     "bad-attribute", 
 				     "protocol", 
@@ -153,10 +153,10 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
 	}
 
     }
-    if (xc->xn_nrchildren){
+    if (xml_child_nr(xc)){
 	if (debug)
-	    xml_to_file(stderr, xc, 0, 1);
-	print_xml_xf_node(xf, xc, 0, 1);
+	    clicon_xml2file(stderr, xc, 0, 1);
+	clicon_xml2cbuf(xf, xc, 0, 1);
     }
     retval = 0;
   done:
@@ -190,11 +190,11 @@ netconf_filter(struct db_spec *dbspec, struct xml_node *xfilter,
  */
 int
 netconf_get_config(clicon_handle h, struct db_spec *dbspec,
-		   struct xml_node *xn, 
+		   cxobj *xn, 
 		   cbuf *xf, cbuf *xf_err, 
-		   struct xml_node *xt)
+		   cxobj *xt)
 {
-    struct xml_node *xfilter; /* filter */
+    cxobj *xfilter; /* filter */
     int retval = -1;
     char *target;
 
@@ -208,7 +208,7 @@ netconf_get_config(clicon_handle h, struct db_spec *dbspec,
 	goto done;
     }
     /* ie <filter>...</filter> */
-   xfilter = xml_xpath(xn, "//filter");
+   xfilter = xpath_first(xn, "//filter");
    if (netconf_filter(dbspec, xfilter, xf, xf_err, xt, target) < 0)
 	goto done;
     retval = 0;
@@ -231,19 +231,19 @@ netconf_get_config(clicon_handle h, struct db_spec *dbspec,
  *
  */
 static int
-get_edit_opts(struct xml_node *xn,
+get_edit_opts(cxobj *xn,
 		 enum operation_type *op, 
 		 enum test_option *testopt,
 		 enum error_option *erropt,
 		 cbuf *xf_err, 
-		 struct xml_node *xt) 
+		 cxobj *xt) 
 {
-    struct xml_node *x;
+    cxobj *x;
     char *optstr;
     int retval = -1;
 
-    if ((x = xml_xpath(xn, "/default-operation")) != NULL){
-	if ((optstr = xml_get_body(x)) != NULL){
+    if ((x = xpath_first(xn, "/default-operation")) != NULL){
+	if ((optstr = xml_body(x)) != NULL){
 	    if (strcmp(optstr, "replace") == 0)
 		*op = OP_REPLACE;
 	    else
@@ -263,8 +263,8 @@ get_edit_opts(struct xml_node *xn,
 		    }
 	}
     }
-    if ((x = xml_xpath(xn, "/test-option")) != NULL){
-	if ((optstr = xml_get_body(x)) != NULL){
+    if ((x = xpath_first(xn, "/test-option")) != NULL){
+	if ((optstr = xml_body(x)) != NULL){
 	    if (strcmp(optstr, "test-then-set") == 0)
 		*testopt = TEST_THEN_SET;
 	    else
@@ -284,8 +284,8 @@ get_edit_opts(struct xml_node *xn,
 	    }
 	}
     }
-    if ((x = xml_xpath(xn, "/error-option")) != NULL){
-	if ((optstr = xml_get_body(x)) != NULL){
+    if ((x = xpath_first(xn, "/error-option")) != NULL){
+	if ((optstr = xml_body(x)) != NULL){
 	    if (strcmp(optstr, "stop-on-error") == 0)
 		*erropt = STOP_ON_ERROR;
 	    else
@@ -350,16 +350,16 @@ get_edit_opts(struct xml_node *xn,
 int
 netconf_edit_config(clicon_handle h,
 		    struct db_spec *dbspec,
-		    struct xml_node *xn, 
+		    cxobj *xn, 
 		    cbuf *xf, 
 		    cbuf *xf_err, 
-		    struct xml_node *xt)
+		    cxobj *xt)
 {
     int                 retval = -1;
     enum operation_type operation = OP_MERGE;
     enum test_option    testopt = TEST_THEN_SET;
     enum error_option   erropt = STOP_ON_ERROR;
-    struct xml_node    *xc;      /* config */
+    cxobj    *xc;      /* config */
     char               *target;  /* db */
     char               *s;       /* config socket */
     struct clicon_msg  *msg;     
@@ -386,7 +386,7 @@ netconf_edit_config(clicon_handle h,
     switch(operation){
     case OP_REPLACE: /* replace or create config-data */
     case OP_MERGE: /* merge config-data */
-	if ((xc  = xml_xpath(xn, "//config")) != NULL){
+	if ((xc  = xpath_first(xn, "//config")) != NULL){
 	    if ((tmpfile = clicon_tmpfile(__FUNCTION__)) == NULL)
 		goto done;
 
@@ -410,8 +410,8 @@ netconf_edit_config(clicon_handle h,
 		goto done;
 	    }
 
-	    snprintf(xc->xn_name, strlen(xn->xn_name)+1, "clicon"); /* NOTE: same length as "config" */
-	    if (xml_to_file(f, xc, 0, 1) < 0){
+	    snprintf(xml_name(xc), strlen(xml_name(xn))+1, "clicon"); /* NOTE: same length as "config" */
+	    if (clicon_xml2file(f, xc, 0, 1) < 0){
 		fclose(f);
 		unlink(tmpfile);
 		goto done;
@@ -463,9 +463,9 @@ netconf_edit_config(clicon_handle h,
  */
 int
 netconf_copy_config(clicon_handle h,
-		    struct xml_node *xn, 
+		    cxobj *xn, 
 		    cbuf *xf, cbuf *xf_err, 
-		    struct xml_node *xt)
+		    cxobj *xt)
 {
     char              *source, *target; /* filenames */
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
@@ -530,9 +530,9 @@ netconf_copy_config(clicon_handle h,
  */
 int
 netconf_delete_config(clicon_handle h,
-		      struct xml_node *xn, 
+		      cxobj *xn, 
 		      cbuf *xf, cbuf *xf_err, 
-		      struct xml_node *xt)
+		      cxobj *xt)
 {
     char              *target; /* filenames */
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
@@ -594,7 +594,7 @@ netconf_delete_config(clicon_handle h,
     <close-session/> 
 */
 int
-netconf_close_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_node *xt)
+netconf_close_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
 {
     cc_closed++;
     netconf_ok_set(1);
@@ -610,9 +610,9 @@ netconf_close_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_no
  */
 int
 netconf_lock(clicon_handle h,
-	     struct xml_node *xn, 
+	     cxobj *xn, 
 	     cbuf *xf, cbuf *xf_err, 
-	     struct xml_node *xt)
+	     cxobj *xt)
 {
     char *target;
     int retval = -1;
@@ -663,9 +663,9 @@ netconf_lock(clicon_handle h,
  */
 int
 netconf_unlock(clicon_handle h, 
-	       struct xml_node *xn, 
+	       cxobj *xn, 
 	       cbuf *xf, cbuf *xf_err, 
-	       struct xml_node *xt)
+	       cxobj *xt)
 {
     char *target;
     int retval = -1;
@@ -722,13 +722,14 @@ netconf_unlock(clicon_handle h,
   </kill-session> 
  */
 int
-netconf_kill_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_node *xt)
+netconf_kill_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
 {
 #ifdef notyet
-    struct xml_node *xsessionid;
-    int client;
+    cxobj *xsessionid;
+    char *str, *ep;
+    long  i;
 
-    if ((xsessionid = xml_xpath(xn, "//session-id")) == NULL){
+    if ((xsessionid = xpath_first(xn, "//session-id")) == NULL){
 	netconf_create_rpc_error(xf_err, xt, 
 				 "missing-element", 
 				 "protocol", 
@@ -737,7 +738,7 @@ netconf_kill_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_nod
 				 "<bad-element>session-id</bad-element>");
 	return -1;
     }
-    if (xml_get(xsessionid, "body") == NULL){
+    if (xml_find_value(xsessionid, "body") == NULL){
 	netconf_create_rpc_error(xf_err, xt, 
 				 "missing-element", 
 				 "protocol", 
@@ -746,15 +747,19 @@ netconf_kill_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_nod
 				 "<bad-element>session-id</bad-element>");
 	return -1;
     }
-    client = xml_get_int(xsessionid, "body");
-    if ((ce = find_ce_bynr(client)) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
-				 "operation-failed", 
-				 "protocol", 
-				 "error", 
-				 NULL,
-				 "No such client");
-	return -1;
+    if ((str = xml_find_value(xsessionid, "body")) != NULL){
+	i = strtol(str, &ep, 0);
+	if ((i == LONG_MIN || i == LONG_MAX) && errno)
+	    return -1;
+	if ((ce = find_ce_bynr(i)) == NULL){
+	    netconf_create_rpc_error(xf_err, xt, 
+				     "operation-failed", 
+				     "protocol", 
+				     "error", 
+				     NULL,
+				     "No such client");
+	    return -1;
+	}
     }
 //    ce_change_state(ce, CS_CLOSED, "Received close-session msg");
     netconf_ok_set(1);
@@ -768,9 +773,9 @@ netconf_kill_session(struct xml_node *xn, cbuf *xf, cbuf *xf_err, struct xml_nod
  */
 int
 netconf_commit(clicon_handle h,
-	       struct xml_node *xn, 
+	       cxobj *xn, 
 	       cbuf *xf, cbuf *xf_err, 
-	       struct xml_node *xt)
+	       cxobj *xt)
 {
     struct clicon_msg *msg;     /* inline from cli_proto_commit */
     int                retval = -1;
@@ -811,8 +816,8 @@ netconf_commit(clicon_handle h,
  */
 int
 netconf_discard_changes(clicon_handle h,
-			struct xml_node *xn, cbuf *xf, cbuf *xf_err, 
-			struct xml_node *xt)
+			cxobj *xn, cbuf *xf, cbuf *xf_err, 
+			cxobj *xt)
 {
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
     int                retval = -1;
@@ -844,9 +849,9 @@ netconf_discard_changes(clicon_handle h,
  */
 int
 netconf_validate(clicon_handle h, 
-		 struct xml_node *xn, 
+		 cxobj *xn, 
 		 cbuf *xf, cbuf *xf_err, 
-		 struct xml_node *xt)
+		 cxobj *xt)
 {
     char *target;
     int retval = -1;
@@ -886,7 +891,7 @@ netconf_validate(clicon_handle h,
 static int
 netconf_notification_cb(int s, void *arg)
 {
-    struct xml_node   *xfilter = (struct xml_node *)arg; 
+    cxobj   *xfilter = (cxobj *)arg; 
     char              *selector;
     struct clicon_msg *reply;
     int                eof;
@@ -894,11 +899,11 @@ netconf_notification_cb(int s, void *arg)
     int                level;
     int                retval = -1;
     cbuf              *xf;
-    struct xml_node   *xe = NULL; /* event xml */
+    cxobj   *xe = NULL; /* event xml */
 
     if (0){
     fprintf(stderr, "%s\n", __FUNCTION__); /* debug */
-    xml_to_file(stderr, xfilter, 0, 1); /* debug */
+    clicon_xml2file(stderr, xfilter, 0, 1); /* debug */
     }
     /* get msg (this is the reason this function is called) */
     if (clicon_msg_rcv(s, &reply, &eof, __FUNCTION__) < 0)
@@ -919,12 +924,12 @@ netconf_notification_cb(int s, void *arg)
 	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
 	    goto done;
 	/* parse event */
-	if (xml_parse_str(&event, &xe) < 0)
+	if (clicon_xml_parse_string(&event, &xe) < 0)
 	    goto done;
 	/* find and apply filter */
-	if ((selector = xml_get(xfilter, "select")) == NULL)
+	if ((selector = xml_find_value(xfilter, "select")) == NULL)
 	    goto done;
-	if (xml_xpath(xe, selector) == NULL) {
+	if (xpath_first(xe, selector) == NULL) {
 	    fprintf(stderr, "%s no match\n", __FUNCTION__); /* debug */
 	    break;
 	}
@@ -970,25 +975,25 @@ netconf_notification_cb(int s, void *arg)
  */
 static int
 netconf_create_subscription(clicon_handle h, 
-			    struct xml_node *xn, 
+			    cxobj *xn, 
 			    cbuf *xf, cbuf *xf_err, 
-			    struct xml_node *xt)
+			    cxobj *xt)
 {
-    struct xml_node *xstream;
-    struct xml_node *xfilter; 
-    struct xml_node *xfilter2 = NULL; 
+    cxobj *xstream;
+    cxobj *xfilter; 
+    cxobj *xfilter2 = NULL; 
     char            *stream = NULL;
     char            *sockpath;
     int              s;
     char            *ftype;
     int              retval = -1;
 
-    if ((xstream = xml_xpath(xn, "//stream")) != NULL)
-	stream = xml_get(xstream, "body");
+    if ((xstream = xpath_first(xn, "//stream")) != NULL)
+	stream = xml_find_value(xstream, "body");
     if (stream == NULL)
 	stream = "NETCONF";
-    if ((xfilter = xml_xpath(xn, "//filter")) != NULL){
-	if ((ftype = xml_get(xfilter, "type")) != NULL){
+    if ((xfilter = xpath_first(xn, "//filter")) != NULL){
+	if ((ftype = xml_find_value(xfilter, "type")) != NULL){
 	    if (strcmp(ftype, "xpath") != 0){
 		netconf_create_rpc_error(xf_err, xt, 
 					 "operation-failed", 
@@ -1048,50 +1053,50 @@ netconf_create_subscription(clicon_handle h,
 int
 netconf_rpc_dispatch(clicon_handle h,
 		     struct db_spec *dbspec,
-		     struct xml_node *xorig, 
-		     struct xml_node *xn, 
+		     cxobj *xorig, 
+		     cxobj *xn, 
 		     cbuf *xf, 
 		     cbuf *xf_err)
 {
-    struct xml_node *xe;
+    cxobj *xe;
     int ret = 0;
     
     xe = NULL;
-   while ((xe = xml_child_each(xn, xe, XML_ELEMENT)) != NULL) {
-       if (strcmp(xe->xn_name, "close-session") == 0)
+   while ((xe = xml_child_each(xn, xe, CX_ELMNT)) != NULL) {
+       if (strcmp(xml_name(xe), "close-session") == 0)
 	   return netconf_close_session(xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "get-config") == 0)
+	   if (strcmp(xml_name(xe), "get-config") == 0)
 	   return netconf_get_config(h, dbspec, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "edit-config") == 0)
+	   if (strcmp(xml_name(xe), "edit-config") == 0)
 	   return netconf_edit_config(h, dbspec, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "copy-config") == 0)
+	   if (strcmp(xml_name(xe), "copy-config") == 0)
 	   return netconf_copy_config(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "delete-config") == 0)
+	   if (strcmp(xml_name(xe), "delete-config") == 0)
 	   return netconf_delete_config(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "kill-session") == 0) /* TBD */
+	   if (strcmp(xml_name(xe), "kill-session") == 0) /* TBD */
 	   return netconf_kill_session(xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "lock") == 0) /* TBD */
+	   if (strcmp(xml_name(xe), "lock") == 0) /* TBD */
 	   return netconf_lock(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "unlock") == 0) /* TBD */
+	   if (strcmp(xml_name(xe), "unlock") == 0) /* TBD */
 	   return netconf_unlock(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "commit") == 0)
+	   if (strcmp(xml_name(xe), "commit") == 0)
 	   return netconf_commit(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "discard-changes") == 0)
+	   if (strcmp(xml_name(xe), "discard-changes") == 0)
 	   return netconf_discard_changes(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "validate") == 0)
+	   if (strcmp(xml_name(xe), "validate") == 0)
 	   return netconf_validate(h, xe, xf, xf_err, xorig);
        else
-       if (strcmp(xe->xn_name, "create-subscription") == 0)
+	   if (strcmp(xml_name(xe), "create-subscription") == 0)
 	   return netconf_create_subscription(h, 
 					      //dbspec, 
 					      xe, xf, xf_err, xorig);
@@ -1104,7 +1109,7 @@ netconf_rpc_dispatch(clicon_handle h,
 	       netconf_create_rpc_error(xf_err, xorig, 
 					"operation-failed", 
 					"rpc", "error", 
-					xe->xn_name, "Not recognized"); 
+					xml_name(xe), "Not recognized"); 
 	       ret = -1;
 	   }
 	   
@@ -1120,23 +1125,19 @@ netconf_rpc_dispatch(clicon_handle h,
  */
 int 
 netconf_create_rpc_reply(cbuf *xf,            /* msg buffer */
-			 struct xml_node *xr, /* orig request */
+			 cxobj *xr, /* orig request */
 			 char *body,
 			 int ok
     )
 {
-    struct xml_node *xn, *xa;
-    int i;
+    cxobj *xn, *xa;
 
     add_preamble(xf);
     cprintf(xf, "<rpc-reply"); /* attributes from rpc */
-    if (xr && (xn=xml_xpath(xr, "//rpc")) != NULL){
-	for (i=0; i<xn->xn_nrchildren; i++){
-	    xa = xn->xn_children[i];
-	    if (xa->xn_type != XML_ATTRIBUTE)
-		continue;
-	    cprintf(xf, " %s=\"%s\"", xa->xn_name, xa->xn_value);
-	}
+    if (xr && (xn=xpath_first(xr, "//rpc")) != NULL){
+	xa = NULL;
+	while ((xa = xml_child_each(xn, xa, CX_ATTR)) != NULL) 
+	    cprintf(xf, " %s=\"%s\"", xml_name(xa), xml_value(xa));
     }
     cprintf(xf, ">");
     if (ok) /* Just _maybe_ we should send data instead of ok if (if there is any)
@@ -1164,7 +1165,7 @@ netconf_create_rpc_reply(cbuf *xf,            /* msg buffer */
  */
 int 
 netconf_create_rpc_error(cbuf *xf,            /* msg buffer */
-			 struct xml_node *xr, /* orig request */
+			 cxobj *xr, /* orig request */
 			 char *tag, 
 			 char *type,
 			 char *severity, 

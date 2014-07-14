@@ -55,11 +55,11 @@
 
 /* forward */
 static int
-xml_edit(struct xml_node *filter, 
-	 struct xml_node *parent, 
+xml_edit(cxobj *filter, 
+	 cxobj *parent, 
 	 enum operation_type op,
 	 cbuf *xf_err, 
-	 struct xml_node *xt);
+	 cxobj *xt);
 
 
 /*
@@ -79,20 +79,20 @@ xml_edit(struct xml_node *filter,
 
 /* return a string containing leafs value, NULL if no leaf or no value */
 static char*
-leafstring(struct xml_node *x)
+leafstring(cxobj *x)
 {
-    struct xml_node *c;
+    cxobj *c;
 
-    if (x->xn_type != XML_ELEMENT)
+    if (xml_type(x) != CX_ELMNT)
 	return NULL;
-    if (x->xn_nrchildren != 1)
+    if (xml_child_nr(x) != 1)
 	return NULL;
-    c = x->xn_children[0];
-    if (c->xn_nrchildren != 0)
+    c = xml_child_i(x, 0);
+    if (xml_child_nr(c) != 0)
 	return NULL;
-    if (c->xn_type != XML_BODY)
+    if (xml_type(c) != CX_BODY)
 	return NULL;
-    return c->xn_value;
+    return xml_value(c);
 }
 
 /*
@@ -102,26 +102,26 @@ leafstring(struct xml_node *x)
  * parent is pruned according to selection.
  */
 static int
-select_siblings(struct xml_node *filter, struct xml_node *parent, int *remove_me)
+select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
 {
-    struct xml_node *s;
-    struct xml_node *sprev;
-    struct xml_node *f;
-    struct xml_node *attr;
+    cxobj *s;
+    cxobj *sprev;
+    cxobj *f;
+    cxobj *attr;
     char *an, *af;
     char *fstr, *sstr;
     int containments;
 
     *remove_me = 0;
-    assert(filter && parent && strcmp(filter->xn_name, parent->xn_name)==0);
+    assert(filter && parent && strcmp(xml_name(filter), xml_name(parent))==0);
     /* 1. Check selection */
-    if (filter->xn_nrchildren == 0) 
+    if (xml_child_nr(filter) == 0) 
 	goto match;
 
     /* Count containment/selection nodes in filter */
     f = NULL;
     containments = 0;
-    while ((f = xml_child_each(filter, f, XML_ELEMENT)) != NULL) {
+    while ((f = xml_child_each(filter, f, CX_ELMNT)) != NULL) {
 	if (leafstring(f))
 	    continue;
 	containments++;
@@ -129,9 +129,9 @@ select_siblings(struct xml_node *filter, struct xml_node *parent, int *remove_me
 
     /* 2. Check attribute match */
     attr = NULL;
-    while ((attr = xml_child_each(filter, attr, XML_ATTRIBUTE)) != NULL) {
-	af = attr->xn_value;
-	an = xml_get(filter, attr->xn_name);
+    while ((attr = xml_child_each(filter, attr, CX_ATTR)) != NULL) {
+	af = xml_value(attr);
+	an = xml_find_value(filter, xml_name(attr));
 	if (af && an && strcmp(af, an)==0)
 	    ; // match
 	else
@@ -139,10 +139,10 @@ select_siblings(struct xml_node *filter, struct xml_node *parent, int *remove_me
     }
     /* 3. Check content match */
     f = NULL;
-    while ((f = xml_child_each(filter, f, XML_ELEMENT)) != NULL) {
+    while ((f = xml_child_each(filter, f, CX_ELMNT)) != NULL) {
 	if ((fstr = leafstring(f)) == NULL)
 	    continue;
-	if ((s = xml_find(parent, f->xn_name)) == NULL)
+	if ((s = xml_find(parent, xml_name(f))) == NULL)
 	    goto nomatch;
 	if ((sstr = leafstring(s)) == NULL)
 	    continue;
@@ -154,8 +154,8 @@ select_siblings(struct xml_node *filter, struct xml_node *parent, int *remove_me
 	goto match;
     /* Check recursively the rest of the siblings */
     sprev = s = NULL;
-    while ((s = xml_child_each(parent, s, XML_ELEMENT)) != NULL) {
-	if ((f = xml_find(filter, s->xn_name)) == NULL){
+    while ((s = xml_child_each(parent, s, CX_ELMNT)) != NULL) {
+	if ((f = xml_find(filter, xml_name(s))) == NULL){
 	    xml_prune(parent, s, 1);
 	    s = sprev;
 	    continue;
@@ -184,7 +184,7 @@ select_siblings(struct xml_node *filter, struct xml_node *parent, int *remove_me
 }
 
 int
-xml_filter(struct xml_node *xf, struct xml_node *xn)
+xml_filter(cxobj *xf, cxobj *xn)
 {
     int retval;
     int remove_s;
@@ -198,12 +198,12 @@ xml_filter(struct xml_node *xf, struct xml_node *xn)
  * get the value of the "operation" attribute and change op if given
  */
 static int
-get_operation(struct xml_node *xn, enum operation_type *op,
-	      cbuf *xf_err, struct xml_node *xt)
+get_operation(cxobj *xn, enum operation_type *op,
+	      cbuf *xf_err, cxobj *xt)
 {
     char *opstr;
 
-    if ((opstr = xml_get(xn, "operation")) != NULL){
+    if ((opstr = xml_find_value(xn, "operation")) != NULL){
 	if (strcmp("merge", opstr) == 0)
 	    *op = OP_MERGE;
 	else
@@ -238,16 +238,16 @@ get_operation(struct xml_node *xn, enum operation_type *op,
  * - operation attribute
  */
 static int
-netconf_clean(struct xml_node *xn)
+netconf_clean(cxobj *xn)
 {
-    struct xml_node *xa;    
-    struct xml_node *x;
+    cxobj *xa;    
+    cxobj *x;
 
     if ((xa = xml_find(xn, "operation")) != NULL &&
-	xa->xn_type == XML_ATTRIBUTE)
+	xml_type(xa) == CX_ATTR)
 	xml_prune(xn, xa, 1);
     x = NULL;
-    while ((x = xml_child_each(xn, x, XML_ELEMENT)) != NULL) 
+    while ((x = xml_child_each(xn, x, CX_ELMNT)) != NULL) 
 	netconf_clean(x);
     return 0;
 }
@@ -261,21 +261,21 @@ netconf_clean(struct xml_node *xn)
  * A key is: the configuration data identified by the element
  */
 static int
-edit_selection(struct xml_node *filter, 
-	       struct xml_node *parent, 
+edit_selection(cxobj *filter, 
+	       cxobj *parent, 
 	       enum operation_type op,
 	       cbuf *xf_err, 
-	       struct xml_node *xt)
+	       cxobj *xt)
 {
     int retval = -1;
 
-    assert(filter && parent && strcmp(filter->xn_name, parent->xn_name)==0);
-    fprintf(stderr, "%s: %s\n", __FUNCTION__, filter->xn_name);
+    assert(filter && parent && strcmp(xml_name(filter), xml_name(parent))==0);
+    fprintf(stderr, "%s: %s\n", __FUNCTION__, xml_name(filter));
     switch (op){
     case OP_MERGE:
 	break;
     case OP_REPLACE:
-	xml_prune(parent->xn_parent, parent, 1);
+	xml_prune(xml_parent(parent), parent, 1);
 	break;
     case OP_CREATE:
 	    netconf_create_rpc_error(xf_err, xt, 
@@ -287,9 +287,9 @@ edit_selection(struct xml_node *filter,
 	    goto done;
 	break;
     case OP_DELETE:
-    fprintf(stderr, "%s: %s DELETE\n", __FUNCTION__, filter->xn_name);
-	if (parent->xn_nrchildren == 0){
-	    fprintf(stderr, "%s: %s ERROR\n", __FUNCTION__, filter->xn_name);
+	fprintf(stderr, "%s: %s DELETE\n", __FUNCTION__, xml_name(filter));
+	if (xml_child_nr(parent) == 0){
+	    fprintf(stderr, "%s: %s ERROR\n", __FUNCTION__, xml_name(filter));
 	    netconf_create_rpc_error(xf_err, xt, 
 				     NULL,
 				     "protocol", 
@@ -300,8 +300,8 @@ edit_selection(struct xml_node *filter,
 	}
 	/* fall through */
     case OP_REMOVE:
-	fprintf(stderr, "%s: %s REMOVE\n", __FUNCTION__, filter->xn_name);
-	xml_prune(parent->xn_parent, parent, 1);
+	fprintf(stderr, "%s: %s REMOVE\n", __FUNCTION__, xml_name(filter));
+	xml_prune(xml_parent(parent), parent, 1);
 	break;
     case OP_NONE:
 	break;
@@ -316,20 +316,20 @@ edit_selection(struct xml_node *filter,
  * XXX: not called from external?
  */
 static int
-edit_match(struct xml_node *filter, 
-	   struct xml_node *parent, 
+edit_match(cxobj *filter, 
+	   cxobj *parent, 
 	   enum operation_type op,
 	   cbuf *xf_err, 
-	   struct xml_node *xt,
+	   cxobj *xt,
 	   int match
     )
 {
-    struct xml_node *f;
-    struct xml_node *s;
-    struct xml_node *copy;
+    cxobj *f;
+    cxobj *s;
+    cxobj *copy;
     int retval = -1;
 
-    clicon_debug(1, "%s: %s op:%d", __FUNCTION__, filter->xn_name, op);
+    clicon_debug(1, "%s: %s op:%d", __FUNCTION__, xml_name(filter), op);
     if (match)
 	switch (op){
 	case OP_REPLACE:
@@ -339,7 +339,7 @@ edit_match(struct xml_node *filter,
 		xml_prune(parent, s, 1);
 		s = NULL;
 	    }
-	    if (xml_cp(filter, parent) < 0)
+	    if (xml_copy(filter, parent) < 0)
 		goto done;
 	    netconf_clean(parent);
 	    retval = 0;
@@ -348,7 +348,7 @@ edit_match(struct xml_node *filter,
 	    break;
 	case OP_DELETE:
 	case OP_REMOVE:
-	    xml_prune(parent->xn_parent, parent, 1);
+	    xml_prune(xml_parent(parent), parent, 1);
 	    netconf_ok_set(1);
 	    goto done;
 	    break;
@@ -358,8 +358,8 @@ edit_match(struct xml_node *filter,
 	}
 
     f = NULL;
-    while ((f = xml_child_each(filter, f, XML_ELEMENT)) != NULL) {
-	s = xml_find(parent, f->xn_name);
+    while ((f = xml_child_each(filter, f, CX_ELMNT)) != NULL) {
+	s = xml_find(parent, xml_name(f));
 	switch (op){
 	case OP_MERGE: 
 	    /* things in filter:
@@ -367,16 +367,16 @@ edit_match(struct xml_node *filter,
 	       in conf go down recursive
 	    */
 	    if (s == NULL && match){
-		if ((copy = xml_new(f->xn_name, parent)) == NULL)
+		if ((copy = xml_new(xml_name(f), parent)) == NULL)
 		    goto done;
-		if (xml_cp(f, copy) < 0)
+		if (xml_copy(f, copy) < 0)
 		    goto done;
 		netconf_clean(copy);
 	    }
 	    else{
 		s = NULL;
-		while ((s = xml_child_each(parent, s, XML_ELEMENT)) != NULL) {
-		    if (strcmp(f->xn_name, s->xn_name))
+		while ((s = xml_child_each(parent, s, CX_ELMNT)) != NULL) {
+		    if (strcmp(xml_name(f), xml_name(s)))
 			continue;
 		    if ((retval = xml_edit(f, s, op, xf_err, xt)) < 0)
 			goto done;
@@ -393,9 +393,9 @@ edit_match(struct xml_node *filter,
 //		break;
 	    if (s != NULL)
 		xml_prune(parent, s, 1);
-	    if ((copy = xml_new(f->xn_name, parent)) == NULL)
+	    if ((copy = xml_new(xml_name(f), parent)) == NULL)
 		goto done;
-	    if (xml_cp(f, copy) < 0)
+	    if (xml_copy(f, copy) < 0)
 		goto done;
 	    netconf_clean(copy);
 #endif
@@ -417,9 +417,9 @@ edit_match(struct xml_node *filter,
 					 "<bad-element></bad-element>");
 		goto done;
 	    }
-	    if ((copy = xml_new(f->xn_name, parent)) == NULL)
+	    if ((copy = xml_new(xml_name(f), parent)) == NULL)
 		goto done;
-	    if (xml_cp(f, copy) < 0)
+	    if (xml_copy(f, copy) < 0)
 		goto done;
 	    netconf_clean(copy);
 #endif
@@ -456,8 +456,8 @@ edit_match(struct xml_node *filter,
 	case OP_NONE:
 	    /* recursive descent */
 	    s = NULL;
-	    while ((s = xml_child_each(parent, s, XML_ELEMENT)) != NULL) {
-		if (strcmp(f->xn_name, s->xn_name))
+	    while ((s = xml_child_each(parent, s, CX_ELMNT)) != NULL) {
+		if (strcmp(xml_name(f), xml_name(s)))
 		    continue;
 		if ((retval = xml_edit(f, s, op, xf_err, xt)) < 0)
 		    goto done;
@@ -478,15 +478,15 @@ edit_match(struct xml_node *filter,
  * XXX: not called from external?
  */
 static int
-xml_edit(struct xml_node *filter, 
-	 struct xml_node *parent, 
+xml_edit(cxobj *filter, 
+	 cxobj *parent, 
 	 enum operation_type op,
 	 cbuf *xf_err, 
-	 struct xml_node *xt)
+	 cxobj *xt)
 {
-    struct xml_node *attr;
-    struct xml_node *f;
-    struct xml_node *s;
+    cxobj *attr;
+    cxobj *f;
+    cxobj *s;
     int retval = -1;
     char *an, *af;
     char *fstr, *sstr;
@@ -494,20 +494,20 @@ xml_edit(struct xml_node *filter,
 
     get_operation(filter, &op, xf_err, xt);
     /* 1. First try selection: filter is empty */
-    if (filter->xn_nrchildren == 0){  /* no elements? */
+    if (xml_child_nr(filter) == 0){  /* no elements? */
 	retval = edit_selection(filter, parent, op, xf_err, xt);
 	goto done;
     }
-    if (filter->xn_nrchildren == 1 && /* same as above */
-	xml_xpath(filter, "/[@operation]")){
+    if (xml_child_nr(filter) == 1 && /* same as above */
+	xpath_first(filter, "/[@operation]")){
 	retval = edit_selection(filter, parent, op, xf_err, xt);
 	goto done;
     }
     /* 2. Check attribute match */
     attr = NULL;
-    while ((attr = xml_child_each(filter, attr, XML_ATTRIBUTE)) != NULL) {
-	af = attr->xn_value;
-	an = xml_get(filter, attr->xn_name);
+    while ((attr = xml_child_each(filter, attr, CX_ATTR)) != NULL) {
+	af = xml_value(attr);
+	an = xml_find_value(filter, xml_name(attr));
 	if (af && an && strcmp(af, an)==0)
 	    ; // match
 	else
@@ -521,11 +521,11 @@ xml_edit(struct xml_node *filter,
      * For merge we just continue
      */
     f = NULL;
-    while ((f = xml_child_each(filter, f, XML_ELEMENT)) != NULL) {
+    while ((f = xml_child_each(filter, f, CX_ELMNT)) != NULL) {
 	if ((fstr = leafstring(f)) == NULL)
 	    continue;
 	/* we found a filter leaf-match: no return we say it should match*/
-	if ((s = xml_find(parent, f->xn_name)) == NULL)
+	if ((s = xml_find(parent, xml_name(f))) == NULL)
 	    goto nomatch;
 	if ((sstr = leafstring(s)) == NULL)
 	    goto nomatch;
@@ -538,9 +538,9 @@ xml_edit(struct xml_node *filter,
     if (debug && keymatch){
 	fprintf(stderr, "%s: match\n", __FUNCTION__);
 	fprintf(stderr, "%s: filter:\n", __FUNCTION__);
-	xml_to_file(stdout, filter, 0, 1);
+	clicon_xml2file(stdout, filter, 0, 1);
 	fprintf(stderr, "%s: config:\n", __FUNCTION__);
-	xml_to_file(stdout, parent, 0, 1);
+	clicon_xml2file(stdout, parent, 0, 1);
     }
 
     retval = edit_match(filter, parent, op, xf_err, xt, keymatch);
@@ -564,20 +564,20 @@ xml_edit(struct xml_node *filter,
  *  
  */
 int 
-netconf_xpath(struct xml_node *xsearch,
-	      struct xml_node *xfilter, 
+netconf_xpath(cxobj *xsearch,
+	      cxobj *xfilter, 
 	      cbuf *xf, 
 	      cbuf *xf_err, 
-	      struct xml_node *xt)
+	      cxobj *xt)
 {
-    struct xml_node  *x;
+    cxobj  *x;
     int               retval = -1;
     char             *selector;
-    struct xml_node **xv;
+    cxobj **xv;
     int               xlen;
     int               i;
 
-    if ((selector = xml_get(xfilter, "select")) == NULL){
+    if ((selector = xml_find_value(xfilter, "select")) == NULL){
 	netconf_create_rpc_error(xf_err, xt, 
 				 "operation-failed", 
 				 "application", 
@@ -593,7 +593,7 @@ netconf_xpath(struct xml_node *xsearch,
     if ((xv = xpath_vec(xsearch, selector, &xlen)) != NULL) {
 	for (i=0; i<xlen; i++){
 	    x = xv[i];
-	    print_xml_xf_node(xf, x, 0, 1);
+	    clicon_xml2cbuf(xf, x, 0, 1);
 	}
 	free(xv);
     }

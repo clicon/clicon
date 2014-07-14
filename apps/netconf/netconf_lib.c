@@ -203,16 +203,16 @@ lock_target(enum target_type target)
 }
 
 char *
-get_target(clicon_handle h, struct xml_node *xn, char *path)
+get_target(clicon_handle h, cxobj *xn, char *path)
 {
-    struct xml_node *x;    
+    cxobj *x;    
     char *target = NULL;
 
-    if ((x = xml_xpath(xn, path)) != NULL){
-	if (xml_xpath(x, "/candidate") != NULL)
+    if ((x = xpath_first(xn, path)) != NULL){
+	if (xpath_first(x, "/candidate") != NULL)
 	    target = clicon_candidate_db(h);
 	else
-	if (xml_xpath(x, "/running") != NULL)
+	if (xpath_first(x, "/running") != NULL)
 	    target = clicon_running_db(h);
     }
     return target;
@@ -268,9 +268,9 @@ netconf_output(int s, cbuf *xf, char *msg)
 
     clicon_debug(1, "SEND %s", msg);
     if (debug > 1){ /* XXX: below only works to stderr, clicon_debug may log to syslog */
-	struct xml_node *xt = NULL;
-	if (xml_parse_str(&buf, &xt) == 0){
-	    xml_to_file(stderr, *xt->xn_children, 0, 0);
+	cxobj *xt = NULL;
+	if (clicon_xml_parse_string(&buf, &xt) == 0){
+	    clicon_xml2file(stderr, xml_child_i(xt, 0), 0, 0);
 	    fprintf(stderr, "\n");
 	    xml_free(xt);
 	}

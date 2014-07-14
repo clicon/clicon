@@ -68,24 +68,24 @@
 #include "netconf_hello.h"
 
 static int
-netconf_hello(struct xml_node *xn)
+netconf_hello(cxobj *xn)
 {
-    struct xml_node *x;
+    cxobj *x;
 
     x = NULL;
     while ((x = xpath_each(xn, "//capability", x)) != NULL) {
-	//fprintf(stderr, "cap: %s\n", xml_get_body(x));
+	//fprintf(stderr, "cap: %s\n", xml_body(x));
     }
     return 0;
 }
 
 int
-netconf_hello_dispatch(struct xml_node *xn)
+netconf_hello_dispatch(cxobj *xn)
 {
-    struct xml_node *xp;
+    cxobj *xp;
     int retval = -1;
 
-    if ((xp = xml_xpath(xn, "//hello")) != NULL)
+    if ((xp = xpath_first(xn, "//hello")) != NULL)
 	retval = netconf_hello(xp);
     return retval;
 }

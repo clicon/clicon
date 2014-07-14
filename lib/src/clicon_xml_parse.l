@@ -34,7 +34,7 @@
 
 /* clicon */
 #include "clicon_buf.h"
-#include "xmlgen_xml.h"
+#include "clicon_xml.h"
 #include "clicon_xml_parse.h"
 
 /* Redefine main lex function so that you can send arguments to it: _ya is added to arg list */
@@ -97,7 +97,7 @@ int clicon_xml_parsewrap(void)
 <TEXTDECL>\"             { BEGIN(STRDQ); return *clicon_xml_parsetext; }
 <TEXTDECL>\'             { BEGIN(STRSQ); return *clicon_xml_parsetext; }
 
-<STR>[^\"]+           { clicon_xml_parselval.string = xml_decode_attr_value(yytext); return CHAR; }
+<STR>[^\"]+           { clicon_xml_parselval.string = strdup(yytext); return CHAR; }
 <STR>\"               { BEGIN(START); return *clicon_xml_parsetext; }
 
 <STRDQ>1\.[0-9]+       { clicon_xml_parselval.string = strdup(yytext);  return CHAR; }

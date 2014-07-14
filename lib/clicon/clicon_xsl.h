@@ -27,9 +27,8 @@
 /*
  * Prototypes
  */
-struct xml_node *xml_xpath(struct xml_node *xn_top, char *xpath);
-struct xml_node *xpath_each(struct xml_node *xn_top, char *xpath, struct xml_node *prev);
-struct xml_node **xpath_vec(struct xml_node *xn_top, char *xpath, int *xv_len);
-struct xml_node *xml_xslt(struct xml_node *xslt, struct xml_node *xn);
+cxobj *xpath_first(cxobj *xn_top, char *xpath);
+cxobj *xpath_each(cxobj *xn_top, char *xpath, cxobj *prev);
+cxobj **xpath_vec(cxobj *xn_top, char *xpath, int *xv_len);
 
 #endif /* _XMLGEN_XSL_H */

@@ -55,7 +55,7 @@ struct cbuf {
  * Returns NULL on error.
  */
 cbuf *
-cbuf_new()
+cbuf_new(void)
 {
     cbuf *cb;
 
@@ -96,6 +96,15 @@ cbuf_len(cbuf *cb)
     return cb->cb_strlen;
 }
 
+/*! Reset a CLICON buffer. That is, restart it from scratch.
+ */
+void
+cbuf_reset(cbuf *cb)
+{
+    cb->cb_strlen    = 0; 
+    cb->cb_buffer[0] = '\0'; 
+}
+
 /*! Create clicon buf by printf like semantics
  * 
  * @param [in]  cb      CLICON buffer allocated by cbuf_new(), may be reallocated.
@@ -106,8 +115,8 @@ int
 cprintf(cbuf *cb, const char *format, ...)
 {
     va_list ap;
+    int diff;
     int retval;
-    int remaining;
 
     va_start(ap, format);
   again:
@@ -118,8 +127,8 @@ cprintf(cbuf *cb, const char *format, ...)
 		       format, ap);
     if (retval < 0)
 	return -1;
-    remaining = cb->cb_buflen - (cb->cb_strlen + retval + 1);
-    if (remaining <= 0){
+    diff = cb->cb_buflen - (cb->cb_strlen + retval + 1);
+    if (diff <= 0){
 	cb->cb_buflen *= 2;
 	if ((cb->cb_buffer = realloc(cb->cb_buffer, cb->cb_buflen)) == NULL)
 	    return -1;
@@ -134,12 +143,5 @@ cprintf(cbuf *cb, const char *format, ...)
 }
 
 
-/*! Reset a CLICON buffer. That is, restart it from scratch.
- */
-void
-cbuf_reset(cbuf *cb)
-{
-    cb->cb_strlen    = 0; 
-    cb->cb_buffer[0] = '\0'; 
-}
+
 

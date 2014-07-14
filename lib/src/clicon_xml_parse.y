@@ -54,7 +54,7 @@
 #include "clicon_err.h"
 #include "clicon_log.h"
 #include "clicon_buf.h"
-#include "xmlgen_xml.h"
+#include "clicon_xml.h"
 #include "clicon_xml_parse.h"
 
 void 
@@ -68,19 +68,17 @@ clicon_xml_parseerror(void *_ya, char *s)
 
 static int
 xml_attr_new(struct xml_parse_yacc_arg *ya, 
-	     struct xml_node *xn, 
+	     cxobj *xn, 
 	     char *name, 
 	     char *val)
 {
-    struct xml_node *xa; 
+    cxobj *xa; 
 
     if ((xa = xml_new(name, xn)) == NULL)
 	return -1;
-    xa->xn_type = XML_ATTRIBUTE;
-    if ((xa->xn_value = strdup(val)) == NULL){
-	clicon_err(OE_XML, errno, "strdup");
+    xml_type_set(xa, CX_ATTR);
+    if (xml_value_set(xa, val) < 0)
 	return -1;
-    }
     return 0;
 }
 
@@ -88,22 +86,21 @@ xml_attr_new(struct xml_parse_yacc_arg *ya,
  * append string to existinbg body
  * assume only one character? (it could be escaped: &< )
  */
-static struct xml_node *
+static cxobj *
 xml_body_append(struct xml_parse_yacc_arg *ya, 
-		struct xml_node *xn, 
-		struct xml_node *xp, 
+		cxobj *xn, 
+		cxobj *xp, 
 		char *str)
 {
     int   sz;
-    int   len;
     char  s0;
 
     s0 = str[0];
     if (xn != NULL){
-	sz = strlen(xn->xn_value);
+	sz = strlen(xml_value(xn));
 	if (s0 == ' ' || s0 == '\n' || s0 == '\t'){
 	    str[0] = ' ';
-	    if (xn->xn_value[sz-1] == ' ')
+	    if (xml_value(xn)[sz-1] == ' ')
 		return NULL;
 	}
     }
@@ -112,15 +109,11 @@ xml_body_append(struct xml_parse_yacc_arg *ya,
 	    return NULL;
 	if ((xn = xml_new("body", xp)) == NULL)
 	    return NULL;
-	xn->xn_type = XML_BODY;
+	xml_type_set(xn, CX_BODY);
 	sz = 0;
     }
-    len = sz + strlen(str);
-    if ((xn->xn_value = realloc(xn->xn_value, len+1)) == NULL){
-	clicon_err(OE_XML, errno, "realloc");
+    if (xml_value_append(xn, str)==NULL)
 	return NULL;
-    }
-    strncpy(xn->xn_value + sz, str, len-sz+1);
     return xn;
 }
 
@@ -147,7 +140,9 @@ xml_parse_id(struct xml_parse_yacc_arg *ya, char *name, char *namespace)
 	free(name);
 	return -1;
     }
-    ya->ya_xelement->xn_namespace = namespace;
+    xml_namespace_set(ya->ya_xelement, namespace);
+    if (namespace)
+	free(namespace);
     free(name);
     return 0;
 }
@@ -164,10 +159,10 @@ static int
 xml_parse_endslash_mid(struct xml_parse_yacc_arg *ya)
 {
     if (ya->ya_xelement != NULL)
-	ya->ya_xelement = ya->ya_xelement->xn_parent;
+	ya->ya_xelement = xml_parent(ya->ya_xelement);
     else
 	ya->ya_xelement = ya->ya_xparent;
-    ya->ya_xparent = ya->ya_xelement->xn_parent;
+    ya->ya_xparent = xml_parent(ya->ya_xelement);
     return 0;
 }
 
@@ -183,14 +178,14 @@ xml_parse_bslash1(struct xml_parse_yacc_arg *ya, char *name)
 {
     int retval = -1;
 
-    if (strcmp(ya->ya_xelement->xn_name, name)){
+    if (strcmp(xml_name(ya->ya_xelement), name)){
 	fprintf(stderr, "Sanity check failed: %s vs %s\n", 
-		ya->ya_xelement->xn_name, name);
+		xml_name(ya->ya_xelement), name);
 	goto done;
     }
-    if (ya->ya_xelement->xn_namespace!=NULL){
+    if (xml_namespace(ya->ya_xelement)!=NULL){
 	fprintf(stderr, "Sanity check failed: %s:%s vs %s\n", 
-		ya->ya_xelement->xn_namespace,ya->ya_xelement->xn_name, name);
+		xml_namespace(ya->ya_xelement), xml_name(ya->ya_xelement), name);
 	goto done;
     }
     retval = 0;
@@ -204,19 +199,19 @@ xml_parse_bslash2(struct xml_parse_yacc_arg *ya, char *namespace, char *name)
 {
     int retval = -1;
 
-    if (strcmp(ya->ya_xelement->xn_name, name)){
+    if (strcmp(xml_name(ya->ya_xelement), name)){
 	fprintf(stderr, "Sanity check failed: %s:%s vs %s:%s\n", 
-		ya->ya_xelement->xn_namespace, 
-		ya->ya_xelement->xn_name, 
+		xml_namespace(ya->ya_xelement), 
+		xml_name(ya->ya_xelement), 
 		namespace, 
 		name);
 	goto done;
     }
-    if (ya->ya_xelement->xn_namespace==NULL ||
-	strcmp(ya->ya_xelement->xn_namespace, namespace)){
+    if (xml_namespace(ya->ya_xelement)==NULL ||
+	strcmp(xml_namespace(ya->ya_xelement), namespace)){
 	fprintf(stderr, "Sanity check failed: %s:%s vs %s:%s\n", 
-		ya->ya_xelement->xn_namespace, 
-		ya->ya_xelement->xn_name, 
+		xml_namespace(ya->ya_xelement), 
+		xml_name(ya->ya_xelement), 
 		namespace, 
 		name);
 	goto done;

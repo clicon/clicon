@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: xmlgen_xf.h,v 1.4 2013/08/01 09:15:46 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -23,10 +22,10 @@
 /*
  * CLICON dynamic buffers 
  * Usage:
- * cbuf *xf;
- * xf = cbuf_new();
- * write(f, cbuf_get(xf), cbuf_len(xf));
- * cbuf_free(xf);
+ * cbuf *b;
+ * b = cbuf_new();
+ * write(f, cbuf_get(b), cbuf_len(b));
+ * cbuf_free(b);
  */
 
 #ifndef _CLICON_BUF_H

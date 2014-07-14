@@ -30,6 +30,6 @@
  */ 
 int netconf_create_hello(cbuf *xf, int session_id);
 
-int netconf_hello_dispatch(struct xml_node *xn);
+int netconf_hello_dispatch(cxobj *xn);
 
 #endif  /* _NETCONF_HELLO_H_ */

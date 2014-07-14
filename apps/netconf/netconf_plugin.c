@@ -268,10 +268,10 @@ catch:
 int
 netconf_plugin_callbacks(clicon_handle h,
 //			 struct db_spec *dbspec,
-			 struct xml_node *xn, 
+			 cxobj *xn, 
 			 cbuf *xf, 
 			 cbuf *xf_err, 
-			 struct xml_node *xorig)
+			 cxobj *xorig)
 {
     netconf_reg_t *nr;
     int            retval;
@@ -280,7 +280,7 @@ netconf_plugin_callbacks(clicon_handle h,
 	return 0;
     nr = deps;
     do {
-	if (strcmp(nr->nr_tag, xn->xn_name) == 0){
+	if (strcmp(nr->nr_tag, xml_name(xn)) == 0){
 	    if ((retval = nr->nr_callback(h, 
 					  xorig, 
 					  xn, 

@@ -28,10 +28,10 @@
 /*
  * Prototypes
  */ 
-int xml_filter(struct xml_node *xf, struct xml_node *xn);
-int netconf_xpath(struct xml_node *xsearch,
-		  struct xml_node *xfilter, 
+int xml_filter(cxobj *xf, cxobj *xn);
+int netconf_xpath(cxobj *xsearch,
+		  cxobj *xfilter, 
 		  cbuf *xf, cbuf *xf_err, 
-		  struct xml_node *xt);
+		  cxobj *xt);
 
 #endif  /* _NETCONF_FILTER_H_ */

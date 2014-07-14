@@ -1146,7 +1146,7 @@ expand_dir(char *dir, int *nr, char ***commands, mode_t flags, int detail)
  * Compare two dbs using XML
  */
 static int
-compare_xmls(struct xml_node *xc1, struct xml_node *xc2, int astext)
+compare_xmls(cxobj *xc1, cxobj *xc2, int astext)
 {
     int fd;
     FILE *f;
@@ -1154,7 +1154,7 @@ compare_xmls(struct xml_node *xc1, struct xml_node *xc2, int astext)
     char filename2[MAXPATHLEN];
     char cmd[MAXPATHLEN];
     int retval = -1;
-    struct xml_node *xc;
+    cxobj *xc;
 
     snprintf(filename1, sizeof(filename1), "/tmp/cliconXXXXXX");
     snprintf(filename2, sizeof(filename2), "/tmp/cliconXXXXXX");
@@ -1170,7 +1170,7 @@ compare_xmls(struct xml_node *xc1, struct xml_node *xc2, int astext)
 	    xml2txt(f, xc, 0);
     else
 	while ((xc = xml_child_each(xc1, xc, -1)) != NULL)
-	    xml_to_file(f, xc, 0, 1);
+	    clicon_xml2file(f, xc, 0, 1);
 
     fclose(f);
     close(fd);
@@ -1187,7 +1187,7 @@ compare_xmls(struct xml_node *xc1, struct xml_node *xc2, int astext)
 	    xml2txt(f, xc, 0);
     else
 	while ((xc = xml_child_each(xc2, xc, -1)) != NULL)
-	    xml_to_file(f, xc, 0, 1);
+	    clicon_xml2file(f, xc, 0, 1);
     fclose(f);
     close(fd);
 
@@ -1210,8 +1210,8 @@ compare_xmls(struct xml_node *xc1, struct xml_node *xc2, int astext)
 int
 compare_dbs(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    struct xml_node *xc1 = NULL; /* running xml */
-    struct xml_node *xc2 = NULL; /* candidate xml */
+    cxobj *xc1 = NULL; /* running xml */
+    cxobj *xc2 = NULL; /* candidate xml */
     int retval = -1;
 
     if ((xc1 = db2xml(clicon_running_db(h), clicon_dbspec_key(h), "dbr")) == NULL)
@@ -1608,7 +1608,7 @@ static int
 show_conf_as(clicon_handle h, cvec *vars, cg_var *arg, 
 	     dbmatch_fn_t fn, void *fnarg)
 {
-    struct xml_node *x0 = NULL; /* top xml */
+    cxobj *x0 = NULL; /* top xml */
     char            *regex;
     int              retval = -1;
     cg_var          *cv;
@@ -1672,9 +1672,9 @@ catch:
 static int
 add2xml_cb(void *handle, char *dbname, char *key, cvec *vr, void *arg)
 {
-    struct xml_node *xt;
+    cxobj *xt;
 
-    xt = (struct xml_node*)arg;
+    xt = (cxobj*)arg;
     return key2xml(key, dbname, clicon_dbspec_key(handle), xt);
 }
 
@@ -1685,8 +1685,8 @@ add2xml_cb(void *handle, char *dbname, char *key, cvec *vr, void *arg)
 static int
 show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
 {
-    struct xml_node *xt = NULL;
-    struct xml_node *xc;
+    cxobj *xt = NULL;
+    cxobj *xc;
     int              retval = -1;
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
@@ -1697,7 +1697,7 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
 	fprintf(stdout, "<rpc><edit-config><target><candidate/></target><config>\n");
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
-	xml_to_file(stdout, xc, netconf?2:0, 1);
+	clicon_xml2file(stdout, xc, netconf?2:0, 1);
     if (netconf) /* netconf postfix */
 	fprintf(stdout, "</config></edit-config></rpc>]]>]]>\n");
     retval = 0;
@@ -1727,8 +1727,8 @@ show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg)
 static int
 show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg, int as_cmd)
 {
-    struct xml_node *xt = NULL;
-    struct xml_node *xc;
+    cxobj *xt = NULL;
+    cxobj *xc;
     enum genmodel_type gt;
     int                retval = -1;
 
@@ -1842,13 +1842,13 @@ cli_getlog(clicon_handle h, cvec *vars, cg_var *arg)
  * X,  B
  */
 int 
-xml2csv(FILE *f, struct xml_node *x, cvec *vh)
+xml2csv(FILE *f, cxobj *x, cvec *vh)
 {
-    struct xml_node *xe, *xb;
+    cxobj *xe, *xb;
     int              retval = -1;
     cg_var          *vs;
 
-    fprintf(f, "%s", x->xn_name);
+    fprintf(f, "%s", xml_name(x));
     xe = NULL;
 
     vs = NULL;
@@ -1857,9 +1857,9 @@ xml2csv(FILE *f, struct xml_node *x, cvec *vh)
 	    fprintf(f, ";");
 	    continue;
 	}
-	if (xe->xn_nrchildren){
-	    xb = xe->xn_children[0];
-	    fprintf(f, ";%s", xb->xn_value);
+	if (xml_child_nr(xe)){
+	    xb = xml_child_i(xe, 0);
+	    fprintf(f, ";%s", xml_value(xb));
 	}
     }
     fprintf(f, "\n");
@@ -1872,8 +1872,8 @@ xml2csv(FILE *f, struct xml_node *x, cvec *vh)
 static int
 show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    struct xml_node *xt = NULL;
-    struct xml_node *xc;
+    cxobj *xt = NULL;
+    cxobj *xc;
     int              retval = -1;
     struct db_spec  *dbspec, *ds=NULL; 
     cg_var          *vs;
@@ -1888,7 +1888,7 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL){
-	if ((str = chunk_sprintf(__FUNCTION__, "%s[]",xc->xn_name)) == NULL)
+	if ((str = chunk_sprintf(__FUNCTION__, "%s[]", xml_name(xc))) == NULL)
 	    goto catch;
 	if (ds==NULL && (ds = key2spec_key(dbspec, str)) != NULL){
 	    fprintf(stdout, "Type");
