@@ -90,7 +90,9 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
 static int
 yang2cli_var(yang_stmt    *ys, 
 	     cbuf         *xf,    
-	     int           completion)
+	     int           completion,
+	     char         *description
+    )
 {
     enum cv_type  cvtype;
     int           options;
@@ -100,17 +102,25 @@ yang2cli_var(yang_stmt    *ys,
 
     if (yang_type_get(ys, NULL, &cvtype, &options, &range_min, &range_max, &pattern) < 0)
 	goto done;
-    cprintf(xf, "(<%s:%s", ys->ys_argument, cv_type2str(cvtype));
+    if (completion)
+	cprintf(xf, "(");
+    cprintf(xf, "<%s:%s", ys->ys_argument, cv_type2str(cvtype));
     if (options & YANG_OPTIONS_RANGE)
 	cprintf(xf, " range[%" PRId64 ":%" PRId64 "]", range_min, range_max);	
     if (options & YANG_OPTIONS_PATTERN)
 	cprintf(xf, " regexp:\"%s\"", pattern);
-    if (completion)
-	cprintf(xf, ">|<%s:%s expand_dbvar_auto(\"candidate %s\")",
+    cprintf(xf, ">");
+    if (description)
+	cprintf(xf, "(\"%s\")", description);
+    if (completion){
+	cprintf(xf, "|<%s:%s expand_dbvar_auto(\"candidate %s\")>",
 		ys->ys_argument, 
 		cv_type2str(cvtype),
 		yang_dbkey_get(ys));
-    cprintf(xf, ">)");
+	if (description)
+	    cprintf(xf, "(\"%s\")", description);
+	cprintf(xf, ")");
+    }
     retval = 0;
   done:
     return retval;
@@ -127,22 +137,24 @@ yang2cli_leaf(clicon_handle h,
     int           retval = -1;
     char         *keyspec;
     int           completion;
+    char         *description = NULL;
 
     completion = clicon_cli_genmodel_completion(h);
-    yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL); /* description */
+    /* description */
+    if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
+	description = yd->ys_argument;
     cprintf(xf, "%*s", level*3, "");
     if (gt == GT_ALL || gt == GT_VARS){
 	cprintf(xf, "%s", ys->ys_argument);
 	if (yd != NULL)
 	    cprintf(xf, "(\"%s\")", yd->ys_argument);
 	cprintf(xf, " ");
-	yang2cli_var(ys, xf, completion);
+	yang2cli_var(ys, xf, completion, description);
     }
     else
-	yang2cli_var(ys, xf, completion);
+	yang2cli_var(ys, xf, completion, description);
 
-    if (yd != NULL)
-	cprintf(xf, "(\"%s\")", yd->ys_argument);
+
     if ((keyspec = yang_dbkey_get(ys)) != NULL)
 	cprintf(xf, ",cli_set(\"%s\")", keyspec);
    cprintf(xf, ";\n");
@@ -242,8 +254,6 @@ yang2cli_stmt(clicon_handle h,
     int           retval = -1;
     int           i;
 
-//    fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
-//	    yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
     case Y_CONTAINER:
 	if (yang2cli_container(h, ys, xf, gt, level) < 0)
@@ -301,8 +311,7 @@ yang2cli(clicon_handle h,
 	    if (yang2cli_stmt(h, ys, xf, gt, 0) < 0)
 		goto done;
 	}
-    if (debug)
-	fprintf(stderr, "%s: buf\n%s\n", __FUNCTION__, cbuf_get(xf));
+    clicon_debug(2, "%s: buf\n%s\n", __FUNCTION__, cbuf_get(xf));
     /* Parse the buffer using cligen parser. XXX why this?*/
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
