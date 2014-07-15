@@ -27,10 +27,6 @@
 /*
  * Prototypes
  */
-#ifdef USE_DBSPEC_PT
-int dbspec2cli(clicon_handle h, dbspec_tree *pt0, parse_tree *ptnew, enum genmodel_type gt);
-#endif /* USE_DBSPEC_PT */
-
 int yang2cli(clicon_handle h, yang_spec *yspec, parse_tree *ptnew, 
 	     enum genmodel_type gt);
 

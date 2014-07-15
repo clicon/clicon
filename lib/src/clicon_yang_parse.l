@@ -41,7 +41,6 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
-#include "clicon_dbspec_parsetree.h" /* XXX shouldnt be necessary */
 #include "clicon_yang.h"
 #include "clicon_yang_parse.h"
 

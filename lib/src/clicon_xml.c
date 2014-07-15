@@ -576,6 +576,8 @@ clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
     return retval;
 }
 
+#define XML_INDENT 3 /* maybve we should set this programmatically? */
+
 /*! Print an XML tree structure to a clicon buffer
  *
  * @param[in,out] cb          Clicon buffer to write to
@@ -596,11 +598,14 @@ int
 clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 {
     cxobj *xc;
-    int    body;
 
     switch(xml_type(cx)){
     case CX_BODY:
+	if (prettyprint)
+	    cprintf(cb, "%*s", level*XML_INDENT, "");
 	cprintf(cb, "%s", xml_value(cx));
+	if (prettyprint)
+	    cprintf(cb, "\n");
 	break;
     case CX_ATTR:
 	cprintf(cb, " ");
@@ -609,7 +614,7 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 	cprintf(cb, "%s=\"%s\"", xml_name(cx), xml_value(cx));
 	break;
     case CX_ELMNT:
-	cprintf(cb, "%*s", prettyprint?(level+1):0, "<");
+	cprintf(cb, "%*s<", prettyprint?(level*XML_INDENT):0, "");
 	if (xml_namespace(cx))
 	    cprintf(cb, "%s:", xml_namespace(cx));
 	cprintf(cb, "%s", xml_name(cx));
@@ -617,23 +622,23 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 	while ((xc = xml_child_each(cx, xc, -1)) != NULL) {
 	    if (xml_type(xc) != CX_ATTR)
 		continue;
-	    clicon_xml2cbuf(cb, xc, prettyprint?(level+2):0, prettyprint);
+	    clicon_xml2cbuf(cb, xc, level+1, prettyprint);
 	}
-	body = xml_child_nr(cx) && xml_type(xml_child_i(cx, 0))==CX_BODY;
-	cprintf(cb, ">%s", prettyprint?"\n":"");
+	cprintf(cb, ">");
+	if (prettyprint)
+	    cprintf(cb, "\n");
 	xc = NULL;
 	while ((xc = xml_child_each(cx, xc, -1)) != NULL) {
 	    if (xml_type(xc) == CX_ATTR)
 		continue;
 	    else
-		clicon_xml2cbuf(cb, xc, level+2, prettyprint);
+		clicon_xml2cbuf(cb, xc, level+1, prettyprint);
 	}
-	cprintf(cb, "%*s%s>%s", 
-		(prettyprint&&!body)?(level+2):0, 
-		"</", 
-		xml_name(cx),
-		prettyprint?"\n":""
-	    );
+	if (prettyprint)
+	    cprintf(cb, "%*s", level*XML_INDENT, "");
+	cprintf(cb, "</%s>", xml_name(cx));
+	if (prettyprint)
+	    cprintf(cb, "\n");
 	break;
     default:
 	break;
@@ -642,26 +647,26 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 }
 
 static int 
-xml_parse(char **xml_str, cxobj *x_up)
+xml_parse(char **str, cxobj *x_up)
 {
-    int retval = -1;
+    int                       retval = -1;
     struct xml_parse_yacc_arg ya = {0,};
 
-    if ((ya.ya_parse_string = strdup(*xml_str)) == NULL){
+    if ((ya.ya_parse_string = strdup(*str)) == NULL){
 	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
 	return -1;
     }
     ya.ya_xparent = x_up;
     if (clicon_xml_parsel_init(&ya) < 0)
 	goto done;
-    if (clicon_xml_parseparse(&ya) < 0) 
+    if (clicon_xml_parseparse(&ya) != 0)  /* yacc returns 1 on error */
 	goto done;
     clicon_xml_parsel_exit(&ya);
     retval = 0;
   done:
     if(ya.ya_parse_string != NULL)
 	free(ya.ya_parse_string);
-    return retval;
+    return retval; 
 }
 
 /*
@@ -768,11 +773,11 @@ clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)
  * Update: with yacc parser I dont think it changes,....
  */
 int 
-clicon_xml_parse_string(char **str, cxobj **xml_top)
+clicon_xml_parse_string(char **str, cxobj **cxtop)
 {
-  if ((*xml_top = xml_new("top", NULL)) == NULL)
+  if ((*cxtop = xml_new("top", NULL)) == NULL)
     return -1;
-  return xml_parse(str, *xml_top);
+  return xml_parse(str, *cxtop);
 }
 
 /*! Copy single xml node without copying children

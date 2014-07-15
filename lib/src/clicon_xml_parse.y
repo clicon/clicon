@@ -82,41 +82,44 @@ xml_attr_new(struct xml_parse_yacc_arg *ya,
     return 0;
 }
 
-/*
- * append string to existinbg body
- * assume only one character? (it could be escaped: &< )
+/* note that we dont handle escaped characters correctly 
+   there may also be some leakage here on NULL return
  */
-static cxobj *
-xml_body_append(struct xml_parse_yacc_arg *ya, 
-		cxobj *xn, 
-		cxobj *xp, 
-		char *str)
+static int
+xml_parse_content(struct xml_parse_yacc_arg *ya, char *str)
 {
     int   sz;
     char  s0;
+    cxobj *xn = ya->ya_xelement;
+    cxobj *xp = ya->ya_xparent;
+    int    retval = -1;
 
+    ya->ya_xelement = NULL; /* init */
     s0 = str[0];
     if (xn != NULL){
 	sz = strlen(xml_value(xn));
 	if (s0 == ' ' || s0 == '\n' || s0 == '\t'){
 	    str[0] = ' ';
 	    if (xml_value(xn)[sz-1] == ' ')
-		return NULL;
+		goto ok;
 	}
     }
     else{
 	if (s0 == ' ' || s0 == '\n' || s0 == '\t')
-	    return NULL;
+	    goto ok;
 	if ((xn = xml_new("body", xp)) == NULL)
-	    return NULL;
+	    goto done; 
 	xml_type_set(xn, CX_BODY);
 	sz = 0;
     }
     if (xml_value_append(xn, str)==NULL)
-	return NULL;
-    return xn;
+	goto done; 
+    ya->ya_xelement = xn;
+  ok:
+    retval = 0;
+  done:
+    return retval;
 }
-
 
 static int
 xml_parse_version(struct xml_parse_yacc_arg *ya, char *ver)
@@ -179,12 +182,12 @@ xml_parse_bslash1(struct xml_parse_yacc_arg *ya, char *name)
     int retval = -1;
 
     if (strcmp(xml_name(ya->ya_xelement), name)){
-	fprintf(stderr, "Sanity check failed: %s vs %s\n", 
+	clicon_err(OE_XML, 0, "Sanity check failed: %s vs %s", 
 		xml_name(ya->ya_xelement), name);
 	goto done;
     }
     if (xml_namespace(ya->ya_xelement)!=NULL){
-	fprintf(stderr, "Sanity check failed: %s:%s vs %s\n", 
+	clicon_err(OE_XML, 0, "Sanity check failed: %s:%s vs %s\n", 
 		xml_namespace(ya->ya_xelement), xml_name(ya->ya_xelement), name);
 	goto done;
     }
@@ -200,7 +203,7 @@ xml_parse_bslash2(struct xml_parse_yacc_arg *ya, char *namespace, char *name)
     int retval = -1;
 
     if (strcmp(xml_name(ya->ya_xelement), name)){
-	fprintf(stderr, "Sanity check failed: %s:%s vs %s:%s\n", 
+	clicon_err(OE_XML, 0, "Sanity check failed: %s:%s vs %s:%s\n", 
 		xml_namespace(ya->ya_xelement), 
 		xml_name(ya->ya_xelement), 
 		namespace, 
@@ -209,7 +212,7 @@ xml_parse_bslash2(struct xml_parse_yacc_arg *ya, char *namespace, char *name)
     }
     if (xml_namespace(ya->ya_xelement)==NULL ||
 	strcmp(xml_namespace(ya->ya_xelement), namespace)){
-	fprintf(stderr, "Sanity check failed: %s:%s vs %s:%s\n", 
+	clicon_err(OE_XML, 0, "Sanity check failed: %s:%s vs %s:%s\n", 
 		xml_namespace(ya->ya_xelement), 
 		xml_name(ya->ya_xelement), 
 		namespace, 
@@ -223,21 +226,6 @@ xml_parse_bslash2(struct xml_parse_yacc_arg *ya, char *namespace, char *name)
     return retval;
 }
 
-static int
-xml_parse_content(struct xml_parse_yacc_arg *ya, char *str)
-{
-    int retval = -1;
-
-    if ((ya->ya_xelement=xml_body_append(ya, 
-					 ya->ya_xelement, 
-					 ya->ya_xparent, 
-					 str)) == NULL) 
-	goto done;
-    retval = 0;
-  done:
-//    free(str);
-    return retval;
-}
 
 static char*
 xml_parse_ida(struct xml_parse_yacc_arg *ya, char *namespace, char *name)
@@ -272,12 +260,14 @@ xml_parse_attr(struct xml_parse_yacc_arg *ya, char *id, char *val)
 %%
 
 topxml      : list
-                   { clicon_debug(2, "ACCEPT\n"); YYACCEPT; }
+                    { clicon_debug(2, "topxml->list ACCEPT"); 
+                      YYACCEPT; }
             | dcl list
-                   { clicon_debug(2, "ACCEPT\n"); YYACCEPT; }
+	            { clicon_debug(2, "topxml->dcl list ACCEPT"); 
+                      YYACCEPT; }
             ;
 
-dcl         : BTEXT info encode ETEXT
+dcl         : BTEXT info encode ETEXT { clicon_debug(2, "dcl->info encode"); }
             ;
 
 info        : VER '=' '\"' CHAR '\"' 
@@ -291,33 +281,40 @@ encode      : ENC '=' '\"' CHAR '\"' {free($4);}
             | ENC '=' '\'' CHAR '\'' {free($4);}
             ;
 
-element     : '<' id  attrs element1
+emnt     : '<' id  attrs emnt1 
+                   { clicon_debug(2, "emnt -> < id attrs emnt1"); }
 	      ;
 
-id          : NAME            { if (xml_parse_id(_YA, $1, NULL) < 0) YYABORT; }
-            | NAME ':' NAME   { if (xml_parse_id(_YA, $3, $1) < 0) YYABORT; }
+id          : NAME            { if (xml_parse_id(_YA, $1, NULL) < 0) YYABORT; 
+                                clicon_debug(2, "id -> NAME");}
+            | NAME ':' NAME   { if (xml_parse_id(_YA, $3, $1) < 0) YYABORT; 
+                                clicon_debug(2, "id -> NAME : NAME");}
             ;
 
-element1    :  ESLASH {_YA->ya_xelement = NULL;} 
+emnt1    :  ESLASH          {_YA->ya_xelement = NULL; 
+                               clicon_debug(2, "emnt1 -> />");} 
             | '>'              { xml_parse_endslash_pre(_YA); }
               list             { xml_parse_endslash_mid(_YA); }
-              etg             { xml_parse_endslash_post(_YA); }
+              etg             { xml_parse_endslash_post(_YA); 
+                               clicon_debug(2, "emnt1 -> > list etg");} 
             ;
 
 etg         : BSLASH NAME '>'          
-                       { if (xml_parse_bslash1(_YA, $2) < 0) YYABORT; }
+                       { if (xml_parse_bslash1(_YA, $2) < 0) YYABORT; 
+                         clicon_debug(2, "etg -> < </ NAME >"); }
             | BSLASH NAME ':' NAME '>' 
-                       { if (xml_parse_bslash2(_YA, $2, $4) < 0) YYABORT; }
+                       { if (xml_parse_bslash2(_YA, $2, $4) < 0) YYABORT; 
+			 clicon_debug(2, "etg -> < </ NAME:NAME >"); }
             ;
 
-list        : list content 
-            | 
+list        : list content { clicon_debug(2, "list -> list content"); }
+            | content      { clicon_debug(2, "list -> content"); }
             ;
 
-content     : element 
-            | comment 
-            | CHAR   { if (xml_parse_content(_YA, $1) < 0) YYABORT; }
-
+content     : emnt         { clicon_debug(2, "content -> emnt"); }
+            | comment      { clicon_debug(2, "content -> comment"); }
+            | CHAR         { if (xml_parse_content(_YA, $1) < 0) YYABORT;  
+                             clicon_debug(2, "content -> CHAR", $1); }
             ;
 
 comment     : BCOMMENT ECOMMENT

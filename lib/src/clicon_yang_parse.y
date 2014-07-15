@@ -154,7 +154,6 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
-#include "clicon_dbspec_parsetree.h" /* XXX not necessary */
 #include "clicon_err.h"
 #include "clicon_log.h"
 #include "clicon_yang.h"

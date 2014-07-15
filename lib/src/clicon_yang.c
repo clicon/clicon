@@ -50,9 +50,6 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_spec.h"
-#ifdef USE_DBSPEC_PT
-#include "clicon_dbspec_parsetree.h"
-#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
@@ -60,9 +57,6 @@
 #include "clicon_chunk.h"
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
-#ifdef USE_DBSPEC_PT
-#include "clicon_dbspec.h"
-#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_yang_type.h"
 #include "clicon_yang_parse.h"
@@ -526,7 +520,7 @@ yang_parse_str(clicon_handle h,
 	    goto done;
 	if (yang_parse_init(&yy, yspec) < 0)
 	    goto done;
-	if (clicon_yang_parseparse(&yy) != 0) {
+	if (clicon_yang_parseparse(&yy) != 0) { /* yacc returns 1 on error */
 	    yang_parse_exit(&yy);
 	    yang_scan_exit(&yy);
 	    goto done;

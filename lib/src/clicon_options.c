@@ -77,9 +77,6 @@
 #include "clicon_chunk.h"
 #include "clicon_log.h"
 #include "clicon_spec.h"
-#ifdef USE_DBSPEC_PT
-#include "clicon_dbspec_parsetree.h"
-#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_options.h"
 
@@ -660,41 +657,6 @@ clicon_dbspec_key_set(clicon_handle h, struct db_spec *ds)
 	return -1;
     return 0;
 }
-
-#ifdef USE_DBSPEC_PT /* This should at some time migrate to clicon_dbspec_yang, or just be 
-			replaced bythat code */
-/* 
- * Get dbspec (PARSE-TREE variant)
- * Must use hash functions directly since they are not strings.
- */
-dbspec_tree *
-clicon_dbspec_pt(clicon_handle h)
-{
-    clicon_hash_t  *copt = clicon_options(h);
-    size_t          len;
-    void           *p;
-
-    if ((p = hash_value(copt, "dbspec_pt", &len)) != NULL)
-	return *(struct dbspec_tree **)p;
-    return NULL;
-}
-
-/* 
- * Set dbspec (PARSE-TREE variant)
- */
-int
-clicon_dbspec_pt_set(clicon_handle h, struct dbspec_tree *pt)
-{
-    clicon_hash_t  *copt = clicon_options(h);
-
-    /* It is the pointer to pt that should be copied by hash,
-       so we send a ptr to the ptr to indicate what to copy.
-     */
-    if (hash_add(copt, "dbspec_pt", &pt, sizeof(pt)) == NULL)
-	return -1;
-    return 0;
-}
-#endif /* USE_DBSPEC_PT */
 
 /* 
  * Get dbspec (YANG variant)

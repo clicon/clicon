@@ -117,10 +117,8 @@ clicon_xml_parsel_init(struct xml_parse_yacc_arg *ya)
 {
   BEGIN(START);
   ya->ya_lexbuf = yy_scan_string (ya->ya_parse_string);
-#if 1 /* XXX: just to use unput to avoid warning  */
   if (0)
-    yyunput(0, ""); 
-#endif
+    yyunput(0, "");  /* XXX: just to use unput to avoid warning  */
   return 0;
 }
 

@@ -60,8 +60,6 @@ SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
 	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
 	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \
 	  clicon_buf.c  clicon_xsl.c
-# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
-#clicon_dbspec_parsetree.c clicon_dbspec_xxx.c 
 
 YACCOBJS := lex.clicon_xml_parse.o clicon_xml_parse.tab.o \
 	     clicon_dbvars.yy.o clicon_dbvars.tab.o \
@@ -69,8 +67,6 @@ YACCOBJS := lex.clicon_xml_parse.o clicon_xml_parse.tab.o \
 	   clicon_db2txt.yy.o clicon_db2txt.tab.o 
 # Logically, the below 4 should be in YACCOBJS?
 # clicon_xml_parse.yy.o lex.clicon_dbvars.o clicon_yang_parse.yy.o  lex.clicon_db2txt.o 
-# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
-# lex.clicon_dbspec.o clicon_dbspec.tab.o
 
 # Generated src 
 GENSRC  = build.c 
@@ -122,19 +118,6 @@ clicon_xml_parse.tab.c clicon_xml_parse.tab.h: clicon_xml_parse.y
 
 lex.clicon_xml_parse.o : lex.clicon_xml_parse.c clicon_xml_parse.tab.h # special rule to for make clean to work
 	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
-
-# disabled when USE_DBSPEC_PT is disabled in clicon_config.h.in
-# clicon_dbspec parser
-#lex.clicon_dbspec.c : clicon_dbspec.l clicon_dbspec.tab.h
-#	$(LEX) -Pclicon_dbspec clicon_dbspec.l # -d is debug
-
-#clicon_dbspec.tab.c clicon_dbspec.tab.h: clicon_dbspec.y
-#	$(YACC) -l -d -p clicon_dbspec clicon_dbspec.y # -t is debug
-#	mv y.tab.c clicon_dbspec.tab.c
-#	mv y.tab.h clicon_dbspec.tab.h
-
-#lex.clicon_dbspec.o : lex.clicon_dbspec.c clicon_dbspec.tab.h
-#	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -Wno-error -c $<
 
 # clicon_yang parser
 lex.clicon_yang_parse.c : clicon_yang_parse.l clicon_yang_parse.tab.h

@@ -197,95 +197,6 @@ generic_validate_yang(clicon_handle        h,
     return retval;
 }
 
-#ifdef USE_DBSPEC_PT
-static int
-generic_validate_pt(clicon_handle        h, 
-		    char                *dbname, 
-		    const struct dbdiff *dd,     
-		    dbspec_tree         *dbspec_co)
-{
-    int             i, j;
-    char           *key;
-    cvec           *cvec = NULL;
-    cg_var         *cv;
-    cg_varspec2    *cs;
-    int             retval = -1;
-    dbspec_obj     *co;
-    dbspec_obj     *cov;
-    char           *reason = NULL;
-    dbspec_tree    *pt;
-
-    /* dd->df_ents[].dfe_key1 (running),  
-       dd->df_ents[].dfe_key2 (candidate) */
-    for (i = 0; i < dd->df_nr; i++) {
-	if ((key = dd->df_ents[i].dfe_key2) == NULL)
-	    continue;
-	if ((co = key2spec_co(dbspec_co, key)) == NULL)
-	    continue;
-	/* read variable list from db */
-	if ((cvec = dbkey2cvec(dbname, key)) == NULL) 
-	    goto done;
-	/* Loop over all co:s children (spec) and check if actual values
-	   in db(cv) satisfies them */
-	pt = &co->do_pt;
-	for (j=0; j<pt->dt_len; j++){
-	    if ((cov = pt->dt_vec[j]) == NULL)
-		continue;
-	    if (cov->do_type == CO_VARIABLE){
-		/* There is no db-value, but dbspec has default value */
-		if ((cv = dbspec_default_get(cov)) != NULL &&
-		    cvec_find(cvec, cov->do_command) == NULL){
-		    cv_flag_set(cv, V_DEFAULT); /* mark it as default XXX not survive DB */
-		    /* add default value to cvec */
-		    if (cvec_add_cv(cvec, cv) < 0){
-			clicon_err(OE_CFG, 0, "cvec_add_cv");
-			goto done;
-		    }
-		    /* Write to database */
-		    if (cvec2dbkey(dbname, key, cvec) < 0)
-			goto done;
-		}
-		else
-		if (!dbspec_optional_get(cov) && cvec_find(cvec, cov->do_command) == NULL){
-		    clicon_err(OE_CFG, 0, 
-			       "key %s: Missing mandatory variable: %s\n",
-			       key, cov->do_command);
-		    goto done;
-		}
-	    }
-	}
-	cv = NULL;
-	/* Loop over all actual db/cv:s och check their validity */	
-	while ((cv = cvec_each(cvec, cv))) {
-	    if ((cov = co_find_one2(*pt, cv_name_get(cv))) == NULL){
-		clicon_err(OE_CFG, 0, "key %s: variable %s not found in co-spec", 
-			   key, cv_name_get(cv));
-		goto done;
-	    }
-	    if ((cs = do2varspec(cov)) == NULL)
-		continue;
-	    if (cv_validate2(cv, cs, &reason) != 1){ /* We ignore errors */
-		clicon_err(OE_DB, 0, 
-			   "key %s: validation of %s failed\n",
-			   key, cov->do_command);
-		goto done;
-	    }
-
-	}
-	if (cvec){
-	    cvec_free(cvec);
-	    cvec = NULL;
-	}
-    } /* for dd */
-    retval = 0;
-  done:
-    if (cvec)
-	cvec_free(cvec);
-    if (reason)
-	free(reason);
-    return retval;
-}
-#endif /* USE_DBSPEC_PT */
 
 /*! Key values are checked for validity independent of user-defined callbacks
  *
@@ -317,23 +228,10 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
 	if (generic_validate_yang(h, dbname, dd, yspec) < 0)
 	    goto done;
     }
-#ifdef USE_DBSPEC_PT
-    else
-	if (strcmp(dbspec_type, "PT") == 0){ /* PT */
-	    dbspec_tree    *dbspec_co;   /* pt spec */
-
-	    if ((dbspec_co = clicon_dbspec_pt(h)) == NULL){
-		clicon_err(OE_CFG, 0, "%s: No dbspec", __FUNCTION__);
-		goto done;
-	    }
-	    if (generic_validate_pt(h, dbname, dd, dbspec_co) < 0)
-		goto done;
-	}
-#endif /* USE_DBSPEC_PT */
-	    else{
-		clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
-		goto done;
-	    }
+    else{
+	clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+	goto done;
+    }
     retval = 0;
   done:
     return retval;

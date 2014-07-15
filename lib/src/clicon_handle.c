@@ -40,9 +40,6 @@
 #include "clicon_handle.h"
 #include "clicon_err.h"
 #include "clicon_spec.h"
-#ifdef USE_DBSPEC_PT
-#include "clicon_dbspec_parsetree.h"
-#endif /* USE_DBSPEC_PT */
 #include "clicon_yang.h"
 #include "clicon_options.h"
 

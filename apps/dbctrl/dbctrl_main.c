@@ -160,9 +160,6 @@ main(int argc, char **argv)
     clicon_handle    h;
     int              use_syslog;
     char            *dbspec_type;
-#ifdef USE_DBSPEC_PT
-    dbspec_tree     *pt;
-#endif /* USE_DBSPEC_PT */
     struct db_spec  *db_spec = NULL;
     struct stat      st;
     yang_spec       *yspec;
@@ -279,14 +276,6 @@ main(int argc, char **argv)
 	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
 	goto quit;
     }
-#ifdef USE_DBSPEC_PT
-    /* pt must be malloced since it is saved in options/hash-value */
-    if ((pt = malloc(sizeof(*pt))) == NULL){
-	clicon_err(OE_FATAL, errno, "malloc");
-	goto quit;
-    }
-    memset(pt, 0, sizeof(*pt));
-#endif /* USE_DBSPEC_PT */
     dbspec_type = clicon_dbspec_type(h);
     if ((dbspec_type == NULL) || strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
 	if ((yspec = yspec_new()) == NULL)
@@ -311,31 +300,11 @@ main(int argc, char **argv)
 	    clicon_dbspec_yang_set(h, yspec);
 	    if (dumpdb)
 		yang_print(stdout, (yang_node*)yspec, 0);
-#ifdef USE_DBSPEC_PT                           
-	    if (dbspec_key2cli(h, db_spec, pt) < 0)
-		goto quit;
-	    clicon_dbspec_pt_set(h, pt);
-#endif
 	}
-#ifdef USE_DBSPEC_PT
-	else
-	    if (strcmp(dbspec_type, "PT") == 0){ /* Parse PT CLI syntax */
-		if (dbclispec_parse(h, db_spec_file, pt) < 0)
-		    goto quit;
-		/* The dbspec parse-tree is in pt*/
-		clicon_dbspec_pt_set(h, pt);	
-		/* Translate from the dbspec as cligen parse-tree to dbspec key fmt */
-		if ((db_spec = dbspec_cli2key(pt)) == NULL) /* To dbspec */
-		    goto quit;
-		if (dumpdb)
-		    db_spec_dump(stdout, db_spec);
-		clicon_dbspec_key_set(h, db_spec);	
-	    }
-#endif /* USE_DBSPEC_PT */
-	    else{
-		clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
-		goto quit;
-	    }
+	else{
+	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+	    goto quit;
+	}
     if (dumpdb)
         if (dump_database(dbname, NULL, brief, db_spec) < 0)
 	    goto quit;
