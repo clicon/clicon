@@ -21,6 +21,34 @@
 
  * XML XPATH and XSLT functions.
  */
+/*
+Implementation of a limited xslt xpath syntax. Some examples. Given the following
+xml tree:
+<aaa>
+  <bbb><ccc>42</ccc></bbb>
+  <bbb><ccc>99</ccc></bbb>
+  <ddd><ccc>22</ccc></ddd>
+</aaa>
+
+With the follwoing xpath examples. There are some diffs and many limitations compared
+to the xml standards:
+	/	      # whole tree <aaa>...</aaa>
+	/bbb          # All bbb's under aaa: <bbb>...</bbb><bbb>...</bbb>
+	//bbb	      # All bbb's under aaa, 
+	//b?b	      # All bbb's under aaa, 
+	//b*	      # All bbb's under aaa, 
+	//b*\/ccc      # All ccc's under all bbb:s, 
+	//\*\/ccc       # All ccc's (both under bbb and ddd)
+	//bbb@x       # x="hello"
+	//bbb[@x]     # <bbb x="bye"><ccc>99</ccc></bbb>
+	//bbb[@x=bye] # <bbb x="bye"><ccc>99</ccc></bbb>
+	//bbb[0]      # <bbb><ccc>42</ccc></bbb>
+	//bbb[ccc=99] # <bbb x="bye"><ccc>99</ccc></bbb>
+        //\*\/[ccc=22]  # <ddd x="hello"><ccc>22</ccc></ddd>
+	//bbb | //ddd   # ALl <bbb> and <ddd>. Note spaces around |
+	etc
+
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -37,17 +65,42 @@
 #include "clicon_xml.h"
 #include "clicon_xsl.h"
 
+/* Constants */
+#define XPATH_VEC_START 128
+
+/*
+ * Types 
+ */
+struct searchvec{
+    cxobj    **sv_v0;   /* here is result */
+    int        sv_v0len;
+    cxobj    **sv_v1;   /* this is tmp storage */
+    int        sv_v1len;
+    int        sv_max;
+};
+typedef struct searchvec searchvec;
+
+/* move from v1 to v0 */
+static int
+sv_move(searchvec *sv)
+{
+    memcpy(sv->sv_v0, sv->sv_v1, sizeof(cxobj*)*sv->sv_v1len);
+    sv->sv_v0len = sv->sv_v1len;
+    sv->sv_v1len = 0;
+    return 0;
+}
+
 /* alloc help-function: double xv vectors. spcial case for init */
 static int
-xv_alloc(cxobj ***xv0p, cxobj ***xv1p, int *xv_maxp)
+vec_alloc(searchvec *sv)
 {
-    cxobj **xv0     = *xv0p;
-    cxobj **xv1     = *xv1p;
-    int               xv_max0 = *xv_maxp;
+    cxobj           **xv0     = sv->sv_v0;
+    cxobj           **xv1     = sv->sv_v1;
+    int               xv_max0 = sv->sv_max;
     int               xv_max;
     int               init;
 
-    init = (xv0p == NULL);
+    init = (xv0 == NULL);
     if (init)
 	xv_max = xv_max0;
     else
@@ -68,9 +121,9 @@ xv_alloc(cxobj ***xv0p, cxobj ***xv1p, int *xv_maxp)
 	memset(xv1, 0, xv_max);
     else
 	memset(xv1+xv_max0, 0, xv_max-xv_max0);
-    *xv0p = xv0;
-    *xv1p = xv1;
-    *xv_maxp = xv_max;
+    sv->sv_v0 = xv0;
+    sv->sv_v1 = xv1;
+    sv->sv_max = xv_max;
     return 0;
 }
 
@@ -92,10 +145,7 @@ static int
 recursive_find(cxobj   *xn, 
 	       char       *pattern, 
 	       int         node_type,
-	       cxobj ***vec1, 
-	       cxobj ***vec0, 
-	       int        *vec_len, 
-	       int        *vec_max)
+	       searchvec  *sv)
 {
     cxobj *xsub; 
     int       retval = -1;
@@ -103,14 +153,14 @@ recursive_find(cxobj   *xn,
     xsub = NULL;
     while ((xsub = xml_child_each(xn, xsub, node_type)) != NULL) {
 	if (fnmatch(pattern, xml_name(xsub), 0) == 0){
-	    if (*vec_len >= *vec_max)
-		if (xv_alloc(vec0, vec1, vec_max) < 0)
+	    if (sv->sv_v1len >= sv->sv_max)
+		if (vec_alloc(sv) < 0)
 		    goto done;
-	    (*vec1)[(*vec_len)] = xsub; 
-	    *vec_len = *vec_len + 1;
+	    sv->sv_v1[sv->sv_v1len] = xsub;
+	    sv->sv_v1len += 1;
 	    continue; /* Dont go deeper */
 	}
-	if (recursive_find(xsub, pattern, node_type, vec1, vec0, vec_len, vec_max) < 0)
+	if (recursive_find(xsub, pattern, node_type, sv) < 0)
 	    goto done;
     }
     retval = 0;
@@ -118,198 +168,208 @@ recursive_find(cxobj   *xn,
     return retval;
 }
 
-static cxobj **
-xpath_exec(cxobj *xn_top, char *xpath0, int *xv00_len)
+static int
+xpath_expr(char *e, searchvec *sv)
 {
-    int        deep = 0;
-    char      *attr;
-    char      *expr=NULL;
-    char      *e_attr=NULL;
-    char      *e_val=NULL;
-    char      *p;
-    char      *node;
-    char      *xpath = strdup(xpath0);
-    cxobj  *xn, *xc;
-    cxobj **xv0=NULL;  /* Search vector 0 */
-    cxobj **xv1=NULL;  /* Search vector 1 */
+    char      *e_a;
+    char      *e_v;
     int        i;
-    int        xv_max = 128;
-    int        xv0_len=0;
-    int        xv1_len=0;
+    int        retval = -1;
+    cxobj     *cxn;
+    cxobj     *cxc;
 
-    assert(xn_top);
+    if (*e == '@'){ /* @ is a selection */
+	e++;
+	e_v=e;
+	e_a = strsep(&e_v, "=");
+	if (e_a == NULL){
+	    clicon_err(OE_XML, errno, "%s: malformed expression: [@%s]", 
+		       __FUNCTION__, e);
+	    goto done;
+	}
+	for (i=0; i<sv->sv_v0len; i++){
+	    cxn = sv->sv_v0[i];
+	    if ((cxc = xml_find(cxn, e_a)) != NULL &&
+		(xml_type(cxc) == CX_ATTR)){
+		if (!e_v || strcmp(xml_value(cxc), e_v) == 0)
+		    sv->sv_v1[sv->sv_v1len++] = cxn;
+	    }
+	}
+    }
+    else{ /* either <n> or <tag><op><value>, where <op>='=' for now */
+	int oplen = strcspn(e, "=");
+	if (strlen(e+oplen)==0){ /* no operator */
+	    if (sscanf(e, "%d", &i) == 1){ /* number */
+		if (i < sv->sv_v0len){
+		    cxc = sv->sv_v0[i]; /* XXX: cant compress: gcc breaks */
+		    sv->sv_v1[sv->sv_v1len++] = cxc;
+		}
+	    }
+	    else{
+		clicon_err(OE_XML, errno, "%s: malformed expression: [%s]", 
+			   __FUNCTION__, e);
+		goto done;
+	    }
+	}
+	else{
+	    char *tag, *val;
+	    if ((tag = strsep(&e, "=")) == NULL){
+		clicon_err(OE_XML, errno, "%s: malformed expression: [%s]", 
+			   __FUNCTION__, e);
+		goto done;
+	    }
+	    for (i=0; i<sv->sv_v0len; i++){
+		cxn = sv->sv_v0[i];
+		if ((cxc = xml_find(cxn, tag)) != NULL &&
+		    (xml_type(cxc) == CX_ELMNT)){
+		    if ((val = xml_body(cxc)) != NULL &&
+			strcmp(val, e) == 0){
+			sv->sv_v1[sv->sv_v1len++] = cxn;
+		    }
+		}
+	    }
+	}
+    }
+    /* copy the array from 1 to 0 */
+    sv_move(sv);
+    retval = 0;
+  done:
+    return retval;
+}
 
-    /* Transform eg "a/b[kalle]" -> "a/b" expr="kalle" */
-    if (xpath[strlen(xpath)-1] == ']'){
-	xpath[strlen(xpath)-1] = '\0';
-	for (i=strlen(xpath)-1; i; i--){
-	    if (xpath[i] == '['){
-		xpath[i] = '\0';
-		expr = &xpath[i+1];
+static int
+xpath_loop(char *xpathstr, char **pathexpr)
+{
+    int retval = -1;
+    int len;
+    int i;
+
+    char *pe = NULL;
+    len = strlen(xpathstr) - 1;
+    if (xpathstr[len] == ']'){
+	xpathstr[len] = '\0';
+	len = strlen(xpathstr) - 1; /* recompute due to null */
+	for (i=len; i; i--){
+	    if (xpathstr[i] == '['){
+		xpathstr[i] = '\0';
+		pe = &xpathstr[i+1];
 		break;
 	    }
 	}
-	if (expr==NULL){
-	    clicon_err(OE_XML, errno, "%s: mismatched []: %s", __FUNCTION__, xpath0);
-	    return NULL;
+	if (pe==NULL){
+	    clicon_err(OE_XML, errno, "%s: mismatched []: %s", __FUNCTION__, xpathstr);
+	    goto done;
 	}
     }
-    /* Start with attributes */
-    attr = xpath;
-    p = strsep(&attr, "@");
-    if (*p != '/') /* Only accept root node expressions */
-	goto done;
-    p++;
-    /* Allocate search vector */
-    if (xv_alloc(&xv0, &xv1, &xv_max) < 0)
-	return NULL;
-    /* Initialize xv0 */
-    xv0_len=0;
-    xv0[xv0_len++] = xn_top;
-    xv1_len = 0;
+    retval = 0;
+  done:
+    *pathexpr = pe;
+    return retval;
+}
 
-    while (p && strlen(p) && xv0_len){
-	deep = 0;
-	if (*p == '/') {
-	    p++;
-	    deep = 1;
+static int
+xpath_exec(cxobj *cxtop, char *xpath0, searchvec *sv)
+{
+    cxobj     *cxn;
+    cxobj     *cxc;
+    int        recurse = 0;
+    char      *str;
+    char      *pathexpr=NULL;
+    char      *q;
+    char      *xp;
+    int        i;
+    char      *strn;
+
+    if ((xp = strdup(xpath0)) == NULL){
+	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
+	return -1;
+    }
+    /* Transform eg "a/b[kalle]" -> "a/b" e="kalle" */
+    if (xpath_loop(xp, &pathexpr) < 0)
+	return -1;
+    /* first look for expressions regarding attrs */
+    str = xp;
+    q = strsep(&str, "@");
+    if (*q != '/') /* This is kinda broken */
+	goto done;
+    q++;
+    /* These are search arrays allocated in sub-function used later */
+    if (vec_alloc(sv) < 0)
+	return -1;
+    /* Initialize vec0 */
+    sv->sv_v0len = 1;
+    sv->sv_v0[0] = cxtop;
+    sv->sv_v1len = 0;
+
+    while (q && strlen(q) && sv->sv_v0len){
+	recurse = 0;
+	if (*q == '/') {
+	    q++;
+	    recurse = 1;
 	}
-	node = strsep(&p, "/");
-	if (node== NULL || strlen(node) == 0){
-	    if (attr && deep) /* eg //@ */
-		;
-	    else{
-		/* Now move search vector from xv1->xv0 */
-		memcpy(xv0, xv1, sizeof(cxobj*)*xv1_len);
-		xv0_len = xv1_len;
-		xv1_len = 0;
+	strn = strsep(&q, "/");
+	if (strn== NULL || strlen(strn) == 0){
+	    if (!str || !recurse){ /* eg //@ */
+		/* copy the array from 1 to 0 */
+		sv_move(sv);
 	    }
 	    break;
 	}
-	/* Fill in search vector xv1 with next level values */
-	for (i=0; i<xv0_len; i++){
-	    xn = xv0[i];
-	    if (deep){
-/* We should really also match top-level symbol */
-#ifdef dontdare
-		if (strcmp(node, xml_name(xn)) == 0){
-		    xv1[(xv1_len)] = xn;
-		    xv1_len++;
-		}
-		else
-#endif
-		    if (recursive_find(xn, node, CX_ELMNT, &xv1, &xv0, &xv1_len, &xv_max) < 0)
-		    return NULL;
-	    }
-	    else{
-		xc = NULL;
-		while ((xc = xml_child_each(xn, xc, CX_ELMNT)) != NULL) {
-		    if (fnmatch(node, xml_name(xc), 0) == 0 &&
-			xml_type(xc) == CX_ELMNT){
+	/* Fill in the searchv with values from next values */
+	for (i=0; i<sv->sv_v0len; i++){
+	    cxn = sv->sv_v0[i];
+	    if (!recurse){
+		cxc = NULL;
+		while ((cxc = xml_child_each(cxn, cxc, CX_ELMNT)) != NULL) {
+		    if (fnmatch(strn, xml_name(cxc), 0) == 0 &&
+			xml_type(cxc) == CX_ELMNT){
 
-			if (xv1_len >= xv_max)
-			    if (xv_alloc(&xv0, &xv1, &xv_max) < 0)
-				return NULL;
-			xv1[xv1_len++] = xc;
+			if (sv->sv_v1len >= sv->sv_max)
+			    if (vec_alloc(sv) < 0)
+				return -1;
 		    }
 		}
 	    }
+	    else{
+		if (recursive_find(cxn, strn, CX_ELMNT, sv) < 0)
+		    return -1;
+	    }
 	}
-	/* Now move search vector from xv1->xv0 */
-	memcpy(xv0, xv1, sizeof(cxobj*)*xv1_len);
-	xv0_len = xv1_len;
-	xv1_len = 0;
+	/* copy the array from 1 to 0 */
+	sv_move(sv);
     }
-    if (attr){
-	for (i=0; i<xv0_len; i++){
-	    xn = xv0[i];
-	    if (deep){
-		if (recursive_find(xn, attr, CX_ATTR, &xv1, &xv0, &xv1_len, &xv_max) < 0)
-		    return NULL;
+    if (str){
+	for (i=0; i<sv->sv_v0len; i++){
+	    cxn = sv->sv_v0[i];
+	    if (recurse){
+		if (recursive_find(cxn, str, CX_ATTR, sv) < 0)
+		    return -1;
 	    }
 	    else{
-		xc = xml_find(xn, attr);
-		if (xc && xml_type(xc) == CX_ATTR)
-		    xv1[xv1_len++] = xc;
+		cxc = xml_find(cxn, str);
+		if (cxc && xml_type(cxc) == CX_ATTR)
+		    sv->sv_v1[sv->sv_v1len++] = cxc;
 	    }
 	}
-	/* Now move search vector from xv1->xv0 */
-	memcpy(xv0, xv1, sizeof(cxobj*)*xv1_len);
-	xv0_len = xv1_len;
-	xv1_len = 0;
-    } /* attr */
-    if (expr){
-	if (*expr == '@'){ /* select attribute */
-	    expr++;
-	    e_val=expr;
-	    e_attr = strsep(&e_val, "=");
-	    if (e_attr == NULL){
-		clicon_err(OE_XML, errno, "%s: malformed expression: [@%s]", 
-			__FUNCTION__, expr);
-		return NULL;
-	    }
-	    for (i=0; i<xv0_len; i++){
-		xn = xv0[i];
-		if ((xc = xml_find(xn, e_attr)) != NULL &&
-		    (xml_type(xc) == CX_ATTR)){
-		    if (!e_val || strcmp(xml_value(xc), e_val) == 0)
-			xv1[xv1_len++] = xn;
-		}
-	    }
-	}
-	else{ /* either <n> or <tag><op><value>, where <op>='=' for now */
-	    int oplen = strcspn(expr, "=");
-	    if (strlen(expr+oplen)==0){ /* no operator */
-		if (sscanf(expr, "%d", &i) == 1){ /* number */
-		    if (i < xv0_len){
-			xc = xv0[i]; /* XXX: cant compress: gcc breaks */
-			xv1[xv1_len++] = xc;
-		    }
-		}
-		else{
-		    clicon_err(OE_XML, errno, "%s: malformed expression: [%s]", 
-			    __FUNCTION__, expr);
-		    return NULL;
-		}
-	    }
-	    else{
-		char *tag, *val;
-		if ((tag = strsep(&expr, "=")) == NULL){
-		    clicon_err(OE_XML, errno, "%s: malformed expression: [%s]", 
-			    __FUNCTION__, expr);
-		    return NULL;
-		}
-		for (i=0; i<xv0_len; i++){
-		    xn = xv0[i];
-		    if ((xc = xml_find(xn, tag)) != NULL &&
-			(xml_type(xc) == CX_ELMNT)){
-			if ((val = xml_body(xc)) != NULL &&
-			    strcmp(val, expr) == 0){
-			    xv1[xv1_len++] = xn;
-			}
-		    }
-		}
-	    }
-	}
-	/* Now move search vector from xv1->xv0 */
-	memcpy(xv0, xv1, sizeof(cxobj*)*xv1_len);
-	xv0_len = xv1_len;
-	xv1_len = 0;
-    } /* expr */
+	/* copy the array from 1 to 0 */
+	sv_move(sv);
+    } /* str */
+    if (pathexpr != NULL)
+	if (xpath_expr(pathexpr, sv) < 0)
+	    return -1;
   done:
-    /* Result in xv0 (if any). Pick result after previous or first of NULL */
-    if (0){
-	fprintf(stderr, "%s: result:\n", __FUNCTION__); 
-	for (i=0; i<xv0_len; i++)
-	    fprintf(stderr, "\t%s\n", xml_name(xv0[i])); 
+    if (xp)
+	free(xp);
+    /* result in sv->sv_v0 */
+    if (sv){
+	if (sv->sv_v1)
+	    free(sv->sv_v1);
+	sv->sv_v1len = 0;
+	sv->sv_v1 = NULL;
     }
-    if (xpath)
-	free(xpath);
-    *xv00_len = xv0_len;
-    if (xv1)
-	free(xv1);
-    return xv0;
-} /* xpath_first */
+#endif
+    return 0;
+} /* xpath_exec */
 
 
 /*
@@ -321,23 +381,28 @@ xpath_exec(cxobj *xn_top, char *xpath0, int *xv00_len)
  * Note, this could be 'folded' into xpath1 but I judged it too complex.
  */
 static cxobj **
-xpath_internal(cxobj *xn_top, char *xpath0, int *xv_len00)
+xpath_internal(cxobj *cxtop, char *xpath0, int *vec_len00)
 {
     char             *s0;
     char             *s1;
     char             *s2;
     char             *xpath;
-    cxobj **xv0 = NULL;
-    cxobj **xv;
-    int               xv_len0;
-    int               xv_len;
+    cxobj           **vec0 = NULL;
+    int               vec_len0;
+    searchvec        *sv;
 
-    xv_len0 = 0;
+    if ((sv = malloc(sizeof *sv)) == NULL){
+	clicon_err(OE_XML, errno, "%s: malloc", __FUNCTION__);
+	return NULL;
+    }
+    vec_len0 = 0;
     if ((s0 = strdup(xpath0)) == NULL){
 	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
 	return NULL;
     }
     s2 = s1 = s0;
+    memset(sv, 0, sizeof(*sv));
+    sv->sv_max = XPATH_VEC_START;
     while (s1 != NULL){
 	s2 = strstr(s1, " | ");
 	if (s2 != NULL){
@@ -346,34 +411,41 @@ xpath_internal(cxobj *xn_top, char *xpath0, int *xv_len00)
 	}
 	xpath = s1;
 	s1 = s2;
-	xv_len = 0;
-	if ((xv = xpath_exec(xn_top, xpath, &xv_len)) == NULL)
+	if (xpath_exec(cxtop, xpath, sv) < 0)
 	    goto done;
-	if (xv_len > 0){
-	    xv_len0 += xv_len;
-	    if ((xv0 = realloc(xv0, sizeof(cxobj *) * xv_len0)) == NULL){	
+	if (sv->sv_v0len > 0){
+	    vec_len0 += sv->sv_v0len;
+	    if ((vec0 = realloc(vec0, sizeof(cxobj *) * vec_len0)) == NULL){	
 		clicon_err(OE_XML, errno, "%s: realloc", __FUNCTION__);
 		goto done;
 	    }
-	    memcpy(xv0+xv_len0-xv_len, xv, xv_len*sizeof(cxobj *));
-
+	    memcpy(vec0+vec_len0-sv->sv_v0len, 
+		   sv->sv_v0, 
+		   sv->sv_v0len*sizeof(cxobj *));
 	}
-	free(xv); /* may be set w/o xv_len being > 0 */
-	xv = NULL;
+	if (sv->sv_v0)
+	    free(sv->sv_v0);
+	memset(sv, 0, sizeof(*sv));
+	sv->sv_max = XPATH_VEC_START;
     }
   done:
-    if (xv)
-	free(xv);
+    if (sv){
+	if (sv->sv_v1)
+	    free(sv->sv_v1);
+	if (sv->sv_v0)
+	    free(sv->sv_v0);
+	free(sv);
+    }
     if (s0)
 	free(s0);
-    *xv_len00 = xv_len0;
-    return xv0;
+    *vec_len00 = vec_len0;
+    return vec0;
 }
 
 /*! A restricted xpath function where the first matching entry is returned
  * See xpath1() on details for subset.
  * args:
- * @param[in]  xn_top  xml-tree where to search
+ * @param[in]  cxtop  xml-tree where to search
  * @param[in]  xpath   string with XPATH syntax
  * @retval     xml-tree of first match, or NULL on error. 
  *
@@ -382,21 +454,21 @@ xpath_internal(cxobj *xn_top, char *xpath0, int *xv_len00)
  * See also xpath_each, xpath_vec.
  */
 cxobj *
-xpath_first(cxobj *xn_top, char *xpath)
+xpath_first(cxobj *cxtop, char *xpath)
 {
-    cxobj **xv0;
-    int xv0_len = 0;
+    cxobj **vec0;
+    int vec0_len = 0;
     cxobj *xn = NULL;
 
-    if ((xv0 = xpath_internal(xn_top, xpath, &xv0_len)) == NULL)
+    if ((vec0 = xpath_internal(cxtop, xpath, &vec0_len)) == NULL)
 	goto done;
-    if (xv0_len)
-	xn = xv0[0];
+    if (vec0_len)
+	xn = vec0[0];
     else
 	xn = NULL;
   done:
-    if (xv0)
-	free(xv0);
+    if (vec0)
+	free(vec0);
     return xn;
 
 }
@@ -406,11 +478,11 @@ xpath_first(cxobj *xn_top, char *xpath)
  * See xpath1() on details for subset.
  * @code
  *   cxobj *x = NULL;
- *   while ((x = xpath_each(xn_top, "//symbol/foo", x)) != NULL) {
+ *   while ((x = xpath_each(cxtop, "//symbol/foo", x)) != NULL) {
  *     ...
  *   }
  * @endcode
- * @param[in]  xn_top  xml-tree where to search
+ * @param[in]  cxtop  xml-tree where to search
  * @param[in]  xpath   string with XPATH syntax
  * @param[in]  xprev   iterator/result should be initiated to NULL
  * @retval     xml-tree of n:th match, or NULL on error. 
@@ -421,31 +493,31 @@ xpath_first(cxobj *xn_top, char *xpath)
  * NOTE: uses a static variable: consider replacing with xpath_vec() instead
  */
 cxobj *
-xpath_each(cxobj *xn_top, char *xpath, cxobj *xprev)
+xpath_each(cxobj *cxtop, char *xpath, cxobj *xprev)
 {
-    static    cxobj **xv0 = NULL; /* XXX */
-    static int xv0_len = 0;
-    cxobj *xn = NULL;
+    static    cxobj **vec0 = NULL; /* XXX */
+    static int        vec0_len = 0;
+    cxobj            *xn = NULL;
     int i;
     
     if (xprev == NULL){
-	if (xv0) // XXX
-	    free(xv0); // XXX
-	xv0_len = 0;
-	if ((xv0 = xpath_internal(xn_top, xpath, &xv0_len)) == NULL)
+	if (vec0) // XXX
+	    free(vec0); // XXX
+	vec0_len = 0;
+	if ((vec0 = xpath_internal(cxtop, xpath, &vec0_len)) == NULL)
 	    goto done;
     }
-    if (xv0_len){
+    if (vec0_len){
 	if (xprev==NULL)
-	    xn = xv0[0];
+	    xn = vec0[0];
 	else{
-	    for (i=0; i<xv0_len; i++)
-		if (xv0[i] == xprev)
+	    for (i=0; i<vec0_len; i++)
+		if (vec0[i] == xprev)
 		    break;
-	    if (i>=xv0_len-1)
+	    if (i>=vec0_len-1)
 		xn = NULL; 
 	    else
-		xn = xv0[i+1];
+		xn = vec0[i+1];
 	}
     }
     else
@@ -460,7 +532,7 @@ xpath_each(cxobj *xn_top, char *xpath, cxobj *xprev)
  * @code
  *   cxobj **xv;
  *   int               xlen;
- *   if ((xv = xpath_vec(xn_top, "//symbol/foo", &xlen)) != NULL) {
+ *   if ((xv = xpath_vec(cxtop, "//symbol/foo", &xlen)) != NULL) {
  *      for (i=0; i<xlen; i++){
  *         xn = xv[i];
  *         ...
@@ -468,7 +540,7 @@ xpath_each(cxobj *xn_top, char *xpath, cxobj *xprev)
  *      free(xv);
  *   }
  * @endcode
- * @param[in]  xn_top  xml-tree where to search
+ * @param[in]  cxtop  xml-tree where to search
  * @param[in]  xpath   string with XPATH syntax
  * @param[out] xv_len  returns length of vector in return value
  * @retval   vector of xml-trees, or NULL on error. Vector must be freed after use
@@ -478,7 +550,7 @@ xpath_each(cxobj *xn_top, char *xpath, cxobj *xprev)
  * See also xpath, xpath_each.
  */
 cxobj **
-xpath_vec(cxobj *xn_top, char *xpath, int *xv_len)
+xpath_vec(cxobj *cxtop, char *xpath, int *xv_len)
 {
-    return xpath_internal(xn_top, xpath, xv_len);
+    return xpath_internal(cxtop, xpath, xv_len);
 }
