@@ -82,7 +82,6 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
 			 cbuf         *xf,    
 			 enum genmodel_type gt,
 			 int           level);
-
 /*
  * Check for completion (of already existent values), ranges (eg range[min:max]) and
  * patterns, (eg regexp:"[0.9]*").
@@ -105,15 +104,8 @@ yang2cli_var(yang_stmt    *ys,
     if (yang_type_get(ys, &type, &rtype, 
 		      &options, &range_min, &range_max, &pattern) < 0)
 	goto done;
-    if (rtype == NULL){
-	clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+    if (clicon_type2cv(type, rtype, &cvtype) < 0)
 	goto done;
-    }
-    yang2cv_type(rtype, &cvtype);
-    if (cvtype == CGV_ERR){
-	clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
-	goto done;
-    }
     if (completion)
 	cprintf(xf, "(");
     cprintf(xf, "<%s:%s", ys->ys_argument, cv_type2str(cvtype));

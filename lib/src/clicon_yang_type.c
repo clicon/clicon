@@ -202,6 +202,38 @@ cv2yang_type(enum cv_type cv_type)
     return ytype;
 }
 
+/*! translate from yang type -> cligen type, after yang resolve has been made.
+ * handle case where yang resolve did not succedd (rtype=NULL) and then try
+ * to find special cligen types such as ipv4addr.
+ * not true yang types
+ */
+int
+clicon_type2cv(char *type, char *rtype, enum cv_type *cvtype)
+{
+    int retval = -1;
+
+    *cvtype = CGV_ERR;
+    if (rtype == NULL){
+	/* Not resolved, but we can use special cligen types, eg ipv4addr */
+	yang2cv_type(type, cvtype);
+	if (*cvtype == CGV_ERR){
+	    clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+	    goto done;
+	}
+    }
+    else{
+	yang2cv_type(rtype, cvtype);
+	if (*cvtype == CGV_ERR){
+	    clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
+	    goto done;
+	}
+    }
+    retval = 0;
+  done:
+    return retval;
+}
+
+
 /*! Validate cligen variable cv using yang statement as spec
  *
  * @param [in]  cv      A cligen variable to validate. This is a correctly parsed cv.
@@ -232,15 +264,8 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     ycv = ys->ys_cv;
     if (yang_type_get(ys, &type, &rtype, &options, &range_min, &range_max, &pattern) < 0)
 	goto err;
-    if (rtype == NULL){
-	clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+    if (clicon_type2cv(type, rtype, &cvtype) < 0)
 	goto err;
-    }
-    yang2cv_type(rtype, &cvtype);
-    if (cvtype == CGV_ERR){
-	clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
-	goto err;
-    }
     if (cv_type_get(ycv) != cvtype){
 	clicon_err(OE_DB, 0, "%s: Type mismatch %d != %d", 
 		   __FUNCTION__, cvtype, cv_type_get(ycv));

@@ -413,28 +413,11 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     char           *type;   /* original type */
 
     yparent = ys->ys_parent;     /* Find parent: list/container */
-
-    /*
-     * XXX: more elaborate type handling: how to get the type and create the CV accordingly?
-     * See also:
-     *   - ys_cv_validate() which looks for type, range and pattern
-     *   - yang2cli_var() which looks for type & range & pattern
-     * Kan man tänka sig en symbol-lista med typer + range/pattern info?
-     * Eller ska man spara det i parse-trädet som nu?
-     */
     /* 1. Find type specification and set cv type accordingly */
     if (yang_type_get(ys, &type, &rtype, NULL, NULL, NULL, NULL) < 0)
 	goto done;
-    if (rtype == NULL){
-	clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+    if (clicon_type2cv(type, rtype, &cvtype) < 0)
 	goto done;
-    }
-    yang2cv_type(rtype, &cvtype);
-    if (cvtype == CGV_ERR){
-	clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
-	goto done;
-    }
-		
     /* 2. Create the CV using cvtype and name it */
     if ((cv = cv_new(cvtype)) == NULL){
 	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
