@@ -98,6 +98,18 @@ static const struct map_str2int ytmap[] = {
     {NULL, -1}
 };
 
+/* return 1 if built-in, 0 if not */
+static int
+yang_builtin(char *type)
+{
+    const struct map_str2int *yt;
+
+    /* built-in types */
+    for (yt = &ytmap[0]; yt->ms_str; yt++)
+	if (strcmp(yt->ms_str, type) == 0)
+	    return 1;
+    return 0;
+}
 
 /*! Translate from a yang type to a cligen variable type
  *
@@ -119,7 +131,6 @@ yang2cv_type(char *ytype, enum cv_type *cv_type)
 	    *cv_type = yt->ms_int;
 	    return 0;
 	}
-
     /* special derived types */
     if (strcmp("ipv4-address", ytype) == 0){ /* RFC6991 */
 	*cv_type = CGV_IPV4ADDR;
@@ -213,12 +224,23 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     char           *pattern;
     int             retval2;
     enum cv_type    cvtype;
+    char         *type;  /* orig type */
+    char         *rtype; /* resolved type */
 
     if (ys->ys_keyword != Y_LEAF && ys->ys_keyword != Y_LEAF_LIST)
 	return 0;
     ycv = ys->ys_cv;
-    if (yang_type_get(ys, NULL, &cvtype, &options, &range_min, &range_max, &pattern) < 0)
+    if (yang_type_get(ys, &type, &rtype, &options, &range_min, &range_max, &pattern) < 0)
 	goto err;
+    if (rtype == NULL){
+	clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+	goto err;
+    }
+    yang2cv_type(rtype, &cvtype);
+    if (cvtype == CGV_ERR){
+	clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
+	goto err;
+    }
     if (cv_type_get(ycv) != cvtype){
 	clicon_err(OE_DB, 0, "%s: Type mismatch %d != %d", 
 		   __FUNCTION__, cvtype, cv_type_get(ycv));
@@ -245,7 +267,7 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	if ((options & YANG_OPTIONS_LENGTH) != 0){
 	    if (i < range_min || i > range_max) {
 		if (reason)
-		    *reason = cligen_reason("String length out of range: %i", i);
+		    *reason = cligen_reason("string length out of range: %i", i);
 		retval = 0;
 	    }
 	}
@@ -256,7 +278,7 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	    }
 	    if (retval2 == 0){
 		if (reason)
-		    *reason = cligen_reason("regexp match fail: %s does not match %s",
+		    *reason = cligen_reason("regexp match fail: \"%s\" does not match %s",
 					    str, pattern);
 		retval = 0;
 	    }
@@ -290,20 +312,141 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     return -1;
 }
 
+/*
+ * a typedef can be under module, submodule, container, list, grouping, rpc, 
+ * input, output, notification
+ */
+static inline int
+ys_typedef(yang_stmt *ys)
+{
+    return ys->ys_keyword == Y_MODULE || ys->ys_keyword == Y_SUBMODULE ||
+	ys->ys_keyword == Y_CONTAINER || ys->ys_keyword == Y_LIST;
+}
 
+/* find next ys up which can contain a typedef */
+static yang_stmt *
+ys_up(yang_stmt *ys)
+{
+    yang_node *yn;
 
-/*! Get  information about a leaf/leaf-list yang-statement
+    while (ys != NULL && !ys_typedef(ys)){
+	yn = ys->ys_parent;
+	/* Some extra stuff to ensure ys is a stmt */
+	if (yn && yn->yn_keyword == Y_SPEC)
+	    yn = NULL;
+	ys = (yang_stmt*)yn;
+    }
+    /* Here it is either NULL or is a typedef-kind yang-stmt */
+    return (yang_stmt*)ys;
+}
+
+static int
+resolve_restrictions(yang_stmt   *yrange,
+		     yang_stmt   *ypattern,
+		     int         *options, 
+		     int64_t     *min, 
+		     int64_t     *max, 
+		     char       **pattern)
+{
+    if (options && min && max && yrange != NULL){
+	*options |= YANG_OPTIONS_LENGTH;
+	*min      = yrange->ys_range_min;
+	*max      = yrange->ys_range_max;
+    }
+    if (options && pattern && ypattern != NULL){
+	*options |= YANG_OPTIONS_PATTERN;
+	*pattern      = ypattern->ys_argument;
+    }
+    return 0;
+}
+
+/*! Recursively resolve a yang type to built-in type with optional restrictions
+ * @param [in]  ys       yang-stmt from where the current search is based
+ * @param [in]  ytype    yang-stmt object containing currently resolving type
+ * @param [out] rtype    resolved type. return built-in type or NULL. mandatory
+ * @param [out] options  pointer to flags field of optional values. optional
+ * @param [out] min      pointer to min range or length. optional
+ * @param [out] max      pointer to max range or length. optional
+ * @param [out] pattern  pointer to static string of yang string pattern. optional
+ * @retval      0        OK. Note rtype may still be NULL.
+ * @retval     -1        Error, clicon_err handles errors
+ * Note that the static output strings (type, pattern) should be copied if used asap.
+ * Note also that for all pointer arguments, if NULL is given, no value is assigned.
+ */
+int 
+yang_type_resolve(yang_stmt   *ys, 
+		  yang_stmt   *ytype, 
+		  char       **rtype, 
+		  int         *options, 
+		  int64_t     *min, 
+		  int64_t     *max, 
+		  char       **pattern)
+{
+    yang_stmt   *rytypedef = NULL; /* Resolved typedef of ytype */
+    yang_stmt   *rytype;          /* Resolved type of ytype */
+    yang_stmt   *yrange;
+    yang_stmt   *ypattern;
+    char        *type;
+    int          retval = -1;
+    yang_node   *yn;
+
+    if (options)
+	*options = 0x0;
+    *rtype   = NULL; /* Initialization of resolved type that may not be necessary */
+    type     = ytype->ys_argument; /* This is the type to resolve */
+    yrange   =  yang_find((yang_node*)ytype, Y_RANGE, NULL);
+    ypattern =  yang_find((yang_node*)ytype, Y_PATTERN, NULL);
+    /* The type is a basic type. Return that */
+    if (yang_builtin(type)){
+	*rtype = type;
+	resolve_restrictions(yrange, ypattern, options, min, max, pattern);
+	goto ok;
+    }
+    while (1){
+	/* Check if ys may have typedefs otherwise find one that can */
+	if ((ys = ys_up(ys)) == NULL){ /* If reach top */
+	    *rtype = NULL;
+	    break;
+	}
+	/* Here find typedef */
+	if ((rytypedef = yang_find((yang_node*)ys, Y_TYPEDEF, type)) != NULL)
+	    break;
+	/* Did not find a matching typedef there, proceed to next level */
+	yn = ys->ys_parent;
+	if (yn && yn->yn_keyword == Y_SPEC)
+	    yn = NULL;
+	ys = (yang_stmt*)yn;
+    }
+    if (rytypedef != NULL){     /* We have found a typedef */
+	/* Find associated type statement */
+	if ((rytype = yang_find((yang_node*)rytypedef, Y_TYPE, NULL)) == NULL){
+	    clicon_err(OE_DB, 0, "%s: mandatory type object is not found", __FUNCTION__);
+	    goto done;
+	}
+	/* recursively resolve this new type */
+	if (yang_type_resolve(ys, rytype, rtype, 
+			      options, min, max, pattern) < 0)
+	    goto done;
+	/* overwrites the resolved if any */
+	resolve_restrictions(yrange, ypattern, options, min, max, pattern);
+    }
+  ok:
+    retval = 0;
+  done:
+    return retval;
+}
+
+/*! Get type information about a leaf/leaf-list yang-statement
  *
  * @code
- *   char         *type;
- *   enum cv_type *cvtype;
+ *   char         *rtype;
  *   int           options;
  *   int64_t       min, max;
  *   char         *pattern;
  *
- *   if (yang_type_get(ys, &type, &cvtype, &options, &min, &max, &pattern) < 0)
+ *   if (yang_type_get(ys, &type, &rtype, &options, &min, &max, &pattern) < 0)
  *      goto err;
- *   if (cvtype!=CGV_STRING)
+ *   if (rtype == NULL) # unresolved
  *      goto err;
  *   if (options & YANG_OPTIONS_LENGTH != 0)
  *      printf("%d..%d\n", min , max);
@@ -311,8 +454,8 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
  *      printf("regexp: %s\n", pattern);
  * @endcode
  * @param [in]  ys       yang-stmt, leaf or leaf-list
- * @param [out] type     pointer to static string of yang base-type
- * @param [out] cvtype   pointer to cligen type
+ * @param [out] otype    original type may be derived or built-in
+ * @param [out] rtype    resolved type is built-in
  * @param [out] options  pointer to flags field of optional values
  * @param [out] min      pointer to min range or length. optional
  * @param [out] max      pointer to max range or length. optional
@@ -321,55 +464,35 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
  * @retval     -1        Error, clicon_err handles errors
  * Note that the static output strings (type, pattern) should be copied if used asap.
  * Note also that for all pointer arguments, if NULL is given, no value is assigned.
+ * See also yang_type_resolve(). This function is really just a frontend to that.
  */
 int 
 yang_type_get(yang_stmt    *ys, 
-	      char        **type, 
-	      enum cv_type *cvtype, 
+	      char        **origtype, 
+	      char        **rtype, 
 	      int          *options, 
 	      int64_t      *min, 
 	      int64_t      *max, 
 	      char        **pattern)
 {
     int retval = -1;
-    yang_stmt    *yt;        /* type */
-    yang_stmt    *yr = NULL; /* range */
-    yang_stmt    *yp = NULL; /* pattern */
+    yang_stmt    *ytype;        /* type */
+    char         *type;
 
     if (options)
 	*options = 0x0;
-    if (ys->ys_keyword != Y_LEAF && ys->ys_keyword != Y_LEAF_LIST){
-	clicon_err(OE_DB, 0, "%s: type is %s, expected leaf or leaf-list", 
-		   __FUNCTION__, yang_key2str(ys->ys_keyword));
+    /* Find mandatory type */
+    if ((ytype = yang_find((yang_node*)ys, Y_TYPE, NULL)) == NULL){
+	clicon_err(OE_DB, 0, "%s: mandatory type object is not found", __FUNCTION__);
 	goto done;
     }
-    if ((yt = yang_find((yang_node*)ys, Y_TYPE, NULL)) != NULL){        
-	yr =  yang_find((yang_node*)yt, Y_RANGE, NULL);
-	yp =  yang_find((yang_node*)yt, Y_PATTERN, NULL);
-    }
-    if (yt){
-	if (type)
-	    *type   = yt->ys_argument;
-#if 1
-	if (cvtype)
-	    yang2cv_type(yt->ys_argument, cvtype);
-#endif
-    }
-#if 0 /* alternative to above but here we assume a CV has been created. This is actually done in
-       ys_populate_leaf(), but then we cant call this function before (or in) that. */
-    if (cvtype)
-	*cvtype = cv_type_get(ys->ys_cv);
-#endif
-
-    if (options && min && max && yr != NULL){
-	*options |= YANG_OPTIONS_LENGTH;
-	*min      = yr->ys_range_min;
-	*max      = yr->ys_range_max;
-    }
-    if (options && pattern && yp != NULL){
-	*options |= YANG_OPTIONS_PATTERN;
-	*pattern      = yp->ys_argument;
-    }
+    type = ytype->ys_argument;
+    if (origtype)
+	*origtype = type;
+    if (yang_type_resolve(ys, ytype, rtype, options, min, max, pattern) < 0)
+	goto done;
+    clicon_debug(1, "%s: %s %s->%s\n", __FUNCTION__, ys->ys_argument, type, 
+		 rtype?*rtype:"null");
     retval = 0;
   done:
     return retval;

@@ -99,9 +99,21 @@ yang2cli_var(yang_stmt    *ys,
     int           retval = -1;
     int64_t       range_min, range_max; 
     char         *pattern;
+    char         *type;  /* orig type */
+    char         *rtype; /* resolved type */
 
-    if (yang_type_get(ys, NULL, &cvtype, &options, &range_min, &range_max, &pattern) < 0)
+    if (yang_type_get(ys, &type, &rtype, 
+		      &options, &range_min, &range_max, &pattern) < 0)
 	goto done;
+    if (rtype == NULL){
+	clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+	goto done;
+    }
+    yang2cv_type(rtype, &cvtype);
+    if (cvtype == CGV_ERR){
+	clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
+	goto done;
+    }
     if (completion)
 	cprintf(xf, "(");
     cprintf(xf, "<%s:%s", ys->ys_argument, cv_type2str(cvtype));

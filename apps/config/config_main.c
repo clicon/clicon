@@ -267,7 +267,6 @@ spec_main_config(clicon_handle h, int printspec)
     int              retval = -1;
     yang_spec      *yspec;
 
-
     /* Parse db specification */
     if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
 	clicon_err(OE_FATAL, errno, "No CLICON_DBSPEC_FILE given");

@@ -367,7 +367,6 @@ xpath_exec(cxobj *cxtop, char *xpath0, searchvec *sv)
 	sv->sv_v1len = 0;
 	sv->sv_v1 = NULL;
     }
-#endif
     return 0;
 } /* xpath_exec */
 

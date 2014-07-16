@@ -141,6 +141,8 @@ static const struct map_str2int ykmap[] = {
     {"when",             Y_WHEN}, 
     {"yang-version",     Y_YANG_VERSION}, 
     {"yin-element",      Y_YIN_ELEMENT}, 
+    {"yang-specification", Y_SPEC}, /* XXX: NOTE NOT YANG STATEMENT, reserved 
+				       for top level spec */
     {NULL,               -1}
 };
 
@@ -154,6 +156,7 @@ yspec_new(void)
 	return NULL;
     }
     memset(yspec, 0, sizeof(*yspec));
+    yspec->yp_keyword = Y_SPEC;
     return yspec;
 }
 
@@ -406,6 +409,8 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     enum cv_type    cvtype = CGV_ERR;
     int             cvret;
     char           *reason = NULL;
+    char           *rtype;  /* resolved type */
+    char           *type;   /* original type */
 
     yparent = ys->ys_parent;     /* Find parent: list/container */
 
@@ -418,16 +423,15 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
      * Eller ska man spara det i parse-trädet som nu?
      */
     /* 1. Find type specification and set cv type accordingly */
-    if (yang_type_get(ys, NULL, &cvtype, NULL, NULL, NULL, NULL) < 0)
+    if (yang_type_get(ys, &type, &rtype, NULL, NULL, NULL, NULL) < 0)
 	goto done;
-#if 0
-    if ((ytype = yang_find((yang_node*)ys, Y_TYPE, NULL)) != NULL){
-	if (yang2cv_type(ytype->ys_argument, &cvtype) < 0)
-	    goto done;
+    if (rtype == NULL){
+	clicon_err(OE_DB, 0, "%s: \"%s\": type not resolved", __FUNCTION__, type);
+	goto done;
     }
-#endif
+    yang2cv_type(rtype, &cvtype);
     if (cvtype == CGV_ERR){
-	clicon_err(OE_DB, 0, "%s: Wrong type", __FUNCTION__);
+	clicon_err(OE_DB, 0, "%s: \"%s\" type not translated", __FUNCTION__, rtype);
 	goto done;
     }
 		

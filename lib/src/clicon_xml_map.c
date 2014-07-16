@@ -801,7 +801,7 @@ save_db_to_xml(char *filename, struct db_spec *dbspec, char *dbname)
 	return -1;
     }
 
-    clicon_xml2file(f, xn, 0, 1);
+    clicon_xml2file(f, xn, 0, 0); /* pretty-print may add spaces in values */
     fclose(f);
     xml_free(xn);
 
