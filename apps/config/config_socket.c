@@ -1,5 +1,4 @@
- /*
- *  CVS Version: $Id: config_socket.c,v 1.28 2013/08/15 11:53:50 olof Exp $
+/*
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

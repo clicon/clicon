@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_plugin.c,v 1.1 2013/08/31 06:48:15 benny Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

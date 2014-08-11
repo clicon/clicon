@@ -36,7 +36,6 @@
 #include <assert.h>
 #include <dlfcn.h>
 #include <dirent.h>
-#include <libgen.h>
 #include <grp.h>
 #include <sys/types.h>
 #include <sys/stat.h>

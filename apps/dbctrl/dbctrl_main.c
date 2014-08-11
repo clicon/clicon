@@ -34,7 +34,6 @@
 #include <fcntl.h>
 #include <time.h>
 #include <syslog.h>
-#include <libgen.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/param.h>

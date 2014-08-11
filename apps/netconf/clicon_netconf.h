@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_netconf.h,v 1.6 2013/08/05 14:19:23 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

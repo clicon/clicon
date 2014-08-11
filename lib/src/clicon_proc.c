@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_proc.c,v 1.12 2013/08/31 06:46:30 benny Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

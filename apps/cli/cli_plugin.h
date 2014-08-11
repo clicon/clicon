@@ -1,7 +1,5 @@
 /*
- * CVS Version: $Id: cli_plugin.h,v 1.37 2013/09/05 20:14:50 olof Exp $
  *
-  CVS Version: $Id: cli_plugin.h,v 1.37 2013/09/05 20:14:50 olof Exp $ 
 
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

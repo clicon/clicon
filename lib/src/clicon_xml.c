@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: xmlgen_xml.c,v 1.19 2013/08/17 10:54:22 benny Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

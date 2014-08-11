@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: config_commit.c,v 1.55 2013/09/18 19:22:12 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

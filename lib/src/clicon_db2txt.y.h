@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_db2txt.y.h,v 1.6 2013/09/11 18:36:50 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

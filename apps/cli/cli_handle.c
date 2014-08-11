@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: cli_handle.c,v 1.15 2013/09/11 18:53:39 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -36,7 +35,6 @@
 #include <assert.h>
 #include <dlfcn.h>
 #include <dirent.h>
-#include <libgen.h>
 #include <grp.h>
 #include <sys/types.h>
 #include <sys/stat.h>

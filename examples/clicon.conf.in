@@ -1,5 +1,4 @@
 # 
-# CVS Version: $Id: clicon.conf.in,v 1.10 2013/09/19 15:02:05 olof Exp $ 
 #
 # Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 #
@@ -38,6 +37,9 @@
 
 # Database specification file. Syntax either CLI or KEY given by CLICON_DBSPEC_TYPE
 # CLICON_DBSPEC_FILE      $(APPDIR)/datamodel.spec
+
+# YANG module directory. Note CLICON_DBSPEC_FILE is in this dir
+# CLICON_YANG_DIR           @APPDIR@/yang
 
 # Candidate qdbm database
 # CLICON_CANDIDATE_DB     $(APPDIR)/db/candidate_db

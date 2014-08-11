@@ -1,5 +1,4 @@
 /*
-  CVS Version: $Id: ntp_netconf.c,v 1.1 2013/08/08 14:21:45 olof Exp $ 
 
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

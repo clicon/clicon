@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_hash.c,v 1.8 2013/08/05 14:12:06 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

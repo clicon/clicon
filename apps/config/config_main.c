@@ -43,7 +43,6 @@
 #include <time.h>
 #include <syslog.h>
 #include <ifaddrs.h>
-#include <libgen.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/stat.h>

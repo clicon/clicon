@@ -36,7 +36,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <syslog.h>
-#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>

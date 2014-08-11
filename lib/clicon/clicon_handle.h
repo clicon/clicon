@@ -1,5 +1,4 @@
 /*
- * CVS Version: $Id: clicon_handle.h,v 1.3 2013/08/31 06:38:22 benny Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

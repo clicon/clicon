@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_backend.h,v 1.15 2013/08/01 13:58:52 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

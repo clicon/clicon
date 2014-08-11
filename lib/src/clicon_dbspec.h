@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbspec.h,v 1.2 2013/09/13 15:05:39 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

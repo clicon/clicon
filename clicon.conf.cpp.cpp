@@ -1,5 +1,4 @@
 # 
-# CVS Version: $Id: clicon.conf.in,v 1.10 2013/09/19 15:02:05 olof Exp $ 
 #
 # Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 #

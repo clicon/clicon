@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: ntp_cli.c,v 1.2 2013/08/09 13:25:26 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

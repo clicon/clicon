@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbutil.h,v 1.17 2013/09/20 11:45:18 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

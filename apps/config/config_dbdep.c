@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: config_dbdep.c,v 1.27 2013/08/05 14:19:55 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 

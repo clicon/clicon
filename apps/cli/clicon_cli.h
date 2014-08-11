@@ -1,7 +1,5 @@
 /*
- * CVS Version: $Id: clicon_cli.h,v 1.8 2013/08/12 20:42:57 olof Exp $
  *
-  CVS Version: $Id: clicon_cli.h,v 1.8 2013/08/12 20:42:57 olof Exp $ 
 
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
