@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: hello_backend.c,v 1.2 2013/09/05 20:19:28 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -169,7 +168,7 @@ hello_validate(clicon_handle h,
 		 char *key,
 		 void *arg)
 {
-    struct db_spec     *dbspec;
+    dbspec_key     *dbspec;
     int                 retval = -1;
 
     clicon_debug(1, "%s %s\n", __FUNCTION__, key);

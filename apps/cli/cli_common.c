@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: cli_common.c,v 1.154 2013/09/20 11:47:01 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -320,7 +319,7 @@ cli_set_tree(clicon_handle h, cvec *vars, cg_var *argv)
     char           *keyrx;
     cg_var         *cv = NULL; 
     char           *candidate_db;
-    struct db_spec *dbspec;
+    dbspec_key *dbspec;
     
     candidate_db = clicon_candidate_db(h);
     dbspec = clicon_dbspec_key(h);
@@ -494,7 +493,7 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
 
     if ((cv = cvec_find_var(vars, "level")) == NULL)
 	cv = arg;
-    level = cv_int_get(cv);
+    level = cv_int32_get(cv);
     /* cli */
     clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
     /* config daemon */
@@ -565,7 +564,7 @@ isrecording(void)
 int
 cli_record(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    _isrecording = cv_int_get(arg);
+    _isrecording = cv_int32_get(arg);
     return 0;
 }
 
@@ -682,7 +681,7 @@ int
 cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char          *s;
-    int            snapshot = arg?cv_int_get(arg):0;
+    int            snapshot = arg?cv_int32_get(arg):0;
 
     if ((s = clicon_sock(h)) == NULL)
 	return -1;
@@ -826,7 +825,7 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
     char            *dbstr;  
     char            *rest;
     char            *last;
-    struct db_spec  *spec;
+    dbspec_key  *spec;
     clicon_dbvars_t *dbv = NULL;
     cg_var          *cv;
 
@@ -868,11 +867,11 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
        Eg: cvec [0]:"a 5 b"; [1]: x=5; [2]: y=0;
        (Not significant the type and value of last.
      */
-    if ((cv = cvec_add(cvec, CGV_INT)) == NULL) /* type not significant */
+    if ((cv = cvec_add(cvec, CGV_INT32)) == NULL) /* type not significant */
 	goto done;
     cv_name_set(cv, last);
     cv_const_set(cv, 0);
-    cv_int_set(cv, 0); /* not significant */
+    cv_int32_set(cv, 0); /* not significant */
 
     /* Parse the arg(rest). Get back a key (eg a.0.b[]) and vec (eg !x=5) */
     if ((dbv = cli_set_parse(h, 
@@ -1219,7 +1218,7 @@ compare_dbs(clicon_handle h, cvec *vars, cg_var *arg)
     if ((xc2 = db2xml(clicon_candidate_db(h), clicon_dbspec_key(h), "dbc")) == NULL)
 	goto done;
 
-    if (compare_xmls(xc1, xc2, arg?cv_int_get(arg):0) < 0) /* astext? */
+    if (compare_xmls(xc1, xc2, arg?cv_int32_get(arg):0) < 0) /* astext? */
 	goto done;
     retval = 0;
   done:
@@ -1351,7 +1350,7 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     char            *s;
     char            *candidate;
     char            *running;
-    struct db_spec  *spec;
+    dbspec_key  *spec;
     clicon_dbvars_t *dbv;
     int	             retval = -1;
 
@@ -1875,7 +1874,7 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
     cxobj *xt = NULL;
     cxobj *xc;
     int              retval = -1;
-    struct db_spec  *dbspec, *ds=NULL; 
+    dbspec_key  *dbspec, *ds=NULL; 
     cg_var          *vs;
     cvec            *vh=NULL;
     char            *str;

@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_spec.c,v 1.29 2013/09/19 16:03:40 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -31,11 +30,15 @@
  * a list of variables (see osr_var.h).
  *
  * Translation between database specs
- *     keyspec                      YANG          
- *  +-------------+    yang2key    +-------------+
- *  |  keyspec    | -------------> |             |
- *  |  A[].B !$a  |    key2yang    | list{key A;}|
- *  +-------------+ <------------  +-------------+
+ *     dbspec_key                   yang_spec                     CLIgen parse_tree
+ *  +-------------+    yang2key    +-------------+   yang2cli    +-------------+
+ *  |  keyspec    | -------------> |             | ------------> | cli         |
+ *  |  A[].B !$a  |    key2yang    | list{key A;}|               | syntax      |
+ *  +-------------+ <------------  +-------------+               +-------------+
+ *        ^                             ^
+ *        |db_spec_parse_file           |yang_parse
+ *        |                             |
+ *      <file>                        <file>
  */
 
 #ifdef HAVE_CONFIG_H
@@ -65,7 +68,7 @@
 #include "clicon_hash.h"
 #include "clicon_handle.h"
 #include "clicon_hash.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_yang_type.h"
 #include "clicon_lvalue.h"
@@ -75,16 +78,16 @@
 #include "clicon_dbutil.h"
 #include "clicon_yang2key.h"
 
-static int yang2key_stmt(yang_stmt *ys, cvec *keys, cvec *vars, struct db_spec **ds_list);
+static int yang2key_stmt(yang_stmt *ys, cvec *keys, cvec *vars, dbspec_key **ds_list);
 
 /*! Create a dbspeckey by concatenating previous keys eg a.b.c
  */
 static int
-cli2db_genkey(cvec *keys, cvec *vars, struct db_spec **dsp)
+cli2db_genkey(cvec *keys, cvec *vars, dbspec_key **dsp)
 {
     char           *key = NULL;
     cg_var         *cv = NULL;
-    struct db_spec *ds = NULL;
+    dbspec_key *ds = NULL;
 
     while ((cv = cvec_each(keys, cv)) != NULL) 
 	if ((key = chunk_sprintf(__FUNCTION__, "%s%s%s%s",
@@ -126,12 +129,12 @@ static int
 yang2key_container(yang_stmt       *ys, 
 		   cvec            *keys0,   /* inherited keys */
 		   cvec            *vars0,   /* inherited vars */
-		   struct db_spec **ds_list)
+		   dbspec_key **ds_list)
 {
     int             retval = -1;
     cg_var         *cv;
     char           *str = NULL;
-    struct db_spec *ds = NULL;
+    dbspec_key *ds = NULL;
 
     /* 1. Append a key to dbspec for every container. */
     if ((cv = cvec_add_name(keys0, CGV_STRING, ys->ys_argument)) == NULL){
@@ -142,12 +145,18 @@ yang2key_container(yang_stmt       *ys,
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
     /* Add symbol but only if there are variables */
+    
+#if 0
     if (cvec_len(vars0) &&
 	db_spec_tailadd(ds_list, ds) < 0) /* ds is consumed and may be freed in this call */
 	goto done;
+#else
+    if (db_spec_tailadd(ds_list, ds) < 0) /* ds is consumed and may be freed in this call */
+	goto done;
+#endif
     /* XXX: Many problems with this code:
        1. ds may leak or may be freed maturely?
-       2. I dont think it sould be here, the ds is added by leaf function anyhow,...
+       2. I dont think it should be here, the ds is added by leaf function anyhow,...
      */
     if ((str = db_spec2str(ds)) == NULL) /* XXX: isnt this the same as the one in ds? */
 	goto done;
@@ -169,11 +178,11 @@ yang2key_leaf(yang_stmt       *ys,
 	      cvec            *keys0,   /* inherited keys */
 	      cvec            *vars0,   /* inherited vars */
 	      int              fromlist,/* Called from yang list-stmt fn */
-	      struct db_spec **ds_list)
+	      dbspec_key **ds_list)
 {
     int             retval = -1;
     cg_var         *cv;
-    struct db_spec *ds = NULL;
+    dbspec_key *ds = NULL;
     char           *keyspec = NULL;
     yang_node      *yparent; 
     yang_stmt      *ykey = NULL; 
@@ -224,12 +233,12 @@ static int
 yang2key_list(yang_stmt       *ys, 
 	      cvec            *keys0,   /* inherited keys */
 	      cvec            *vars0,   /* inherited vars */
-	      struct db_spec **ds_list)
+	      dbspec_key **ds_list)
 {
     int             retval = -1;
     cg_var         *cv;
     char           *str = NULL;
-    struct db_spec *ds = NULL;
+    dbspec_key *ds = NULL;
     yang_stmt      *ykey;
     yang_stmt      *yleaf;
 
@@ -282,11 +291,11 @@ static int
 yang2key_leaf_list(yang_stmt       *ys, 
 		   cvec            *keys0,   /* inherited keys */
 		   cvec            *vars0,   /* inherited vars */
-		   struct db_spec **ds_list)
+		   dbspec_key **ds_list)
 {
     int             retval = -1;
     cg_var         *cv;
-    struct db_spec *ds = NULL;
+    dbspec_key *ds = NULL;
     char           *keyspec = NULL;
     char           *keyspec2;
 
@@ -323,14 +332,13 @@ yang2key_leaf_list(yang_stmt       *ys,
     return retval;
 }
 
-
 /*! Translate generic yang_stmt to key dbspec.
  */
 static int
 yang2key_stmt(yang_stmt       *ys, 
 	      cvec            *keys0,   /* inherited keys */
 	      cvec            *vars0,   /* inherited vars */
-	      struct db_spec **ds_list)
+	      dbspec_key **ds_list)
 {
     yang_stmt *yc;
     int        retval = -1;
@@ -392,11 +400,11 @@ yang2key_stmt(yang_stmt       *ys,
  *  leaf      -->   $x
  *  leaf-list -->   $x[a]
  */
-struct db_spec *
+dbspec_key *
 yang2key(yang_spec *yspec)
 {
     yang_stmt      *ys = NULL;
-    struct db_spec *ds_list = NULL; 
+    dbspec_key *ds_list = NULL; 
     cvec           *keys;
     cvec           *vars;
     int i;
@@ -437,9 +445,9 @@ yang2key(yang_spec *yspec)
  * See also yang2key
  */
 yang_spec *
-key2yang(struct db_spec *db_spec)
+key2yang(dbspec_key *db_spec)
 {
-    struct db_spec  *ds;
+    dbspec_key  *ds;
     cvec            *subvh;
     cg_var          *v = NULL;
     char           **vec;

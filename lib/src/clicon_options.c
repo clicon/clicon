@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_options.c,v 1.23 2013/09/20 11:46:31 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -26,7 +25,9 @@
  * CLICON_APPDIR           /usr/local/share/clicon # Application installation directory. 
  * CLICON_CONFIGFILE       $APPDIR/clicon.conf # File containing default option values. 
  * CLICON_DBSPEC_TYPE      PT # PT or KEY
- * CLICON_DBSPEC_FILE      $APPDIR/datamodel.spec
+ * CLICON_DBSPEC_FILE      $APPDIR/datamodel.spec # if CLICON_DBSPEC_TYPE is KEY
+ * CLICON_YANG_DIR         $APPDIR/yang           # if CLICON_DBSPEC_TYPE is YANG
+ * CLICON_YANG_MODULE_MAIN clicon                 # if CLICON_DBSPEC_TYPE is YANG
  * CLICON_CANDIDATE_DB     $APPDIR/db/candidate_db
  * CLICON_RUNNING_DB       $APPDIR/db/running_db
  * CLICON_ARCHIVE_DIR      $APPDIR/archive    # Archive dir (rollback)
@@ -76,7 +77,7 @@
 #include "clicon_handle.h"
 #include "clicon_chunk.h"
 #include "clicon_log.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_options.h"
 
@@ -221,14 +222,24 @@ clicon_option_default(clicon_hash_t  *copt)
 	if (hash_add(copt, "CLICON_CANDIDATE_DB", val, strlen(val)+1) < 0)
 	    goto catch;
     }
+    if (!hash_lookup(copt, "CLICON_DBSPEC_TYPE")){
+	if (hash_add(copt, "CLICON_DBSPEC_TYPE", "YANG", strlen("YANG")+1) < 0)
+	    goto catch;
+    }
     if (!hash_lookup(copt, "CLICON_DBSPEC_FILE")){
 	if ((val = chunk_sprintf(__FUNCTION__, "%s/datamodel.spec", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_DBSPEC_FILE", val, strlen(val)+1) < 0)
 	    goto catch;
     }
-    if (!hash_lookup(copt, "CLICON_DBSPEC_TYPE")){
-	if (hash_add(copt, "CLICON_DBSPEC_TYPE", "PT", strlen("PT")+1) < 0)
+    if (!hash_lookup(copt, "CLICON_YANG_DIR")){
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/yang", appdir)) == NULL)
+	    goto catch;
+	if (hash_add(copt, "CLICON_YANG_DIR", val, strlen(val)+1) < 0)
+	    goto catch;
+    }
+    if (!hash_lookup(copt, "CLICON_YANG_MODULE_MAIN")){
+	if (hash_add(copt, "CLICON_YANG_MODULE_MAIN", "clicon", strlen("clicon")+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_ARCHIVE_DIR")){
@@ -461,17 +472,32 @@ clicon_configfile(clicon_handle h)
     return clicon_option_str(h, "CLICON_CONFIGFILE");
 }
 
+/*! Which syntax: YANG or KEY */
+char *
+clicon_dbspec_type(clicon_handle h)
+{
+    return clicon_option_str(h, "CLICON_DBSPEC_TYPE");
+}
+
+/*! KEY database specification file*/
 char *
 clicon_dbspec_file(clicon_handle h)
 {
     return clicon_option_str(h, "CLICON_DBSPEC_FILE");
 }
 
-/* Which syntax: CLI or KEY */
+/*! YANG database specification directory */
 char *
-clicon_dbspec_type(clicon_handle h)
+clicon_yang_dir(clicon_handle h)
 {
-    return clicon_option_str(h, "CLICON_DBSPEC_TYPE");
+    return clicon_option_str(h, "CLICON_YANG_DIR");
+}
+
+/*! YANG main module */
+char *
+clicon_yang_module_main(clicon_handle h)
+{
+    return clicon_option_str(h, "CLICON_YANG_MODULE_MAIN");
 }
 
 /* candidate database: get name */
@@ -625,12 +651,11 @@ clicon_cli_genmodel_completion(clicon_handle h)
     return clicon_option_int(h, "CLICON_CLI_GENMODEL_COMPLETION");
 }
 
-
 /* 
  * Get dbspec (KEY variant)
  * Must use hash functions directly since they are not strings.
  */
-struct db_spec *
+dbspec_key *
 clicon_dbspec_key(clicon_handle h)
 {
     clicon_hash_t  *copt = clicon_options(h);
@@ -638,7 +663,7 @@ clicon_dbspec_key(clicon_handle h)
     void           *p;
 
     if ((p = hash_value(copt, "dbspec_key", &len)) != NULL)
-	return *(struct db_spec **)p;
+	return *(dbspec_key **)p;
     return NULL;
 }
 
@@ -646,7 +671,7 @@ clicon_dbspec_key(clicon_handle h)
  * Set dbspec (KEY variant)
  */
 int
-clicon_dbspec_key_set(clicon_handle h, struct db_spec *ds)
+clicon_dbspec_key_set(clicon_handle h, dbspec_key *ds)
 {
     clicon_hash_t  *copt = clicon_options(h);
 

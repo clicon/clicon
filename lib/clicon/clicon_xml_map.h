@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_xml.h,v 1.12 2013/08/12 20:37:06 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
   Olof Hagsand
@@ -43,12 +42,12 @@ enum {
 /*
  * Prototypes
  */
-cxobj *db2xml(char *dbname, struct db_spec *db_spec, char *toptag);
-int key2xml(char *key, char *dbname, struct db_spec *db_spec, cxobj *xtop);
-int xml2db(cxobj *, struct db_spec *dbspec, char *dbname);
+cxobj *db2xml(char *dbname, dbspec_key *db_spec, char *toptag);
+int key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop);
+int xml2db(cxobj *, dbspec_key *dbspec, char *dbname);
 
-int save_db_to_xml(char *filename, struct db_spec *dbspec, char *dbname);
-int load_xml_to_db(char *xmlfile, struct db_spec *dbspec, char *dbname);
+int save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname);
+int load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname);
 int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);
 

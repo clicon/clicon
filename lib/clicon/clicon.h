@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon.h,v 1.28 2013/08/31 06:38:22 benny Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -40,7 +39,10 @@
 #include <clicon/clicon_hash.h>
 #include <clicon/clicon_handle.h>
 #include <clicon/clicon_db.h>
-#include <clicon/clicon_spec.h>
+#include <clicon/clicon_dbspec_key.h>
+/* Backward compatinility: */
+//#define db_spec dbspec_key
+
 #include <clicon/clicon_yang.h>
 #include <clicon/clicon_yang_type.h>
 #include <clicon/clicon_yang2key.h>

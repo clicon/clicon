@@ -37,7 +37,13 @@
 CLICON_DBSPEC_TYPE      YANG
 
 # Database specification file. Syntax either CLI or KEY given by DB_SPEC_SYNTAX
-CLICON_DBSPEC_FILE        @APPDIR@/datamodel.yang
+CLICON_DBSPEC_FILE        @APPDIR@/yang/datamodel.yang
+
+# YANG module directory. 
+# CLICON_YANG_DIR           @APPDIR@/yang
+
+# 
+CLICON_YANG_MODULE_MAIN	datamodel
 
 # Candidate qdbm database
 # CLICON_CANDIDATE_DB     $(APPDIR)/db/candidate_db

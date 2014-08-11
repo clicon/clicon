@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: config_client.c,v 1.76 2013/09/05 20:15:09 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -199,7 +198,7 @@ from_client_change(clicon_handle h,
     lv_op_t op;
     cvec *vr = NULL;
     char *str = NULL;
-    struct db_spec *dbspec;
+    dbspec_key *dbspec;
 
     dbspec = clicon_dbspec_key(h);
     if (clicon_msg_change_decode(msg, &dbname, &op,

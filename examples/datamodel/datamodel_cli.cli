@@ -15,7 +15,7 @@ delete("Delete a configuration item")  all("Delete whole candidate configuration
 
 no("Negate or remove") debug("Debugging parts of the system"), cli_debug((int)0);
 debug("Debugging parts of the system"), cli_debug((int)1);{
-    level("Set debug level: 1..n") <level:int>("Set debug level (0..n)"), cli_debug();
+    level("Set debug level: 1..n") <level:int32>("Set debug level (0..n)"), cli_debug();
 }
 
 

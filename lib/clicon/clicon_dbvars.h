@@ -1,5 +1,4 @@
 /*
-  CVS Version: $Id: clicon_dbvars.h,v 1.9 2013/08/01 09:15:46 olof Exp $ 
 
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -59,7 +58,7 @@ typedef struct {
 void clicon_dbvars_free(clicon_dbvars_t *dvp);
 
 clicon_dbvars_t *
-clicon_dbvars_parse(struct db_spec *spec, 
+clicon_dbvars_parse(dbspec_key *spec, 
 		   char *db, 
 		   cvec *vars,
 		   const char *fmt,

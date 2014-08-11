@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: netconf_main.c,v 1.49 2013/09/13 15:07:42 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -61,7 +60,7 @@
 #define NETCONF_OPTS "hDa:f:Sqs:d:"
 
 static int
-packet(clicon_handle h, struct db_spec *ds, cbuf *xf)
+packet(clicon_handle h, dbspec_key *ds, cbuf *xf)
 {
     char *str, *str0;
     cxobj *xml_req = NULL; /* Request (in) */
@@ -278,50 +277,17 @@ static int
 spec_main_netconf(clicon_handle h, int printspec)
 {
     char            *dbspec_type;
-    char            *db_spec_file;
-    struct db_spec  *db_spec;
-    struct stat      st;
     int              retval = -1;
-    yang_spec      *yspec;
 
-    /* Parse db specification */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_DBSPEC_FILE is NULL");
-	goto quit;
-    }
-
-    if (stat(db_spec_file, &st) < 0){
-	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
-	goto quit;
-    }
     dbspec_type = clicon_dbspec_type(h);
-
-    if ((dbspec_type == NULL) || strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
-	if ((yspec = yspec_new()) == NULL)
+    if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
+	if (yang_spec_main(h, printspec) < 0)
 	    goto quit;
-	if (yang_parse(h, db_spec_file, yspec) < 0)
-	    goto quit;
-	if (printspec)
-	    yang_print(stdout, (yang_node*)yspec, 0);
-	clicon_dbspec_yang_set(h, yspec);	
-	if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
-	    goto quit;
-	clicon_dbspec_key_set(h, db_spec);	
-	if (printspec)
-	    db_spec_dump(stdout, db_spec);
     }
     else
 	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
-		goto quit;
-	    if (clicon_dbspec_key_set(h, db_spec) < 0)
-		return -1;
-	    /* Translate to yang spec */
-	    if ((yspec = key2yang(db_spec)) == NULL)
-		goto quit;
-	    clicon_dbspec_yang_set(h, yspec);
-	    if (printspec)
-		yang_print(stdout, (yang_node*)yspec, 0);
+	    if (dbspec_key_main(h, printspec) < 0)
+		goto quit;	    
 	}
 	else{
 	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
@@ -335,7 +301,7 @@ spec_main_netconf(clicon_handle h, int printspec)
 static int
 terminate(clicon_handle h)
 {
-    struct db_spec *dbspec;
+    dbspec_key *dbspec;
     yang_spec      *yspec;
 
     if ((dbspec = clicon_dbspec_key(h)) != NULL)

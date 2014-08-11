@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbvars.c,v 1.10 2013/09/18 19:16:10 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -42,7 +41,7 @@
 #include "clicon_chunk.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
 #include "clicon_db.h"
 #include "clicon_dbutil.h"
@@ -106,7 +105,7 @@ clicon_dbvars_free(clicon_dbvars_t *dbv)
  * sequence values in a vector.
  */
 clicon_dbvars_t *
-clicon_dbvars_parse(struct db_spec *spec, 
+clicon_dbvars_parse(dbspec_key *spec, 
 		   char *db, 
 		   cvec *vars,
 		   const char *fmt,

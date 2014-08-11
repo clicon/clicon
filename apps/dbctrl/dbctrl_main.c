@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: dbctrl_main.c,v 1.31 2013/09/05 20:17:26 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -35,6 +34,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <syslog.h>
+#include <libgen.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/param.h>
@@ -58,13 +58,13 @@
  * Read registry, set machine state
  */
 static int
-dump_database(char *dbname, char *rxkey, int brief, struct db_spec *db_spec)
+dump_database(char *dbname, char *rxkey, int brief, dbspec_key *dbspec)
 {
     int   retval = 0;
     int   npairs;
     struct db_pair *pairs;
     cvec *vr = NULL;
-    struct db_spec *ds;
+    dbspec_key *ds;
     
     /* Default is match all */
     if (rxkey == NULL)
@@ -89,7 +89,7 @@ dump_database(char *dbname, char *rxkey, int brief, struct db_spec *db_spec)
 	}
 	else{ 
 	    if((vr = lvec2cvec(pairs[npairs].dp_val, pairs[npairs].dp_vlen)) == NULL){
-		if ((ds = key2spec_key(db_spec, pairs[npairs].dp_key)) == NULL){
+		if ((ds = key2spec_key(dbspec, pairs[npairs].dp_key)) == NULL){
 		    sanity_check_cvec(pairs[npairs].dp_key, ds, vr);
 		    cvec_free (vr);
 		}
@@ -156,13 +156,10 @@ main(int argc, char **argv)
     char             rmkey[MAXPATHLEN];
     int              brief;
     char             dbname[MAXPATHLEN] = {0,};
-    char            *db_spec_file;
     clicon_handle    h;
     int              use_syslog;
     char            *dbspec_type;
-    struct db_spec  *db_spec = NULL;
-    struct stat      st;
-    yang_spec       *yspec;
+    dbspec_key  *dbspec = NULL;
 
     /* In the startup, logs to stderr & debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
@@ -269,53 +266,31 @@ main(int argc, char **argv)
     argc -= optind;
     argv += optind;
 
-    /* Parse db specification */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL)
-	goto quit;
-    if (stat(db_spec_file, &st) < 0){
-	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
-	goto quit;
-    }
     dbspec_type = clicon_dbspec_type(h);
-    if ((dbspec_type == NULL) || strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
-	if ((yspec = yspec_new()) == NULL)
+    if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
+	if (yang_spec_main(h, dumpdb) < 0)
 	    goto quit;
-	if (yang_parse(h, db_spec_file, yspec) < 0)
-	    goto quit;
-	clicon_dbspec_yang_set(h, yspec);	
-	if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
-	    goto quit;
-	clicon_dbspec_key_set(h, db_spec);	
     }
     else
 	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
-		goto quit;
-	    if (dumpdb && debug) 
-		db_spec_dump(stdout, db_spec);
-	    clicon_dbspec_key_set(h, db_spec);	
-	    /* Translate to yang spec */
-	    if ((yspec = key2yang(db_spec)) == NULL)
-		goto quit;
-	    clicon_dbspec_yang_set(h, yspec);
-	    if (dumpdb)
-		yang_print(stdout, (yang_node*)yspec, 0);
+	    if (dbspec_key_main(h, dumpdb) < 0)
+		goto quit;	    
 	}
 	else{
 	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
 	    goto quit;
 	}
     if (dumpdb)
-        if (dump_database(dbname, NULL, brief, db_spec) < 0)
+        if (dump_database(dbname, NULL, brief, dbspec) < 0)
 	    goto quit;
 
     if (matchent)
-        if (dump_database(dbname, matchkey, brief, db_spec)) {
+        if (dump_database(dbname, matchkey, brief, dbspec)) {
 	    fprintf(stderr, "Match error\n");
 	    goto quit;
 	}
     if (addent) /* add entry */
-	if (db_lv_op(db_spec, dbname, LV_SET, addstr, NULL) < 0){
+	if (db_lv_op(dbspec, dbname, LV_SET, addstr, NULL) < 0){
 	    fprintf(stderr, "Failed to add entry\n");
 	    goto quit;
 	}
@@ -329,7 +304,7 @@ main(int argc, char **argv)
 	    goto quit;
 
   quit:
-    db_spec_free(db_spec);
+    db_spec_free(dbspec);
     clicon_handle_exit(h);
     return 0;
 }

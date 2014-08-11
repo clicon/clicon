@@ -1,5 +1,4 @@
 /*
- * CVS Version: $Id: clicon_cli_api.h,v 1.25 2013/09/16 15:38:31 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -57,7 +56,7 @@ char *cli_prompt(char *fmt);
 int cli_exec(clicon_handle h, char *cmd, char **mode, int *result);
 int cli_ptpush(clicon_handle h, char *mode, char *string, char *op);
 int cli_ptpop(clicon_handle h, char *mode, char *op);
-clicon_dbvars_t *cli_set_parse(clicon_handle h, struct db_spec *spec, char *db, cvec *vars, const char *fmt);
+clicon_dbvars_t *cli_set_parse(clicon_handle h, dbspec_key *spec, char *db, cvec *vars, const char *fmt);
 
 /* cli_handle.c */
 char cli_set_comment(clicon_handle h, char c);

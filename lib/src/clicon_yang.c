@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_spec.c,v 1.29 2013/09/19 16:03:40 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -37,6 +36,7 @@
 #include <regex.h>
 #include <syslog.h>
 #include <assert.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 
 /* cligen */
@@ -49,9 +49,10 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_hash.h"
+#include "clicon_buf.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
 #include "clicon_chunk.h"
@@ -60,6 +61,7 @@
 #include "clicon_yang.h"
 #include "clicon_yang_type.h"
 #include "clicon_yang_parse.h"
+#include "clicon_yang2key.h"
 
 /*
  * Private data types
@@ -411,18 +413,23 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     char           *reason = NULL;
     char           *rtype;  /* resolved type */
     char           *type;   /* original type */
+    uint8_t         fraction_digits;
+    int             options = 0x0;
 
     yparent = ys->ys_parent;     /* Find parent: list/container */
     /* 1. Find type specification and set cv type accordingly */
-    if (yang_type_get(ys, &type, &rtype, NULL, NULL, NULL, NULL) < 0)
+    if (yang_type_get(ys, &type, &rtype, &options, NULL, NULL, NULL, &fraction_digits) < 0)
 	goto done;
-    if (clicon_type2cv(type, rtype, &cvtype) < 0)
+    if (clicon_type2cv(type, rtype, &cvtype) < 0) /* This handles non-resolved also */
 	goto done;
     /* 2. Create the CV using cvtype and name it */
     if ((cv = cv_new(cvtype)) == NULL){
 	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
 	goto done;
     }
+    if (options & YANG_OPTIONS_FRACTION_DIGITS && cvtype == CGV_DEC64) /* XXX: Seems misplaced? / too specific */
+	cv_dec64_n_set(cv, fraction_digits);
+
     if (cv_name_set(cv, ys->ys_argument) == NULL){
 	clicon_err(OE_DB, errno, "%s: cv_new_set", __FUNCTION__); 
 	goto done;
@@ -459,9 +466,31 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     return retval;
 }
 
-/*! Populate with cligen-variables, default values etc
+/*! Sanity check yang type statement
+ * XXX: Replace with generic parent/child type-check
+ */
+static int
+ys_populate_type(yang_stmt *ys, void *arg)
+{
+    int             retval = -1;
+
+    if (strcmp(ys->ys_argument, "decimal64") == 0){
+	if (yang_find((yang_node*)ys, Y_FRACTION_DIGITS, NULL) == NULL){
+	    clicon_err(OE_DB, 0, "decimal64 type requires fraction-digits sub-statement");
+	    goto done;
+	}
+    }
+    retval = 0;
+  done:
+    return retval;
+    
+}
+
+/*! Populate with cligen-variables, default values, etc. Sanity checks on complete tree.
  *
  * We do this in 2nd pass after complete parsing to be sure to have a complete parse-tree
+ * See ys_parse_sub for first pass and what can be assumed
+ * After this pass, cv:s are set for LEAFs and LEAF-LISTs
  */
 static int
 ys_populate(yang_stmt *ys, void *arg)
@@ -472,6 +501,9 @@ ys_populate(yang_stmt *ys, void *arg)
 	if (ys_populate_leaf(ys, arg) < 0)
 	    goto done;
     }
+    if (ys->ys_keyword == Y_TYPE)
+	if (ys_populate_type(ys, arg) < 0)
+	    goto done;
     retval = 0;
   done:
     return retval;
@@ -484,21 +516,21 @@ ys_populate(yang_stmt *ys, void *arg)
  * A variable record is also returned containing a list of (global) variable values.
  * (cloned from cligen)
  */
-static int
+static yang_stmt *
 yang_parse_str(clicon_handle h,
 	       char *str,
 	       const char *name, /* just for errs */
-	       yang_spec *yspec
-    )
+	       yang_spec *yspec)
 {
-    int                retval = -1;
     struct clicon_yang_yacc_arg yy = {0,};
+    yang_stmt                  *ym = NULL;
 
     yy.yy_handle       = h; 
     yy.yy_name         = (char*)name;
     yy.yy_linenum      = 1;
     yy.yy_parse_string = str;
     yy.yy_stack        = NULL;
+    yy.yy_module       = NULL; /* this is the return value - the module/sub-module */
 
     if (ystack_push(&yy, (yang_node*)yspec) == NULL)
 	goto done;
@@ -516,19 +548,12 @@ yang_parse_str(clicon_handle h,
 	    goto done;		
 	if (yang_scan_exit(&yy) < 0)
 	    goto done;		
-	/* Go through parse tree and populate it with cv types */
-	if (yang_apply((yang_node*)yspec, ys_populate, NULL) < 0)
-	    goto done;
     }
-    retval = 0;
+    ym = yy.yy_module;
   done:
     ystack_pop(&yy);
-
-    return retval;
-
+    return ym;
 }
-
-
 
 /*! Parse a file containing a YANG into a parse-tree
  *
@@ -536,7 +561,7 @@ yang_parse_str(clicon_handle h,
  * (cloned from cligen)
  * The database symbols are inserted in alphabetical order.
  */
-static int
+static yang_stmt *
 yang_parse_file(clicon_handle h,
 		FILE *f,
 		const char *name, /* just for errs */
@@ -547,12 +572,12 @@ yang_parse_file(clicon_handle h,
     int           i;
     int           c;
     int           len;
-    int           retval = -1;
+    yang_stmt    *ymodule = NULL;
 
     len = 1024; /* any number is fine */
     if ((buf = malloc(len)) == NULL){
 	perror("pt_file malloc");
-	return -1;
+	return NULL;
     }
     memset(buf, 0, len);
 
@@ -570,50 +595,105 @@ yang_parse_file(clicon_handle h,
 	}
 	buf[i++] = (char)(c&0xff);
     } /* read a line */
-    if (yang_parse_str(h, buf, name, ysp) < 0)
+    if ((ymodule = yang_parse_str(h, buf, name, ysp)) < 0)
 	goto done;
-    retval = 0;
   done:
     if (buf)
 	free(buf);
-    return retval;
+    return ymodule;
+}
+
+/*
+ * module-or-submodule-name ['@' revision-date] ( '.yang' / '.yin' )
+ */
+static yang_stmt *
+yang_parse2(clicon_handle h, const char *yang_dir, const char *module, yang_spec *ysp)
+{
+    FILE       *f = NULL;
+    cbuf       *b;
+    char       *filename;
+    yang_stmt  *ys = NULL;
+    struct stat st;
+
+    b = cbuf_new();
+    cprintf(b, "%s/%s.yang", yang_dir, module);
+    filename = cbuf_get(b);
+    if (stat(filename, &st) < 0){
+	clicon_err(OE_DB, errno, "%s not found", filename);
+       goto done;
+    }
+    if ((f = fopen(filename, "r")) == NULL){
+	clicon_err(OE_UNIX, errno, "fopen(%s)", filename);	
+	goto done;
+    }
+    if ((ys = yang_parse_file(h, f, filename, ysp)) == NULL)
+	goto done;
+  done:
+    if (b)
+	cbuf_free(b);
+    if (f)
+	fclose(f);
+    return ys;
+}
+
+/*! Parse dbspec using yang format
+ *
+ * The database symbols are inserted in alphabetical order.
+ * Find a yang module file, and then recursively parse all its imported modules.
+ */
+static yang_stmt *
+yang_parse1(clicon_handle h, const char *yang_dir, const char *module, yang_spec *ysp)
+{
+    yang_stmt  *yi = NULL; /* import */
+    yang_stmt  *ys;
+    char       *modname;
+
+    if ((ys = yang_parse2(h, yang_dir, module, ysp)) == NULL)
+	goto done;
+    /* go through all import statements of ysp (or its module) */
+    while ((yi = yn_each((yang_node*)ys, yi)) != NULL){
+	if (yi->ys_keyword != Y_IMPORT)
+	    continue;
+	modname = yi->ys_argument;
+	if (yang_find((yang_node*)ysp, Y_MODULE, modname) == NULL)
+	    if (yang_parse1(h, yang_dir, modname, ysp) == NULL){
+		ys = NULL;
+		goto done;
+	    }
+    }
+  done:
+    return ys;
 }
 
 
 /*! Parse dbspec using yang format
  *
+ * @param h        CLICON handle
+ * @param yang_dir Directory where all YANG module files reside
+ * @param module   Name of main YANG module. More modules may be parsed if imported
+ * @param ysp      Yang specification. Should ave been created by caller using yspec_new
+ * @retval 0  Everything OK
+ * @retval -1 Error encountered
  * The database symbols are inserted in alphabetical order.
+ * Find a yang module file, and then recursively parse all its imported modules.
  */
 int
-yang_parse(clicon_handle h, const char *filename, yang_spec *ysp)
+yang_parse(clicon_handle h, const char *yang_dir, const char *module, yang_spec *ysp)
 {
-    FILE       *f;
     int         retval = -1;
     yang_stmt  *ys;
 
-    if ((f = fopen(filename, "r")) == NULL){
-	clicon_err(OE_UNIX, errno, "fopen(%s)", filename);	
+    if ((ys = yang_parse1(h, yang_dir, module, ysp)) == NULL)
 	goto done;
-    }
-    if (yang_parse_file(h, f, filename, ysp) < 0)
-	goto done;
-    /* pick up name="myname"; from spec */
-    if ((ys = yang_find((yang_node*)ysp, Y_MODULE, NULL)) == NULL){
-	clicon_err(OE_DB, 0, "No module found in %s", filename);	
-	goto done;
-    }
+    /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
-
+    /* Go through parse tree and populate it with cv types */
+    if (yang_apply((yang_node*)ysp, ys_populate, NULL) < 0)
+	goto done;
     retval = 0;
   done:
-    if (f)
-	fclose(f);
     return retval;
 }
-
-
-
-
 
 /*! Get dbspec key of a yang statement, used when generating cli
  *
@@ -756,8 +836,9 @@ yang_xpath(yang_node *yn, char *xpath)
 
 /*! Parse argument as CV and save result in yang cv variable
  *
- * Note that some CV:s are parsed directly (eg mandatory) while others are parsed in second pass
- * (ys_populate). The reason being that all information is not available in the first pass.
+ * Note that some CV:s are parsed directly (eg mandatory) while others are parsed 
+ * in second pass (ys_populate). The reason being that all information is not 
+ * available in the first pass.
  */
 cg_var *
 ys_parse(yang_stmt *ys, enum cv_type cvtype)
@@ -846,10 +927,15 @@ ys_parse_range(yang_stmt *ys)
 }
 
 
+
 /*! First round yang syntactic statement specific checks. No context checks.
  *
  * Specific syntax checks for yang statements where one cannot assume the context is parsed. 
  * That is, siblings, etc, may not be there. Complete checks are made in ys_populate instead.
+ * This leaves cv:s in parse-tree as follows:
+ * mandatory       : ys_cv as bool
+ * range/length    : ys_range_min and ys_range_max
+ * fraction-digits : ys_cv as uint8
  */
 int
 ys_parse_sub(yang_stmt *ys)
@@ -863,12 +949,23 @@ ys_parse_sub(yang_stmt *ys)
 	if (ys_parse_range(ys) < 0)
 	    goto done;
 	break;
-    case Y_MANDATORY:
+    case Y_MANDATORY: 
 	if (ys_parse(ys, CGV_BOOL) == NULL) 
 	    goto done;
 	if ((yp = (yang_stmt*)ys->ys_parent) != NULL)
 	    yp->ys_mandatory = cv_bool_get(ys->ys_cv);
 	break;
+    case Y_FRACTION_DIGITS:{
+	uint8_t fd;
+	if (ys_parse(ys, CGV_UINT8) == NULL) 
+	    goto done;
+	fd = cv_uint8_get(ys->ys_cv);
+	if (fd < 1 || fd > 18){
+	    clicon_err(OE_DB, errno, "%u: Out of range, should be [1:18]", fd);
+	    goto done;
+	}
+	break;
+    }
     default:
 	break;
     }
@@ -877,3 +974,41 @@ ys_parse_sub(yang_stmt *ys)
     return retval;
 }
 
+/*! Utility function for handling yang parsing and translation to keys */
+int
+yang_spec_main(clicon_handle h, int printspec)
+{
+    yang_spec      *yspec;
+    char           *yang_dir;
+    char           *yang_module;
+    int             retval = -1;
+    dbspec_key *db_spec;
+
+    if ((yspec = yspec_new()) == NULL)
+	goto done;
+    yang_dir    = clicon_yang_dir(h);
+    yang_module = clicon_yang_module_main(h);
+
+    if (yang_parse(h, yang_dir, yang_module, yspec) < 0)
+	goto done;
+    clicon_log(LOG_INFO, "YANG PARSING OK");
+    clicon_dbspec_yang_set(h, yspec);	
+    if (printspec)
+	yang_print(stdout, (yang_node*)yspec, 0);
+    if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
+	goto done;
+    clicon_dbspec_key_set(h, db_spec);	
+    if (printspec)
+	db_spec_dump(stdout, db_spec);
+#if 0 /* for testing mapping back to original */
+    yang_spec *yspec2;
+    if ((yspec2 = key2yang(db_spec)) == NULL)
+	goto done;
+    clicon_dbspec_yang_set(h, yspec2);
+    if (printspec)
+	yang_print(stdout, (yang_node*)yspec2, 0);
+#endif
+    retval = 0;
+  done:
+    return retval;
+}

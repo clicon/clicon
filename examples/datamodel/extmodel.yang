@@ -1,0 +1,7 @@
+module extmodel{
+    typedef mytype{
+       type decimal64{
+         fraction-digits 10;
+       }
+    }
+}

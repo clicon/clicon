@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_spec.h,v 1.15 2013/09/20 11:45:08 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
   Olof Hagsand
@@ -30,9 +29,10 @@
  */
 /*! Bit-fields used in options argument in yang_type_get()
  */
-#define YANG_OPTIONS_LENGTH   0x01
-#define YANG_OPTIONS_RANGE    YANG_OPTIONS_LENGTH
-#define YANG_OPTIONS_PATTERN  0x02
+#define YANG_OPTIONS_LENGTH           0x01
+#define YANG_OPTIONS_RANGE            YANG_OPTIONS_LENGTH
+#define YANG_OPTIONS_PATTERN          0x02
+#define YANG_OPTIONS_FRACTION_DIGITS  0x04
 
 /*
  * Types
@@ -47,6 +47,7 @@ char      *cv2yang_type(enum cv_type cv_type);
 int        ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason);
 int        clicon_type2cv(char *type, char *rtype, enum cv_type *cvtype);
 int        yang_type_get(yang_stmt *ys, char **otype, char **rtype, 
-			 int *options, int64_t *min, int64_t *max, char **pattern);
+			 int *options, int64_t *min, int64_t *max, char **pattern,
+                         uint8_t *fraction_digits);
 
 #endif  /* _CLICON_YANG_TYPE_H_ */

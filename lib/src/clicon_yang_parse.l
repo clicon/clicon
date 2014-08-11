@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbspec.l,v 1.3 2013/09/13 15:05:14 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -40,7 +39,7 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_yang_parse.h"
 
@@ -184,6 +183,7 @@ stripdup(char *s0)
 <ARGUMENT>\"               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING1); return DQ; }
 <ARGUMENT>\'               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING2); return DQ; }
 <ARGUMENT>\+               { return *yytext; }
+<ARGUMENT>:                { return *yytext; }
 <ARGUMENT>\{               {  BEGIN(KEYWORD); return *yytext; }
 <ARGUMENT>.                { clicon_yang_parselval.string = strdup(yytext);
                              return CHAR;}

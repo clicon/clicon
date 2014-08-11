@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_lvmap.c,v 1.12 2013/09/05 20:08:27 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -76,7 +75,7 @@
 #include "clicon_chunk.h"
 #include "clicon_err.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
 #include "clicon_dbutil.h"
 #include "clicon_lvmap.h"

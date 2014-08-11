@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_db2txt.y,v 1.10 2013/09/11 18:36:46 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -46,7 +45,7 @@
 #include "clicon_db.h"
 #include "clicon_file.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_lvalue.h"
 #include "clicon_options.h"
@@ -252,10 +251,10 @@ cmp_true(cg_var *cv)
     switch(cv_type_get(cv)) {
     case CGV_ERR:
 	return FALSE;
-    case CGV_INT:
-	return (cv_int_get(cv) != 0);
-    case CGV_LONG:
-	return (cv_long_get(cv) != 0);
+    case CGV_INT32:
+	return (cv_int32_get(cv) != 0);
+    case CGV_INT64:
+	return (cv_int64_get(cv) != 0);
     case CGV_BOOL:
 	return (cv_bool_get(cv) != 0);
     default:

@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: config_dbdiff.h,v 1.6 2013/08/01 09:15:46 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -68,7 +67,7 @@ struct dbdiff {
  */ 
 int db_diff(char *db1,     char *db2, 
 	    const char *label,
-	    struct db_spec *db_spec,
+	    dbspec_key *dbspec,
 	    struct dbdiff *df
     );
 

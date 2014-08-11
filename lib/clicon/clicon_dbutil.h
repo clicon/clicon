@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbutil.h,v 1.17 2013/09/20 11:45:18 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -61,7 +60,7 @@ char *lv2str(struct lvalue *lv);
 
 char *db_gen_rxkey(char *basekey, const char *label);
 
-char *dbspec_last_unique_str(struct db_spec *ds, cvec *setvars);
+char *dbspec_last_unique_str(dbspec_key *ds, cvec *setvars);
 
 int cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
 			  char *key, cvec *cvv);

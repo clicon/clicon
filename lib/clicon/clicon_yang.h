@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_spec.h,v 1.15 2013/09/20 11:45:08 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
   Olof Hagsand
@@ -159,7 +158,8 @@ yang_stmt *yang_find(yang_node *yn, int keyword, char *argument);
 yang_stmt *yang_find_specnode(yang_node *yn, char *argument);
 
 int        yang_print(FILE *f, yang_node *yn, int marginal);
-int        yang_parse(clicon_handle h, const char *filename, yang_spec *ysp);
+int        yang_parse(clicon_handle h, const char *yang_dir, 
+		      const char *module, yang_spec *ysp);
 char      *yang_dbkey_get(yang_stmt *ys);
 int        yang_dbkey_set(yang_stmt *ys, char *val);
 int        yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg);
@@ -167,5 +167,6 @@ yang_stmt *dbkey2yang(yang_node *yn, char *dbkey);
 yang_stmt *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
 int        ys_parse_sub(yang_stmt *ys);
+int        yang_spec_main(clicon_handle h, int printspec);
 
 #endif  /* _CLICON_YANG_H_ */

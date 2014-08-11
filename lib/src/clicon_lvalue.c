@@ -1,6 +1,4 @@
-
 /*
- *  CVS Version: $Id: clicon_lvalue.c,v 1.36 2013/09/20 11:46:07 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -56,7 +54,7 @@
 #include "clicon_string.h"
 #include "clicon_chunk.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
 #include "clicon_dbutil.h"
 #include "clicon_lvalue.h"
@@ -155,10 +153,10 @@ lv_arg_2_cv_type(char lv_arg)
 
     switch (lv_arg) {
     case 'n':	/* 32-bit int */
-	cv_type = CGV_INT;
+	cv_type = CGV_INT32;
 	break;
     case 'l':	/* 64-bit long */
-	cv_type = CGV_LONG;
+	cv_type = CGV_INT64;
 	break;
     case 'b':	/* boolean */
 	cv_type = CGV_BOOL;
@@ -494,7 +492,7 @@ lv_next_seq(char *dbname, char *basekey, char *varname, int increment)
     if ((vr = lvec2cvec (pairs[i].dp_val, pairs[i].dp_vlen)) == NULL)
       goto catch;
       
-    if ((cv = cvec_find (vr, varname[0]=='!'?varname+1:varname)) && cv_type_get(cv) == CGV_INT) {
+    if ((cv = cvec_find (vr, varname[0]=='!'?varname+1:varname)) && cv_type_get(cv) == CGV_INT32) {
       val = cv_int_get(cv);
       if (val > seq)
 	seq = val;
@@ -531,7 +529,7 @@ lv_next_seq(char *dbname, char *basekey, char *varname, int increment)
  * the database will be corrupt.
  */
 int
-db_lv_vec_find(struct db_spec *dbspec, /* spec list */
+db_lv_vec_find(dbspec_key *dbspec, /* spec list */
 	       char *dbname, 
 	       char *basekey,
 	       cvec *setvars, 
@@ -542,7 +540,7 @@ db_lv_vec_find(struct db_spec *dbspec, /* spec list */
     char           *key = NULL;
     size_t          lvlen;
     char           *str;
-    struct db_spec *ds;
+    dbspec_key *ds;
     
     if (match)
 	*match = -1;
@@ -596,7 +594,7 @@ quit:
  * in 'dbname' based on 'setvars', that index will be returned.
  */
 int
-db_lv_vec_find(struct db_spec *dbspec, /* spec list */
+db_lv_vec_find(dbspec_key *dbspec, /* spec list */
 	       char *dbname, 
 	       char *basekey,
 	       cvec *setvars, 
@@ -682,7 +680,7 @@ quit:
  *   op      DELETE, SET, MERGE
  */
 int 
-db_lv_set(struct db_spec *spec, 
+db_lv_set(dbspec_key *spec, 
 	  char           *dbname,  
 	  char           *key,  
 	  cvec           *vec, 
@@ -749,7 +747,7 @@ quit:
  * set the value of that subkey to lvec.
  */
 static int
-db_lv_vec_set(struct db_spec *dbspec,
+db_lv_vec_set(dbspec_key *dbspec,
 	      char *dbname, 
 	      char *basekey, 
 	      cvec *setvars, 
@@ -760,7 +758,7 @@ db_lv_vec_set(struct db_spec *dbspec,
     int              matched;
     int              retval = -1;
     cvec            *dbvars = NULL;
-    struct db_spec  *spec;
+    dbspec_key  *spec;
 
     if ((i = db_lv_vec_find(dbspec, dbname, basekey, setvars, &matched)) < 0)
 	goto quit;
@@ -814,7 +812,7 @@ quit:
 
 #ifdef DB_KEYCONTENT
 /*
- * db_lv_vec_replace(struct db_spec *dbspec, 
+ * db_lv_vec_replace(dbspec_key *dbspec, 
  * Specialized function replacing the (last) unique key of an entry.
  * Example: 
  *     A.B[] $!a=42 $b $c 
@@ -872,7 +870,7 @@ db_lv_vec_replace(char *dbname,
  * Find subkey which matches the lvalue vector lvec, and remove them
  */
 static int
-db_lv_vec_del(struct db_spec *dbspec, /* spec list */
+db_lv_vec_del(dbspec_key *dbspec, /* spec list */
 	      char *dbname, 
 	      char *basekey, 
 	      cvec *setvars)
@@ -882,7 +880,7 @@ db_lv_vec_del(struct db_spec *dbspec, /* spec list */
     char           *str;
     int             i;
     size_t          lvlen;
-    struct db_spec  *ds;
+    dbspec_key  *ds;
 
     /* XXX: Create dummy index key just for key2spec_key */
     if((key = chunk_sprintf(__FUNCTION__, "%s.0", basekey)) == NULL) {
@@ -930,7 +928,7 @@ db_lv_vec_del(struct db_spec *dbspec, /* spec list */
  * Find all subkey which matches the lvalue vector lvec, and remove them
  */
 static int
-db_lv_vec_del(struct db_spec *dbspec, /* spec list */
+db_lv_vec_del(dbspec_key *dbspec, /* spec list */
 	      char *dbname, 
 	      char *basekey, 
 	      cvec *setvars)
@@ -1035,7 +1033,7 @@ db_lv_del(char *dbname, char *basekey)
  * Create a db vector key based on db-spec variables
  */
 int
-db_lv_spec2dbvec(struct db_spec *dbspec, 
+db_lv_spec2dbvec(dbspec_key *dbspec, 
 		 char *dbname, char *veckey, int idx, cvec *vhead)
 {
     char *key;
@@ -1045,7 +1043,7 @@ db_lv_spec2dbvec(struct db_spec *dbspec,
     cg_var *newv;
     cvec *vh = NULL;
     cvec *vhnew = NULL;
-    struct db_spec *os, *spec;
+    dbspec_key *os, *spec;
 
     if ((os = key2spec_key(dbspec, veckey)) == NULL) {
 	fprintf(stderr, "No data specification for '%s'\n", veckey);
@@ -1105,7 +1103,7 @@ catch:
 }
 
 char *
-db_lv_op_keyfmt (struct db_spec *dbspec,
+db_lv_op_keyfmt (dbspec_key *dbspec,
 		  char *dbname, 
 		 char *basekey,
 		 cvec *cvec,
@@ -1215,13 +1213,13 @@ catch:
  * Perform actual operation of db value
  */
 int
-db_lv_op_exec(struct db_spec *dbspec, 
+db_lv_op_exec(dbspec_key *dbspec, 
 	      char *dbname, 
 	      char *basekey, 
 	      lv_op_t op, 
 	      cvec *vh)
 {
-    struct db_spec *spec;
+    dbspec_key *spec;
     int             len;
     int             retval = -1;
 
@@ -1273,7 +1271,7 @@ db_lv_op_exec(struct db_spec *dbspec,
  *   vr:     vector of cligen variables (optional: can be NULL)
  */
 int 
-db_lv_op(struct db_spec *dbspec, 
+db_lv_op(dbspec_key *dbspec, 
 	 char *dbname, 
 	 lv_op_t op, 
 	 char *fmt, 

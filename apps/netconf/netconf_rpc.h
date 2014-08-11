@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: netconf_rpc.h,v 1.7 2013/08/05 14:19:23 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -30,7 +29,7 @@
  */ 
 int 
 netconf_rpc_dispatch(clicon_handle h,
-		     struct db_spec *ds,
+		     dbspec_key *ds,
 		     cxobj *xorig, 
 		     cxobj *xn, 
 		     cbuf *xf, 

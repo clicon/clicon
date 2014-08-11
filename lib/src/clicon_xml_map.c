@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_xml.c,v 1.25 2013/09/18 19:16:27 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -49,7 +48,7 @@
 #include "clicon_db.h"
 #include "clicon_chunk.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_options.h"
 #include "clicon_lvalue.h"
@@ -195,7 +194,7 @@ Now it is shown with this appended:
 
  */
 int
-dbkey2xml(struct db_spec *db_spec, 
+dbkey2xml(dbspec_key *db_spec, 
 	  cxobj *xnt, 
 	  char *key, 
 	  char *val, 
@@ -206,7 +205,7 @@ dbkey2xml(struct db_spec *db_spec,
     cxobj *xb;
     cxobj *xv;
     char            *subkey;
-    struct db_spec *subspec;
+    dbspec_key      *subspec;
     cvec           *vr;
     cvec           *subvr;
     cg_var         *v;
@@ -271,7 +270,7 @@ dbkey2xml(struct db_spec *db_spec,
 		    break;
 	    if (v == NULL) /* bad spec */
 		continue;
-	    if ((ncv = cvec_add(uvr, CGV_INT)) == NULL)
+	    if ((ncv = cvec_add(uvr, CGV_INT32)) == NULL)
 		goto catch;
 	    if (cv_name_set(ncv, cv_name_get(v)) == NULL)
 		goto catch;
@@ -373,7 +372,7 @@ dbkey2xml(struct db_spec *db_spec,
 static int
 dbpairs2xml(struct db_pair *pairs, 
 	    int npairs, 
-	    struct db_spec *db_spec, 
+	    dbspec_key *db_spec, 
 	    cxobj *xnt)
 {
     int              i;
@@ -407,7 +406,7 @@ dbpairs2xml(struct db_pair *pairs,
  * XXX: uvh?
  */
 cxobj *
-db2xml(char *dbname, struct db_spec *db_spec, char *toptag)
+db2xml(char *dbname, dbspec_key *db_spec, char *toptag)
 {
     struct db_pair   *pairs;
     int               npairs;
@@ -434,7 +433,7 @@ db2xml(char *dbname, struct db_spec *db_spec, char *toptag)
  * Return an xml parsetree.
  */
 int
-key2xml(char *key, char *dbname, struct db_spec *db_spec, cxobj *xtop)
+key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop)
 {
     char             *lvec = NULL;
     size_t            lvlen;
@@ -478,11 +477,11 @@ leaf(cxobj *xn)
  */
 static int
 xml2db_transform_key(cxobj *xn, 
-		     struct db_spec  *dbspec, 
+		     dbspec_key  *dbspec, 
 		     char            *dbname, 
 		     int              isvector,
 		     char           **key, 
-		     struct db_spec  *spec,
+		     dbspec_key  *spec,
 		     cvec            *uv)
 {
     cxobj  *xc;          /* xml parse-tree child (leaf) */
@@ -569,15 +568,15 @@ xml2db_transform_key(cxobj *xn,
  * key is malloced, needs free after use
  */
 static int
-key2spec(char *name, 
-	 char *key0, 
-	 struct db_spec *db_spec, 
-	 struct db_spec **specp, 
-	 int *partial,
-	 char **key)
+key2spec(char            *name, 
+	 char            *key0, 
+	 dbspec_key  *db_spec, 
+	 dbspec_key **specp, 
+	 int             *partial,
+	 char           **key)
 {
     char            *vkey; /* vector key */
-    struct db_spec  *ds;
+    dbspec_key  *ds;
     int              retval = -1;
     int              len;
 
@@ -622,23 +621,26 @@ key2spec(char *name,
 
 /*
  * xml2db_1
+ * XXX: We have a problem here with decimal64. he xml parsing is taking its info
+ * from keyspec, but there is no fraction-digits there. Can we change this code to take the 
+ * spec from yang instead or as a complimentary?
  */
 static int
-xml2db_1(cxobj *xn, 
-	 struct db_spec *dbspec, 
-	 char *dbname, 
-	 cvec *uv,
-	 char *basekey0,     /* on format A[].B[] */
-	 char *key0
+xml2db_1(cxobj          *xn, 
+	 dbspec_key *dbspec, 
+	 char           *dbname, 
+	 cvec           *uv,
+	 char           *basekey0,     /* on format A[].B[] */
+	 char           *key0
     )         /* on format A.2.B.3 */
 {
     int               retval = -1;
     int               superleaf;
-    cxobj  *xc;
+    cxobj            *xc;
     char             *basekey = NULL;
     char             *key = NULL;
 //    char             *k;
-    struct db_spec  *spec = NULL;
+    dbspec_key  *spec = NULL;
     cg_var           *v = NULL;
     char             *bstr;
     int               uniquevars = 0;
@@ -762,7 +764,7 @@ xml2db_1(cxobj *xn,
  * Map an xml parse-tree to a database
  */
 int 
-xml2db(cxobj *xt, struct db_spec *dbspec, char *dbname)
+xml2db(cxobj *xt, dbspec_key *dbspec, char *dbname)
 {
     cxobj *x = NULL;
     int retval = 0;
@@ -786,7 +788,7 @@ xml2db(cxobj *xt, struct db_spec *dbspec, char *dbname)
  * Transform a db into XML and save into a file
  */
 int
-save_db_to_xml(char *filename, struct db_spec *dbspec, char *dbname)
+save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname)
 {
     FILE *f;
     cxobj *xn;
@@ -814,7 +816,7 @@ save_db_to_xml(char *filename, struct db_spec *dbspec, char *dbname)
  * Load a saved XML file into a db
  */
 int
-load_xml_to_db(char *xmlfile, struct db_spec *dbspec, char *dbname)
+load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname)
 {
     int fd = -1;
     int retval = -1;

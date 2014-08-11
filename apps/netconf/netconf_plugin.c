@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: netconf_plugin.c,v 1.7 2013/08/09 13:25:42 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -267,7 +266,7 @@ catch:
  */
 int
 netconf_plugin_callbacks(clicon_handle h,
-//			 struct db_spec *dbspec,
+//			 dbspec_key *dbspec,
 			 cxobj *xn, 
 			 cbuf *xf, 
 			 cbuf *xf_err, 

@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_lvalue.h,v 1.19 2013/08/01 09:15:46 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
   Olof Hagsand
@@ -74,20 +73,20 @@ int lv_dump(FILE *f, char *val, int vlen);
 int lv_next_seq(char *dbname, char *basekey, char *varname, int increment);
 
 
-char *db_lv_op_keyfmt (struct db_spec *dbspec,
+char *db_lv_op_keyfmt (dbspec_key *dbspec,
 		       char *dbname, 
 		       char *basekey,
 		       cvec *cvec,
 		       const char *label);
 
-int db_lv_op(struct db_spec *dbspec, char *dbname, lv_op_t op, 
+int db_lv_op(dbspec_key *dbspec, char *dbname, lv_op_t op, 
 	     char *fmt, cvec *vr);
 
-int db_lv_op_exec(struct db_spec *dbspec, char *dbname, char *basekey, lv_op_t op, 
+int db_lv_op_exec(dbspec_key *dbspec, char *dbname, char *basekey, lv_op_t op, 
 		  cvec *vh);
 
 #if 0
-int db_lv_op_lvec(struct db_spec *dbspec,
+int db_lv_op_lvec(dbspec_key *dbspec,
 		  char *dbname, char *fmt, 
 		  cvec *vr,
 		  char **basekey, struct var_head **vh, const char *label);
@@ -99,16 +98,16 @@ int lv_matchvar (cvec *vhead1, cvec *vhead2, int cmpall);
 
 char *cgv_fmt_string(cvec *vr, char *fmt);
 
-int db_lv_set(struct db_spec *dbspec, char *dbname, 
+int db_lv_set(dbspec_key *dbspec, char *dbname, 
 	      char *key,  cvec *vh, lv_op_t op);
 int
 db_lv_vec_replace(char *dbname, char *basekey, 
 		  char *prevval, char *newval);
 
-int db_lv_vec_find(struct db_spec *dbspec, char *dbname, 
+int db_lv_vec_find(dbspec_key *dbspec, char *dbname, 
 		   char *basekey, struct cvec *setvars, int *matched);
 int
-db_lv_spec2dbvec(struct db_spec *dbspec, 
+db_lv_spec2dbvec(dbspec_key *dbspec, 
 		 char *dbname, char *veckey, int idx, cvec *vhead);
 
 #endif  /* _CLICON_LVALUE_H_ */

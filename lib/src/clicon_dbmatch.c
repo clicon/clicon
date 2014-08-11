@@ -1,6 +1,5 @@
 
 /*
- *  CVS Version: $Id: clicon_dbutil.c,v 1.30 2013/09/20 11:45:43 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -53,7 +52,7 @@
 #include "clicon_hash.h"
 #include "clicon_db.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_log.h"
 #include "clicon_lvalue.h"
 #include "clicon_yang.h"

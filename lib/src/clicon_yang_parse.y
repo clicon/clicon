@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbspec.y,v 1.4 2013/09/18 19:14:53 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -19,20 +18,14 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
- * Database specification parser cli syntax
-
- * Cloned from cligen parser. But made the following changes:
-
-
-   The argument is a string, as defined in Section 6.1.2.
  */
 
 
 %start file
 
 %union {
-  int intval;
-  char *string;
+    int intval;
+    char *string;
 }
 
 %token MY_EOF 
@@ -40,14 +33,15 @@
 %token K_UNKNOWN    /* template for error */
 %token <string> CHAR
 
+%type <string>    ustring
+%type <string>    qstrings
+%type <string>    qstring
+%type <string>    string
+%type <string>    id_arg_str
+%type <string>    config_arg_str
+%type <string>    integer_value
+%type <string>    identifier_ref_arg_str
 
-%type <string> ustring
-%type <string> qstrings
-%type <string> qstring
-%type <string> string
-%type <string> id_arg_str
-%type <string> config_arg_str
-%type <string> integer_value
 
 /* rfc 6020 keywords 
    See also enum rfc_6020 in clicon_yang.h. There, the constants have Y_ prefix instead of K_
@@ -153,7 +147,7 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_err.h"
 #include "clicon_log.h"
 #include "clicon_yang.h"
@@ -245,31 +239,55 @@ ysp_add(struct clicon_yang_yacc_arg *yy, enum rfc_6020 keyword, char *argument)
 	goto err;
     /* NOTE: does not make a copy of string, ie argument is 'consumed' here */
     ys->ys_argument = argument;
-    /* Check statement-specific syntax */
-    if (yn_insert(yn, ys) < 0)
+    if (yn_insert(yn, ys) < 0) /* Insert into hierarchy */
 	goto err; 
-    if (ys_parse_sub(ys) < 0)
-	goto done; /* dont free since part of tree */
-  done:
+    if (ys_parse_sub(ys) < 0)     /* Check statement-specific syntax */
+	goto err2; /* dont free since part of tree */
+//  done:
     return ys;
   err:
     if (ys)
 	ys_free(ys);
+  err2:
     return NULL;
 }
 
 /*! combination of ysp_add and ysp_push for sub-modules */
-static int
+static yang_stmt *
 ysp_add_push(struct clicon_yang_yacc_arg *yy, int keyword, char *argument)
 {
     yang_stmt *ys;
 
     if ((ys = ysp_add(yy, keyword, argument)) == NULL)
-	return -1;
+	return NULL;
     if (ystack_push(yy, (yang_node*)ys) == NULL)
-	return -1;
-    return 0;
+	return NULL;
+    return ys;
 }
+
+/* identifier-ref-arg-str has a [prefix :] id and prefix_id joins the id with an 
+   optional prefix into a single string */
+static char*
+prefix_id_join(char *prefix, char *id)
+{
+    char *str;
+    int   len;
+    
+    if (prefix){
+	len = strlen(prefix) + strlen(id) + 2;
+	if ((str = malloc(len)) == NULL){
+	    clicon_err(OE_UNIX, errno, "malloc");
+	    return NULL;
+	}
+	snprintf(str, len, "%s:%s", prefix, id);
+	free(prefix);
+	free(id);
+    }
+    else
+	str = id;
+    return str;
+}
+
 
 %} 
  
@@ -293,7 +311,8 @@ unknown_stmt  : K_UNKNOWN      { clicon_debug(2,"unknown-stmt"); YYERROR; }
 
 /* module */
 module_stmt   : K_MODULE id_arg_str 
-                        { if (ysp_add_push(_yy, Y_MODULE, $2) < 0) YYERROR;} 
+                        { if ((_YY->yy_module = ysp_add_push(_yy, Y_MODULE, $2)) == NULL) YYERROR;
+                        } 
                 '{' module_substmts '}' 
                         { if (ystack_pop(_yy) < 0) YYERROR;
 			  clicon_debug(2,"module -> id-arg-str { module-stmts }");} 
@@ -316,8 +335,9 @@ module_substmt : module_header_stmts { clicon_debug(2,"module-substmt -> module-
 
 /* submodule */
 submodule_stmt : K_SUBMODULE id_arg_str '{' submodule_substmts '}' 
-                      { if (ysp_add_push(_yy, Y_SUBMODULE, $2) < 0) YYERROR; 
-                        clicon_debug(2,"submodule -> id-arg-str { submodule-stmts }"); }
+                      { if ((_YY->yy_module = ysp_add_push(_yy, Y_SUBMODULE, $2)) == NULL) YYERROR; 
+                        clicon_debug(2,"submodule -> id-arg-str { submodule-stmts }"); 
+                      }
               ;
 
 submodule_substmts : submodule_substmts submodule_substmt 
@@ -378,10 +398,10 @@ revision_stmts : revision_stmts revision_stmt
               ;
 
 revision_stmt : K_REVISION string ';'  /* XXX date-arg-str */
-                     { if (ysp_add(_yy, Y_REVISION, $2) < 0) YYERROR; 
+                     { if (ysp_add(_yy, Y_REVISION, $2) == NULL) YYERROR; 
 			 clicon_debug(2,"revision-stmt -> date-arg-str ;"); }
               | K_REVISION string 
-                     { if (ysp_add_push(_yy, Y_REVISION, $2) < 0) YYERROR; }
+                     { if (ysp_add_push(_yy, Y_REVISION, $2) == NULL) YYERROR; }
                 '{' revision_substmts '}'  /* XXX date-arg-str */
                      { if (ystack_pop(_yy) < 0) YYERROR;
 		       clicon_debug(2,"revision-stmt -> date-arg-str { revision-substmts  }"); }
@@ -430,10 +450,10 @@ data_def_stmt : container_stmt       { clicon_debug(2,"data-def-stmt -> containe
 
 /* container */
 container_stmt : K_CONTAINER id_arg_str ';'
-                           { if (ysp_add(_yy, Y_CONTAINER, $2) < 0) YYERROR; 
+                           { if (ysp_add(_yy, Y_CONTAINER, $2) == NULL) YYERROR; 
                              clicon_debug(2,"container-stmt -> CONTAINER id-arg-str ;");}
               | K_CONTAINER id_arg_str 
-                          { if (ysp_add_push(_yy, Y_CONTAINER, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_CONTAINER, $2) == NULL) YYERROR; }
                 '{' container_substmts '}'
                            { if (ystack_pop(_yy) < 0) YYERROR;
                              clicon_debug(2,"container-stmt -> CONTAINER id-arg-str { container-substmts }");}
@@ -456,10 +476,10 @@ container_substmt : if_feature_stmt { clicon_debug(2,"container-substmt -> if-fe
 
 /* leaf */
 leaf_stmt     : K_LEAF id_arg_str ';'
-                         { if (ysp_add(_yy, Y_LEAF, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_LEAF, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"leaf-stmt -> LEAF id-arg-str ;");}
               | K_LEAF id_arg_str 
-                          { if (ysp_add_push(_yy, Y_LEAF, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_LEAF, $2) == NULL) YYERROR; }
                 '{' leaf_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
                              clicon_debug(2,"leaf-stmt -> LEAF id-arg-str { lead-substmts }");}
@@ -484,10 +504,10 @@ leaf_substmt  : if_feature_stmt      { clicon_debug(2,"leaf-substmt -> if-featur
 
 /* leaf-list */
 leaf_list_stmt : K_LEAF_LIST id_arg_str ';'
-                         { if (ysp_add(_yy, Y_LEAF_LIST, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_LEAF_LIST, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"leaf-list-stmt -> LEAF id-arg-str ;");}
               | K_LEAF_LIST id_arg_str 
-                          { if (ysp_add_push(_yy, Y_LEAF_LIST, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_LEAF_LIST, $2) == NULL) YYERROR; }
                 '{' leaf_list_substmts '}'
                            { if (ystack_pop(_yy) < 0) YYERROR;
                              clicon_debug(2,"leaf-list-stmt -> LEAF-LIST id-arg-str { lead-substmts }");}
@@ -510,10 +530,10 @@ leaf_list_substmt : if_feature_stmt  { clicon_debug(2,"leaf-list-substmt -> if-f
 
 /* list */
 list_stmt     : K_LIST id_arg_str ';' 
-                         { if (ysp_add(_yy, Y_LIST, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_LIST, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"list-stmt -> LIST id-arg-str ;"); }
               | K_LIST id_arg_str 
-                          { if (ysp_add_push(_yy, Y_LIST, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_LIST, $2) == NULL) YYERROR; }
 	       '{' list_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"list-stmt -> LIST id-arg-str { list-substmts }"); }
@@ -539,7 +559,7 @@ list_substmt  : if_feature_stmt      { clicon_debug(2,"list-substmt -> if-featur
 
 /* Typedef */
 typedef_stmt  : K_TYPEDEF id_arg_str 
-                          { if (ysp_add_push(_yy, Y_TYPEDEF, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_TYPEDEF, $2) == NULL) YYERROR; }
 	       '{' typedef_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"typedef-stmt -> TYPEDEF id-arg-str { typedef-substmts }"); }
@@ -562,14 +582,15 @@ typedef_substmt : type_stmt          { clicon_debug(2,"typedef-substmt -> type-s
               ;
 
 /* Type */
-type_stmt     : K_TYPE id_arg_str ';' /* XXX identifier_ref_arg_str */
-                         { if (ysp_add(_yy, Y_TYPE, $2) < 0) YYERROR; 
-			   clicon_debug(2,"type-stmt -> TYPE id-arg-str ;");}
-              | K_TYPE id_arg_str 
-                         { if (ysp_add_push(_yy, Y_TYPE, $2) < 0) YYERROR; }
+type_stmt     : K_TYPE identifier_ref_arg_str ';' 
+                         { if (ysp_add(_yy, Y_TYPE, $2) == NULL) YYERROR; 
+			   clicon_debug(2,"type-stmt -> TYPE identifier-ref-arg-str ;");}
+              | K_TYPE identifier_ref_arg_str 
+                         { if (ysp_add_push(_yy, Y_TYPE, $2) == NULL) YYERROR; 
+			 }
                 '{' type_body_stmts '}'
                          { if (ystack_pop(_yy) < 0) YYERROR;
-                           clicon_debug(2,"type-stmt -> TYPE id-arg-str { type-body-stmts }");}
+                           clicon_debug(2,"type-stmt -> TYPE identifier-ref-arg-str { type-body-stmts }");}
               ;
 
 /* type-body-stmts is a little special since it is a choice of
@@ -585,7 +606,8 @@ type_body_stmts : type_body_stmts type_body_stmt
 type_body_stmt/* numerical-restrictions */ 
               : range_stmt             { clicon_debug(2,"type-body-stmt -> range-stmt"); }
               /* decimal64-specification */ 
-              | fraction_digits_stmt   { clicon_debug(2,"type-body-stmt -> fraction-digits-stmt"); }              /* string-restrictions */ 
+              | fraction_digits_stmt   { clicon_debug(2,"type-body-stmt -> fraction-digits-stmt"); }
+              /* string-restrictions */ 
               | length_stmt           { clicon_debug(2,"type-body-stmt -> length-stmt"); }
               | pattern_stmt          { clicon_debug(2,"type-body-stmt -> pattern-stmt"); }
               /* enum-specification */ 
@@ -603,11 +625,11 @@ type_body_stmt/* numerical-restrictions */
 
 /* length-stmt */
 length_stmt   : K_LENGTH string ';' /* XXX length-arg-str */
-                         { if (ysp_add(_yy, Y_LENGTH, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_LENGTH, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"length-stmt -> LENGTH string ;"); }
 
               | K_LENGTH string
-                          { if (ysp_add_push(_yy, Y_LENGTH, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_LENGTH, $2) == NULL) YYERROR; }
 	       '{' length_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"length-stmt -> LENGTH string { length-substmts }"); }
@@ -627,11 +649,11 @@ length_substmt :description_stmt     { clicon_debug(2,"length-substmt -> descrip
 
 /* Pattern */
 pattern_stmt  : K_PATTERN string ';' 
-                         { if (ysp_add(_yy, Y_PATTERN, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_PATTERN, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"pattern-stmt -> PATTERN string ;"); }
 
               | K_PATTERN string
-                          { if (ysp_add_push(_yy, Y_PATTERN, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_PATTERN, $2) == NULL) YYERROR; }
 	       '{' pattern_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"pattern-stmt -> PATTERN string { pattern-substmts }"); }
@@ -651,11 +673,11 @@ pattern_substmt : reference_stmt       { clicon_debug(2,"pattern-substmt -> refe
 
 /* Feature */
 feature_stmt  : K_FEATURE id_arg_str ';' 
-                         { if (ysp_add(_yy, Y_FEATURE, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_FEATURE, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"feature-stmt -> FEATURE id-arg-str ;"); }
 
               | K_FEATURE id_arg_str
-                          { if (ysp_add_push(_yy, Y_FEATURE, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_FEATURE, $2) == NULL) YYERROR; }
 	       '{' feature_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"feature-stmt -> FEATURE id-arg-str { feature-substmts }"); }
@@ -677,11 +699,11 @@ feature_substmt : if_feature_stmt    { clicon_debug(2,"feature-substmt -> if-fea
 
 /* Identity */
 identity_stmt  : K_IDENTITY string ';' /* XXX identifier-arg-str */
-                         { if (ysp_add(_yy, Y_IDENTITY, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_IDENTITY, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"identity-stmt -> IDENTITY string ;"); }
 
               | K_IDENTITY string
-                          { if (ysp_add_push(_yy, Y_IDENTITY, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_IDENTITY, $2) == NULL) YYERROR; }
 	       '{' identity_substmts '}' 
                            { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"identity-stmt -> IDENTITY string { identity-substmts }"); }
@@ -703,11 +725,11 @@ identity_substmt : base_stmt         { clicon_debug(2,"identity-substmt -> base-
 
 /* range-stmt */
 range_stmt   : K_RANGE string ';' /* XXX range-arg-str */
-                         { if (ysp_add(_yy, Y_RANGE, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_RANGE, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"range-stmt -> RANGE string ;"); }
 
               | K_RANGE string
-	                  { if (ysp_add_push(_yy, Y_RANGE, $2) < 0) YYERROR; }
+	                  { if (ysp_add_push(_yy, Y_RANGE, $2) == NULL) YYERROR; }
 	       '{' range_substmts '}' 
                           { if (ystack_pop(_yy) < 0) YYERROR;
 			     clicon_debug(2,"range-stmt -> RANGE string { range-substmts }"); }
@@ -727,11 +749,11 @@ range_substmt : description_stmt     { clicon_debug(2,"range-substmt -> descript
 
 /* enum-stmt */
 enum_stmt     : K_ENUM string ';'
-                         { if (ysp_add(_yy, Y_ENUM, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_ENUM, $2) == NULL) YYERROR; 
 			   clicon_debug(2,"enum-stmt -> ENUM string ;"); }
 
               | K_ENUM string
-                         { if (ysp_add_push(_yy, Y_ENUM, $2) < 0) YYERROR; }
+                         { if (ysp_add_push(_yy, Y_ENUM, $2) == NULL) YYERROR; }
 	       '{' enum_substmts '}' 
                          { if (ystack_pop(_yy) < 0) YYERROR;
 			   clicon_debug(2,"enum-stmt -> ENUM string { enum-substmts }"); }
@@ -754,110 +776,110 @@ enum_substmt  : value_stmt           { clicon_debug(2,"enum-substmt -> value-stm
 
 /* Simple statements */
 yang_version_stmt  : K_YANG_VERSION string ';' /* XXX yang-version-arg-str */
-                          { if (ysp_add(_yy, Y_YANG_VERSION, $2) < 0) YYERROR;
+                          { if (ysp_add(_yy, Y_YANG_VERSION, $2) == NULL) YYERROR;
                             clicon_debug(2,"yang-version-stmt -> YANG-VERSION string"); }
               ;
 
 fraction_digits_stmt : K_FRACTION_DIGITS string ';' /* XXX: fraction-digits-arg-str */
-                          { if (ysp_add(_yy, Y_FRACTION_DIGITS, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_FRACTION_DIGITS, $2) == NULL) YYERROR; 
                             clicon_debug(2,"fraction-digits-stmt -> FRACTION-DIGITS string"); }
               ;
 
-if_feature_stmt : K_IF_FEATURE string ';' /* XXX: identifier-ref-arg-str */
-                          { if (ysp_add(_yy, Y_IF_FEATURE, $2) < 0) YYERROR; 
-                            clicon_debug(2,"if-feature-stmt -> IF-FEATURE string"); }
+if_feature_stmt : K_IF_FEATURE identifier_ref_arg_str ';' 
+                          { if (ysp_add(_yy, Y_IF_FEATURE, $2) == NULL) YYERROR; 
+                            clicon_debug(2,"if-feature-stmt -> IF-FEATURE identifier-ref-arg-str"); }
               ;
 
 value_stmt   : K_VALUE integer_value ';' 
-                          { if (ysp_add(_yy, Y_VALUE, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_VALUE, $2) == NULL) YYERROR; 
                             clicon_debug(2,"value-stmt -> VALUE integer-value"); }
               ;
 
 status_stmt   : K_STATUS string ';' /* XXX: status-arg-str */
-                          { if (ysp_add(_yy, Y_STATUS, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_STATUS, $2) == NULL) YYERROR; 
                             clicon_debug(2,"status-stmt -> STATUS string"); }
               ;
 
 config_stmt   : K_CONFIG config_arg_str ';' 
-                          { if (ysp_add(_yy, Y_CONFIG, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_CONFIG, $2) == NULL) YYERROR; 
                             clicon_debug(2,"config-stmt -> CONFIG config-arg-str"); }
               ;
 
 
-base_stmt     : K_BASE string ';' /* XXX: identifier-ref-arg-str */
-                          { if (ysp_add(_yy, Y_BASE, $2) < 0) YYERROR; 
-                            clicon_debug(2,"base-stmt -> BASE string"); }
+base_stmt     : K_BASE identifier_ref_arg_str ';' 
+                          { if (ysp_add(_yy, Y_BASE, $2)== NULL) YYERROR; 
+                            clicon_debug(2,"base-stmt -> BASE identifier-ref-arg-str"); }
               ;
 
 path_stmt     : K_PATH string ';' /* XXX: path-arg-str */
-                          { if (ysp_add(_yy, Y_PATH, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_PATH, $2)== NULL) YYERROR; 
                             clicon_debug(2,"path-stmt -> PATH string"); }
               ;
 
 require_instance_stmt : K_REQUIRE_INSTANCE string ';' /* XXX: require-instance-arg-str */
-                          { if (ysp_add(_yy, Y_REQUIRE_INSTANCE, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_REQUIRE_INSTANCE, $2)== NULL) YYERROR; 
                             clicon_debug(2,"require-instance-stmt -> REQUIRE-INSTANCE string"); }
               ;
 
 units_stmt    : K_UNITS string ';'
-                          { if (ysp_add(_yy, Y_UNITS, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_UNITS, $2)== NULL) YYERROR; 
                             clicon_debug(2,"units-stmt -> UNITS string"); }
               ;
 
 default_stmt  : K_DEFAULT string ';'
-                          { if (ysp_add(_yy, Y_DEFAULT, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_DEFAULT, $2)== NULL) YYERROR; 
                             clicon_debug(2,"default-stmt -> DEFAULT string"); }
               ;
 
 contact_stmt  : K_CONTACT string ';'
-                          { if (ysp_add(_yy, Y_CONTACT, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_CONTACT, $2)== NULL) YYERROR; 
                             clicon_debug(2,"contact-stmt -> CONTACT string"); }
               ;
 
 import_stmt   : K_IMPORT id_arg_str 
-                          { if (ysp_add_push(_yy, Y_IMPORT, $2) < 0) YYERROR; }
+                          { if (ysp_add_push(_yy, Y_IMPORT, $2) == NULL) YYERROR; }
                 '{' prefix_stmt '}' 
 		          {  if (ystack_pop(_yy) < 0) YYERROR;
                              clicon_debug(2,"import-stmt -> id-arg-str { prefix-stmt }"); }
               ;
 include_stmt  : K_INCLUDE id_arg_str ';'
-                         { if (ysp_add(_yy, Y_INCLUDE, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_INCLUDE, $2)== NULL) YYERROR; 
                            clicon_debug(2,"include-stmt -> id-arg-str"); }
               ;
 
 namespace_stmt : K_NAMESPACE string ';'  /* XXX uri-str */
-                          { if (ysp_add(_yy, Y_NAMESPACE, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_NAMESPACE, $2)== NULL) YYERROR; 
                             clicon_debug(2,"namespace-stmt -> NAMESPACE string"); }
               ;
 
 prefix_stmt   : K_PREFIX string ';' /* XXX prefix-arg-str */
-                          { if (ysp_add(_yy, Y_PREFIX, $2) < 0) YYERROR; 
+                          { if (ysp_add(_yy, Y_PREFIX, $2)== NULL) YYERROR; 
 			     clicon_debug(2,"prefix-stmt -> PREFIX string ;");}
               ;
 
-description_stmt: K_DESCRIPTION string ';' /* XXX identifier_ref_arg_str */
-                         { if (ysp_add(_yy, Y_DESCRIPTION, $2) < 0) YYERROR; 
+description_stmt: K_DESCRIPTION string ';' 
+                         { if (ysp_add(_yy, Y_DESCRIPTION, $2)== NULL) YYERROR; 
 			   clicon_debug(2,"description-stmt -> DESCRIPTION string ;");}
               ;
 
 organization_stmt: K_ORGANIZATION string ';'
-                         { if (ysp_add(_yy, Y_ORGANIZATION, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_ORGANIZATION, $2)== NULL) YYERROR; 
 			   clicon_debug(2,"organization-stmt -> ORGANIZATION string ;");}
               ;
 
 reference_stmt: K_REFERENCE string ';'
-                         { if (ysp_add(_yy, Y_REFERENCE, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_REFERENCE, $2)== NULL) YYERROR; 
 			   clicon_debug(2,"reference-stmt -> REFERENCE string ;");}
               ;
 
 mandatory_stmt: K_MANDATORY string ';' 
                          { yang_stmt *ys;
-                           if ((ys = ysp_add(_yy, Y_MANDATORY, $2)) < 0) YYERROR; 
+                           if ((ys = ysp_add(_yy, Y_MANDATORY, $2))== NULL) YYERROR; 
 			   clicon_debug(2,"mandatory-stmt -> MANDATORY mandatory-arg-str ;");}
               ;
 
 key_stmt      : K_KEY id_arg_str ';' /* XXX key_arg_str */
-                         { if (ysp_add(_yy, Y_KEY, $2) < 0) YYERROR; 
+                         { if (ysp_add(_yy, Y_KEY, $2)== NULL) YYERROR; 
 			   clicon_debug(2,"key-stmt -> KEY id-arg-str ;");}
               ;
 
@@ -866,6 +888,14 @@ config_arg_str : string { $$=$1; } /* XXX BOOL */
 
 integer_value : string { $$=$1; }
               ;	      
+
+identifier_ref_arg_str : string 
+                    {   if (($$=prefix_id_join(NULL, $1)) == NULL) YYERROR;
+			clicon_debug(2,"identifier-ref-arg-str -> string"); }
+              | string ':' string 
+                    {   if (($$=prefix_id_join($1, $3)) == NULL) YYERROR;
+			clicon_debug(2,"identifier-ref-arg-str -> prefix : string"); }
+              ;
 
 id_arg_str    : string { $$=$1; clicon_debug(2,"id-arg-str -> string"); }
               ;	      

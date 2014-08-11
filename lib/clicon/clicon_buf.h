@@ -24,6 +24,7 @@
  * Usage:
  * cbuf *b;
  * b = cbuf_new();
+ * cprintf(b, "%d %s", 43, "go");
  * write(f, cbuf_get(b), cbuf_len(b));
  * cbuf_free(b);
  */

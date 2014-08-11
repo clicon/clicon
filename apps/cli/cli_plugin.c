@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: cli_plugin.c,v 1.91 2013/09/09 18:26:37 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -1169,7 +1168,7 @@ clicon_valcb(void *arg, cvec *vars, cg_var *cgv, char *fname, cg_var *funcarg)
  * containing the variables specified by the format.
  */
 clicon_dbvars_t *
-cli_set_parse(clicon_handle h, struct db_spec *spec, char *db, cvec *vars, const char *fmt)
+cli_set_parse(clicon_handle h, dbspec_key *spec, char *db, cvec *vars, const char *fmt)
 {
     clicon_dbvars_t *dbvars;
 

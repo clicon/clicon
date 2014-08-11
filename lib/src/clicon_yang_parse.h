@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbspec.h,v 1.2 2013/09/13 15:05:39 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -43,6 +42,8 @@ struct clicon_yang_yacc_arg{ /* XXX: mostly unrelevant */
     struct ys_stack      *yy_stack;     /* Stack of levels: push/pop on () and [] */
     int                   yy_lex_state;  /* lex start condition (ESCAPE/COMMENT) */
     int                   yy_lex_string_state; /* lex start condition (STRING) */
+    yang_stmt            *yy_module;       /* top-level (sub)module - return value of 
+					      parser */
 };
 
 /* This is a malloced piece of code we attach to cligen objects used as db-specs.

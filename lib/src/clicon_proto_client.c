@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_proto_client.c,v 1.17 2013/09/05 20:10:54 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -46,7 +45,7 @@
 #include "clicon_hash.h"
 #include "clicon_db.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
 #include "clicon_proto.h"
 #include "clicon_err.h"

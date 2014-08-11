@@ -42,13 +42,15 @@ clean:
 distclean: clean
 	rm -f clicon.conf Makefile *~ .depend
 
-install:	clicon.conf datamodel.yang datamodel_cli.cli 
+install:	clicon.conf datamodel.yang extmodel.yang datamodel_cli.cli 
 	install -m 755 -d $(DESTDIR)$(APPDIR) 
 	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
-	install -m 755 datamodel.yang $(DESTDIR)$(APPDIR)
 	install -m 755 -d $(DESTDIR)$(APPDIR)/frontend
 	install -m 755 -d $(DESTDIR)$(APPDIR)/backend
 	install -m 755 -d $(DESTDIR)$(APPDIR)/db
+	install -m 755 -d $(DESTDIR)$(APPDIR)/yang
+	install -m 755 datamodel.yang $(DESTDIR)$(APPDIR)/yang
+	install -m 755 extmodel.yang $(DESTDIR)$(APPDIR)/yang
 	install -m 755 -d $(DESTDIR)$(APPDIR)/archive
 	for i in datamodel_cli.cli; do \
 		install $$i $(DESTDIR)$(APPDIR)/frontend/`basename $$i`; \
@@ -58,7 +60,7 @@ uninstall:
 	rm -rf $(APPDIR)/frontend
 	rm -rf $(APPDIR)/db
 	rm -rf $(APPDIR)/archive
-	rm -rf $(APPDIR)/datamodel.yang
+	rm -rf $(APPDIR)/yang
 	rm -rf $(APPDIR)/*
 
 install-include:	

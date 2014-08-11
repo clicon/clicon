@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: config_dbdiff.c,v 1.20 2013/09/18 19:22:56 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -415,24 +414,24 @@ dbdiff_vector_1(char *db1, char *db2,
  * @param[in]     db1         database 1, typically running
  * @param[in]     db2         database 2, typically candidate
  * @param[in]     label       label for chunk memory handling
- * @param[in]     db_spec     database specification
+ * @param[in]     dbspec     database specification
  * @param[out]    df          dbdiff struct containing list of database changes
  */
 int
 db_diff(char *db1,     
 	char *db2, 
 	const char *label,
-	struct db_spec *db_spec,
+	dbspec_key *dbspec,
 	struct dbdiff *df
     )
 {
     char *basekey; 
     int retval = -1;
-    struct db_spec *ds;
+    dbspec_key *ds;
     char *key;
     
     /* Loop through database spec */
-    for (ds=db_spec; ds; ds=ds->ds_next){
+    for (ds=dbspec; ds; ds=ds->ds_next){
 	if ((basekey = ds->ds_key) == NULL){
 	    clicon_err(OE_DB, 0, "%s: No db key", __FUNCTION__);
 	    goto quit;

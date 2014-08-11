@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: config_lib.c,v 1.11 2013/08/15 11:52:34 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -57,7 +56,7 @@
  * one step up
  */
 int
-config_snapshot(struct db_spec *dbspec, char *dbname, char *dir)
+config_snapshot(dbspec_key *dbspec, char *dbname, char *dir)
 {
     char filename0[MAXPATHLEN];
     char filename1[MAXPATHLEN];

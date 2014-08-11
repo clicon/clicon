@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: cli_main.c,v 1.72 2013/09/19 15:00:52 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -37,6 +36,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <syslog.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
@@ -62,7 +62,7 @@
 static int
 terminate(clicon_handle h)
 {
-    struct db_spec *dbspec;
+    dbspec_key *dbspec;
     yang_spec      *yspec;
 
     if ((dbspec = clicon_dbspec_key(h)) != NULL)
@@ -185,66 +185,21 @@ spec_main_cli(clicon_handle h, int printspec)
 {
     char            *dbspec_type;
     int              retval = -1;
-    struct db_spec  *db_spec;
-    char            *db_spec_file;
-    struct stat      st;
-    yang_spec      *yspec;
     
-    /* Parse db specification */
-    if ((db_spec_file = clicon_dbspec_file(h)) == NULL){
-	clicon_err(OE_FATAL, errno, "No CLICON_DBSPEC_FILE given");
-	goto quit;
-    }
-    if (stat(db_spec_file, &st) < 0){
-	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
-	goto quit;
-    }
-    clicon_debug(1, "CLICON_DBSPEC_FILE=%s", db_spec_file);
     dbspec_type = clicon_dbspec_type(h);
-
-    if ((dbspec_type == NULL) || strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG spec syntax */
-	if ((yspec = yspec_new()) == NULL)
+    if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG spec syntax */
+	if (yang_spec_main(h, printspec) < 0)
 	    goto quit;
-	clicon_dbspec_yang_set(h, yspec);	
-	if (yang_parse(h, db_spec_file, yspec) < 0)
-	    goto quit;
-	clicon_log(LOG_INFO, "YANG PARSING OK");
-	if (printspec)
-	    yang_print(stdout, (yang_node*)yspec, 0);
-	if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
-	    goto quit;
-	clicon_dbspec_key_set(h, db_spec);	
-	if (printspec)
-	    db_spec_dump(stdout, db_spec);
-	if (0){ /* for testing mapping back to original */
-	    yang_spec *yspec2;
-	    if ((yspec2 = key2yang(db_spec)) == NULL)
-		goto quit;
-	    clicon_dbspec_yang_set(h, yspec2);
-	    if (printspec)
-		yang_print(stdout, (yang_node*)yspec2, 0);
-	}
     }
     else
 	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
+	    if (dbspec_key_main(h, printspec) < 0)
 		goto quit;
-	    if (printspec && debug) 
-		db_spec_dump(stdout, db_spec);
-	    clicon_dbspec_key_set(h, db_spec);	
-	    /* Translate to yang spec */
-	    if ((yspec = key2yang(db_spec)) == NULL)
-		goto quit;
-	    clicon_dbspec_yang_set(h, yspec);
-	    if (printspec)
-		yang_print(stdout, (yang_node*)yspec, 0);
 	}
 	else{
-		clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
-		goto quit;
+	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
+	    goto quit;
 	}
-
-
     retval = 0;
   quit:
     return retval;
@@ -509,7 +464,7 @@ main(int argc, char **argv)
 	}
 	if (strcmp(clicon_dbspec_type(h), "KEY")==0)  
 	    treename = "datamodel";  /* key syntax hardwire to 'datamodel' */
-	else{ /* PT or YANG */
+	else{ /* YANG */
 	    if ((treename = clicon_dbspec_name(h)) == NULL){
 		clicon_err(OE_FATAL, 0, "DB_SPEC has no name (insert name=\"myname\"; in .spec file)");
 		goto quit;

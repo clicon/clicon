@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_options.h,v 1.19 2013/09/19 14:59:39 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -74,8 +73,10 @@ int clicon_option_int_set(clicon_handle h, char *name, int val);
 
 char *clicon_appdir(clicon_handle h);
 char *clicon_configfile(clicon_handle h);
-char *clicon_dbspec_file(clicon_handle h);
 char *clicon_dbspec_type(clicon_handle h);
+char *clicon_dbspec_file(clicon_handle h);
+char *clicon_yang_dir(clicon_handle h);
+char *clicon_yang_module_main(clicon_handle h);
 char *clicon_running_db(clicon_handle h);
 char *clicon_candidate_db(clicon_handle h);
 char *clicon_backend_dir(clicon_handle h);
@@ -101,8 +102,8 @@ int clicon_autocommit(clicon_handle h);
 int clicon_autocommit_set(clicon_handle h, int val);
 
 #define clicon_dbspec(h)  clicon_dbspec_key(h) /* obsolete */
-struct db_spec *clicon_dbspec_key(clicon_handle h);
-int clicon_dbspec_key_set(clicon_handle h, struct db_spec *ds);
+dbspec_key *clicon_dbspec_key(clicon_handle h);
+int clicon_dbspec_key_set(clicon_handle h, dbspec_key *ds);
 
 yang_spec * clicon_dbspec_yang(clicon_handle h);
 int clicon_dbspec_yang_set(clicon_handle h, struct yang_spec *ys);

@@ -1,5 +1,4 @@
 /*
- * CVS Version: $Id: config_lib.h,v 1.5 2013/08/01 09:15:46 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -32,7 +31,7 @@
 /*
  * Prototypes
  */ 
-int config_snapshot(struct db_spec *dbspec, char *dbname, char *dir);
+int config_snapshot(dbspec_key *dbspec, char *dbname, char *dir);
 int group_name2gid(char *name, gid_t *gid);
 
 #endif  /* _CONFIG_LIB_H_ */

@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_spec.h,v 1.15 2013/09/20 11:45:08 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
   Olof Hagsand
@@ -28,7 +27,7 @@
 /*
  * Prototypes
  */
-struct db_spec *yang2key(yang_spec *ys);
-yang_spec *key2yang(struct db_spec *ds);
+dbspec_key *yang2key(yang_spec *ys);
+yang_spec *key2yang(dbspec_key *ds);
 
 #endif  /* _CLICON_YANG2KEY_H_ */

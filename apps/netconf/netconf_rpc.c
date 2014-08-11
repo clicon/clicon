@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: netconf_rpc.c,v 1.38 2013/08/15 11:52:08 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -70,7 +69,7 @@
  * sub-function., focus on xfilter part here.
  */
 static int
-netconf_filter(struct db_spec *dbspec, cxobj *xfilter, 
+netconf_filter(dbspec_key *dbspec, cxobj *xfilter, 
 	       cbuf *xf, cbuf *xf_err, 
 	       cxobj *xt, char *target)
 {
@@ -189,7 +188,7 @@ netconf_filter(struct db_spec *dbspec, cxobj *xfilter,
    </get-config></rpc>]]>]]>
  */
 int
-netconf_get_config(clicon_handle h, struct db_spec *dbspec,
+netconf_get_config(clicon_handle h, dbspec_key *dbspec,
 		   cxobj *xn, 
 		   cbuf *xf, cbuf *xf_err, 
 		   cxobj *xt)
@@ -349,7 +348,7 @@ get_edit_opts(cxobj *xn,
  */
 int
 netconf_edit_config(clicon_handle h,
-		    struct db_spec *dbspec,
+		    dbspec_key *dbspec,
 		    cxobj *xn, 
 		    cbuf *xf, 
 		    cbuf *xf_err, 
@@ -1052,7 +1051,7 @@ netconf_create_subscription(clicon_handle h,
  */
 int
 netconf_rpc_dispatch(clicon_handle h,
-		     struct db_spec *dbspec,
+		     dbspec_key *dbspec,
 		     cxobj *xorig, 
 		     cxobj *xn, 
 		     cbuf *xf, 

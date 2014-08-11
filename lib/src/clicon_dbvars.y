@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_dbvars.y,v 1.14 2013/09/18 19:15:54 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -58,7 +57,7 @@
 #include "clicon_err.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
 #include "clicon_dbvars.h"
 #include "clicon_dbutil.h"
@@ -130,11 +129,11 @@ clicon_dbvars_addcgv(clicon_dbvarsparse_t *dvp, char *name, cg_var *cgv)
     if (cv_type_get(cgv) == CGV_STRING && strcmp(cv_string_get(cgv), "*") == 0) {
 	wildcard = 1;
 	cv_string_set(cgv, NULL); /* free string */
-	cv_type_set(cgv, CGV_INT);
-	cv_int_set(cgv, 0); /* Doesn't matter */
+	cv_type_set(cgv, CGV_INT32);
+	cv_int32_set(cgv, 0); /* Doesn't matter */
     }
 
-    if ((cv = cvec_add (dvp->dvp_ret->dbv_vec, CGV_INT)) == NULL)
+    if ((cv = cvec_add (dvp->dvp_ret->dbv_vec, CGV_INT32)) == NULL)
 	goto done;
     if (cv_cp(cv, cgv) != 0)
 	goto done;

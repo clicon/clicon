@@ -1,5 +1,4 @@
 /*
- *  CVS Version: $Id: clicon_spec.c,v 1.29 2013/09/19 16:03:40 olof Exp $
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 
@@ -49,7 +48,7 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
-#include "clicon_spec.h"
+#include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
@@ -76,25 +75,25 @@ struct map_str2int{
 /* Mapping between yang types <--> cligen types
    Note, first match used wne translating from cv to yang --> order is significant */
 static const struct map_str2int ytmap[] = {
-    {"int32",       CGV_INT},
-    {"binary",      CGV_INT}, /* XXX not really int */
-    {"bits",        CGV_INT}, /* XXX not really int */
+    {"int32",       CGV_INT32},  /* NOTE, first matchis significant, dont move */
+    {"binary",      CGV_INT32}, /* XXX not really int */
+    {"bits",        CGV_INT32}, /* XXX not really int */
     {"boolean",     CGV_BOOL},
-    {"decimal64",   CGV_INT},  /* XXX not really int */
-    {"empty",       CGV_INT},  /* XXX not really int */
-    {"enumeration", CGV_INT},  /* XXX not really int */
-    {"identityref", CGV_INT},  /* XXX not really int */
+    {"decimal64",   CGV_DEC64},  
+    {"empty",       CGV_INT32},  /* XXX not really int */
+    {"enumeration", CGV_INT32},  /* XXX not really int */
+    {"identityref", CGV_INT32},  /* XXX not really int */
     {"instance-identifier", CGV_INT}, /* XXX not really int */
-    {"int8",        CGV_INT},  /* XXX not really int */
-    {"int16",       CGV_INT},  /* XXX not really int */
-    {"int64",       CGV_LONG},
-    {"leafref",     CGV_INT},  /* XXX not really int */
+    {"int8",        CGV_INT8},  
+    {"int16",       CGV_INT16},  
+    {"int64",       CGV_INT64},
+    {"leafref",     CGV_INT32},  /* XXX not really int */
     {"string",      CGV_STRING},
-    {"uint8",       CGV_INT},  /* XXX not really int */
-    {"uint16",      CGV_INT},  /* XXX not really int */
-    {"uint32",      CGV_INT},  /* XXX not really int */
-    {"uint64",      CGV_LONG}, /* XXX not really int */
-    {"union",       CGV_INT},  /* XXX not really int */
+    {"uint8",       CGV_UINT8}, 
+    {"uint16",      CGV_UINT16},
+    {"uint32",      CGV_UINT32},
+    {"uint64",      CGV_UINT64},
+    {"union",       CGV_INT32},  /* XXX not really int */
     {NULL, -1}
 };
 
@@ -249,20 +248,24 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 {
     int             retval = 1; /* OK */
     cg_var         *ycv;        /* cv of yang-statement */  
-    long long       i = 0;
+    int64_t         i = 0;
+    uint64_t        u = 0;
     char           *str;
     int             options;
-    int64_t         range_min, range_max; 
+    int64_t         range_min; 
+    int64_t         range_max; 
     char           *pattern;
     int             retval2;
     enum cv_type    cvtype;
-    char         *type;  /* orig type */
-    char         *rtype; /* resolved type */
+    char           *type;  /* orig type */
+    char           *rtype; /* resolved type */
+    uint8_t         fraction; 
 
     if (ys->ys_keyword != Y_LEAF && ys->ys_keyword != Y_LEAF_LIST)
 	return 0;
     ycv = ys->ys_cv;
-    if (yang_type_get(ys, &type, &rtype, &options, &range_min, &range_max, &pattern) < 0)
+    if (yang_type_get(ys, &type, &rtype, &options, &range_min, &range_max, &pattern,
+	    &fraction) < 0)
 	goto err;
     if (clicon_type2cv(type, rtype, &cvtype) < 0)
 	goto err;
@@ -272,19 +275,88 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	goto err;
     }
     switch (cvtype){
-    case CGV_INT:
-	i = cv_int_get(cv);
-    case CGV_LONG: /* fallthru */
-	 /* Check range if specified */
-	if (cv_type_get(ycv) == CGV_LONG)
-	    i = cv_long_get(cv);
+    case CGV_INT8:
+	i = cv_int8_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
 	    if (i < range_min || i > range_max) {
 		if (reason)
-		    *reason = cligen_reason("Number out of range: %i", i);
+		    *reason = cligen_reason("Number out of range: %ld", i);
 		retval = 0;
 	    }
 	}
+	break;
+    case CGV_INT16:
+	i = cv_int16_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (i < range_min || i > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %ld", i);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_INT32:
+	i = cv_int32_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (i < range_min || i > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %ld", i);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_INT64:
+	i = cv_int64_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (i < range_min || i > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %ld", i);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_UINT8:
+	u = cv_uint8_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (u < range_min || u > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %lu", u);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_UINT16:
+	u = cv_uint16_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (u < range_min || u > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %lu", u);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_UINT32:
+	u = cv_uint32_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (u < range_min || u > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %lu", u);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_UINT64:
+	u = cv_uint64_get(cv);
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    if (u < range_min || u > range_max) {
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %lu", u);
+		retval = 0;
+	    }
+	}
+	break;
+    case CGV_DEC64:
+	/* XXX: fraction_digits ? */
 	break;
     case CGV_STRING:
 	str = cv_string_get(cv);
@@ -365,22 +437,117 @@ ys_up(yang_stmt *ys)
     return (yang_stmt*)ys;
 }
 
+/* find top of tree: module or sub-module */
+static yang_stmt *
+ys_top(yang_stmt *ys)
+{
+    yang_node *yn;
+
+    while (ys != NULL && ys->ys_keyword != Y_MODULE && ys->ys_keyword != Y_SUBMODULE){
+	yn = ys->ys_parent;
+	/* Some extra stuff to ensure ys is a stmt */
+	if (yn && yn->yn_keyword == Y_SPEC)
+	    yn = NULL;
+	ys = (yang_stmt*)yn;
+    }
+    /* Here it is either NULL or is a typedef-kind yang-stmt */
+    return (yang_stmt*)ys;
+}
+
+/* find top of tree: specification */
+static yang_spec *
+ys_spec(yang_stmt *ys)
+{
+    yang_node *yn;
+
+    while (ys != NULL && ys->ys_keyword != Y_SPEC){
+	yn = ys->ys_parent;
+	ys = (yang_stmt*)yn;
+    }
+    /* Here it is either NULL or is a typedef-kind yang-stmt */
+    return (yang_spec*)ys;
+}
+
+static yang_stmt *
+ys_prefix2import(yang_stmt *ys, char *prefix)
+{
+    yang_stmt *ytop;
+    yang_stmt *yimport = NULL;
+    yang_stmt *yprefix;
+
+    ytop      = ys_top(ys);
+    while ((yimport = yn_each((yang_node*)ytop, yimport)) != NULL) {
+	if (yimport->ys_keyword != Y_IMPORT)
+	    continue;
+	if ((yprefix = yang_find((yang_node*)yimport, Y_PREFIX, NULL)) != NULL &&
+	    strcmp(yprefix->ys_argument, prefix) == 0)
+	    return yimport;
+    }
+    return NULL;
+}
+
+/*
+ * Extract id from type argument. two cases:
+ * argument is prefix:id, 
+ * argument is id,        
+ * Just return string from id
+ */
+static char*
+ytype_id(yang_stmt *ys)
+{
+    char   *id;
+    
+    if ((id = strchr(ys->ys_argument, ':')) == NULL)
+	id = ys->ys_argument;
+    else
+	id++;
+    return id;
+}
+
+/*
+ * Extract prefix from type argument. two cases:
+ * argument is prefix:id, 
+ * argument is id,        
+ * return either NULL or a new prefix string that needs to be freed by caller.
+ */
+static char*
+ytype_prefix(yang_stmt *ys)
+{
+    char   *id;
+    char   *prefix = NULL;
+    
+    if ((id = strchr(ys->ys_argument, ':')) != NULL){
+	prefix = strdup(ys->ys_argument);
+	prefix[id-ys->ys_argument] = '\0';
+    }
+    return prefix;
+}
+
+
+/*
+ */
 static int
 resolve_restrictions(yang_stmt   *yrange,
 		     yang_stmt   *ypattern,
+		     yang_stmt   *yfraction,
 		     int         *options, 
 		     int64_t     *min, 
 		     int64_t     *max, 
-		     char       **pattern)
+		     char       **pattern,
+		     uint8_t     *fraction)
 {
     if (options && min && max && yrange != NULL){
-	*options |= YANG_OPTIONS_LENGTH;
-	*min      = yrange->ys_range_min;
-	*max      = yrange->ys_range_max;
+	*options  |= YANG_OPTIONS_LENGTH;
+	*min       = yrange->ys_range_min;
+	*max       = yrange->ys_range_max;
     }
     if (options && pattern && ypattern != NULL){
-	*options |= YANG_OPTIONS_PATTERN;
-	*pattern      = ypattern->ys_argument;
+	*options  |= YANG_OPTIONS_PATTERN;
+	*pattern   = ypattern->ys_argument;
+    }
+    if (options && fraction && yfraction != NULL){
+	*options  |= YANG_OPTIONS_FRACTION_DIGITS;
+	*fraction  = cv_uint8_get(yfraction->ys_cv);
     }
     return 0;
 }
@@ -393,6 +560,7 @@ resolve_restrictions(yang_stmt   *yrange,
  * @param [out] min      pointer to min range or length. optional
  * @param [out] max      pointer to max range or length. optional
  * @param [out] pattern  pointer to static string of yang string pattern. optional
+ * @param [out] fraction for decimal64, how many digits after period
  * @retval      0        OK. Note rtype may still be NULL.
  * @retval     -1        Error, clicon_err handles errors
  * Note that the static output strings (type, pattern) should be copied if used asap.
@@ -405,43 +573,65 @@ yang_type_resolve(yang_stmt   *ys,
 		  int         *options, 
 		  int64_t     *min, 
 		  int64_t     *max, 
-		  char       **pattern)
+		  char       **pattern,
+		  uint8_t     *fraction)
 {
     yang_stmt   *rytypedef = NULL; /* Resolved typedef of ytype */
-    yang_stmt   *rytype;          /* Resolved type of ytype */
+    yang_stmt   *rytype;           /* Resolved type of ytype */
     yang_stmt   *yrange;
     yang_stmt   *ypattern;
+    yang_stmt   *yfraction;
+    yang_stmt   *yimport;
     char        *type;
+    char        *prefix = NULL;
     int          retval = -1;
     yang_node   *yn;
+    yang_spec   *yspec;
+    yang_stmt   *ymodule;
 
     if (options)
 	*options = 0x0;
-    *rtype   = NULL; /* Initialization of resolved type that may not be necessary */
-    type     = ytype->ys_argument; /* This is the type to resolve */
-    yrange   =  yang_find((yang_node*)ytype, Y_RANGE, NULL);
-    ypattern =  yang_find((yang_node*)ytype, Y_PATTERN, NULL);
-    /* The type is a basic type. Return that */
-    if (yang_builtin(type)){
+    *rtype    = NULL; /* Initialization of resolved type that may not be necessary */
+    type      = ytype_id(ytype);     /* This is the type to resolve */
+    prefix    = ytype_prefix(ytype); /* And this its prefix */
+
+    yrange    = yang_find((yang_node*)ytype, Y_RANGE, NULL);
+    ypattern  = yang_find((yang_node*)ytype, Y_PATTERN, NULL);
+    yfraction = yang_find((yang_node*)ytype, Y_FRACTION_DIGITS, NULL);
+    /* Check if type is basic type. If so, return that */
+    if (prefix == NULL && yang_builtin(type)){
 	*rtype = type;
-	resolve_restrictions(yrange, ypattern, options, min, max, pattern);
+	resolve_restrictions(yrange, ypattern, yfraction, options, min, max, pattern, fraction);
 	goto ok;
     }
-    while (1){
-	/* Check if ys may have typedefs otherwise find one that can */
-	if ((ys = ys_up(ys)) == NULL){ /* If reach top */
-	    *rtype = NULL;
-	    break;
+    /* Not basic type. Now check if prefix which means we look in other module */
+    if (prefix){ /* Go to top and find import that matches */
+	if ((yimport = ys_prefix2import(ys, prefix)) == NULL){
+	    clicon_err(OE_DB, 0, "Prefix %s not defined not found", prefix);
+	    goto done;
 	}
-	/* Here find typedef */
-	if ((rytypedef = yang_find((yang_node*)ys, Y_TYPEDEF, type)) != NULL)
-	    break;
-	/* Did not find a matching typedef there, proceed to next level */
-	yn = ys->ys_parent;
-	if (yn && yn->yn_keyword == Y_SPEC)
-	    yn = NULL;
-	ys = (yang_stmt*)yn;
+	yspec = ys_spec(ys);
+	if ((ymodule = yang_find((yang_node*)yspec, Y_MODULE, yimport->ys_argument)) == NULL)
+	    goto ok; /* unresolved */
+	if ((rytypedef = yang_find((yang_node*)ymodule, Y_TYPEDEF, type)) == NULL)
+	    goto ok; /* unresolved */
     }
+    else
+	while (1){
+	    /* Check if ys may have typedefs otherwise find one that can */
+	    if ((ys = ys_up(ys)) == NULL){ /* If reach top */
+		*rtype = NULL;
+		break;
+	    }
+	    /* Here find typedef */
+	    if ((rytypedef = yang_find((yang_node*)ys, Y_TYPEDEF, type)) != NULL)
+		break;
+	    /* Did not find a matching typedef there, proceed to next level */
+	    yn = ys->ys_parent;
+	    if (yn && yn->yn_keyword == Y_SPEC)
+		yn = NULL;
+	    ys = (yang_stmt*)yn;
+	}
     if (rytypedef != NULL){     /* We have found a typedef */
 	/* Find associated type statement */
 	if ((rytype = yang_find((yang_node*)rytypedef, Y_TYPE, NULL)) == NULL){
@@ -450,14 +640,16 @@ yang_type_resolve(yang_stmt   *ys,
 	}
 	/* recursively resolve this new type */
 	if (yang_type_resolve(ys, rytype, rtype, 
-			      options, min, max, pattern) < 0)
+			      options, min, max, pattern, fraction) < 0)
 	    goto done;
 	/* overwrites the resolved if any */
-	resolve_restrictions(yrange, ypattern, options, min, max, pattern);
+	resolve_restrictions(yrange, ypattern, yfraction, options, min, max, pattern, fraction);
     }
   ok:
     retval = 0;
   done:
+    if (prefix)
+	free(prefix);
     return retval;
 }
 
@@ -468,8 +660,9 @@ yang_type_resolve(yang_stmt   *ys,
  *   int           options;
  *   int64_t       min, max;
  *   char         *pattern;
+ *   uint8_t       fraction;
  *
- *   if (yang_type_get(ys, &type, &rtype, &options, &min, &max, &pattern) < 0)
+ *   if (yang_type_get(ys, &type, &rtype, &options, &min, &max, &pattern, &fraction) < 0)
  *      goto err;
  *   if (rtype == NULL) # unresolved
  *      goto err;
@@ -485,7 +678,8 @@ yang_type_resolve(yang_stmt   *ys,
  * @param [out] min      pointer to min range or length. optional
  * @param [out] max      pointer to max range or length. optional
  * @param [out] pattern  pointer to static string of yang string pattern. optional
- * @retval      0        OK
+ * @param [out] fraction for decimal64, how many digits after period
+ * @retval      0        OK, but note that rtype==NULL means not resolved.
  * @retval     -1        Error, clicon_err handles errors
  * Note that the static output strings (type, pattern) should be copied if used asap.
  * Note also that for all pointer arguments, if NULL is given, no value is assigned.
@@ -498,7 +692,9 @@ yang_type_get(yang_stmt    *ys,
 	      int          *options, 
 	      int64_t      *min, 
 	      int64_t      *max, 
-	      char        **pattern)
+	      char        **pattern,
+	      uint8_t      *fraction
+    )
 {
     int retval = -1;
     yang_stmt    *ytype;        /* type */
@@ -511,10 +707,10 @@ yang_type_get(yang_stmt    *ys,
 	clicon_err(OE_DB, 0, "%s: mandatory type object is not found", __FUNCTION__);
 	goto done;
     }
-    type = ytype->ys_argument;
+    type = ytype_id(ytype);
     if (origtype)
 	*origtype = type;
-    if (yang_type_resolve(ys, ytype, rtype, options, min, max, pattern) < 0)
+    if (yang_type_resolve(ys, ytype, rtype, options, min, max, pattern, fraction) < 0)
 	goto done;
     clicon_debug(1, "%s: %s %s->%s\n", __FUNCTION__, ys->ys_argument, type, 
 		 rtype?*rtype:"null");
