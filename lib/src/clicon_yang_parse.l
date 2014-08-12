@@ -177,7 +177,7 @@ stripdup(char *s0)
 <KEYWORD>yang-version     { BEGIN(ARGUMENT); return K_YANG_VERSION; }
 <KEYWORD>yin-element      { BEGIN(ARGUMENT); return K_YIN_ELEMENT; }
 
-<KEYWORD>.                { clicon_yang_parseerror(_yy, "No such keyword"); return K_UNKNOWN; }
+<KEYWORD>.                { return K_UNKNOWN; }
 
 <ARGUMENT>;                { BEGIN(KEYWORD); return *yytext; }
 <ARGUMENT>\"               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING1); return DQ; }

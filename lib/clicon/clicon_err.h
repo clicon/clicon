@@ -50,6 +50,7 @@ enum clicon_err{
     OE_ROUTING,  /* routing daemon error (eg quagga) */
     OE_XML,      /* xml parsing etc */
     OE_PLUGIN,   /* plugn loading, etc */
+    OE_YANG ,    /* Yang error */
     OE_FATAL,    /* Fatal error */
     OE_UNDEF,
 };

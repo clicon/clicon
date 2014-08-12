@@ -82,12 +82,11 @@ static struct errvec EV[] = {
     {"Syslog error",           OE_SYSLOG},
     {"Routing demon error",    OE_ROUTING},
     {"Plugins",                OE_PLUGIN},
+    {"Yang error",             OE_YANG},
     {"FATAL",                  OE_FATAL},
     {"Undefined",              OE_UNDEF},
     {NULL,                     -1}
 };
-
-
 
 static char *
 clicon_strerror1(int err, struct errvec vec[])

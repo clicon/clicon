@@ -113,6 +113,7 @@ struct yang_stmt{
     char              *ys_argument;  /* String / argument depending on keyword */   
     char              *ys_dbkey;     /* dbspec key corresponding to this yang node */
     cg_var            *ys_cv;        /* cligen variable corresponding to this (if leaf) node */
+    cg_var            *ys_cv2;       /* cligen variable corresponding to this (if leaf) node */
     int                ys_mandatory; /* mandatory false|true */
     int64_t            ys_range_min; /* for range and length stmts */
     int64_t            ys_range_max; /* for range and length stmts */

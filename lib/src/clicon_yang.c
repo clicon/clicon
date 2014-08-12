@@ -154,7 +154,7 @@ yspec_new(void)
     yang_spec *yspec;
 
     if ((yspec = malloc(sizeof(*yspec))) == NULL){
-	clicon_err(OE_DB, errno, "%s: malloc", __FUNCTION__);
+	clicon_err(OE_YANG, errno, "%s: malloc", __FUNCTION__);
 	return NULL;
     }
     memset(yspec, 0, sizeof(*yspec));
@@ -168,7 +168,7 @@ ys_new(enum rfc_6020 keyw)
     yang_stmt *ys;
 
     if ((ys = malloc(sizeof(*ys))) == NULL){
-	clicon_err(OE_DB, errno, "%s: malloc", __FUNCTION__);
+	clicon_err(OE_YANG, errno, "%s: malloc", __FUNCTION__);
 	return NULL;
     }
     memset(ys, 0, sizeof(*ys));
@@ -231,7 +231,7 @@ yn_realloc(yang_node *yn)
     yn->yn_len++;
 
     if ((yn->yn_stmt = realloc(yn->yn_stmt, (yn->yn_len)*sizeof(yang_stmt *))) == 0){
-	clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
+	clicon_err(OE_YANG, errno, "%s: realloc", __FUNCTION__);
 	return -1;
     }
     yn->yn_stmt[yn->yn_len - 1] = NULL; /* init field */
@@ -424,14 +424,14 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
 	goto done;
     /* 2. Create the CV using cvtype and name it */
     if ((cv = cv_new(cvtype)) == NULL){
-	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
+	clicon_err(OE_YANG, errno, "%s: cv_new", __FUNCTION__); 
 	goto done;
     }
     if (options & YANG_OPTIONS_FRACTION_DIGITS && cvtype == CGV_DEC64) /* XXX: Seems misplaced? / too specific */
 	cv_dec64_n_set(cv, fraction_digits);
 
     if (cv_name_set(cv, ys->ys_argument) == NULL){
-	clicon_err(OE_DB, errno, "%s: cv_new_set", __FUNCTION__); 
+	clicon_err(OE_YANG, errno, "%s: cv_new_set", __FUNCTION__); 
 	goto done;
     }
     /* 3. Check if default value. Here we parse the string in the default-stmt
@@ -439,11 +439,11 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
      */
     if ((ydef = yang_find((yang_node*)ys, Y_DEFAULT, NULL)) != NULL){
 	if ((cvret = cv_parse1(ydef->ys_argument, cv, &reason)) < 0){ /* error */
-	    clicon_err(OE_DB, errno, "parsing cv");
+	    clicon_err(OE_YANG, errno, "parsing cv");
 	    goto done;
 	}
 	if (cvret == 0){ /* parsing failed */
-	    clicon_err(OE_DB, errno, "Parsing CV: %s", reason);
+	    clicon_err(OE_YANG, errno, "Parsing CV: %s", reason);
 	    free(reason);
 	    goto done;
 	}
@@ -476,7 +476,7 @@ ys_populate_type(yang_stmt *ys, void *arg)
 
     if (strcmp(ys->ys_argument, "decimal64") == 0){
 	if (yang_find((yang_node*)ys, Y_FRACTION_DIGITS, NULL) == NULL){
-	    clicon_err(OE_DB, 0, "decimal64 type requires fraction-digits sub-statement");
+	    clicon_err(OE_YANG, 0, "decimal64 type requires fraction-digits sub-statement");
 	    goto done;
 	}
     }
@@ -540,6 +540,9 @@ yang_parse_str(clicon_handle h,
 	if (yang_parse_init(&yy, yspec) < 0)
 	    goto done;
 	if (clicon_yang_parseparse(&yy) != 0) { /* yacc returns 1 on error */
+	    clicon_log(LOG_NOTICE, "Yang error: %s on line %d", name, yy.yy_linenum);
+	    if (clicon_errno == 0)
+		clicon_err(OE_YANG, 0, "yang parser error with no error code (should not happen)");
 	    yang_parse_exit(&yy);
 	    yang_scan_exit(&yy);
 	    goto done;
@@ -619,7 +622,7 @@ yang_parse2(clicon_handle h, const char *yang_dir, const char *module, yang_spec
     cprintf(b, "%s/%s.yang", yang_dir, module);
     filename = cbuf_get(b);
     if (stat(filename, &st) < 0){
-	clicon_err(OE_DB, errno, "%s not found", filename);
+	clicon_err(OE_YANG, errno, "%s not found", filename);
        goto done;
     }
     if ((f = fopen(filename, "r")) == NULL){
@@ -789,7 +792,7 @@ dbkey2yang(yang_node *yn, char *dbkey)
     yang_stmt       *ys;
 
     if ((vec = clicon_strsplit(dbkey, ".", &nvec, __FUNCTION__)) == NULL){
-	clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
+	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
 	return NULL;
     }
     ys = yang_dbkey_vec(yn, vec, nvec);
@@ -826,7 +829,7 @@ yang_xpath(yang_node *yn, char *xpath)
     yang_stmt       *ys;
 
     if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
-	clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
+	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
 	return NULL;
     }
     ys = yang_xpath_vec(yn, vec, nvec);
@@ -848,16 +851,16 @@ ys_parse(yang_stmt *ys, enum cv_type cvtype)
 
     assert(ys->ys_cv == NULL); /* Cv:s are parsed in different places, difficult to separate */
     if ((ys->ys_cv = cv_new(cvtype)) == NULL){
-	clicon_err(OE_DB, errno, "%s: cv_new", __FUNCTION__); 
+	clicon_err(OE_YANG, errno, "%s: cv_new", __FUNCTION__); 
 	goto done;
     }
     if ((cvret = cv_parse1(ys->ys_argument, ys->ys_cv, &reason)) < 0){ /* error */
-	clicon_err(OE_DB, errno, "parsing cv");
+	clicon_err(OE_YANG, errno, "parsing cv");
 	ys->ys_cv = NULL;
 	goto done;
     }
     if (cvret == 0){ /* parsing failed */
-	clicon_err(OE_DB, errno, "Parsing CV: %s", reason);
+	clicon_err(OE_YANG, errno, "Parsing CV: %s", reason);
 	ys->ys_cv = NULL;
 	goto done;
     }
@@ -887,22 +890,28 @@ ys_parse_range(yang_stmt *ys)
     char   *reason = NULL;
 
     if ((minstr = strdup(ys->ys_argument)) == NULL){
-	clicon_err(OE_DB, errno, "strdup");
+	clicon_err(OE_YANG, errno, "strdup");
 	goto done;
     }
     if ((maxstr = strstr(minstr, "..")) != NULL){
 	if (strlen(maxstr) < 2){
-	    clicon_err(OE_DB, 0, "range statement: %s not on the form: <int>..<int>", minstr);
+	    clicon_err(OE_YANG, 0, "range statement: %s not on the form: <int>..<int>", minstr);
 	    goto done;
 	}
 	minstr[maxstr-minstr] = '\0';
 	maxstr += 2;
 	if ((retval2 = parse_int64(minstr, &ys->ys_range_min, &reason)) < 0){
-	    clicon_err(OE_DB, errno, "range statement, min str not well-formed: %s", minstr);
+	    clicon_err(OE_YANG, errno, "range statement, min str not well-formed: %s", minstr);
 	    goto done;
 	}
 	if (retval2 == 0){
-	    clicon_err(OE_DB, errno, "range statement, min str %s: %s", minstr, reason);
+	    if (1) /* XXX: Kludge for limits in range: 0.00 and min/max */{
+		clicon_log(LOG_NOTICE, "range statement, min: %s", reason);
+		retval = 0;
+		free(reason);
+		goto done;
+	    }
+	    clicon_err(OE_YANG, errno, "range statement, min: %s", reason);
 	    free(reason);
 	    goto done;
 	}
@@ -912,14 +921,21 @@ ys_parse_range(yang_stmt *ys)
 	maxstr = minstr;
     }
     if ((retval2 = parse_int64(maxstr, &ys->ys_range_max, &reason)) < 0){
-	clicon_err(OE_DB, errno, "range statement, min str not well-formed: %s", maxstr);
+	clicon_err(OE_YANG, errno, "range statement, max: not well-formed: %s", maxstr);
 	goto done;
     }
     if (retval2 == 0){
-	clicon_err(OE_DB, errno, "range statement, min str %s: %s", maxstr, reason);
+	if (1) /* XXX: Kludge for limits in range: 0.00 and min/max */{
+	    clicon_log(LOG_NOTICE, "range statement, max: %s", reason);
+	    retval = 0;
+	    free(reason);
+	    goto done;
+	}
+	clicon_err(OE_YANG, errno, "range statement, max: %s", reason);
 	free(reason);
 	goto done;
     }
+    retval = 0;
   done:
     if (minstr)
 	free(minstr);
@@ -961,7 +977,7 @@ ys_parse_sub(yang_stmt *ys)
 	    goto done;
 	fd = cv_uint8_get(ys->ys_cv);
 	if (fd < 1 || fd > 18){
-	    clicon_err(OE_DB, errno, "%u: Out of range, should be [1:18]", fd);
+	    clicon_err(OE_YANG, errno, "%u: Out of range, should be [1:18]", fd);
 	    goto done;
 	}
 	break;
