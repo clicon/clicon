@@ -934,7 +934,7 @@ netconf_notification_cb(int s, void *arg)
 	}
 	/* create netconf message */
 	if ((xf = cbuf_new()) == NULL){
-	    clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
+	    clicon_err(OE_PLUGIN, errno, "%s: cbuf_new", __FUNCTION__);
 	    goto done;
 	}
 	add_preamble(xf); /* Make it well-formed netconf xml */

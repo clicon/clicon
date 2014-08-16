@@ -1,83 +1,125 @@
-/*
+/* include/clicon_config.h.in.  Generated from configure.ac by autoheader.  */
 
-  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
-
-  This file is part of CLICON.
-
-  CLICON is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 3 of the License, or
-  (at your option) any later version.
-
-  CLICON is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with CLICON; see the file COPYING.  If not, see
-  <http://www.gnu.org/licenses/>.
-
-  */
-
-#undef AUTOCONF 1
-
-
-/*
- * CLICON config constants
- */
-
-
-/* CLIGEN */
-#undef HAVE_CLIGEN_CLIGEN_H
-#undef HAVE_LIBCLIGEN
-
-/* QDBM */
-#undef HAVE_DEPOT_H
-#undef HAVE_QDBM_DEPOT_H
-#undef HAVE_LIBQDBM
-
-/* LIBS */
-#undef HAVE_LIBSOCKET
-#undef HAVE_LIBNSL
-
-/* HEADERS */
-#undef HAVE_LINUX_IF_VLAN_H
-#undef HAVE_CRYPT_H
-#undef HAVE_SYS_UCRED_H
-
-/* STRUCTS */
-#undef HAVE_SA_LEN
-#undef HAVE_SIN_LEN
-
-/* AC_CHECK_FUNCS */
-#undef HAVE_INET_ATON
-#undef HAVE_SIGACTION
-#undef HAVE_SIGVEC
-#undef HAVE_STRLCPY
-#undef HAVE_STRSEP
-#undef HAVE_STRNDUP
-#undef HAVE_MEMSET
-#undef HAVE_ALPHASORT
-#undef HAVE_VERSIONSORT
-#undef HAVE_STRVERSCMP
-
-#ifndef HAVE_STRNDUP
-#define strndup(s, n) clicon_strndup(s, n)
-#endif
-
-#if defined(__OpenBSD__) || defined(__FreeBSD__) ||  defined(__NetBSD__)
-#define BSD
-/* at least for openbsd 4.5 i cannot get a hdr file */
-int strverscmp (__const char *__s1, __const char *__s2);
-#endif
-
-/*
- * DBLIST_CONTENT_LOOKUP
- * Experiment to add hash-lists to every db-list, eg A[], A.n.
- */
-#undef DB_KEYCONTENT
-
-/* This is the in-compiled clicon application dir, overruled by -a or env-variable */
+/* In-compiled clicon application dir, overruled by -a or env-variable */
 #undef APPDIR
 
+/* Check if extra keys inserted for database lists containing content. Eg
+   A.n.foo = 3 means A.3 $!a=foo exists */
+#undef DB_KEYCONTENT
+
+/* Define to 1 if you have the `alphasort' function. */
+#undef HAVE_ALPHASORT
+
+/* Define to 1 if you have the <cligen/cligen.h> header file. */
+#undef HAVE_CLIGEN_CLIGEN_H
+
+/* Define to 1 if you have the <crypt.h> header file. */
+#undef HAVE_CRYPT_H
+
+/* Define to 1 if you have the <depot.h> header file. */
+#undef HAVE_DEPOT_H
+
+/* Define to 1 if you have the `inet_aton' function. */
+#undef HAVE_INET_ATON
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `crypt' library (-lcrypt). */
+#undef HAVE_LIBCRYPT
+
+/* Define to 1 if you have the `dl' library (-ldl). */
+#undef HAVE_LIBDL
+
+/* Define to 1 if you have the `m' library (-lm). */
+#undef HAVE_LIBM
+
+/* Define to 1 if you have the `nsl' library (-lnsl). */
+#undef HAVE_LIBNSL
+
+/* Define to 1 if you have the `qdbm' library (-lqdbm). */
+#undef HAVE_LIBQDBM
+
+/* Define to 1 if you have the `socket' library (-lsocket). */
+#undef HAVE_LIBSOCKET
+
+/* Define to 1 if you have the <linux/if_vlan.h> header file. */
+#undef HAVE_LINUX_IF_VLAN_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <qdbm/depot.h> header file. */
+#undef HAVE_QDBM_DEPOT_H
+
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
+
+/* Define to 1 if you have the `sigvec' function. */
+#undef HAVE_SIGVEC
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
+/* Define to 1 if you have the `strndup' function. */
+#undef HAVE_STRNDUP
+
+/* Define to 1 if you have the `strsep' function. */
+#undef HAVE_STRSEP
+
+/* Define to 1 if you have the `strverscmp' function. */
+#undef HAVE_STRVERSCMP
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/ucred.h> header file. */
+#undef HAVE_SYS_UCRED_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `versionsort' function. */
+#undef HAVE_VERSIONSORT
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
+   `char[]'. */
+#undef YYTEXT_POINTER
+
+#include <clicon_custom.h>

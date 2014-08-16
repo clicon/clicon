@@ -44,7 +44,6 @@ CLIGEN_VERSION="3" # Or newer?
 AC_MSG_RESULT(CLICON version is ${CLICON_VERSION}_PRE3)
 
 AC_CANONICAL_TARGET
-AC_DEFINE(AUTOCONF)
 AC_SUBST(CC)
 AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
@@ -97,6 +96,8 @@ AC_ARG_WITH(appdir,
 [  --with-appdir=DIR       Set application dir (default:$datarootdir/clicon)],
    APPDIR=$withval  
 )
+AH_TEMPLATE([APPDIR], 
+[In-compiled clicon application dir, overruled by -a or env-variable])
 AC_DEFINE_UNQUOTED(APPDIR, "$APPDIR")
 AC_MSG_RESULT(APPDIR is $APPDIR)	
 
@@ -113,29 +114,11 @@ AC_CHECK_HEADERS(cligen/cligen.h,, AC_MSG_ERROR(cligen missing. Try: git clone h
 
 AC_CHECK_LIB(:libcligen.so.${CLIGEN_VERSION}, cligen_init,, AC_MSG_ERROR([CLIgen${CLIGEN_VERSION} missing. Try: git clone https://github.com/olofhagsand/cligen.git]))
 
-AC_MSG_CHECKING(whether struct sockaddr has a sa_len field)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>
-],[static struct sockaddr ac_i;int ac_j = sizeof (ac_i.sa_len);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SA_LEN)],
- AC_MSG_RESULT(no))
-
-AC_MSG_CHECKING(whether struct sockaddr_in has a sin_len field)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>
-],[static struct sockaddr_in ac_i;int ac_j = sizeof (ac_i.sin_len);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SIN_LEN)],
- AC_MSG_RESULT(no))
-
 # This is for qdbm.
 # Problem: depot.h may be in qdbm/depot.h. 
 AC_CHECK_HEADERS(depot.h,,[AC_CHECK_HEADERS(qdbm/depot.h,,AC_MSG_ERROR(libqdbm-dev required))])
 AC_CHECK_LIB(qdbm, dpopen,, AC_MSG_ERROR(libqdbm-dev required))
 
-AC_PATH_PROG(PDFLATEX, pdflatex)
-AC_DEFINE_UNQUOTED(PROG_PDFLATEX, "$PDFLATEX")
 AC_CHECK_LIB(crypt, crypt)
 AC_CHECK_HEADERS(crypt.h)
 
@@ -164,9 +147,14 @@ AC_ARG_ENABLE(keycontent, [  --disable-keycontent    Disable reverse lookup cont
   fi
   ],[ ac_enable_keycontent=yes])
 
+AH_TEMPLATE([DB_KEYCONTENT], 
+[ Check if extra keys inserted for database lists containing content. 
+  Eg A.n.foo = 3 means A.3 $!a=foo exists])
 if test "$ac_enable_keycontent" = "yes"; then
    AC_DEFINE(DB_KEYCONTENT)
 fi
+
+AH_BOTTOM([#include <clicon_custom.h>])
 
 AC_OUTPUT(Makefile
 	  lib/Makefile

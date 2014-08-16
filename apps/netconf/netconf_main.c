@@ -78,7 +78,7 @@ packet(clicon_handle h, dbspec_key *ds, cbuf *xf)
     str = str0;
     /* Parse incoming XML message */
     if (clicon_xml_parse_string(&str, &xml_req) < 0){
-	if ((xf = cbuf_new()) != NULL){
+	if ((xf = cbuf_new()) == NULL){
 	    netconf_create_rpc_error(xf, NULL, 
 				     "operation-failed", 
 				     "rpc", "error",
@@ -131,7 +131,7 @@ ed");
 	    }
 	}
 	else{
-	    if ((xf1 = cbuf_new()) != NULL){
+	    if ((xf1 = cbuf_new()) == NULL){
 		if (netconf_create_rpc_reply(xf1, xml_req, cbuf_get(xf_out), netconf_ok_get()) < 0){
 		    cbuf_free(xf_out);
 		    cbuf_free(xf_err);

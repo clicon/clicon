@@ -618,7 +618,10 @@ yang_parse2(clicon_handle h, const char *yang_dir, const char *module, yang_spec
     yang_stmt  *ys = NULL;
     struct stat st;
 
-    b = cbuf_new();
+    if ((b = cbuf_new()) == NULL){
+	clicon_err(OE_YANG, errno, "%s: cbuf_new", __FUNCTION__);
+	goto done;
+    }
     cprintf(b, "%s/%s.yang", yang_dir, module);
     filename = cbuf_get(b);
     if (stat(filename, &st) < 0){

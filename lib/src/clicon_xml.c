@@ -564,8 +564,10 @@ clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
     cbuf  *cb;
     int    retval = -1;
 
-    if ((cb = cbuf_new()) == NULL)
+    if ((cb = cbuf_new()) == NULL){
+	clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
 	goto done;
+    }
     if (clicon_xml2cbuf(cb, xn, level, prettyprint) < 0)
 	goto done;
     fprintf(f, "%s", cbuf_get(cb));

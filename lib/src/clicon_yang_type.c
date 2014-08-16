@@ -712,7 +712,7 @@ yang_type_get(yang_stmt    *ys,
 	*origtype = type;
     if (yang_type_resolve(ys, ytype, rtype, options, min, max, pattern, fraction) < 0)
 	goto done;
-    clicon_debug(1, "%s: %s %s->%s\n", __FUNCTION__, ys->ys_argument, type, 
+    clicon_debug(1, "%s: %s %s->%s", __FUNCTION__, ys->ys_argument, type, 
 		 rtype?*rtype:"null");
     retval = 0;
   done:

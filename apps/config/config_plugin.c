@@ -454,7 +454,8 @@ plugin_downcall(clicon_handle h, struct clicon_msg_call_req *req,
 	    goto done;
 	}
     }
-    clicon_err(OE_PROTO, ENOENT,"Plugin does not exist: %s", req->cr_plugin);
+    clicon_err(OE_PROTO, ENOENT,"%s: %s(): Plugin does not exist: %s",
+	       __FUNCTION__, req->cr_func, req->cr_plugin);
     return -1;
     
 done:
