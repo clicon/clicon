@@ -178,16 +178,16 @@ cv2yang_type(enum cv_type cv_type)
 
     /* special derived types */
     if (cv_type == CGV_IPV4ADDR) /* RFC6991 */
-	return "ipv4_address";
+	return "ipv4-address";
 
     if (cv_type == CGV_IPV6ADDR) /* RFC6991 */
-	return "ipv6_address";
+	return "ipv6-address";
 
     if (cv_type == CGV_IPV4PFX) /* RFC6991 */
-	return "ipv4_prefix";
+	return "ipv4-prefix";
 
     if (cv_type == CGV_IPV6PFX) /* RFC6991 */
-	return "ipv6_prefix";
+	return "ipv6-prefix";
 
     if (cv_type == CGV_TIME) /* RFC6991 */
 	return "date-and-time";
