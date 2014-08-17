@@ -45,7 +45,7 @@ CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
 # For dependency
 LIBDEPS		= $(top_srcdir)/lib/src/$(CLICON_LIB) 
 
-LIBS    	= @LIBS@ -L$(top_srcdir)/lib/src -l:$(CLICON_LIB)
+LIBS    	= -L$(top_srcdir)/lib/src @LIBS@ -l:$(CLICON_LIB)
 
 CPPFLAGS  	= @CPPFLAGS@
 
