@@ -92,11 +92,13 @@ yang2cli_var(yang_stmt    *ys,
     enum cv_type  cvtype;
     int           options;
     int           retval = -1;
-    int64_t       range_min, range_max; 
+    cg_var       *range_min; 
+    cg_var       *range_max;
     char         *pattern;
     char         *type;  /* orig type */
     char         *rtype; /* resolved type */
     uint8_t       fraction_digits;
+    char         *r;
 
     if (yang_type_get(ys, &type, &rtype, 
 		      &options, &range_min, &range_max, &pattern, &fraction_digits) < 0)
@@ -107,8 +109,24 @@ yang2cli_var(yang_stmt    *ys,
 	cprintf(xf, "(");
     cprintf(xf, "<%s:%s", ys->ys_argument, cv_type2str(cvtype));
     /* XXX: fraction-digits */
-    if (options & YANG_OPTIONS_RANGE)
-	cprintf(xf, " range[%" PRId64 ":%" PRId64 "]", range_min, range_max);	
+    if (options & YANG_OPTIONS_RANGE){
+	cprintf(xf, " range[");
+	if (range_min){
+	    if ((r = cv2str_dup(range_min)) == NULL){
+		clicon_err(OE_UNIX, errno, "cv2str_dup");
+		goto done;
+	    }
+	    cprintf(xf, "%s:", r);
+	    free(r);
+	}
+	assert(range_max);
+	if ((r = cv2str_dup(range_max)) == NULL){
+	    clicon_err(OE_UNIX, errno, "cv2str_dup");
+	    goto done;
+	}
+	cprintf(xf, "%s]", r);
+	free(r);
+    }
     if (options & YANG_OPTIONS_PATTERN)
 	cprintf(xf, " regexp:\"%s\"", pattern);
     if (options & YANG_OPTIONS_FRACTION_DIGITS)

@@ -1,10 +1,10 @@
 module datamodel{
-    import extmodel {
-       prefix "ext";
-    }
-    container a{
-	leaf d64{
-	    type ext:mytype;
+    container cont{
+	leaf a{
+    	    mandatory true;
+	    type uint64{
+	             range "-12..231321";
+            }
 	}
     }
 }

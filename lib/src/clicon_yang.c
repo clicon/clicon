@@ -173,6 +173,12 @@ ys_new(enum rfc_6020 keyw)
     }
     memset(ys, 0, sizeof(*ys));
     ys->ys_keyword    = keyw;
+    /* The cvec contains stmt-specific variables. Only few stmts need variables so the
+       cvec could be lazily created to save some heap and cycles. */
+    if ((ys->ys_cvec = cvec_new(0)) == NULL){ 
+	clicon_err(OE_YANG, errno, "%s: cvec_new", __FUNCTION__);
+	return NULL;
+    }
     return ys;
 }
 
@@ -186,6 +192,8 @@ ys_free1(yang_stmt *ys)
 	free(ys->ys_dbkey);
     if (ys->ys_cv)
 	cv_free(ys->ys_cv);
+    if (ys->ys_cvec)
+	cvec_free(ys->ys_cvec);
     free(ys);
     return 0;
 }
@@ -466,6 +474,96 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     return retval;
 }
 
+/*! Populate range and length statements
+ *
+ * Create cvec variables "range_min" and "range_max". Assume parent is type.
+ * Actually: min..max [| min..max]*  
+ *   where min,max is integer or keywords 'min' or 'max. 
+ * We only allow one range, ie not 1..2|4..5
+ */
+static int
+ys_populate_range(yang_stmt *ys, void *arg)
+{
+    int             retval = -1;
+    yang_node      *yparent;        /* type */
+    char           *origtype;  /* orig type */
+    char           *restype;   /* resolved type */
+    int             options = 0x0;
+    uint8_t         fraction_digits;
+    enum cv_type    cvtype = CGV_ERR;
+    char           *minstr;
+    char           *maxstr;
+    cg_var         *cv;
+    char           *reason = NULL;
+    int             cvret;
+
+    yparent = ys->ys_parent;     /* Find parent: type */
+    if (yparent->yn_keyword != Y_TYPE){
+	clicon_err(OE_YANG, 0, "%s: parent should be type", __FUNCTION__); 
+	goto done;
+    }
+    if (yang_type_resolve(ys, (yang_stmt*)yparent, &restype, 
+			  &options, NULL, NULL, NULL, &fraction_digits) < 0)
+	goto done;
+    origtype = ytype_id((yang_stmt*)yparent);
+    /* This handles non-resolved also */
+    if (clicon_type2cv(origtype, restype, &cvtype) < 0) 
+	goto done;
+    if ((minstr = strdup(ys->ys_argument)) == NULL){
+	clicon_err(OE_YANG, errno, "strdup");
+	goto done;
+    }
+    if ((maxstr = strstr(minstr, "..")) != NULL){
+	if (strlen(maxstr) < 2){
+	    clicon_err(OE_YANG, 0, "range statement: %s not on the form: <int>..<int>");
+           goto done;
+       }
+       minstr[maxstr-minstr] = '\0';
+       maxstr += 2;
+	if ((cv = cvec_add(ys->ys_cvec, cvtype)) == NULL){
+	    clicon_err(OE_YANG, errno, "cvec_add");
+	    goto done;
+	}
+	if (cv_name_set(cv, "range_min") == NULL){
+	    clicon_err(OE_YANG, errno, "cv_name_set");
+	    goto done;
+	}
+	if ((cvret = cv_parse1(minstr, cv, &reason)) < 0){
+	    clicon_err(OE_YANG, errno, "cv_parse1");
+	    goto done;
+	}
+	if (cvret == 0){ /* parsing failed */
+	    clicon_err(OE_YANG, errno, "range statement, min: %s", reason);
+	    free(reason);
+	    goto done;
+	}
+    }
+    else
+	maxstr = minstr;
+    if (strcmp(maxstr, "max") != 0){ /* no range_max means max */
+	if ((cv = cvec_add(ys->ys_cvec, cvtype)) == NULL){
+	    clicon_err(OE_YANG, errno, "cvec_add");
+	    goto done;
+	}
+	if (cv_name_set(cv, "range_max") == NULL){
+	    clicon_err(OE_YANG, errno, "cv_name_set");
+	    goto done;
+	}
+	if ((cvret = cv_parse1(maxstr, cv, &reason)) < 0){
+	    clicon_err(OE_YANG, errno, "cv_parse1");
+	    goto done;
+	}
+	if (cvret == 0){ /* parsing failed */
+	    clicon_err(OE_YANG, errno, "range statement, max: %s", reason);
+	    free(reason);
+	    goto done;
+	}
+    }
+    retval = 0;
+  done:
+    return retval;
+}
+
 /*! Sanity check yang type statement
  * XXX: Replace with generic parent/child type-check
  */
@@ -483,7 +581,6 @@ ys_populate_type(yang_stmt *ys, void *arg)
     retval = 0;
   done:
     return retval;
-    
 }
 
 /*! Populate with cligen-variables, default values, etc. Sanity checks on complete tree.
@@ -497,13 +594,28 @@ ys_populate(yang_stmt *ys, void *arg)
 {
     int retval = -1;
 
-    if (ys->ys_keyword == Y_LEAF || ys->ys_keyword == Y_LEAF_LIST){
+    switch(ys->ys_keyword){
+    case Y_LEAF:
+    case Y_LEAF_LIST:
 	if (ys_populate_leaf(ys, arg) < 0)
 	    goto done;
-    }
-    if (ys->ys_keyword == Y_TYPE)
+	break;
+    case Y_RANGE: 
+    case Y_LENGTH: 
+	if (ys_populate_range(ys, arg) < 0)
+	    goto done;
+	break;
+    case Y_MANDATORY:
+	if (ys_parse(ys, CGV_BOOL) == NULL) 
+	    goto done;
+	break;
+    case Y_TYPE:
 	if (ys_populate_type(ys, arg) < 0)
 	    goto done;
+	break;
+    default:
+	break;
+    }
     retval = 0;
   done:
     return retval;
@@ -732,6 +844,8 @@ yang_dbkey_set(yang_stmt *ys, char *val)
  *
  * Recursively traverse all yang-nodes in a parse-tree and apply fn(arg) for each
  * object found. The function is called with the yang-stmt and an argument as args.
+ * The tree is traversed depth-first, which at least guarantees that a parent is
+ * traversed before a child.
  */
 int
 yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg)
@@ -874,106 +988,21 @@ ys_parse(yang_stmt *ys, enum cv_type cvtype)
     return ys->ys_cv;
 }
 
-/*
- * Actually: min..max [| min..max]*  
- *   where min,max is integer or keywords 'min' or 'max. 
- * We only allow:
- * - numbers in min..max, no keywords
- * - only int64
- * - only one range, ie not 1..2|4..5
- * - both min..max and max, ie both 1..3 and 3.
- */
-static int
-ys_parse_range(yang_stmt *ys)
-{
-    int     retval = -1;
-    int     retval2;
-    char   *minstr;
-    char   *maxstr;
-    char   *reason = NULL;
-
-    if ((minstr = strdup(ys->ys_argument)) == NULL){
-	clicon_err(OE_YANG, errno, "strdup");
-	goto done;
-    }
-    if ((maxstr = strstr(minstr, "..")) != NULL){
-	if (strlen(maxstr) < 2){
-	    clicon_err(OE_YANG, 0, "range statement: %s not on the form: <int>..<int>", minstr);
-	    goto done;
-	}
-	minstr[maxstr-minstr] = '\0';
-	maxstr += 2;
-	if ((retval2 = parse_int64(minstr, &ys->ys_range_min, &reason)) < 0){
-	    clicon_err(OE_YANG, errno, "range statement, min str not well-formed: %s", minstr);
-	    goto done;
-	}
-	if (retval2 == 0){
-	    if (1) /* XXX: Kludge for limits in range: 0.00 and min/max */{
-		clicon_log(LOG_NOTICE, "range statement, min: %s", reason);
-		retval = 0;
-		free(reason);
-		goto done;
-	    }
-	    clicon_err(OE_YANG, errno, "range statement, min: %s", reason);
-	    free(reason);
-	    goto done;
-	}
-    }
-    else{
-	ys->ys_range_min = LLONG_MIN;
-	maxstr = minstr;
-    }
-    if ((retval2 = parse_int64(maxstr, &ys->ys_range_max, &reason)) < 0){
-	clicon_err(OE_YANG, errno, "range statement, max: not well-formed: %s", maxstr);
-	goto done;
-    }
-    if (retval2 == 0){
-	if (1) /* XXX: Kludge for limits in range: 0.00 and min/max */{
-	    clicon_log(LOG_NOTICE, "range statement, max: %s", reason);
-	    retval = 0;
-	    free(reason);
-	    goto done;
-	}
-	clicon_err(OE_YANG, errno, "range statement, max: %s", reason);
-	free(reason);
-	goto done;
-    }
-    retval = 0;
-  done:
-    if (minstr)
-	free(minstr);
-    return retval;
-}
-
-
-
 /*! First round yang syntactic statement specific checks. No context checks.
  *
- * Specific syntax checks for yang statements where one cannot assume the context is parsed. 
- * That is, siblings, etc, may not be there. Complete checks are made in ys_populate instead.
- * This leaves cv:s in parse-tree as follows:
- * mandatory       : ys_cv as bool
- * range/length    : ys_range_min and ys_range_max
- * fraction-digits : ys_cv as uint8
+ * Specific syntax checks  and variable creation for stand-alone yang statements.
+ * That is, siblings, etc, may not be there. Complete checks are made in
+ * ys_populate instead.
+ *
+ * The cv:s created in parse-tree as follows:
+ * fraction-digits : Create cv as uint8, check limits [1:8] (must be made in 1st pass)
  */
 int
 ys_parse_sub(yang_stmt *ys)
 {
     int        retval = -1;
-    yang_stmt *yp;
     
     switch (ys->ys_keyword){
-    case Y_RANGE: 
-    case Y_LENGTH: 
-	if (ys_parse_range(ys) < 0)
-	    goto done;
-	break;
-    case Y_MANDATORY: 
-	if (ys_parse(ys, CGV_BOOL) == NULL) 
-	    goto done;
-	if ((yp = (yang_stmt*)ys->ys_parent) != NULL)
-	    yp->ys_mandatory = cv_bool_get(ys->ys_cv);
-	break;
     case Y_FRACTION_DIGITS:{
 	uint8_t fd;
 	if (ys_parse(ys, CGV_UINT8) == NULL) 
@@ -992,6 +1021,27 @@ ys_parse_sub(yang_stmt *ys)
   done:
     return retval;
 }
+
+/*! Return if this leaf is mandatory or not
+ * Note: one can cache this value in ys_cvec instead of functionally evaluating it.
+ * @retval 1 yang statement is leaf and it has a mandatory sub-stmt with value true
+ * @retval 0 The negation of conditions for return value 1.
+ */
+int
+yang_mandatory(yang_stmt *ys)
+{
+    yang_stmt *ym;
+
+    if (ys->ys_keyword != Y_LEAF)
+	return 0;
+    if ((ym = yang_find((yang_node*)ys, Y_MANDATORY, NULL)) != NULL){
+	if (ym->ys_cv == NULL) /* shouldnt happen */
+	    return 0; 
+	return cv_bool_get(ym->ys_cv);
+    }
+    return 0;
+}
+
 
 /*! Utility function for handling yang parsing and translation to keys */
 int
@@ -1017,7 +1067,7 @@ yang_spec_main(clicon_handle h, int printspec)
     if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
 	goto done;
     clicon_dbspec_key_set(h, db_spec);	
-    if (printspec)
+    if (printspec && debug)
 	db_spec_dump(stdout, db_spec);
 #if 0 /* for testing mapping back to original */
     yang_spec *yspec2;

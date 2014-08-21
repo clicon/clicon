@@ -112,11 +112,11 @@ struct yang_stmt{
     enum rfc_6020      ys_keyword;   /* See clicon_yang_parse.tab.h */
     char              *ys_argument;  /* String / argument depending on keyword */   
     char              *ys_dbkey;     /* dbspec key corresponding to this yang node */
-    cg_var            *ys_cv;        /* cligen variable corresponding to this (if leaf) node */
-    cg_var            *ys_cv2;       /* cligen variable corresponding to this (if leaf) node */
-    int                ys_mandatory; /* mandatory false|true */
-    int64_t            ys_range_min; /* for range and length stmts */
-    int64_t            ys_range_max; /* for range and length stmts */
+
+    cg_var            *ys_cv;        /* cligen variable. The following stmts have cvs::
+				        leaf, leaf-list, mandatory, fraction-digits */
+    cvec              *ys_cvec;      /* List of stmt-specific variables 
+					Y_RANGE: range_min, range_max */
 };
 typedef struct yang_stmt yang_stmt;
 
@@ -168,6 +168,7 @@ yang_stmt *dbkey2yang(yang_node *yn, char *dbkey);
 yang_stmt *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
 int        ys_parse_sub(yang_stmt *ys);
+int        yang_mandatory(yang_stmt *ys);
 int        yang_spec_main(clicon_handle h, int printspec);
 
 #endif  /* _CLICON_YANG_H_ */

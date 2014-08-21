@@ -4,7 +4,6 @@ CLICON_MODE="datamodel";
 CLICON_PROMPT="%U@%H> ";
 
 # Note, when switching to PT, change datamodel to only @datamodel
-#set @datamodel, cli_merge();
 set @datamodel:datamodel, cli_merge();
 delete("Delete a configuration item") @datamodel:datamodel, cli_del();
 

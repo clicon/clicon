@@ -178,16 +178,16 @@ cv2yang_type(enum cv_type cv_type)
 
     /* special derived types */
     if (cv_type == CGV_IPV4ADDR) /* RFC6991 */
-	return "ipv4_address";
+	return "ipv4-address";
 
     if (cv_type == CGV_IPV6ADDR) /* RFC6991 */
-	return "ipv6_address";
+	return "ipv6-address";
 
     if (cv_type == CGV_IPV4PFX) /* RFC6991 */
-	return "ipv4_prefix";
+	return "ipv4-prefix";
 
     if (cv_type == CGV_IPV6PFX) /* RFC6991 */
-	return "ipv6_prefix";
+	return "ipv6-prefix";
 
     if (cv_type == CGV_TIME) /* RFC6991 */
 	return "date-and-time";
@@ -201,7 +201,7 @@ cv2yang_type(enum cv_type cv_type)
     return ytype;
 }
 
-/*! translate from yang type -> cligen type, after yang resolve has been made.
+/*! Translate from yang type -> cligen type, after yang resolve has been made.
  * handle case where yang resolve did not succedd (rtype=NULL) and then try
  * to find special cligen types such as ipv4addr.
  * not true yang types
@@ -232,6 +232,10 @@ clicon_type2cv(char *type, char *rtype, enum cv_type *cvtype)
     return retval;
 }
 
+#define range_check(i, rmin, rmax, type)       \
+    (rmin && i < cv_##type##_get(rmin)) ||	\
+    (rmax && i > cv_##type##_get(rmax)))
+
 
 /*! Validate cligen variable cv using yang statement as spec
  *
@@ -242,6 +246,7 @@ clicon_type2cv(char *type, char *rtype, enum cv_type *cvtype)
  * @retval -1  Error (fatal), with errno set to indicate error
  * @retval 0   Validation not OK, malloced reason is returned. Free reason with free()
  * @retval 1   Validation OK
+ * See also cv_validate - the code is similar.
  */
 int
 ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
@@ -252,8 +257,8 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     uint64_t        u = 0;
     char           *str;
     int             options;
-    int64_t         range_min; 
-    int64_t         range_max; 
+    cg_var         *range_min; 
+    cg_var         *range_max; 
     char           *pattern;
     int             retval2;
     enum cv_type    cvtype;
@@ -264,8 +269,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     if (ys->ys_keyword != Y_LEAF && ys->ys_keyword != Y_LEAF_LIST)
 	return 0;
     ycv = ys->ys_cv;
-    if (yang_type_get(ys, &type, &rtype, &options, &range_min, &range_max, &pattern,
-	    &fraction) < 0)
+    if (yang_type_get(ys, &type, &rtype, 
+		      &options, &range_min, &range_max, &pattern,
+		      &fraction) < 0)
 	goto err;
     if (clicon_type2cv(type, rtype, &cvtype) < 0)
 	goto err;
@@ -276,9 +282,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     }
     switch (cvtype){
     case CGV_INT8:
-	i = cv_int8_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (i < range_min || i > range_max) {
+	    i = cv_int8_get(cv);
+	    if (range_check(i, range_min, range_max, int8){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %ld", i);
 		retval = 0;
@@ -286,19 +292,19 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_INT16:
-	i = cv_int16_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (i < range_min || i > range_max) {
-		if (reason)
-		    *reason = cligen_reason("Number out of range: %ld", i);
-		retval = 0;
-	    }
+	    i = cv_int16_get(cv);
+	    if (range_check(i, range_min, range_max, int16){
+		    if (reason)
+			*reason = cligen_reason("Number out of range: %ld", i);
+		    retval = 0;
+		}
 	}
 	break;
     case CGV_INT32:
-	i = cv_int32_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (i < range_min || i > range_max) {
+	    i = cv_int32_get(cv);
+	    if (range_check(i, range_min, range_max, int32){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %ld", i);
 		retval = 0;
@@ -306,9 +312,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_INT64:
-	i = cv_int64_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (i < range_min || i > range_max) {
+	    i = cv_int64_get(cv);
+	    if (range_check(i, range_min, range_max, int64){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %ld", i);
 		retval = 0;
@@ -316,9 +322,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_UINT8:
-	u = cv_uint8_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (u < range_min || u > range_max) {
+	    u = cv_uint8_get(cv);
+	    if (range_check(u, range_min, range_max, uint8){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %lu", u);
 		retval = 0;
@@ -326,9 +332,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_UINT16:
-	u = cv_uint16_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (u < range_min || u > range_max) {
+	    u = cv_uint16_get(cv);
+	    if (range_check(u, range_min, range_max, uint16){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %lu", u);
 		retval = 0;
@@ -336,9 +342,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_UINT32:
-	u = cv_uint32_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (u < range_min || u > range_max) {
+	    u = cv_uint32_get(cv);
+	    if (range_check(u, range_min, range_max, uint32){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %lu", u);
 		retval = 0;
@@ -346,9 +352,9 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_UINT64:
-	u = cv_uint64_get(cv);
 	if ((options & YANG_OPTIONS_RANGE) != 0){
-	    if (u < range_min || u > range_max) {
+	    u = cv_uint64_get(cv);
+	    if (range_check(u, range_min, range_max, uint64){
 		if (reason)
 		    *reason = cligen_reason("Number out of range: %lu", u);
 		retval = 0;
@@ -356,13 +362,20 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
 	}
 	break;
     case CGV_DEC64:
-	/* XXX: fraction_digits ? */
+	if ((options & YANG_OPTIONS_RANGE) != 0){
+	    i = cv_int64_get(cv);
+	    if (range_check(i, range_min, range_max, int64){
+		if (reason)
+		    *reason = cligen_reason("Number out of range: %ld", i);
+		retval = 0;
+	    }
+	}
 	break;
     case CGV_STRING:
 	str = cv_string_get(cv);
-	i = strlen(str);
 	if ((options & YANG_OPTIONS_LENGTH) != 0){
-	    if (i < range_min || i > range_max) {
+	    i = strlen(str);
+	    if (range_check(i, range_min, range_max, int64){
 		if (reason)
 		    *reason = cligen_reason("string length out of range: %i", i);
 		retval = 0;
@@ -492,7 +505,7 @@ ys_prefix2import(yang_stmt *ys, char *prefix)
  * argument is id,        
  * Just return string from id
  */
-static char*
+char*
 ytype_id(yang_stmt *ys)
 {
     char   *id;
@@ -531,23 +544,23 @@ resolve_restrictions(yang_stmt   *yrange,
 		     yang_stmt   *ypattern,
 		     yang_stmt   *yfraction,
 		     int         *options, 
-		     int64_t     *min, 
-		     int64_t     *max, 
+		     cg_var     **mincv, 
+		     cg_var     **maxcv, 
 		     char       **pattern,
 		     uint8_t     *fraction)
 {
-    if (options && min && max && yrange != NULL){
-	*options  |= YANG_OPTIONS_LENGTH;
-	*min       = yrange->ys_range_min;
-	*max       = yrange->ys_range_max;
+    if (options && mincv && maxcv && yrange != NULL){
+	*mincv = cvec_find(yrange->ys_cvec, "range_min");
+	*maxcv = cvec_find(yrange->ys_cvec, "range_max");
+	*options  |= YANG_OPTIONS_RANGE;
     }
     if (options && pattern && ypattern != NULL){
-	*options  |= YANG_OPTIONS_PATTERN;
 	*pattern   = ypattern->ys_argument;
+	*options  |= YANG_OPTIONS_PATTERN;
     }
     if (options && fraction && yfraction != NULL){
-	*options  |= YANG_OPTIONS_FRACTION_DIGITS;
 	*fraction  = cv_uint8_get(yfraction->ys_cv);
+	*options  |= YANG_OPTIONS_FRACTION_DIGITS;
     }
     return 0;
 }
@@ -557,8 +570,8 @@ resolve_restrictions(yang_stmt   *yrange,
  * @param [in]  ytype    yang-stmt object containing currently resolving type
  * @param [out] rtype    resolved type. return built-in type or NULL. mandatory
  * @param [out] options  pointer to flags field of optional values. optional
- * @param [out] min      pointer to min range or length. optional
- * @param [out] max      pointer to max range or length. optional
+ * @param [out] mincv    pointer to cv woth min range or length. optional
+ * @param [out] maxcv    pointer to cv with max range or length. optional
  * @param [out] pattern  pointer to static string of yang string pattern. optional
  * @param [out] fraction for decimal64, how many digits after period
  * @retval      0        OK. Note rtype may still be NULL.
@@ -571,8 +584,8 @@ yang_type_resolve(yang_stmt   *ys,
 		  yang_stmt   *ytype, 
 		  char       **rtype, 
 		  int         *options, 
-		  int64_t     *min, 
-		  int64_t     *max, 
+		  cg_var     **mincv, 
+		  cg_var     **maxcv, 
 		  char       **pattern,
 		  uint8_t     *fraction)
 {
@@ -601,7 +614,8 @@ yang_type_resolve(yang_stmt   *ys,
     /* Check if type is basic type. If so, return that */
     if (prefix == NULL && yang_builtin(type)){
 	*rtype = type;
-	resolve_restrictions(yrange, ypattern, yfraction, options, min, max, pattern, fraction);
+	resolve_restrictions(yrange, ypattern, yfraction, options, 
+			     mincv, maxcv, pattern, fraction);
 	goto ok;
     }
     /* Not basic type. Now check if prefix which means we look in other module */
@@ -640,10 +654,11 @@ yang_type_resolve(yang_stmt   *ys,
 	}
 	/* recursively resolve this new type */
 	if (yang_type_resolve(ys, rytype, rtype, 
-			      options, min, max, pattern, fraction) < 0)
+			      options, mincv, maxcv, pattern, fraction) < 0)
 	    goto done;
 	/* overwrites the resolved if any */
-	resolve_restrictions(yrange, ypattern, yfraction, options, min, max, pattern, fraction);
+	resolve_restrictions(yrange, ypattern, yfraction, 
+			     options, mincv, maxcv, pattern, fraction);
     }
   ok:
     retval = 0;
@@ -675,8 +690,8 @@ yang_type_resolve(yang_stmt   *ys,
  * @param [out] otype    original type may be derived or built-in
  * @param [out] rtype    resolved type is built-in
  * @param [out] options  pointer to flags field of optional values
- * @param [out] min      pointer to min range or length. optional
- * @param [out] max      pointer to max range or length. optional
+ * @param [out] mincv    pointer to cv of min range or length. optional
+ * @param [out] maxcv    pointer to cv of max range or length. optional
  * @param [out] pattern  pointer to static string of yang string pattern. optional
  * @param [out] fraction for decimal64, how many digits after period
  * @retval      0        OK, but note that rtype==NULL means not resolved.
@@ -690,8 +705,8 @@ yang_type_get(yang_stmt    *ys,
 	      char        **origtype, 
 	      char        **rtype, 
 	      int          *options, 
-	      int64_t      *min, 
-	      int64_t      *max, 
+	      cg_var      **mincv, 
+	      cg_var      **maxcv, 
 	      char        **pattern,
 	      uint8_t      *fraction
     )
@@ -710,7 +725,7 @@ yang_type_get(yang_stmt    *ys,
     type = ytype_id(ytype);
     if (origtype)
 	*origtype = type;
-    if (yang_type_resolve(ys, ytype, rtype, options, min, max, pattern, fraction) < 0)
+    if (yang_type_resolve(ys, ytype, rtype, options, mincv, maxcv, pattern, fraction) < 0)
 	goto done;
     clicon_debug(1, "%s: %s %s->%s", __FUNCTION__, ys->ys_argument, type, 
 		 rtype?*rtype:"null");

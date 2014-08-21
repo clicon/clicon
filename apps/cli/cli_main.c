@@ -229,7 +229,7 @@ usage(char *argv0, clicon_handle h)
     	    "\t-c \t\tWrite to candidate directly, not via config engine\n"
     	    "\t-P <dbname> \tWrite to private database\n"
 	    "\t-q \t\tQuiet mode, dont print greetings\n"
-	    "\t-p \t\tPrint dbspec translation in cli/db format\n"
+	    "\t-p \t\tPrint dbspec translation in cli/db format (debug for alt format)\n"
 	    "\t-G \t\tPrint CLI syntax generated from dbspec (if enabled)\n"
 	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
 	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
@@ -462,7 +462,7 @@ main(int argc, char **argv)
 	    goto quit;
 	}
 	if (strcmp(clicon_dbspec_type(h), "KEY")==0)  
-	    treename = "datamodel";  /* key syntax hardwire to 'datamodel' */
+	    treename = "datamodel:datamodel";  /* key syntax hardwire to 'datamodel' */
 	else{ /* YANG */
 	    if ((treename = clicon_dbspec_name(h)) == NULL){
 		clicon_err(OE_FATAL, 0, "DB_SPEC has no name (insert name=\"myname\"; in .spec file)");

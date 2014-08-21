@@ -472,7 +472,7 @@ key2yang(dbspec_key *db_spec)
 	goto err; 
     /* Parse through all spec lines */
     for (ds=db_spec; ds; ds=ds->ds_next){
-	clicon_debug(1, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
+	clicon_debug(1, "%s: spec line: %s", __FUNCTION__, ds->ds_key);
 	subvh = db_spec2cvec(ds);
 	if ((vec = clicon_strsplit(ds->ds_key, ".", &nvec, __FUNCTION__)) == NULL){
 	    clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
@@ -484,7 +484,7 @@ key2yang(dbspec_key *db_spec)
 	/* Parse through all keys in a spec-line, eg "a.b.c" */
 	for (i=0; i<nvec; i++){ 
 	    key = vec[i];
-	    clicon_debug(1, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
+	    clicon_debug(1, "%s: \tkey: %s", __FUNCTION__, vec[i]);
 	    isvec = 0;
 	    if (key_isvector(key)){
 		isvec++;
@@ -507,7 +507,7 @@ key2yang(dbspec_key *db_spec)
 		    if (cv_flag(v, V_UNIQUE))
 			break;
 		if (v == NULL){
-		    clicon_err(OE_DB, 0, "Spec has no matching unique variable\n"); 
+		    clicon_err(OE_DB, 0, "Spec has no matching unique variable"); 
 		    goto err;
 		}
 		/* Create list node */

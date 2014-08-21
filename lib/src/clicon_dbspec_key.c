@@ -520,7 +520,7 @@ dbspec_key_main(clicon_handle h, int printspec)
     }
     clicon_debug(1, "CLICON_DBSPEC_FILE=%s", db_spec_file);
     if (stat(db_spec_file, &st) < 0){
-	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
+	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE: %s not found", db_spec_file);
 	goto done;
     }
     if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
