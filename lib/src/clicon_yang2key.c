@@ -31,9 +31,9 @@
  *
  * Translation between database specs
  *     dbspec_key                   yang_spec                     CLIgen parse_tree
- *  +-------------+    yang2key    +-------------+   yang2cli    +-------------+
+ *  +-------------+    key2yang    +-------------+   yang2cli    +-------------+
  *  |  keyspec    | -------------> |             | ------------> | cli         |
- *  |  A[].B !$a  |    key2yang    | list{key A;}|               | syntax      |
+ *  |  A[].B !$a  |    yang2key    | list{key A;}|               | syntax      |
  *  +-------------+ <------------  +-------------+               +-------------+
  *        ^                             ^
  *        |db_spec_parse_file           |yang_parse
@@ -346,8 +346,7 @@ yang2key_stmt(yang_stmt       *ys,
     cvec      *keys = NULL;
     cvec      *vars = NULL;
 
-    if (debug)
-	fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
+    clicon_debug(3, "%s: %s %s\n", __FUNCTION__, 
 		yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
     case Y_CONTAINER:

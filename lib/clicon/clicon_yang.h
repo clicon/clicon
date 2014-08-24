@@ -160,7 +160,7 @@ yang_stmt *yang_find_specnode(yang_node *yn, char *argument);
 
 int        yang_print(FILE *f, yang_node *yn, int marginal);
 int        yang_parse(clicon_handle h, const char *yang_dir, 
-		      const char *module, yang_spec *ysp);
+		      const char *module, const char *revision, yang_spec *ysp);
 char      *yang_dbkey_get(yang_stmt *ys);
 int        yang_dbkey_set(yang_stmt *ys, char *val);
 int        yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg);

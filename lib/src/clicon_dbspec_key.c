@@ -31,9 +31,9 @@
  *
  * Translation between database specs
  *     dbspec_key                   yang_spec                     CLIgen parse_tree
- *  +-------------+    yang2key    +-------------+   yang2cli    +-------------+
+ *  +-------------+    key2yang    +-------------+   yang2cli    +-------------+
  *  |             | -------------> |             | ------------> | cli         |
- *  |  A[].B !$a  |    key2yang    | list{key A;}|               | syntax      |
+ *  |  A[].B !$a  |    yang2key    | list{key A;}|               | syntax      |
  *  +-------------+ <------------  +-------------+               +-------------+
  *        ^                             ^
  *        |db_spec_parse_file           |yang_parse

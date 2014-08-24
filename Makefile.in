@@ -65,9 +65,9 @@ clicon.mk:  clicon.mk.cpp
 install:	clicon.conf.cpp clicon.mk
 	for i in $(SUBDIRS); \
 		do (cd $$i; $(MAKE) $(MFLAGS) $@); done; \
-	install -d -m 755 $(datadir)/clicon
-	install -m 755 clicon.conf.cpp $(datadir)/clicon
-	install -m 755 clicon.mk $(datadir)/clicon
+	install -d -m 755 $(DESTDIR)$(datadir)/clicon
+	install -m 755 clicon.conf.cpp $(DESTDIR)$(datadir)/clicon
+	install -m 755 clicon.mk $(DESTDIR)$(datadir)/clicon
 	echo "Install for compilation by: make install-include"
 
 install-include:

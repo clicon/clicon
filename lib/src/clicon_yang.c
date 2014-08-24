@@ -288,7 +288,7 @@ yn_each(yang_node *yn, yang_stmt *ys)
     return NULL;
 }
 
-/*! Find a child yang_stmt with matching keyword and argument
+/*! Find first child yang_stmt with matching keyword and argument
  *
  * If argument is NULL, match any argument.
  * If key is 0 match any keyword
@@ -407,6 +407,11 @@ yang_print(FILE *f, yang_node *yn, int marginal)
  * 3. Check if default value. Here we parse the string in the default-stmt and add it to leafs cv.
  * 4. Check if leaf is part of list, if key exists mark leaf as key/unique 
  * XXX: extend type search
+ *
+ * @param[in] ys   The yang statement to populate.
+ * @param[in] arg  A void argument not used
+ * @retval    0    OK
+ * @retval    -1   Error with clicon_err called
  */
 static int
 ys_populate_leaf(yang_stmt *ys, void *arg)
@@ -419,16 +424,18 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     enum cv_type    cvtype = CGV_ERR;
     int             cvret;
     char           *reason = NULL;
-    char           *rtype;  /* resolved type */
+    yang_stmt      *yrestype;  /* resolved type */
+    char           *restype;  /* resolved type */
     char           *type;   /* original type */
     uint8_t         fraction_digits;
     int             options = 0x0;
 
     yparent = ys->ys_parent;     /* Find parent: list/container */
     /* 1. Find type specification and set cv type accordingly */
-    if (yang_type_get(ys, &type, &rtype, &options, NULL, NULL, NULL, &fraction_digits) < 0)
+    if (yang_type_get(ys, &type, &yrestype, &options, NULL, NULL, NULL, &fraction_digits) < 0)
 	goto done;
-    if (clicon_type2cv(type, rtype, &cvtype) < 0) /* This handles non-resolved also */
+    restype = yrestype?yrestype->ys_argument:NULL;
+    if (clicon_type2cv(type, restype, &cvtype) < 0) /* This handles non-resolved also */
 	goto done;
     /* 2. Create the CV using cvtype and name it */
     if ((cv = cv_new(cvtype)) == NULL){
@@ -487,6 +494,7 @@ ys_populate_range(yang_stmt *ys, void *arg)
     int             retval = -1;
     yang_node      *yparent;        /* type */
     char           *origtype;  /* orig type */
+    yang_stmt      *yrestype;   /* resolved type */
     char           *restype;   /* resolved type */
     int             options = 0x0;
     uint8_t         fraction_digits;
@@ -502,9 +510,10 @@ ys_populate_range(yang_stmt *ys, void *arg)
 	clicon_err(OE_YANG, 0, "%s: parent should be type", __FUNCTION__); 
 	goto done;
     }
-    if (yang_type_resolve(ys, (yang_stmt*)yparent, &restype, 
+    if (yang_type_resolve(ys, (yang_stmt*)yparent, &yrestype, 
 			  &options, NULL, NULL, NULL, &fraction_digits) < 0)
 	goto done;
+    restype = yrestype?yrestype->ys_argument:NULL;
     origtype = ytype_id((yang_stmt*)yparent);
     /* This handles non-resolved also */
     if (clicon_type2cv(origtype, restype, &cvtype) < 0) 
@@ -528,6 +537,9 @@ ys_populate_range(yang_stmt *ys, void *arg)
 	    clicon_err(OE_YANG, errno, "cv_name_set");
 	    goto done;
 	}
+	if (options & YANG_OPTIONS_FRACTION_DIGITS && cvtype == CGV_DEC64)
+	    cv_dec64_n_set(cv, fraction_digits);
+
 	if ((cvret = cv_parse1(minstr, cv, &reason)) < 0){
 	    clicon_err(OE_YANG, errno, "cv_parse1");
 	    goto done;
@@ -549,6 +561,8 @@ ys_populate_range(yang_stmt *ys, void *arg)
 	    clicon_err(OE_YANG, errno, "cv_name_set");
 	    goto done;
 	}
+	if (options & YANG_OPTIONS_FRACTION_DIGITS && cvtype == CGV_DEC64)
+	    cv_dec64_n_set(cv, fraction_digits);
 	if ((cvret = cv_parse1(maxstr, cv, &reason)) < 0){
 	    clicon_err(OE_YANG, errno, "cv_parse1");
 	    goto done;
@@ -689,6 +703,7 @@ yang_parse_file(clicon_handle h,
     int           len;
     yang_stmt    *ymodule = NULL;
 
+    clicon_log(LOG_INFO, "%s: %s", __FUNCTION__, name);
     len = 1024; /* any number is fine */
     if ((buf = malloc(len)) == NULL){
 	perror("pt_file malloc");
@@ -722,7 +737,7 @@ yang_parse_file(clicon_handle h,
  * module-or-submodule-name ['@' revision-date] ( '.yang' / '.yin' )
  */
 static yang_stmt *
-yang_parse2(clicon_handle h, const char *yang_dir, const char *module, yang_spec *ysp)
+yang_parse2(clicon_handle h, const char *yang_dir, const char *module, const char *revision, yang_spec *ysp)
 {
     FILE       *f = NULL;
     cbuf       *b;
@@ -734,7 +749,10 @@ yang_parse2(clicon_handle h, const char *yang_dir, const char *module, yang_spec
 	clicon_err(OE_YANG, errno, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
-    cprintf(b, "%s/%s.yang", yang_dir, module);
+    if (revision)
+	cprintf(b, "%s/%s@%s.yang", yang_dir, module, revision);
+    else
+	cprintf(b, "%s/%s.yang", yang_dir, module);
     filename = cbuf_get(b);
     if (stat(filename, &st) < 0){
 	clicon_err(OE_YANG, errno, "%s not found", filename);
@@ -760,21 +778,27 @@ yang_parse2(clicon_handle h, const char *yang_dir, const char *module, yang_spec
  * Find a yang module file, and then recursively parse all its imported modules.
  */
 static yang_stmt *
-yang_parse1(clicon_handle h, const char *yang_dir, const char *module, yang_spec *ysp)
+yang_parse1(clicon_handle h, const char *yang_dir, const char *module, const char *revision, yang_spec *ysp)
 {
     yang_stmt  *yi = NULL; /* import */
     yang_stmt  *ys;
+    yang_stmt  *yrev;
     char       *modname;
+    char       *subrevision;
 
-    if ((ys = yang_parse2(h, yang_dir, module, ysp)) == NULL)
+    if ((ys = yang_parse2(h, yang_dir, module, revision, ysp)) == NULL)
 	goto done;
     /* go through all import statements of ysp (or its module) */
     while ((yi = yn_each((yang_node*)ys, yi)) != NULL){
 	if (yi->ys_keyword != Y_IMPORT)
 	    continue;
 	modname = yi->ys_argument;
+	if ((yrev = yang_find((yang_node*)yi, Y_REVISION_DATE, NULL)) != NULL)
+	    subrevision = yrev->ys_argument;
+	else
+	    subrevision = NULL;
 	if (yang_find((yang_node*)ysp, Y_MODULE, modname) == NULL)
-	    if (yang_parse1(h, yang_dir, modname, ysp) == NULL){
+	    if (yang_parse1(h, yang_dir, modname, subrevision, ysp) == NULL){
 		ys = NULL;
 		goto done;
 	    }
@@ -796,12 +820,12 @@ yang_parse1(clicon_handle h, const char *yang_dir, const char *module, yang_spec
  * Find a yang module file, and then recursively parse all its imported modules.
  */
 int
-yang_parse(clicon_handle h, const char *yang_dir, const char *module, yang_spec *ysp)
+yang_parse(clicon_handle h, const char *yang_dir, const char *module, const char *revision, yang_spec *ysp)
 {
     int         retval = -1;
     yang_stmt  *ys;
 
-    if ((ys = yang_parse1(h, yang_dir, module, ysp)) == NULL)
+    if ((ys = yang_parse1(h, yang_dir, module, revision, ysp)) == NULL)
 	goto done;
     /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
@@ -1058,9 +1082,8 @@ yang_spec_main(clicon_handle h, int printspec)
     yang_dir    = clicon_yang_dir(h);
     yang_module = clicon_yang_module_main(h);
 
-    if (yang_parse(h, yang_dir, yang_module, yspec) < 0)
+    if (yang_parse(h, yang_dir, yang_module, NULL, yspec) < 0)
 	goto done;
-    clicon_log(LOG_INFO, "YANG PARSING OK");
     clicon_dbspec_yang_set(h, yspec);	
     if (printspec)
 	yang_print(stdout, (yang_node*)yspec, 0);

@@ -142,7 +142,7 @@ dbdep_row(
     va_start(ap, nkeys);
     for (i = 0; i < nkeys; i++) {
 	key = va_arg(ap, char *);
-	clicon_debug(2, "Created dependency '%s'", key);
+	clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
 	if ((var = strchr(key, ':')))
 	    *var++ = '\0';
 	if (dbdep_ent(dp, key, var) < 0)
@@ -205,7 +205,7 @@ dbdep(
     va_start(ap, nkeys);
     for (i = 0; i < nkeys; i++) {
 	key = va_arg(ap, char *);
-	clicon_debug(2, "Created dependency '%s'", key);
+	clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
 	if ((var = strchr(key, ':')))
 	    *var++ = '\0';
 	if (dbdep_ent(dp, key, var) < 0)

@@ -75,7 +75,7 @@ plugin_init(clicon_handle h)
 	    clicon_debug(1, "Failed to create dependency '%s'", key);
 	    goto done;
 	}
-	clicon_debug(1, "Created dependency '%s'", key);
+	clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
     }
 
     retval = 0;
