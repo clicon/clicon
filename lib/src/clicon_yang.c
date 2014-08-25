@@ -703,7 +703,7 @@ yang_parse_file(clicon_handle h,
     int           len;
     yang_stmt    *ymodule = NULL;
 
-    clicon_log(LOG_INFO, "%s: %s", __FUNCTION__, name);
+    clicon_log(LOG_INFO, "Yang parse file: %s", name);
     len = 1024; /* any number is fine */
     if ((buf = malloc(len)) == NULL){
 	perror("pt_file malloc");
@@ -1067,9 +1067,15 @@ yang_mandatory(yang_stmt *ys)
 }
 
 
-/*! Utility function for handling yang parsing and translation to keys */
+/*! Utility function for handling yang parsing and translation to key format
+ * @param h          clicon handle
+ * @param f          file to print to (if one of print options are enabled)
+ * @param printspec  print database (YANG) specification as read from file
+ * @param printalt   print alternate specification (KEY)
+ */
+
 int
-yang_spec_main(clicon_handle h, int printspec)
+yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
 {
     yang_spec      *yspec;
     char           *yang_dir;
@@ -1086,20 +1092,19 @@ yang_spec_main(clicon_handle h, int printspec)
 	goto done;
     clicon_dbspec_yang_set(h, yspec);	
     if (printspec)
-	yang_print(stdout, (yang_node*)yspec, 0);
+	yang_print(f, (yang_node*)yspec, 0);
     if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
 	goto done;
     clicon_dbspec_key_set(h, db_spec);	
-    if (printspec && debug)
-	db_spec_dump(stdout, db_spec);
-#if 0 /* for testing mapping back to original */
-    yang_spec *yspec2;
-    if ((yspec2 = key2yang(db_spec)) == NULL)
-	goto done;
-    clicon_dbspec_yang_set(h, yspec2);
-    if (printspec)
-	yang_print(stdout, (yang_node*)yspec2, 0);
-#endif
+    if (printalt)
+	db_spec_dump(f, db_spec);
+    if (0){ /* debug for translating back to original, just debug */
+	yang_spec *yspec2;
+	if ((yspec2 = key2yang(db_spec)) == NULL)
+	    goto done;
+	clicon_dbspec_yang_set(h, yspec2);
+	yang_print(f, (yang_node*)yspec2, 0);
+    }
     retval = 0;
   done:
     return retval;

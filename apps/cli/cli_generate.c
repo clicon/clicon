@@ -84,7 +84,7 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
  * patterns, (eg regexp:"[0.9]*").
  */
 static int
-yang2cli_var2(yang_stmt   *ys, 
+yang2cli_var_sub(yang_stmt   *ys, 
 	      cbuf        *cbuf,    
 	      int          completion,
 	      char        *description,
@@ -102,12 +102,18 @@ yang2cli_var2(yang_stmt   *ys,
     char         *r;
     yang_stmt    *yi = NULL;
     int           i = 0;
+    char         *cvtypestr;
 
+    if (cvtype == CGV_VOID){
+	retval = 0;
+	goto done;
+    }
     type = ytype?ytype->ys_argument:NULL;
     if (completion)
 	cprintf(cbuf, "(");
-    cprintf(cbuf, "<%s:%s", ys->ys_argument, cv_type2str(cvtype));
-    if (strcmp(type, "enumeration") == 0 || strcmp(type, "bits") == 0){
+    cvtypestr = cv_type2str(cvtype);
+    cprintf(cbuf, "<%s:%s", ys->ys_argument, cvtypestr);
+    if (type && (strcmp(type, "enumeration") == 0 || strcmp(type, "bits") == 0)){
 	cprintf(cbuf, " choice:"); 
 	while ((yi = yn_each((yang_node*)ytype, yi)) != NULL){
 	    if (yi->ys_keyword != Y_ENUM && yi->ys_keyword != Y_BIT)
@@ -189,7 +195,9 @@ yang2cli_var(yang_stmt    *ys,
     restype = yrestype?yrestype->ys_argument:NULL;
     if (clicon_type2cv(type, restype, &cvtype) < 0)
 	goto done;
-    if (strcmp(restype, "union") == 0){ /* Union: loop over resolved type's sub-types */
+    /* Note restype can be NULL here for example with unresolved hardcoded uuid */
+    if (restype && strcmp(restype, "union") == 0){ 
+	/* Union: loop over resolved type's sub-types */
 	cprintf(cbuf, "(");
 	yt = NULL;
 	i = 0;
@@ -204,8 +212,8 @@ yang2cli_var(yang_stmt    *ys,
 	    restype = yrt?yrt->ys_argument:NULL;
 	    if (clicon_type2cv(type, restype, &cvtype) < 0)
 		goto done;
-	    if ((retval = yang2cli_var2(ys, cbuf, completion, description, cvtype, yrt,
-					options, mincv, maxcv, pattern, fraction_digits)) < 0)
+	    if ((retval = yang2cli_var_sub(ys, cbuf, completion, description, cvtype, yrt,
+					   options, mincv, maxcv, pattern, fraction_digits)) < 0)
 
 		goto done;
 
@@ -213,7 +221,7 @@ yang2cli_var(yang_stmt    *ys,
 	cprintf(cbuf, ")");
     }
     else
-	if ((retval = yang2cli_var2(ys, cbuf, completion, description, cvtype, yrestype,
+	if ((retval = yang2cli_var_sub(ys, cbuf, completion, description, cvtype, yrestype,
 				    options, mincv, maxcv, pattern, fraction_digits)) < 0)
 	    goto done;
 

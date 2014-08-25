@@ -169,6 +169,6 @@ yang_stmt *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
 int        ys_parse_sub(yang_stmt *ys);
 int        yang_mandatory(yang_stmt *ys);
-int        yang_spec_main(clicon_handle h, int printspec);
+int        yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt);
 
 #endif  /* _CLICON_YANG_H_ */

@@ -75,12 +75,13 @@ struct map_str2int{
 /* Mapping between yang types <--> cligen types
    Note, first match used wne translating from cv to yang --> order is significant */
 static const struct map_str2int ytmap[] = {
-    {"int32",       CGV_INT32},  /* NOTE, first matchis significant, dont move */
-    {"binary",      CGV_STRING},    /* XXX */
+    {"int32",       CGV_INT32},  /* NOTE, first match on right is significant, dont move */
+    {"string",      CGV_STRING}, /* NOTE, first match on right is significant, dont move */
+    {"binary",      CGV_STRING},    
     {"bits",        CGV_STRING},    
     {"boolean",     CGV_BOOL},
     {"decimal64",   CGV_DEC64},  
-    {"empty",       CGV_STRING},  /* XXX */
+    {"empty",       CGV_VOID},  /* May not include any content */
     {"enumeration", CGV_STRING}, 
     {"identityref", CGV_STRING},  /* XXX */
     {"instance-identifier", CGV_STRING}, /* XXX */
@@ -88,12 +89,12 @@ static const struct map_str2int ytmap[] = {
     {"int16",       CGV_INT16},  
     {"int64",       CGV_INT64},
     {"leafref",     CGV_STRING},  /* XXX */
-    {"string",      CGV_STRING},
+
     {"uint8",       CGV_UINT8}, 
     {"uint16",      CGV_UINT16},
     {"uint32",      CGV_UINT32},
     {"uint64",      CGV_UINT64},
-    {"union",       CGV_VOID},  /* Should be replaced by actual type */
+    {"union",       CGV_VOID},  /* Is replaced by actual type */
     {NULL, -1}
 };
 
@@ -393,7 +394,8 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     case CGV_STRING:
     case CGV_REST:
 	str = cv_string_get(cv);
-	if (strcmp(restype, "enumeration") == 0 || strcmp(restype, "bits") == 0){
+	if (restype && 
+	    (strcmp(restype, "enumeration") == 0 || strcmp(restype, "bits") == 0)){
 	    int found = 0;
 	    while ((yi = yn_each((yang_node*)yrestype, yi)) != NULL){
 		if (yi->ys_keyword != Y_ENUM && yi->ys_keyword != Y_BIT)
@@ -725,7 +727,7 @@ yang_type_resolve(yang_stmt   *ys,
  *      printf("regexp: %s\n", pattern);
  * @endcode
  * @param [in]  ys       yang-stmt, leaf or leaf-list
- * @param [out] otype    original type may be derived or built-in
+ * @param [out] origtype original type may be derived or built-in
  * @param [out] yrestype pointer to resolved type stmt. should be built-in or NULL
  * @param [out] options  pointer to flags field of optional values
  * @param [out] mincv    pointer to cv of min range or length. optional

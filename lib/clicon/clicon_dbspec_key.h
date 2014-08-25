@@ -61,6 +61,6 @@ int db_spec_dump(FILE *f, dbspec_key *db_spec);
 dbspec_key *key2spec_key(dbspec_key *db_speclist, char *key);
 int match_key(char *key, char *skey);
 int sanity_check_cvec(char *key, dbspec_key *db_spec, cvec *vec);
-int dbspec_key_main(clicon_handle h, int printspec);
+int dbspec_key_main(clicon_handle h, FILE *f, int printspec, int printalt);
 
 #endif  /* _CLICON_DBSPEC_KEY_H_ */
