@@ -257,19 +257,19 @@ config_log_cb(int level, char *msg, void *arg)
  * cf cli_main.c: spec_main_cli()
  */
 static int
-spec_main_config(clicon_handle h, int printspec)
+dbspec_main_config(clicon_handle h, int printspec, int printalt)
 {
     char            *dbspec_type;
     int              retval = -1;
 
     dbspec_type = clicon_dbspec_type(h);
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
-	if (yang_spec_main(h, printspec) < 0)
+	if (yang_spec_main(h, stdout, printspec, printalt) < 0)
 	    goto quit;
     }
     else
 	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if (dbspec_key_main(h, printspec) < 0)
+	    if (dbspec_key_main(h, stdout, printspec, printalt) < 0)
 		goto quit;	    
 	}
 	else{
@@ -445,7 +445,7 @@ main(int argc, char **argv)
     }
 
     /* Parse db spec file */
-    if (spec_main_config(h, 0) < 0)
+    if (dbspec_main_config(h, 0, 0) < 0)
 	return -1;
 
     /* Init running db */

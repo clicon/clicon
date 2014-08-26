@@ -31,9 +31,9 @@
  *
  * Translation between database specs
  *     dbspec_key                   yang_spec                     CLIgen parse_tree
- *  +-------------+    yang2key    +-------------+   yang2cli    +-------------+
+ *  +-------------+    key2yang    +-------------+   yang2cli    +-------------+
  *  |  keyspec    | -------------> |             | ------------> | cli         |
- *  |  A[].B !$a  |    key2yang    | list{key A;}|               | syntax      |
+ *  |  A[].B !$a  |    yang2key    | list{key A;}|               | syntax      |
  *  +-------------+ <------------  +-------------+               +-------------+
  *        ^                             ^
  *        |db_spec_parse_file           |yang_parse
@@ -346,8 +346,7 @@ yang2key_stmt(yang_stmt       *ys,
     cvec      *keys = NULL;
     cvec      *vars = NULL;
 
-    if (debug)
-	fprintf(stderr, "%s: %s %s\n", __FUNCTION__, 
+    clicon_debug(3, "%s: %s %s\n", __FUNCTION__, 
 		yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
     case Y_CONTAINER:
@@ -472,7 +471,7 @@ key2yang(dbspec_key *db_spec)
 	goto err; 
     /* Parse through all spec lines */
     for (ds=db_spec; ds; ds=ds->ds_next){
-	clicon_debug(1, "%s: spec line: %s\n", __FUNCTION__, ds->ds_key);
+	clicon_debug(1, "%s: spec line: %s", __FUNCTION__, ds->ds_key);
 	subvh = db_spec2cvec(ds);
 	if ((vec = clicon_strsplit(ds->ds_key, ".", &nvec, __FUNCTION__)) == NULL){
 	    clicon_err(OE_DB, errno, "%s: strsplit", __FUNCTION__); 
@@ -484,7 +483,7 @@ key2yang(dbspec_key *db_spec)
 	/* Parse through all keys in a spec-line, eg "a.b.c" */
 	for (i=0; i<nvec; i++){ 
 	    key = vec[i];
-	    clicon_debug(1, "%s: \tkey: %s\n", __FUNCTION__, vec[i]);
+	    clicon_debug(1, "%s: \tkey: %s", __FUNCTION__, vec[i]);
 	    isvec = 0;
 	    if (key_isvector(key)){
 		isvec++;
@@ -507,7 +506,7 @@ key2yang(dbspec_key *db_spec)
 		    if (cv_flag(v, V_UNIQUE))
 			break;
 		if (v == NULL){
-		    clicon_err(OE_DB, 0, "Spec has no matching unique variable\n"); 
+		    clicon_err(OE_DB, 0, "Spec has no matching unique variable"); 
 		    goto err;
 		}
 		/* Create list node */

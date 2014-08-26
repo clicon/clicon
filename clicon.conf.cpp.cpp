@@ -21,21 +21,27 @@
 # CLICON options - Default values
 # See clicon_tutorial for more documentation
 
-# APPDIR is where config-file is found. Here for reference only.
-# Default-value may be overriden by:
-# configure-option --with-appdir or
-# -a option to binaries, or
-# Setting CLICON_APPDIR environment variable in the shell
+# If this file is used (see also clicon.mk) APPDIR is not necessary.
+# It is an alternative method to group all application files in one
+# single directory, given by -a option ot binaries or --with-appdir option
+# to configure
 # CLICON_APPDIR /usr/local/share/clicon
 
 # Location of configuration-file for default values (this file)
 CLICON_CONFIGFILE      sysconfdir/APPNAME.conf
 
-# Database specification file syntax, Parse-tree or key. PT(default) or KEY(old)
-# CLICON_DBSPEC_TYPE      PT
+# Database specification file syntax, Parse-tree or key. YANG(default) or KEY(db keys)
+# CLICON_DBSPEC_TYPE      YANG
 
 # Database specification file. Syntax either CLI or KEY given by CLICON_DBSPEC_TYPE
 CLICON_DBSPEC_FILE     prefix/share/APPNAME/datamodel.spec
+
+# Location of YANG module and submodule files. Only if CLICON_DBSPEC_TYPE is YANG
+CLICON_YANG_DIR        prefix/share/APPNAME/yang
+
+# Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
+# Only if CLICON_DBSPEC_TYPE is YANG
+# CLICON_YANG_MODULE_MAIN clicon                
 
 # Candidate qdbm database
 CLICON_CANDIDATE_DB    localstatedir/APPNAME/candidate_db

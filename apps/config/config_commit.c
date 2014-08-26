@@ -156,7 +156,7 @@ generic_validate_yang(clicon_handle        h,
 			goto done;
 		}
 		else
-		    if (yleaf->ys_mandatory){
+		    if (yang_mandatory(yleaf)){
 			clicon_err(OE_CFG, 0, 
 				   "key %s: Missing mandatory variable: %s",
 				   dbkey, yleaf->ys_argument);
@@ -218,8 +218,8 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
     char            *dbspec_type;
 
     dbspec_type = clicon_dbspec_type(h);
-    if ((dbspec_type == NULL) || 
-	strcmp(dbspec_type, "YANG") == 0){     /* Default or YANG syntax */
+    if (strcmp(dbspec_type, "KEY") == 0 ||
+	strcmp(dbspec_type, "YANG") == 0){     /* KEY or YANG syntax bot validate using YANG */
 	if ((yspec = clicon_dbspec_yang(h)) == NULL){
 	    clicon_err(OE_FATAL, 0, "No DB_SPEC");
 	    goto done;

@@ -31,9 +31,9 @@
  *
  * Translation between database specs
  *     dbspec_key                   yang_spec                     CLIgen parse_tree
- *  +-------------+    yang2key    +-------------+   yang2cli    +-------------+
+ *  +-------------+    key2yang    +-------------+   yang2cli    +-------------+
  *  |             | -------------> |             | ------------> | cli         |
- *  |  A[].B !$a  |    key2yang    | list{key A;}|               | syntax      |
+ *  |  A[].B !$a  |    yang2key    | list{key A;}|               | syntax      |
  *  +-------------+ <------------  +-------------+               +-------------+
  *        ^                             ^
  *        |db_spec_parse_file           |yang_parse
@@ -503,9 +503,14 @@ sanity_check_cvec(char *key, dbspec_key *spec, cvec *vec)
 
 }
 
-/*! Utility function for handling key parsing and translation to yang */
+/*! Utility function for handling key parsing and translation to yang format
+ * @param h          clicon handle
+ * @param f          file to print to (if one of print options are enabled)
+ * @param printspec  print database (KEY) specification as read from file
+ * @param printalt   print alternate specification (YANG)
+ */
 int
-dbspec_key_main(clicon_handle h, int printspec)
+dbspec_key_main(clicon_handle h, FILE *f, int printspec, int printalt)
 {
     int             retval = -1;
     dbspec_key *db_spec;
@@ -520,20 +525,20 @@ dbspec_key_main(clicon_handle h, int printspec)
     }
     clicon_debug(1, "CLICON_DBSPEC_FILE=%s", db_spec_file);
     if (stat(db_spec_file, &st) < 0){
-	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE not found");
+	clicon_err(OE_FATAL, errno, "CLICON_DBSPEC_FILE: %s not found", db_spec_file);
 	goto done;
     }
     if ((db_spec = db_spec_parse_file(db_spec_file)) == NULL)
 	goto done;
     if (printspec) 
-	db_spec_dump(stdout, db_spec);
+	db_spec_dump(f, db_spec);
     clicon_dbspec_key_set(h, db_spec);	
     /* Translate to yang spec */
     if ((yspec = key2yang(db_spec)) == NULL)
 	goto done;
     clicon_dbspec_yang_set(h, yspec);
-    if (printspec && debug)
-	yang_print(stdout, (yang_node*)yspec, 0);
+    if (printalt)
+	yang_print(f, (yang_node*)yspec, 0);
     retval = 0;
   done:
     return retval;

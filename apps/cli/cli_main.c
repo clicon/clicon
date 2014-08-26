@@ -180,19 +180,19 @@ set_default_syntax_group(clicon_handle h, char *dir)
  * dbspec2 options. 
  */
 static int
-spec_main_cli(clicon_handle h, int printspec)
+dbspec_main_cli(clicon_handle h, int printspec, int printalt)
 {
     char            *dbspec_type;
     int              retval = -1;
     
     dbspec_type = clicon_dbspec_type(h);
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG spec syntax */
-	if (yang_spec_main(h, printspec) < 0)
+	if (yang_spec_main(h, stdout, printspec, printalt) < 0)
 	    goto quit;
     }
     else
 	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if (dbspec_key_main(h, printspec) < 0)
+	    if (dbspec_key_main(h, stdout, printspec, printalt) < 0)
 		goto quit;
 	}
 	else{
@@ -229,8 +229,9 @@ usage(char *argv0, clicon_handle h)
     	    "\t-c \t\tWrite to candidate directly, not via config engine\n"
     	    "\t-P <dbname> \tWrite to private database\n"
 	    "\t-q \t\tQuiet mode, dont print greetings\n"
-	    "\t-p \t\tPrint dbspec translation in cli/db format\n"
-	    "\t-G \t\tPrint CLI syntax generated from dbspec (if enabled)\n"
+	    "\t-p \t\tPrint database specification (YANG or KEY depending on CLICON_DBSPEC_TYPE)\n"
+	    "\t-t \t\tPrint alternate spec translation (eg if YANG print KEY, if KEY print YANG)\n"
+	    "\t-G \t\tPrint CLI syntax generated from dbspec (if CLICON_CLI_GENMODEL enabled)\n"
 	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
 	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
 	    "\t-t \t\tDump DTD of database spec and exit\n",
@@ -257,12 +258,12 @@ main(int argc, char **argv)
     char	*argv0 = argv[0];
     clicon_handle h;
     int          printspec = 0;
+    int          printalt = 0;
     int          printgen  = 0;
     int          logclisyntax  = 0;
     int          help = 0;
     char        *treename;
     int          logdst = CLICON_LOG_STDERR;
-    int          dumpdtd = 0;
 
     /* Defaults */
 
@@ -395,8 +396,8 @@ main(int argc, char **argv)
 	case 'L' : /* Debug print dynamic CLI syntax */
 	    logclisyntax++;
 	    break;
-	case 't' : /* Dump dtd of dbspec */
-	    dumpdtd++;
+	case 't' : /* Print alternative dbspec format (eg if YANG, print KEY) */
+	    printalt++;
 	    break;
 	default:
 	    usage(argv[0], h);
@@ -420,13 +421,8 @@ main(int argc, char **argv)
     cv_exclude_keys(clicon_cli_varonly(h)); 
 
     /* Parse db specification as cli*/
-    if (spec_main_cli(h, printspec) < 0)
+    if (dbspec_main_cli(h, printspec, printalt) < 0)
 	goto quit;
-
-    if (dumpdtd) { /* Dump database specification as DTD */
-	clicon_log(LOG_NOTICE, "%s: dump to dtd not supported", __PROGRAM__);
-	exit(1);
-    }
 
     /* Check plugin directory */
     if ((plugin_dir = clicon_cli_dir(h)) == NULL)
@@ -462,7 +458,7 @@ main(int argc, char **argv)
 	    goto quit;
 	}
 	if (strcmp(clicon_dbspec_type(h), "KEY")==0)  
-	    treename = "datamodel";  /* key syntax hardwire to 'datamodel' */
+	    treename = "datamodel:datamodel";  /* key syntax hardwire to 'datamodel' */
 	else{ /* YANG */
 	    if ((treename = clicon_dbspec_name(h)) == NULL){
 		clicon_err(OE_FATAL, 0, "DB_SPEC has no name (insert name=\"myname\"; in .spec file)");

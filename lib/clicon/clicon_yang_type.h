@@ -46,8 +46,14 @@ int        yang2cv_type(char *ytype, enum cv_type *cv_type);
 char      *cv2yang_type(enum cv_type cv_type);
 int        ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason);
 int        clicon_type2cv(char *type, char *rtype, enum cv_type *cvtype);
-int        yang_type_get(yang_stmt *ys, char **otype, char **rtype, 
-			 int *options, int64_t *min, int64_t *max, char **pattern,
+char      *ytype_id(yang_stmt *ys);
+int        yang_type_get(yang_stmt *ys, char **otype, yang_stmt **restype, 
+			 int *options, cg_var **mincv, cg_var **maxcv, char **pattern,
                          uint8_t *fraction_digits);
+int        yang_type_resolve(yang_stmt   *ys, yang_stmt   *ytype, 
+			     yang_stmt  **restype, int   *options, 
+			     cg_var     **mincv, cg_var     **maxcv, 
+			     char       **pattern,  uint8_t     *fraction);
+
 
 #endif  /* _CLICON_YANG_TYPE_H_ */
