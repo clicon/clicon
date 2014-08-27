@@ -658,11 +658,11 @@ clicon_cli_genmodel_completion(clicon_handle h)
 dbspec_key *
 clicon_dbspec_key(clicon_handle h)
 {
-    clicon_hash_t  *copt = clicon_options(h);
+    clicon_hash_t  *cdat = clicon_data(h);
     size_t          len;
     void           *p;
 
-    if ((p = hash_value(copt, "dbspec_key", &len)) != NULL)
+    if ((p = hash_value(cdat, "dbspec_key", &len)) != NULL)
 	return *(dbspec_key **)p;
     return NULL;
 }
@@ -673,12 +673,12 @@ clicon_dbspec_key(clicon_handle h)
 int
 clicon_dbspec_key_set(clicon_handle h, dbspec_key *ds)
 {
-    clicon_hash_t  *copt = clicon_options(h);
+    clicon_hash_t  *cdat = clicon_data(h);
 
     /* It is the pointer to pt that should be copied by hash,
        so we send a ptr to the ptr to indicate what to copy.
      */
-    if (hash_add(copt, "dbspec_key", &ds, sizeof(ds)) == NULL)
+    if (hash_add(cdat, "dbspec_key", &ds, sizeof(ds)) == NULL)
 	return -1;
     return 0;
 }
@@ -690,11 +690,11 @@ clicon_dbspec_key_set(clicon_handle h, dbspec_key *ds)
 yang_spec *
 clicon_dbspec_yang(clicon_handle h)
 {
-    clicon_hash_t  *copt = clicon_options(h);
+    clicon_hash_t  *cdat = clicon_data(h);
     size_t          len;
     void           *p;
 
-    if ((p = hash_value(copt, "dbspec_yang", &len)) != NULL)
+    if ((p = hash_value(cdat, "dbspec_yang", &len)) != NULL)
 	return *(yang_spec **)p;
     return NULL;
 }
@@ -706,12 +706,12 @@ clicon_dbspec_yang(clicon_handle h)
 int
 clicon_dbspec_yang_set(clicon_handle h, struct yang_spec *ys)
 {
-    clicon_hash_t  *copt = clicon_options(h);
+    clicon_hash_t  *cdat = clicon_data(h);
 
     /* It is the pointer to ys that should be copied by hash,
        so we send a ptr to the ptr to indicate what to copy.
      */
-    if (hash_add(copt, "dbspec_yang", &ys, sizeof(ys)) == NULL)
+    if (hash_add(cdat, "dbspec_yang", &ys, sizeof(ys)) == NULL)
 	return -1;
     return 0;
 }
