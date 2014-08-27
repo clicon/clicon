@@ -60,17 +60,6 @@
 #include "config_dbdep.h"
 #include "config_handle.h"
 
-/* 
- * Exported variables 
- */
-struct client_entry *ce_list = NULL;   /* The client list */
-
-/* 
- * Local variables 
- */
-static int client_nr = 0;              /* Number of clients */
-
-
 /*
  * See also notify_log
  */
@@ -100,41 +89,18 @@ subscription_delete(struct subscription *su)
 }
 
 
-
-/*
- * ce_add
- * Add client entry state
- */
-struct client_entry *
-ce_add(struct client_entry **ce_list, struct sockaddr *addr)
-{
-  struct client_entry *ce;
-
-  if ((ce = (struct client_entry *)malloc(sizeof(*ce))) == NULL){
-      clicon_err(OE_PLUGIN, errno, "malloc");
-      return NULL;
-  }
-  memset(ce, 0, sizeof(*ce));
-  ce->ce_nr = client_nr++;
-  memcpy(&ce->ce_addr, addr, sizeof(*addr));
-  ce->ce_next = *ce_list;
-  *ce_list = ce;
-
-  return ce;
-}
-
-/*
- * ce_rm
- * Remove client entry state
+/*! Remove client entry state
  */
 int
-ce_rm(struct client_entry **ce_list, struct client_entry *ce)
+backend_client_rm(clicon_handle h, struct client_entry *ce)
 {
-    struct client_entry *c;
-    struct client_entry **ce_prev;
-    struct subscription *su;
+    struct client_entry   *c0;
+    struct client_entry   *c;
+    struct client_entry  **ce_prev;
+    struct subscription   *su;
 
-    ce_prev = ce_list;
+    c0 = backend_client_list(h);
+    ce_prev = &c0;
     for (c = *ce_prev; c; c = c->ce_next){
 	if (c == ce){
 	    *ce_prev = c->ce_next;
@@ -155,19 +121,6 @@ ce_rm(struct client_entry **ce_list, struct client_entry *ce)
     return 0;
 }
 
-#ifdef notused
-static struct client_entry *
-ce_find_bynr(struct client_entry *ce_list, int nr)
-{
-    struct client_entry *ce;
-
-    for (ce = ce_list; ce; ce = ce->ce_next)
-	if (ce->ce_nr == nr)
-	    return ce;
-    return NULL;
-}
-#endif /* notused */
-
 static struct client_entry *
 ce_find_bypid(struct client_entry *ce_list, int pid)
 {
@@ -178,7 +131,6 @@ ce_find_bypid(struct client_entry *ce_list, int pid)
 	    return ce;
     return NULL;
 }
-
 
 /*
  * Change entry set/delete in database
@@ -565,8 +517,8 @@ from_client_kill(clicon_handle h,
 	goto done;
     }
     /* may or may not be in active client list, probably not */
-    if ((ce = ce_find_bypid(ce_list, pid)) != NULL)
-	ce_rm(&ce_list, ce);
+    if ((ce = ce_find_bypid(backend_client_list(h), pid)) != NULL)
+	backend_client_rm(h, ce);
     if (kill (pid, 0) != 0 && errno == ESRCH) /* Nothing there */
 	;
     else{
@@ -700,7 +652,6 @@ from_client_subscription(clicon_handle h,
 /*
  * from_client
  * A message has arrived from a client
- *
  */
 int
 from_client(int s, void* arg)
@@ -715,7 +666,7 @@ from_client(int s, void* arg)
     if (clicon_msg_rcv(ce->ce_s, &msg, &eof, __FUNCTION__) < 0)
 	goto done;
     if (eof){
-	ce_rm(&ce_list, ce);
+	backend_client_rm(h, ce);
 //	retval = 0; /* Nothing err with closing socket */
 	goto done;
     }

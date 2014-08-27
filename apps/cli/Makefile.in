@@ -66,7 +66,7 @@ MYLIBSO         = $(MYLIBLINK).$(CLICON_MAJOR)
 LIBSRC		= cli_plugin.c cli_common.c cli_handle.c cli_generate.c
 LIBOBJS		= $(LIBSRC:.c=.o)
 
-all:	 $(MYLIB) $(APPL)
+all:	 $(MYLIB) $(APPL) test
 
 clean:
 	rm -f $(OBJS) $(LIBOBJS) *.core $(APPL) $(MYLIB) $(MYLIBSO) $(MYLIBLINK)
@@ -102,6 +102,13 @@ uninstall:
 
 .c.o:
 	$(CC) $(INCLUDES) $(CPPFLAGS) -D__PROGRAM__=\"$(APPL)\" $(CFLAGS) -c $<
+
+# Just link test programs
+test.c	:
+	echo "main(){}" > $@
+
+test: 	test.c $(LIBOBJ) 
+	$(CC) $(INCLUDES) $(LDFLAGS) $< $(LIBOBJ) -L. -l:$(MYLIB) $(LIBS) -o $@
 
 $(APPL): $(OBJS) $(MYLIBLINK) $(LIBDEPS)	
 	$(CC) $(LDFLAGS) $(OBJS) -L. -l:$(MYLIB) $(LIBS) -o $@

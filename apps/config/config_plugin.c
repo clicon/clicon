@@ -365,7 +365,7 @@ plugin_begin_hooks(clicon_handle h, char *candidate)
 
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_begin) 
-	    if ((retval = (plugins[i].p_begin)(h, candidate)) < 0)
+	    if ((retval = (plugins[i].p_begin)(h)) < 0)
 		break;
     return retval;
 }
@@ -383,7 +383,7 @@ plugin_complete_hooks(clicon_handle h, char *dbname)
     
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_complete) 
-	    if ((retval = (plugins[i].p_complete)(h, dbname)) < 0)
+	    if ((retval = (plugins[i].p_complete)(h)) < 0)
 		break;
     return retval;
 }
@@ -402,7 +402,7 @@ plugin_end_hooks(clicon_handle h, char *candidate)
     
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_end) 
-	    if ((retval = (plugins[i].p_end)(h, candidate)) < 0)
+	    if ((retval = (plugins[i].p_end)(h)) < 0)
 		break;
     return retval;
 }
@@ -419,7 +419,7 @@ plugin_abort_hooks(clicon_handle h, char *candidate)
 
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_abort) 
-	    (plugins[i].p_abort)(h, candidate); /* dont abort on error */
+	    (plugins[i].p_abort)(h); /* dont abort on error */
     return retval;
 }
 

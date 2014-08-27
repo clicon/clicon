@@ -60,6 +60,9 @@
 #include "config_socket.h"
 #include "config_lib.h"
 #include "config_client.h"
+#include "config_dbdiff.h"
+#include "config_dbdep.h"
+#include "config_handle.h"
 
 /*! Open a unix-domain socket and bind it to a file.
  *
@@ -165,7 +168,7 @@ config_accept_client(int fd, void *arg)
 	return 1;
     }
 #endif   
-    if ((ce = ce_add(&ce_list, (struct sockaddr*)&from)) == NULL)
+    if ((ce = backend_client_add(h, (struct sockaddr*)&from)) == NULL)
 	return -1;
 #if defined(SO_PEERCRED)
     ce->ce_pid = credentials.pid;

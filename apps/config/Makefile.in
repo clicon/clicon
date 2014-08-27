@@ -66,7 +66,7 @@ MYLIBSO         = $(MYLIBLINK).$(CLICON_MAJOR)
 LIBSRC	= config_dbdep.c config_handle.c
 LIBOBJ	= $(LIBSRC:.c=.o)
 
-all:	  $(MYLIB) $(APPL)
+all:	  $(MYLIB) $(APPL) test
 
 clean:
 	rm -f *.core $(APPL) $(APPOBJ) $(LIBOBJ) $(MYLIB) $(MYLIBSO) $(MYLIBLINK)
@@ -102,6 +102,13 @@ install-include: clicon_backend.h clicon_backend_api.h clicon_backend_plugin.h
 
 .c.o:
 	$(CC) $(INCLUDES) -D__PROGRAM__=\"$(APPL)\" $(CPPFLAGS) $(CFLAGS) -c $<
+
+# Just link test programs
+test.c	:
+	echo "main(){}" > $@
+
+test: 	test.c $(LIBOBJ) 
+	$(CC) $(INCLUDES) $(LDFLAGS) $< $(LIBOBJ) -L. -l:$(MYLIB) $(LIBS) -o $@
 
 $(APPL) : $(APPOBJ) $(MYLIBLINK) $(LIBDEPS)
 	$(CC) $(LDFLAGS) $(APPOBJ) $(OBJS) -L. -l:$(MYLIB) $(LIBS) -o $@

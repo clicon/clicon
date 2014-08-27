@@ -25,7 +25,9 @@
 #ifndef _CLICON_BACKEND_PLUGIN_H_
 #define _CLICON_BACKEND_PLUGIN_H_
 
-/* Following are specific to backend. For common plugins see clicon_plugin.h */
+/* Following are specific to backend. For common plugins see clicon_plugin.h.
+    Note that the following should match the types in config_plugin.h
+ */
 
 /* Reset system state to original state. Eg at reboot before running thru config. */
 int plugin_reset(clicon_handle h);
