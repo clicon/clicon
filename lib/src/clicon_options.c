@@ -378,10 +378,7 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
 }
 
 
-/*
- * clicon_option_exists
- *
- * Check if an option has a value
+/*! Check if a clicon option has a value
  */
 int
 clicon_option_exists(clicon_handle h, char *name)
@@ -391,20 +388,24 @@ clicon_option_exists(clicon_handle h, char *name)
     return (hash_lookup(copt, name) != NULL);
 }
 
-/*
- * clicon_option_str
+/*! Get a single string option string via handle
  *
- * Get a single string option string via handle
+ * @param   h       clicon_handle
+ * @param   name    option name
+ * @retval  NULL    If option not found, or value of option is NULL
+ * @retval  string  value of option if found
+ * clicon options should be strings.
+ * To differentiate the two reasons why NULL may be returned, use function 
+ * clicon_option_exists() before the call
  */
 char *
 clicon_option_str(clicon_handle h, char *name)
 {
     clicon_hash_t *copt = clicon_options(h);
 
-    if (hash_lookup(copt, name) == NULL){
-	clicon_err(OE_UNIX, 0, "Option not found %s", name);
+    if (hash_lookup(copt, name) == NULL)
+//	clicon_err(OE_UNIX, 0, "Option not found %s", name);
 	return NULL;
-    }
     return hash_value(copt, name, NULL);
 }
 

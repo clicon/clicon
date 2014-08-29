@@ -703,7 +703,7 @@ yang_parse_file(clicon_handle h,
     int           len;
     yang_stmt    *ymodule = NULL;
 
-    clicon_log(LOG_INFO, "Yang parse file: %s", name);
+    clicon_debug(1, "Yang parse file: %s", name);
     len = 1024; /* any number is fine */
     if ((buf = malloc(len)) == NULL){
 	perror("pt_file malloc");

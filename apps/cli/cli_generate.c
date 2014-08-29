@@ -84,17 +84,17 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
  * patterns, (eg regexp:"[0.9]*").
  */
 static int
-yang2cli_var_sub(yang_stmt   *ys, 
-	      cbuf        *cbuf,    
-	      int          completion,
-	      char        *description,
-	      enum cv_type cvtype,
-	      yang_stmt   *ytype,  /* resolved type */
-	      int          options,
-	      cg_var      *mincv,
-	      cg_var      *maxcv,
-	      char        *pattern,
-	      uint8_t      fraction_digits
+yang2cli_var_sub(clicon_handle h,
+		 yang_stmt   *ys, 
+		 cbuf        *cbuf,    
+		 char        *description,
+		 enum cv_type cvtype,
+		 yang_stmt   *ytype,  /* resolved type */
+		 int          options,
+		 cg_var      *mincv,
+		 cg_var      *maxcv,
+		 char        *pattern,
+		 uint8_t      fraction_digits
     )
 {
     int           retval = -1;
@@ -103,7 +103,9 @@ yang2cli_var_sub(yang_stmt   *ys,
     yang_stmt    *yi = NULL;
     int           i = 0;
     char         *cvtypestr;
+    int           completion;
 
+    completion = clicon_cli_genmodel_completion(h);
     if (cvtype == CGV_VOID){
 	retval = 0;
 	goto done;
@@ -170,9 +172,9 @@ yang2cli_var_sub(yang_stmt   *ys,
  * eg type union{ type int32; type string } --> (<x:int32>| <x:string>)
  */
 static int
-yang2cli_var(yang_stmt    *ys, 
+yang2cli_var(clicon_handle h,
+	     yang_stmt    *ys, 
 	     cbuf         *cbuf,    
-	     int           completion,
 	     char         *description)
 {
     int retval = -1;
@@ -212,7 +214,7 @@ yang2cli_var(yang_stmt    *ys,
 	    restype = yrt?yrt->ys_argument:NULL;
 	    if (clicon_type2cv(type, restype, &cvtype) < 0)
 		goto done;
-	    if ((retval = yang2cli_var_sub(ys, cbuf, completion, description, cvtype, yrt,
+	    if ((retval = yang2cli_var_sub(h, ys, cbuf, description, cvtype, yrt,
 					   options, mincv, maxcv, pattern, fraction_digits)) < 0)
 
 		goto done;
@@ -221,7 +223,7 @@ yang2cli_var(yang_stmt    *ys,
 	cprintf(cbuf, ")");
     }
     else
-	if ((retval = yang2cli_var_sub(ys, cbuf, completion, description, cvtype, yrestype,
+	if ((retval = yang2cli_var_sub(h, ys, cbuf, description, cvtype, yrestype,
 				    options, mincv, maxcv, pattern, fraction_digits)) < 0)
 	    goto done;
 
@@ -241,10 +243,8 @@ yang2cli_leaf(clicon_handle h,
     yang_stmt    *yd;  /* description */
     int           retval = -1;
     char         *keyspec;
-    int           completion;
     char         *description = NULL;
 
-    completion = clicon_cli_genmodel_completion(h);
     /* description */
     if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
 	description = yd->ys_argument;
@@ -254,10 +254,10 @@ yang2cli_leaf(clicon_handle h,
 	if (yd != NULL)
 	    cprintf(cbuf, "(\"%s\")", yd->ys_argument);
 	cprintf(cbuf, " ");
-	yang2cli_var(ys, cbuf, completion, description);
+	yang2cli_var(h, ys, cbuf, description);
     }
     else
-	yang2cli_var(ys, cbuf, completion, description);
+	yang2cli_var(h, ys, cbuf, description);
 
 
     if ((keyspec = yang_dbkey_get(ys)) != NULL)
@@ -423,7 +423,10 @@ yang2cli(clicon_handle h,
 			 "yang2cli", ptnew, globals) < 0)
 	goto done;
     cvec_free(globals);
-
+    /* handle=NULL for global namespace, this means expand callbacks must be in
+       CLICON namespace, not in a cli frontend plugin. */
+    if (cligen_expand_str2fn(*ptnew, expand_str2fn, NULL) < 0)     
+	goto done;
     retval = 0;
   done:
     cbuf_free(cbuf);

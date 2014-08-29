@@ -706,9 +706,8 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 
-/*
- * expand_dbvar
- * Expand based on database key and variable value (of that key)
+/*! Expand based on database key and variable value (of that key)
+ *
  * Return an expand-type list of commands as used by cligen 'expand' 
  * functionality.
  * arg is a string: "<dbname> <keypattern> <variable>". 
@@ -720,15 +719,13 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
  * as cligen callback)
  *
  * Assume callback given in a cligen spec: a <x:int expand_dbvar_auto("arg")
- * IN:
- *   h        clicon handle 
- *   name     Name of this function (eg "expand_dbvar")
- *   cvec     The command so far. Eg: cvec [0]:"a 5 b"; [1]: x=5;
- *   arg      Argument given at the callback ("arg")
- * OUT:
- *   len      len of return commands & helptxt 
- *   commands vector of function pointers to callback functions
- *   helptxt  vector of pointers to helptexts
+ * @param[in]   h        clicon handle 
+ * @param[in]   name     Name of this function (eg "expand_dbvar")
+ * @param[in]   vars     The command so far. Eg: cvec [0]:"a 5 b"; [1]: x=5;
+ * @param[in]   arg      Argument given at the callback ("arg")
+ * @param[out]  nr       len of return commands & helptxt 
+ * @param[out]  commands vector of function pointers to callback functions
+ * @param[out]  helptexts vector of pointers to helptexts
  */
 int
 expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg, 
@@ -776,10 +773,8 @@ expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg,
 }
 
 
-/*
- * expand_dbvar_auto
- * Completion callback primarilyintended for automatically generated data model
- * code. 
+/*! Completion callback primarily intended for automatically generated data model
+ *
  * Returns an expand-type list of commands as used by cligen 'expand' 
  * functionality.
  * arg is a string: "<dbname> <keypattern> <variable>". 
@@ -1409,14 +1404,16 @@ cli_del(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 
-/*
- * load_config_file
- * Load a configuration file to candidate database
- * arg is a string: "<varname> <op>" 
+/*! Load a configuration file to candidate database
+ * @param[in] h     CLICON handle
+ * @param[in] vars  Vector of variables (not needed) 
+ * @param[in] arg   A string: "<varname> <op>" 
  *   <varname> is name of a variable occuring in the cligen command string.
  *   <op> is either "merge" or "replace"
- * Example (cligen spec): 
+ * @code
+ *   # cligen spec
  *   load file <name2:string>, load_config_file("name2 merge");
+ * @endcode
  */
 int 
 load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1592,16 +1589,20 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 
-/*
- * show_conf_as
- * Generic function for showing configurations.
+/*! Generic function for showing configurations.
  * the callback differs.
- * arg is a string: <dbname> <key> [<variable> <varname>]. 
+ * @param[in] h     CLICON handle
+ * @param[in] vars  Vector of variables (not needed) 
+ * @param[in] arg   A string: <dbname> <key> [<variable> <varname>]. 
  *   <dbname> is either running or candidate
  *   <key> is a database key or ~.*$ for all
  *   <variable> if given, then a match is made with a cv called <varname>
- * Example (cligen spec): 
+ * @param fn
+ * @param fnarg
+ * @code
+ *    # cligen spec
  *   show config id <n:string>, show_conf_as("running ^MPoint.*$ Name n");
+ * @endcode
  */
 static int
 show_conf_as(clicon_handle h, cvec *vars, cg_var *arg, 
@@ -1679,7 +1680,6 @@ add2xml_cb(void *handle, char *dbname, char *key, cvec *vr, void *arg)
 
 /*
  * Show a configuration database on stdout using XML format
- * 
  */
 static int
 show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
