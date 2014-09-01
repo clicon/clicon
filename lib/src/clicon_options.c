@@ -86,7 +86,7 @@
  * Print registry on file. For debugging.
  */
 void
-clicon_option_dump(clicon_handle h, FILE *f)
+clicon_option_dump(clicon_handle h, int dbglevel)
 {
     clicon_hash_t *hash = clicon_options(h);
     int            i;
@@ -103,10 +103,14 @@ clicon_option_dump(clicon_handle h, FILE *f)
 	
     for(i = 0; i < klen; i++) {
 	val = hash_value(hash, keys[i], &vlen);
-	fprintf(f, "%s =\t 0x%p , length %zu", keys[i], val, vlen);
-	if (vlen && ((char*)val)[vlen-1]=='\0') /* assume string */
-	    fprintf(f, " \"%s\"", (char*)val);
-	fprintf(f, "\n");
+	if (vlen){
+	    if (((char*)val)[vlen-1]=='\0') /* assume string */
+		clicon_debug(dbglevel, "%s =\t \"%s\"", keys[i], (char*)val);
+	    else
+		clicon_debug(dbglevel, "%s =\t 0x%p , length %zu", keys[i], val, vlen);
+	}
+	else
+	    clicon_debug(dbglevel, "%s = NULL", keys[i]);
     }
     free(keys);
 
@@ -308,9 +312,7 @@ clicon_option_default(clicon_hash_t  *copt)
 }
 
 
-/*
- * clicon_options_main
- * Find appdir. Find and read configfile
+/*! Find appdir. Find and read configfile
  *
  1. First find APPDIR:
  1.1. command line arg (-a). else

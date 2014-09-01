@@ -506,8 +506,8 @@ main(int argc, char **argv)
     if (logclisyntax)
 	cli_logsyntax_set(h, logclisyntax);
 
-    if (debug>1)
-	clicon_option_dump(h, stderr);
+    if (debug)
+	clicon_option_dump(h, debug);
 
     /* Call start function is all plugins before we go interactive 
        Pass all args after the standard options to plugin_start

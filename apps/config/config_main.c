@@ -518,6 +518,9 @@ main(int argc, char **argv)
     if (server_socket(h) < 0)
 	return -1;
 
+    if (debug)
+	clicon_option_dump(h, debug);
+
     if (event_loop() < 0)
 	goto quit;
   quit:

@@ -1720,31 +1720,22 @@ show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 /*
- * show_conf_as_text1
- * as_cmd: as command, ie not tree format but as one-line commands
+ * @param as_cmd  Show as command, ie not tree format but as one-line commands
  */
 static int
-show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg, int as_cmd)
+show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    cxobj *xt = NULL;
-    cxobj *xc;
-    enum genmodel_type gt;
-    int                retval = -1;
+    cxobj       *xt = NULL;
+    cxobj       *xc;
+    int          retval = -1;
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto catch;
     if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
 	goto catch;
-
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
-	if (as_cmd){
-	    if ((gt = clicon_cli_genmodel_type(h)) == GT_ERR)
-		goto catch;
-	    xml2cli(stdout, xc, NULL, gt, __FUNCTION__); /* cli syntax */
-	}
-	else
-	    xml2txt(stdout, xc, 0); /* tree-formed text */
+	xml2txt(stdout, xc, 0); /* tree-formed text */
     retval = 0;
   catch:
     if (xt)
@@ -1754,17 +1745,44 @@ show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg, int as_cmd)
 }
 
 
+/* Show configuration as commands, ie not tree format but as one-line commands
+ */
+static int
+show_conf_as_command(clicon_handle h, cvec *vars, cg_var *arg, char *prepend)
+{
+    cxobj             *xt = NULL;
+    cxobj             *xc;
+    enum genmodel_type gt;
+    int                retval = -1;
+
+    if ((xt = xml_new("tmp", NULL)) == NULL)
+	goto catch;
+    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+	goto catch;
+    xc = NULL; /* Dont print xt itself */
+    while ((xc = xml_child_each(xt, xc, -1)) != NULL){
+	if ((gt = clicon_cli_genmodel_type(h)) == GT_ERR)
+	    goto catch;
+	xml2cli(stdout, xc, prepend, gt, __FUNCTION__); /* cli syntax */
+    }
+    retval = 0;
+  catch:
+    if (xt)
+	xml_free(xt);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
 
 int
 show_conf_as_text(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    return show_conf_as_text1(h, vars, arg, 0);
+    return show_conf_as_text1(h, vars, arg);
 }
 
 int
 show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    return show_conf_as_text1(h, vars, arg, 1);
+    return show_conf_as_command(h, vars, arg, NULL); /* XXX: how to set prepend? */
 }
 
 static int

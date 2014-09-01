@@ -444,6 +444,9 @@ main(int argc, char **argv)
 	send_hello(1);
     if (event_reg_fd(0, netconf_input_cb, h, "netconf socket") < 0)
 	goto quit;
+    if (debug)
+	clicon_option_dump(h, debug);
+
     if (event_loop() < 0)
 	goto quit;
   quit:
