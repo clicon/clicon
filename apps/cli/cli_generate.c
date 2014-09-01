@@ -249,7 +249,7 @@ yang2cli_leaf(clicon_handle h,
     if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
 	description = yd->ys_argument;
     cprintf(cbuf, "%*s", level*3, "");
-    if (gt == GT_ALL || gt == GT_VARS){
+    if (gt == GT_VARS|| gt == GT_ALL){
 	cprintf(cbuf, "%s", ys->ys_argument);
 	if (yd != NULL)
 	    cprintf(cbuf, "(\"%s\")", yd->ys_argument);
@@ -327,7 +327,7 @@ yang2cli_list(clicon_handle h,
 	goto done;
     }
     /* Print key variable now, and skip it in loop below */
-    if (yang2cli_leaf(h, yleaf, cbuf, gt, level+1) < 0)
+    if (yang2cli_leaf(h, yleaf, cbuf, gt==GT_VARS?GT_NONE:gt, level+1) < 0)
 	goto done;
     cprintf(cbuf, "{\n");
     for (i=0; i<ys->ys_len; i++)

@@ -127,7 +127,7 @@ usage(char *argv0, clicon_handle h)
     fprintf(stderr, "usage:%s\n"
 	    "where options are\n"
             "    -h\t\thelp\n"
-    	    "    -D <level>\t\tdebug\n"
+    	    "    -D <level>\tdebug\n"
     	    "    -f <file>\tCLICON config file (default: %s)\n"
     	    "    -a <dir>\tSpecify application dir (default: %s)\n"
 	    "    -d <dir>\tSpecify backend plugin directory (default: %s)\n"
