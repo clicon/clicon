@@ -61,7 +61,7 @@
 #include "config_handle.h"
 
 /*
- * See also notify_log
+ * See also backend_notify
  */
 static struct subscription *
 subscription_add(struct client_entry *ce, char *stream)
@@ -80,47 +80,6 @@ subscription_add(struct client_entry *ce, char *stream)
     return su;
 }
 
-static int
-subscription_delete(struct subscription *su)
-{
-    free(su->su_stream);
-    free(su);
-    return 0;
-}
-
-
-/*! Remove client entry state
- */
-int
-backend_client_rm(clicon_handle h, struct client_entry *ce)
-{
-    struct client_entry   *c0;
-    struct client_entry   *c;
-    struct client_entry  **ce_prev;
-    struct subscription   *su;
-
-    c0 = backend_client_list(h);
-    ce_prev = &c0;
-    for (c = *ce_prev; c; c = c->ce_next){
-	if (c == ce){
-	    *ce_prev = c->ce_next;
-	    if (ce->ce_s){
-		event_unreg_fd(ce->ce_s, from_client);
-		close(ce->ce_s);
-		ce->ce_s = 0;
-	    }
-	    while ((su = ce->ce_subscription) != NULL){
-		ce->ce_subscription = su->su_next;
-		subscription_delete(su);
-	    }
-	    free(ce);
-	    break;
-	}
-	ce_prev = &c->ce_next;
-    }
-    return 0;
-}
-
 static struct client_entry *
 ce_find_bypid(struct client_entry *ce_list, int pid)
 {
@@ -131,6 +90,48 @@ ce_find_bypid(struct client_entry *ce_list, int pid)
 	    return ce;
     return NULL;
 }
+
+static int
+subscription_delete(struct subscription *su)
+{
+    free(su->su_stream);
+    free(su);
+    return 0;
+}
+
+/*! Remove client entry state
+ * See also backend_client_delete()
+ */
+int
+backend_client_rm(clicon_handle h, struct client_entry *ce)
+{
+    struct client_entry   *c;
+    struct client_entry   *c0;
+    struct client_entry  **ce_prev;
+    struct subscription   *su;
+
+    c0 = backend_client_list(h);
+    ce_prev = &c0; /* this points to stack and is not real backpointer */
+    for (c = *ce_prev; c; c = c->ce_next){
+	if (c == ce){
+//	    *ce_prev = c->ce_next;
+	    if (ce->ce_s){
+		event_unreg_fd(ce->ce_s, from_client);
+		close(ce->ce_s);
+		ce->ce_s = 0;
+	    }
+	    while ((su = ce->ce_subscription) != NULL){
+		ce->ce_subscription = su->su_next;
+		subscription_delete(su);
+	    }
+//	    free(ce);
+	    break;
+	}
+	ce_prev = &c->ce_next;
+    }
+    return backend_client_delete(h, ce); /* actually purge it */
+}
+
 
 /*
  * Change entry set/delete in database

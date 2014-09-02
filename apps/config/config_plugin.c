@@ -64,7 +64,6 @@ struct plugin {
     trans_complete_t  *p_complete;	       /* Validation complete */
     trans_end_t       *p_end;	               /* Post commit hook */
     trans_abort_t     *p_abort;	  
-     /* Post commit hook */
 };
 /* Plugins */
 static int nplugins = 0;
@@ -443,7 +442,9 @@ plugin_downcall(clicon_handle h, struct clicon_msg_call_req *req,
 	strncpy(name, plugins[i].p_name, sizeof(name)-1);
 	if (!strcmp(name+strlen(name)-3, ".so"))
 	    name[strlen(name)-3] = '\0';
-	if (!strcmp(name, req->cr_plugin)) {
+	/* If no plugin is given or the plugin-name matches */
+	if (req->cr_plugin == NULL || strlen(req->cr_plugin)==0 ||
+	    strcmp(name, req->cr_plugin) == 0) {
 	    funcp = dlsym(plugins[i].p_handle, req->cr_func);
 	    if ((error = (char*)dlerror()) != NULL) {
 		clicon_err(OE_PROTO, ENOENT,

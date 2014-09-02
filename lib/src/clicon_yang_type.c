@@ -77,6 +77,7 @@ struct map_str2int{
 static const struct map_str2int ytmap[] = {
     {"int32",       CGV_INT32},  /* NOTE, first match on right is significant, dont move */
     {"string",      CGV_STRING}, /* NOTE, first match on right is significant, dont move */
+    {"string",      CGV_REST},   /* For cv -> yang translation of rest */
     {"binary",      CGV_STRING},    
     {"bits",        CGV_STRING},    
     {"boolean",     CGV_BOOL},
@@ -286,10 +287,16 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     restype = yrestype?yrestype->ys_argument:NULL;
     if (clicon_type2cv(type, restype, &cvtype) < 0)
 	goto err;
+
     if (cv_type_get(ycv) != cvtype){
-	clicon_err(OE_DB, 0, "%s: Type mismatch %d != %d", 
-		   __FUNCTION__, cvtype, cv_type_get(ycv));
-	goto err;
+	/* special case: dbkey has rest syntax-> cv but yang cant have that */
+	if (cvtype == CGV_STRING && cv_type_get(ycv) == CGV_REST)
+	    ;
+	else {
+	    clicon_err(OE_DB, 0, "%s: Type mismatch data:%s != yang:%s", 
+		       __FUNCTION__, cv_type2str(cvtype), cv_type2str(cv_type_get(ycv)));
+	    goto err;
+	}
     }
     switch (cvtype){
     case CGV_INT8:

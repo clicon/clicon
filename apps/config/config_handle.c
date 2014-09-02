@@ -111,12 +111,7 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
     cb->cb_dbdep = dbdep;
     return 0;
 }
-/* XXX: remove */
-int
-notify_log(char *stream, int level, char *format, ...)
-{
-    return 0; 
-}
+
 /*! Define a notify log message, part of the notify mechanism
  * 
  * Stream is a string used to qualify the event-stream. Distribute the event to
@@ -188,4 +183,28 @@ backend_client_list(clicon_handle h)
     struct backend_handle *cb = handle(h);
 
     return cb->cb_ce_list;
+}
+
+
+
+/*! Actually remove client from list
+ * See also backend_client_rm()
+ */
+int
+backend_client_delete(clicon_handle h, struct client_entry *ce)
+{
+    struct client_entry   *c;
+    struct client_entry  **ce_prev;
+    struct backend_handle *cb = handle(h);
+
+    ce_prev = &cb->cb_ce_list;
+    for (c = *ce_prev; c; c = c->ce_next){
+	if (c == ce){
+	    *ce_prev = c->ce_next;
+	    free(ce);
+	    break;
+	}
+	ce_prev = &c->ce_next;
+    }
+    return 0;
 }

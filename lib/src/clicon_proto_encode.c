@@ -677,9 +677,12 @@ clicon_msg_debug_decode(struct clicon_msg *msg,
 
 
 struct clicon_msg *
-clicon_msg_call_encode(uint16_t op, char *plugin, char *func,
-		      uint16_t arglen, void *arg,
-		      const char *label)
+clicon_msg_call_encode(uint16_t op, 
+		       char *plugin, 
+		       char *func,
+		       uint16_t arglen, 
+		       void *arg,
+		       const char *label)
 {
     struct clicon_msg *msg;
     struct clicon_msg_call_req *req;
@@ -720,8 +723,8 @@ clicon_msg_call_encode(uint16_t op, char *plugin, char *func,
 
 int
 clicon_msg_call_decode(struct clicon_msg *msg, 
-		      struct clicon_msg_call_req **req,
-		      const char *label)
+		       struct clicon_msg_call_req **req,
+		       const char *label)
 {
     uint16_t len;
     struct clicon_msg_call_req *r;

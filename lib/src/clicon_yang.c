@@ -843,6 +843,9 @@ yang_parse(clicon_handle h, const char *yang_dir, const char *module, const char
  * It is necessary to know which database key corresponds to a specific node in the
  * yang specification, used in, for example, cli_set() callbacks in the generated CLI
  * code
+ * @param[in]   ys    yang statement (container, leaf, leaf-list, list)
+ * @retval      key   string as dbkey, eg "x[] $!y $z"
+ * See also dbkey2yang
  */
 char *
 yang_dbkey_get(yang_stmt *ys)
@@ -852,11 +855,21 @@ yang_dbkey_get(yang_stmt *ys)
 
 /*! Set dbspec key of a yang statement, used when generating cli 
  *
- * @param   val   string (copied) defining the db key string.
+ * @param[in]   ys    yang statement (container, leaf, leaf-list, list)
+ * @param[in]   val   string (is copied) defining the db key string for a yang_stmt. 
+ * @retval      0     on success
+ * @retval      -1    on error. clicon_err called
+ * @code
+ *   yang_stmt *ys_key;
+ *   yang_dbkey_set(ys_key, "x[] $!y $z");
+ * @endcode
  */
 int 
 yang_dbkey_set(yang_stmt *ys, char *val)
 {
+    assert(ys->ys_dbkey==NULL);
+    if (ys->ys_dbkey != NULL)
+	free(ys->ys_dbkey);
     if ((ys->ys_dbkey = strdup(val)) == NULL){
 	clicon_err(OE_UNIX, errno, "%s: strdup", __FUNCTION__); 
 	return -1;
@@ -919,11 +932,13 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
     return NULL;
 }
 
-/*! Given a dbkey (eg a.b.0) find matching yang specification
+/*! Given a dbkey (eg a.b.0) recursively find matching yang specification
  *
  * e.g. a.0 matches the db_spec corresponding to a[].
  * Input args:
- * @param key  key to find in dbspec
+ * @param[in] yn     top-of yang tree where to start finding
+ * @param[in] dbkey  databse key to match in yang spec tree
+ * See also yang_dbkey_get
  */
 yang_stmt *
 dbkey2yang(yang_node *yn, char *dbkey)

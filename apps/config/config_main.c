@@ -248,9 +248,9 @@ server_socket(clicon_handle h)
 static int
 config_log_cb(int level, char *msg, void *arg)
 {
-    /* Notify_log() will go through all clients and see if any has registered "CLICON",
+    /* backend_notify() will go through all clients and see if any has registered "CLICON",
        and if so make a clicon_proto notify message to those clients.   */
-    return notify_log("CLICON", level, msg);
+    return backend_notify(arg, "CLICON", level, msg);
 }
 
 /*
@@ -502,7 +502,7 @@ main(int argc, char **argv)
 	goto quit;
 
     /* Register log notifications */
-    if (clicon_log_register_callback(config_log_cb, NULL) < 0)
+    if (clicon_log_register_callback(config_log_cb, h) < 0)
 	return -1;
     clicon_log(LOG_NOTICE, "%s: %u Started", __PROGRAM__, getpid());
     if (set_signal(SIGTERM, config_sig_term, NULL) < 0){
