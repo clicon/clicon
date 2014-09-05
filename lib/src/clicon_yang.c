@@ -499,7 +499,7 @@ ys_populate_range(yang_stmt *ys, void *arg)
     int             options = 0x0;
     uint8_t         fraction_digits;
     enum cv_type    cvtype = CGV_ERR;
-    char           *minstr;
+    char           *minstr = NULL;
     char           *maxstr;
     cg_var         *cv;
     char           *reason = NULL;
@@ -575,6 +575,8 @@ ys_populate_range(yang_stmt *ys, void *arg)
     }
     retval = 0;
   done:
+    if (minstr)
+	free(minstr);
     return retval;
 }
 
@@ -1100,9 +1102,14 @@ yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
 
     if ((yspec = yspec_new()) == NULL)
 	goto done;
-    yang_dir    = clicon_yang_dir(h);
-    yang_module = clicon_yang_module_main(h);
-
+    if ((yang_dir    = clicon_yang_dir(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_YANG_DIR option not set");
+	goto done;
+    }
+    if ((yang_module = clicon_yang_module_main(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_YANG_MODULE_MAIN option not set");
+	goto done;
+    }
     if (yang_parse(h, yang_dir, yang_module, NULL, yspec) < 0)
 	goto done;
     clicon_dbspec_yang_set(h, yspec);	

@@ -201,19 +201,29 @@ lock_target(enum target_type target)
     return 0;
 }
 
+/*
+ * Caller must do error handling
+ */
 char *
 get_target(clicon_handle h, cxobj *xn, char *path)
 {
     cxobj *x;    
-    char *target = NULL;
+    char  *target = NULL;
+    char  *running_db;
+    char  *candidate_db;
 
+    if ((running_db = clicon_running_db(h)) == NULL)
+	goto done;
+    if ((candidate_db = clicon_candidate_db(h)) == NULL)
+	goto done;
     if ((x = xpath_first(xn, path)) != NULL){
 	if (xpath_first(x, "/candidate") != NULL)
-	    target = clicon_candidate_db(h);
+	    target = candidate_db;
 	else
 	if (xpath_first(x, "/running") != NULL)
-	    target = clicon_running_db(h);
+	    target = running_db;
     }
+  done:
     return target;
     
 }

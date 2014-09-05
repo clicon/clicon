@@ -59,7 +59,7 @@
 #define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGLl:t"
 
 static int
-terminate(clicon_handle h)
+cli_terminate(clicon_handle h)
 {
     dbspec_key *dbspec;
     yang_spec      *yspec;
@@ -185,7 +185,10 @@ dbspec_main_cli(clicon_handle h, int printspec, int printalt)
     char            *dbspec_type;
     int              retval = -1;
     
-    dbspec_type = clicon_dbspec_type(h);
+    if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "Dbspec type not set");
+	goto quit;
+    }
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG spec syntax */
 	if (yang_spec_main(h, stdout, printspec, printalt) < 0)
 	    goto quit;
@@ -271,9 +274,9 @@ main(int argc, char **argv)
     clicon_log_init(__PROGRAM__, LOG_INFO, logdst); 
     /* Initiate CLICON handle */
     if ((h = cli_handle_init()) == NULL)
-	goto quit;
+	goto done;
     if (cli_plugin_init(h) != 0) 
-	goto quit;
+	goto done;
     dbtype = CANDIDATE_DB_SHARED;
     private_db[0] = '\0';
     cli_set_usedaemon(h, 1); /* send changes to config daemon */
@@ -422,47 +425,49 @@ main(int argc, char **argv)
 
     /* Parse db specification as cli*/
     if (dbspec_main_cli(h, printspec, printalt) < 0)
-	goto quit;
+	goto done;
 
     /* Check plugin directory */
     if ((plugin_dir = clicon_cli_dir(h)) == NULL)
-	goto quit;
+	goto done;
     
     /* Check syntax group */
     if (!clicon_option_exists(h, "CLICON_CLI_GROUP"))
 	if (set_default_syntax_group(h, plugin_dir) < 0)
-	    goto quit;
+	    goto done;
     if (!clicon_option_exists(h, "CLICON_CLI_GROUP"))
 	if (clicon_option_str_set(h, "CLICON_CLI_GROUP", "") < 0) /* Set empty */
-	    goto quit;
+	    goto done;
     /* Create tree generated from dataspec */
     if (clicon_cli_genmodel(h)){
 	yang_spec         *yspec;      /* yang spec */
 	parse_tree         pt = {0,};  /* cli parse tree */
 	char              *dbspec_type;
 
-	dbspec_type = clicon_dbspec_type(h);
-	if ((dbspec_type == NULL) || 
-	    strcmp(dbspec_type, "YANG") == 0 ||
+	if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "Dbspec type not set");
+	    goto done;
+	}
+	if (strcmp(dbspec_type, "YANG") == 0 ||
 	    strcmp(dbspec_type, "KEY") == 0){ 
 	    if ((yspec = clicon_dbspec_yang(h)) == NULL){
 		clicon_err(OE_FATAL, 0, "No YANG DB_SPEC");
-		goto quit;
+		goto done;
 	    }
 	    /* Create cli command tree from dbspec */
 	    if (yang2cli(h, yspec, &pt, clicon_cli_genmodel_type(h)) < 0)
-		goto quit;
+		goto done;
 	}
 	else{
 	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
-	    goto quit;
+	    goto done;
 	}
-	if (strcmp(clicon_dbspec_type(h), "KEY")==0)  
+	if (strcmp(dbspec_type, "KEY")==0)  
 	    treename = "datamodel:datamodel";  /* key syntax hardwire to 'datamodel' */
 	else{ /* YANG */
 	    if ((treename = clicon_dbspec_name(h)) == NULL){
 		clicon_err(OE_FATAL, 0, "DB_SPEC has no name (insert name=\"myname\"; in .spec file)");
-		goto quit;
+		goto done;
 	    }
 	    treename = chunk_sprintf(__FUNCTION__, "datamodel:%s", clicon_dbspec_name(h));
 	} 
@@ -474,28 +479,28 @@ main(int argc, char **argv)
     /* Syntax group is 'heavyweight' and cli mode is 'lightweight' */
     /* Initialize cli syntax group */
     if (cli_syntax_group_load(h, clicon_cli_group(h)) < 0)
-	goto quit;
+	goto done;
 
     /* Set syntax mode if specified from command-line or config-file. */
     if (clicon_option_exists(h, "CLICON_CLI_MODE"))
 	if ((tmp = clicon_cli_mode(h)) != NULL)
 	    if (cli_set_syntax_mode(h, tmp) == 0) {
 		fprintf(stderr, "FATAL: Failed to set syntax mode '%s'\n", tmp);
-		goto quit;
+		goto done;
 	    }
 
     if (!cli_syntax_mode(h)){
 	fprintf (stderr, "FATAL: No cli mode set (use -m or CLICON_CLI_MODE)\n");
-	goto quit;
+	goto done;
     }
     if (cli_tree(h, cli_syntax_mode(h)) == NULL){
 	fprintf (stderr, "FATAL: No such cli mode: %s\n", cli_syntax_mode(h));
-	goto quit;
+	goto done;
     }
 
     /* Initialize databases */    
     if (clicon_running_db(h) == NULL)
-	goto quit;
+	goto done;
 
     if (strlen(private_db))
 	clicon_option_str_set(h, "CLICON_CANDIDATE_DB", private_db);
@@ -520,11 +525,11 @@ main(int argc, char **argv)
 
     /* Lauch interfactive event loop */
     cli_interactive(h);
-  quit:
+  done:
     // Gets in your face if we log on stderr
     clicon_log_init(__PROGRAM__, LOG_INFO, 0); /* Log on syslog no stderr */
     clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
-    terminate(h);
+    cli_terminate(h);
 
     return 0;
 }

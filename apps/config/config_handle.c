@@ -90,7 +90,12 @@ backend_handle_init(void)
 int
 backend_handle_exit(clicon_handle h)
 {
+    struct client_entry   *ce;
+
     dbdeps_free(h); 
+    /* only delete client structs, not close sockets, etc, see backend_client_rm */
+    while ((ce = backend_client_list(h)) != NULL)
+	backend_client_delete(h, ce);
     clicon_handle_exit(h); /* frees h and options */
     return 0;
 }
@@ -175,8 +180,6 @@ backend_client_add(clicon_handle h, struct sockaddr *addr)
     return ce;
 }
 
-
-
 struct client_entry *
 backend_client_list(clicon_handle h)
 {
@@ -184,8 +187,6 @@ backend_client_list(clicon_handle h)
 
     return cb->cb_ce_list;
 }
-
-
 
 /*! Actually remove client from list
  * See also backend_client_rm()
@@ -208,3 +209,4 @@ backend_client_delete(clicon_handle h, struct client_entry *ce)
     }
     return 0;
 }
+

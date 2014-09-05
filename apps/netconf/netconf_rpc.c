@@ -366,10 +366,18 @@ netconf_edit_config(clicon_handle h,
     FILE               *f;
     char              *config_group;
     gid_t              gid;
+    char              *candidate_db;
 
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	   netconf_create_rpc_error(xf_err, xt, 
+				    "operation-failed", 
+				    "protocol", "error", 
+				    NULL, "Internal error"); 
+	goto done;
+    }
     /* must have target, and it should be candidate */
     if ((target = get_target(h, xn, "/target")) == NULL ||
-	strcmp(target, clicon_candidate_db(h))){
+	strcmp(target, candidate_db)){
 	netconf_create_rpc_error(xf_err, xt, 
 				 "missing-element", 
 				 "protocol", 
@@ -537,6 +545,15 @@ netconf_delete_config(clicon_handle h,
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
     int                retval = -1;
     char              *s;
+    char              *candidate_db;
+
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	   netconf_create_rpc_error(xf_err, xt, 
+				    "operation-failed", 
+				    "protocol", "error", 
+				    NULL, "Internal error"); 
+	goto done;
+    }
 
     if ((target = get_target(h, xn, "/target")) == NULL){
 	netconf_create_rpc_error(xf_err, xt, 
@@ -547,7 +564,7 @@ netconf_delete_config(clicon_handle h,
 				 "<bad-element>target</bad-element>");
 	goto done;
     }
-    if (strcmp(target, clicon_candidate_db(h))){
+    if (strcmp(target, candidate_db)){
 	netconf_create_rpc_error(xf_err, xt, 
 				 "bad-element", 
 				 "protocol", 
@@ -779,9 +796,25 @@ netconf_commit(clicon_handle h,
     struct clicon_msg *msg;     /* inline from cli_proto_commit */
     int                retval = -1;
     char              *s;
+    char              *candidate_db;
+    char              *running_db;
 
-    if ((msg=clicon_msg_commit_encode(clicon_candidate_db(h),
-				      clicon_running_db(h), 
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	netconf_create_rpc_error(xf_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error: candidate not set"); 
+	goto done;
+    }
+    if ((running_db = clicon_running_db(h)) == NULL){
+	netconf_create_rpc_error(xf_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error: running not set"); 
+	goto done;
+    }
+    if ((msg=clicon_msg_commit_encode(candidate_db,
+				      running_db, 
 				      1, 1, 
 				     __FUNCTION__)) == NULL){
 	   netconf_create_rpc_error(xf_err, xt, 
@@ -821,9 +854,25 @@ netconf_discard_changes(clicon_handle h,
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
     int                retval = -1;
     char              *s;
+    char              *running_db;
+    char              *candidate_db;
 
-    if ((msg=clicon_msg_copy_encode(clicon_running_db(h),
-				    clicon_candidate_db(h),
+    if ((running_db = clicon_running_db(h)) == NULL){
+	netconf_create_rpc_error(xf_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error: running not set"); 
+	goto done;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	   netconf_create_rpc_error(xf_err, xt, 
+				    "operation-failed", 
+				    "protocol", "error", 
+				    NULL, "Internal error"); 
+	goto done;
+    }
+    if ((msg=clicon_msg_copy_encode(running_db,
+				    candidate_db,
 				   __FUNCTION__)) == NULL)
 	goto done;
     if ((s = clicon_sock(h)) == NULL)

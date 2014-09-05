@@ -75,10 +75,18 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
 {
     int retval = -1;
     struct stat  sb;
-    char *running_db = clicon_running_db(h);
-    char *candidate_db = clicon_candidate_db(h);
+    char *running_db; 
+    char *candidate_db;
     char *s;
 
+    if ((running_db = clicon_running_db(h)) == NULL){
+    	clicon_err(OE_PLUGIN, 0, "%s: RUNNING_CANDIDATE_DB option not set", __FUNCTION__); 
+	goto err;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+    	clicon_err(OE_PLUGIN, 0, "%s: CLICON_CANDIDATE_DB option not set", __FUNCTION__); 
+	goto err;
+    }
     cli_set_candidate_type(h, type);
     switch(type){
     case CANDIDATE_DB_NONE:
@@ -231,25 +239,25 @@ cli_mset(clicon_handle h, cvec *vars, cg_var *argv)
     cg_var *cv;
 
     if ((vec = clicon_strsplit(cv_string_get(argv), ";", &nvec, __FUNCTION__)) == NULL){
-	goto catch;
+	goto done;
     }
     for (i=0; i<nvec; i++){
 	if ((cv = cv_new(CGV_STRING)) == NULL){
 	    cligen_output(stderr, "Allocating cligen object: %s\n", strerror(errno)); 
-	    goto catch;
+	    goto done;
 	}
 	if (cv_parse(vec[i], cv) < 0) { 
 	    cligen_output(stderr, "Failed to parse string to cgv\n");
-	    goto catch;
+	    goto done;
 	}
 	if (cli_set(h, vars, cv) < 0) {
 	    cv_free(cv);
-	    goto catch;
+	    goto done;
 	}
 	cv_free(cv);
     }
     retval = 0;
- catch:
+ done:
   unchunk_group(__FUNCTION__) ;
   return retval;
 }
@@ -268,24 +276,24 @@ cli_mmerge(clicon_handle h, cvec *vars, cg_var *arg)
     cg_var *cv = NULL; 
 
     if ((vec = clicon_strsplit(cv_string_get(arg), ";", &nvec, __FUNCTION__)) == NULL){
-	goto catch;
+	goto done;
     }
     for (i=0; i<nvec; i++){
 	if ((cv = cv_new(CGV_STRING)) == NULL){
 	    cligen_output(stderr, "Allocating cligen object: %s\n", strerror(errno)); 
-	    goto catch;
+	    goto done;
 	}
 	if (cv_parse(vec[i], cv) < 0) { /* NULL */
 	    cligen_output(stderr, "Failed to parse string to cgv\n");
-	    goto catch;
+	    goto done;
 	} 
 	if (cli_merge(h, vars, cv) < 0) {
-	    goto catch;
+	    goto done;
 	}
 	cv_free(cv);
     }
     retval = 0;
- catch:
+ done:
     if (cv)
 	cv_free(cv);
   unchunk_group(__FUNCTION__) ;
@@ -321,7 +329,10 @@ cli_set_tree(clicon_handle h, cvec *vars, cg_var *argv)
     char           *candidate_db;
     dbspec_key *dbspec;
     
-    candidate_db = clicon_candidate_db(h);
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	cligen_output(stderr, "Candidate not set\n");
+	return 0;
+    }
     dbspec = clicon_dbspec_key(h);
     if (cv_type_get(argv) != CGV_STRING) {
 	cligen_output(stderr, "Invalid type input to callback\n");
@@ -463,7 +474,7 @@ cli_show_lvmap(char *dbname, struct lvmap *lmap)
   }
   
   if (lvmap_print(f, dbname, lmap, NULL) < 0)
-    goto catch;
+    goto done;
 
   /* Now send contents of file to cligen_output via cli_output_cb() */
   rewind(f);
@@ -472,7 +483,7 @@ cli_show_lvmap(char *dbname, struct lvmap *lmap)
   
   res = 0;
 
- catch:
+ done:
   if (f)
     fclose(f);
   return res;
@@ -680,16 +691,34 @@ cli_quit(clicon_handle h, cvec *vars, cg_var *arg)
 int
 cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 {
+    int            retval = -1;
     char          *s;
     int            snapshot = arg?cv_int32_get(arg):0;
+    char          *candidate;
+    char          *running;
 
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
-    return cli_proto_commit(s, 
-			    clicon_running_db(h), 
-			    clicon_candidate_db(h), 
+    if ((running = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto done;
+    }
+    if ((candidate = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto done;
+    }
+
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
+    if ((retval = cli_proto_commit(s, 
+			    running, 
+			    candidate, 
 			    snapshot, /* snapshot */
-			    snapshot); /* startup */
+				   snapshot)) < 0) /* startup */
+	goto done;
+    retval = 0;
+  done:
+    return retval;
 }
 
 /*
@@ -699,10 +728,15 @@ int
 cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char          *s;
+    char          *candidate_db;
 
     if ((s = clicon_sock(h)) == NULL)
 	return -1;
-    return cli_proto_validate(s, clicon_candidate_db(h));
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	return -1;
+    }
+    return cli_proto_validate(s, candidate_db);
 }
 
 
@@ -763,7 +797,10 @@ expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg,
 	clicon_err(OE_PLUGIN, 0, "No such db name: %s", dbstr);	
 	goto done;
     }
-
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "dbname not set");
+	goto done;
+    }
     if ((retval = expand_db_variable(h, dbname, keystr, varstr, nr, commands)) < 0)
 	goto done;
     retval = 0;
@@ -841,6 +878,10 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
 	dbname = clicon_candidate_db(h);
     else{
 	clicon_err(OE_PLUGIN, 0, "No such db name: %s", dbstr);	
+	goto done;
+    }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "db not set");
 	goto done;
     }
 
@@ -973,21 +1014,27 @@ expand_db_symbol(clicon_handle h,
 		 int *nr, 
 		 char ***commands)
 {
-    char **tmp;
+    char          **tmp;
     struct db_pair *pairs;
-    int npairs, p;
-    int nvec;
-    int n;
-    char **vec = NULL;
-    char str[128];
+    int             npairs;
+    int             p;
+    int             nvec;
+    int             n;
+    char          **vec = NULL;
+    char            str[128];
+    char           *dbname;
     
+    if ((dbname = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto done;
+    }
     snprintf(str, sizeof(str), "^%s\\..", symbol);
-    if ((npairs = db_regexp(clicon_running_db(h), str, __FUNCTION__, &pairs, 0)) < 0)
+    if ((npairs = db_regexp(dbname, str, __FUNCTION__, &pairs, 0)) < 0)
 	return -1;
     for (p=0; p<npairs; p++){
 	if ((vec = clicon_strsplit(pairs[p].dp_key, ".", &nvec, __FUNCTION__)) == NULL){
 	    clicon_err(OE_UNDEF, errno, "clicon_strsplit");	
-	    goto catch;
+	    goto done;
 	}
 	/* Check if already exists */
 	for (n=0; n<*nr; n++)
@@ -998,19 +1045,19 @@ expand_db_symbol(clicon_handle h,
 	/* Allocate new pointer */
 	if ((tmp = realloc(*commands, sizeof(char *) * ((*nr)+1))) == NULL) {
 	    clicon_err(OE_UNDEF, errno, "realloc: %s", strerror (errno));	
-	    goto catch;
+	    goto done;
 	}
 	*commands = tmp;
 	/* Duplicate string */
 	if (((*commands)[*nr] = strdup(vec[element])) == NULL) {
 	    clicon_err(OE_UNDEF, errno, "strdup: %s", strerror (errno));	
-	    goto catch;
+	    goto done;
 	}
 	(*nr)++;
     }
     unchunk_group(__FUNCTION__) ;
     return 0;
- catch:
+ done:
   unchunk_group(__FUNCTION__) ;
   while ((*nr) >= 0)
     free((*commands)[(*nr)--]);
@@ -1206,11 +1253,21 @@ compare_dbs(clicon_handle h, cvec *vars, cg_var *arg)
 {
     cxobj *xc1 = NULL; /* running xml */
     cxobj *xc2 = NULL; /* candidate xml */
-    int retval = -1;
+    int    retval = -1;
+    char  *running;
+    char  *candidate;
 
-    if ((xc1 = db2xml(clicon_running_db(h), clicon_dbspec_key(h), "dbr")) == NULL)
+    if ((running = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
 	goto done;
-    if ((xc2 = db2xml(clicon_candidate_db(h), clicon_dbspec_key(h), "dbc")) == NULL)
+    }
+    if ((candidate = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto done;
+    }
+    if ((xc1 = db2xml(running, clicon_dbspec_key(h), "dbr")) == NULL)
+	goto done;
+    if ((xc2 = db2xml(candidate, clicon_dbspec_key(h), "dbc")) == NULL)
 	goto done;
 
     if (compare_xmls(xc1, xc2, arg?cv_int32_get(arg):0) < 0) /* astext? */
@@ -1349,8 +1406,14 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     clicon_dbvars_t *dbv;
     int	             retval = -1;
 
-    candidate = clicon_candidate_db(h);
-    running   = clicon_running_db(h);
+    if ((candidate = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto quit;
+    }
+    if ((running = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto quit;
+    }
     spec = clicon_dbspec_key(h);
     
     if ((s = clicon_sock(h)) == NULL)
@@ -1433,15 +1496,15 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char       *varstr;
 
     if (arg == NULL)
-	goto catch;
+	goto done;
     str = cv_string_get(arg);
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
-	goto catch;
+	goto done;
     }
     if (nvec != 2){
 	clicon_err(OE_PLUGIN, 0, "Arg syntax is <varname> <replace|merge>");	
-	goto catch;
+	goto done;
     }
     varstr = vec[0];
     opstr  = vec[1];
@@ -1452,30 +1515,33 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	replace = 1;
     else{
 	clicon_err(OE_PLUGIN, 0, "No such op: %s, expected merge or replace", opstr);	
-	goto catch;
+	goto done;
     }
     if ((cv = cvec_find_var(vars, varstr)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "No such var name: %s", varstr);	
-	goto catch;
+	goto done;
     }
     if ((vecp = clicon_realpath(NULL, cv_string_get(cv), __FUNCTION__)) == NULL){
 	cli_output(stderr, "Failed to resolve filename\n");
-	goto catch;
+	goto done;
     }
     filename = vecp[0];
-    dbname = clicon_candidate_db(h);
+    if ((dbname = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto done;
+    }
     if (stat(filename, &st) < 0){
- 	fprintf(stderr, "load_config: stat(%s): %s\n", 
+ 	clicon_err(OE_UNIX, 0, "load_config: stat(%s): %s\n", 
  		filename, strerror(errno));
-	goto catch;
+	goto done;
     }
     if ((s = clicon_sock(h)) == NULL)
 	return -1;
     if (cli_proto_load(s, replace, dbname, filename) < 0)
-	goto catch;
+	goto done;
 
     ret = 0;
-  catch:
+  done:
     return ret;
 }
 
@@ -1504,15 +1570,15 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char      *varstr;
 
     if (arg == NULL)
-	goto catch;
+	goto done;
     str = cv_string_get(arg);
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
-	goto catch;
+	goto done;
     }
     if (nvec != 2){
 	clicon_err(OE_PLUGIN, 0, "Arg syntax is <dbname> <varname>");	
-	goto catch;
+	goto done;
     }
     dbstr  = vec[0];
     varstr = vec[1];
@@ -1523,15 +1589,20 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	dbname = clicon_candidate_db(h);
     else{
 	clicon_err(OE_PLUGIN, 0, "No such db name: %s", dbstr);	
-	goto catch;
+	goto done;
     }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "dbname not set");
+	goto done;
+    }
+
     if ((cv = cvec_find_var(vars, varstr)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "No such var name: %s", varstr);	
-	goto catch;
+	goto done;
     }
     if ((vecp = clicon_realpath(NULL, cv_string_get(cv), __FUNCTION__)) == NULL){
 	cli_output(stderr, "Failed to resolve filename\n");
-	goto catch;
+	goto done;
     }
     filename = vecp[0];
 
@@ -1539,10 +1610,10 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	return -1;
   
     if (cli_proto_save(s, dbname, 0, filename) < 0) /*  */
-	goto catch;
+	goto done;
     retval = 0;
     /* Fall through */
-  catch:
+  done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
@@ -1565,14 +1636,18 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	dbname = clicon_candidate_db(h);
     else{
 	clicon_err(OE_PLUGIN, 0, "No such db name: %s", dbstr);	
-	goto catch;
+	goto done;
+    }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "dbname not set");
+	goto done;
     }
     if ((s = clicon_sock(h)) == NULL)
-	goto catch;
+	goto done;
     cli_proto_rm(s, dbname);
     cli_proto_initdb(s, dbname);
     retval = 0;
-  catch:
+  done:
     return retval;
 }
 
@@ -1580,12 +1655,23 @@ int
 discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char *s;
-    char *running_db = clicon_running_db(h);
-    char *candidate_db = clicon_candidate_db(h);
+    char *running_db;
+    char *candidate_db;
+    int   retval = -1;
 
     s = clicon_sock(h);
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto done;
+    }
+    if ((running_db = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto done;
+    }
     cli_proto_copy(s, running_db, candidate_db);
-    return 0;
+    retval = 0;
+  done:
+    return retval;
 }
 
 
@@ -1627,18 +1713,18 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
     str = cv_string_get(arg);
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
-	goto catch;
+	goto done;
     }
     if (nvec != 2 && nvec != 4){
 	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <dbname> <key> [<name> <variable>]", str);	
-	goto catch;
+	goto done;
     }
     if (nvec > 2){
 	attr = vec[2];
 	valname = vec[3];
 	cv = cvec_find_var(vars, valname);
 	if (cv && (val = cv2str_dup(cv)) == NULL)
-	    goto catch;
+	    goto done;
     }
     /* Dont get attr here, take it from arg instead */
     if (strcmp(vec[0], "running") == 0) /* XXX: hardcoded */
@@ -1648,17 +1734,21 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
 	dbname = clicon_candidate_db(h);
     else{
 	clicon_err(OE_PLUGIN, 0, "No such db name: %s", vec[0]);	
-	goto catch;
+	goto done;
+    }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "dbname not set");
+	goto done;
     }
     regex = vec[1];
     if (dbmatch_vec(h, dbname, regex, attr, val, &keyv, &cvecv, &len) < 0)
-	goto catch;
+	goto done;
     for (i=0; i<len; i++)
 	if ((*fn)(h, dbname, keyv[i], cvecv[i], fnarg) < 0)
-	    goto catch;
+	    goto done;
     dbmatch_vec_free(keyv, cvecv, len);
     retval = 0;
-catch:
+done:
     unchunk_group(__FUNCTION__);
     if (x0)
 	xml_free(x0);
@@ -1689,9 +1779,9 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
     int              retval = -1;
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
-	goto catch;
+	goto done;
     if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
-	goto catch;
+	goto done;
     if (netconf) /* netconf prefix */
 	fprintf(stdout, "<rpc><edit-config><target><candidate/></target><config>\n");
     xc = NULL; /* Dont print xt itself */
@@ -1700,7 +1790,7 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
     if (netconf) /* netconf postfix */
 	fprintf(stdout, "</config></edit-config></rpc>]]>]]>\n");
     retval = 0;
-  catch:
+  done:
     if (xt)
 	xml_free(xt);
     return retval;
@@ -1730,14 +1820,14 @@ show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg)
     int          retval = -1;
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
-	goto catch;
+	goto done;
     if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
-	goto catch;
+	goto done;
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
 	xml2txt(stdout, xc, 0); /* tree-formed text */
     retval = 0;
-  catch:
+  done:
     if (xt)
 	xml_free(xt);
     unchunk_group(__FUNCTION__);
@@ -1756,17 +1846,17 @@ show_conf_as_command(clicon_handle h, cvec *vars, cg_var *arg, char *prepend)
     int                retval = -1;
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
-	goto catch;
+	goto done;
     if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
-	goto catch;
+	goto done;
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL){
 	if ((gt = clicon_cli_genmodel_type(h)) == GT_ERR)
-	    goto catch;
+	    goto done;
 	xml2cli(stdout, xc, prepend, gt, __FUNCTION__); /* cli syntax */
     }
     retval = 0;
-  catch:
+  done:
     if (xt)
 	xml_free(xt);
     unchunk_group(__FUNCTION__);
@@ -1899,14 +1989,14 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 
     dbspec = clicon_dbspec_key(h);
     if ((xt = xml_new("metrio", NULL)) == NULL)
-	goto catch;
+	goto done;
     if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
-	goto catch;
+	goto done;
 
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL){
 	if ((str = chunk_sprintf(__FUNCTION__, "%s[]", xml_name(xc))) == NULL)
-	    goto catch;
+	    goto done;
 	if (ds==NULL && (ds = key2spec_key(dbspec, str)) != NULL){
 	    fprintf(stdout, "Type");
 	    vh = db_spec2cvec(ds);
@@ -1916,12 +2006,12 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 	    fprintf(stdout, "\n");
 	} /* Now values just need to follow,... */
 	if (vh== NULL)
-	    goto catch;
+	    goto done;
 	xml2csv(stdout, xc, vh); /* cli syntax */
     }
 
     retval = 0;
-  catch:
+  done:
     if (xt)
 	xml_free(xt);
     unchunk_group(__FUNCTION__);

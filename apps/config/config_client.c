@@ -100,6 +100,8 @@ subscription_delete(struct subscription *su)
 }
 
 /*! Remove client entry state
+ * Close down everything wrt clients (eg sockets, subscriptions)
+ * Finally actually remove client struct in handle
  * See also backend_client_delete()
  */
 int
@@ -114,7 +116,6 @@ backend_client_rm(clicon_handle h, struct client_entry *ce)
     ce_prev = &c0; /* this points to stack and is not real backpointer */
     for (c = *ce_prev; c; c = c->ce_next){
 	if (c == ce){
-//	    *ce_prev = c->ce_next;
 	    if (ce->ce_s){
 		event_unreg_fd(ce->ce_s, from_client);
 		close(ce->ce_s);
@@ -124,14 +125,12 @@ backend_client_rm(clicon_handle h, struct client_entry *ce)
 		ce->ce_subscription = su->su_next;
 		subscription_delete(su);
 	    }
-//	    free(ce);
 	    break;
 	}
 	ce_prev = &c->ce_next;
     }
     return backend_client_delete(h, ce); /* actually purge it */
 }
-
 
 /*
  * Change entry set/delete in database
@@ -143,15 +142,16 @@ from_client_change(clicon_handle h,
 		   struct clicon_msg *msg, 
 		   const char *label)
 {
-    int retval = -1;
-    uint32_t lvec_len;
-    char *lvec;
-    char *basekey;
-    char *dbname;
-    lv_op_t op;
-    cvec *vr = NULL;
-    char *str = NULL;
+    int         retval = -1;
+    uint32_t    lvec_len;
+    char       *lvec;
+    char       *basekey;
+    char       *dbname;
+    lv_op_t     op;
+    cvec       *vr = NULL;
+    char       *str = NULL;
     dbspec_key *dbspec;
+    char       *candidate_db;
 
     dbspec = clicon_dbspec_key(h);
     if (clicon_msg_change_decode(msg, &dbname, &op,
@@ -162,8 +162,12 @@ from_client_change(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(dbname, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(dbname, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0,
@@ -250,6 +254,7 @@ from_client_load(clicon_handle h,
     int   retval = -1;
     char *dbname = NULL;
     int   replace = 0;
+    char *candidate_db;
 
     if (clicon_msg_load_decode(msg, 
 			       &replace,
@@ -260,8 +265,12 @@ from_client_load(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(dbname, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(dbname, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -301,6 +310,7 @@ from_client_initdb(clicon_handle h,
 {
     char  *filename1;
     int    retval = -1;
+    char  *candidate_db;
 
     if (clicon_msg_initdb_decode(msg, 
 			      &filename1,
@@ -309,8 +319,12 @@ from_client_initdb(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(filename1, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(filename1, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -320,7 +334,7 @@ from_client_initdb(clicon_handle h,
     if (db_init(filename1) < 0) 
 	goto done;
     /* Change mode if shared candidate. XXXX full rights for all is no good */
-    if (strcmp(filename1, clicon_candidate_db(h)) == 0)
+    if (strcmp(filename1, candidate_db) == 0)
 	chmod(filename1, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
     if (send_msg_ok(s) < 0)
@@ -342,7 +356,8 @@ from_client_rm(clicon_handle h,
 	       const char *label)
 {
     char *filename1;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
 
     if (clicon_msg_rm_decode(msg, 
 			      &filename1,
@@ -351,8 +366,12 @@ from_client_rm(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(filename1, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(filename1, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -382,7 +401,8 @@ from_client_copy(clicon_handle h,
 {
     char *filename1;
     char *filename2;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
 
     if (clicon_msg_copy_decode(msg, 
 			      &filename1,
@@ -392,8 +412,13 @@ from_client_copy(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+
     /* candidate is locked by other client */
-    if (strcmp(filename2, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(filename2, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -405,7 +430,7 @@ from_client_copy(clicon_handle h,
 	goto done;
     }
     /* Change mode if shared candidate. XXXX full rights for all is no good */
-    if (strcmp(filename2, clicon_candidate_db(h)) == 0)
+    if (strcmp(filename2, candidate_db) == 0)
 	chmod(filename2, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
     if (send_msg_ok(s) < 0)
 	goto done;
@@ -425,7 +450,9 @@ from_client_lock(clicon_handle h,
 		 const char *label)
 {
     char *db;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
+
 
     if (clicon_msg_lock_decode(msg, 
 			      &db,
@@ -434,9 +461,13 @@ from_client_lock(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    if (strcmp(db, clicon_candidate_db(h))){
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+    if (strcmp(db, candidate_db)){
 	send_msg_err(s, OE_DB, 0, "can not lock %s, only %s", 
-		     db, clicon_candidate_db(h));
+		     db, candidate_db);
 	goto done;
     }
     if (db_islocked(h)){
@@ -467,7 +498,9 @@ from_client_unlock(clicon_handle h,
 		   const char *label)
 {
     char *db;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
+
 
     if (clicon_msg_unlock_decode(msg, 
 			      &db,
@@ -476,7 +509,12 @@ from_client_unlock(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    if (strcmp(db, clicon_candidate_db(h))){
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+
+    if (strcmp(db, candidate_db)){
 	send_msg_err(s, OE_DB, 0, "can not unlock %s, only %s", 
 		     db, clicon_candidate_db(h));
 	goto done;
@@ -666,9 +704,8 @@ from_client(int s, void* arg)
     assert(s == ce->ce_s);
     if (clicon_msg_rcv(ce->ce_s, &msg, &eof, __FUNCTION__) < 0)
 	goto done;
-    if (eof){
-	backend_client_rm(h, ce);
-//	retval = 0; /* Nothing err with closing socket */
+    if (eof){ 
+	backend_client_rm(h, ce); 
 	goto done;
     }
     switch (msg->op_type){
