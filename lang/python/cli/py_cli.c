@@ -30,8 +30,8 @@
 #include <clicon/clicon.h>
 #include <clicon/clicon_cli.h>
 
-/* pyclicon */
-#include "py23.h"
+/* libpyclicon */
+#include "libpyclicon.h"
 
 static PyMethodDef cli_module_methods[] = {
 #if 0
