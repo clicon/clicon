@@ -78,6 +78,7 @@ install: install-$(HAVE_PYTHON)
 
 uninstall: uninstall-$(HAVE_PYTHON)
 
+install-include:
 
 # Python not enabled
 none:
