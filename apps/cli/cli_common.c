@@ -648,7 +648,7 @@ cli_start_shell(clicon_handle h, cvec *vars, cg_var *arg)
     cli_signal_flush();
     cli_signal_unblock();
     if (cmd){
-	snprintf(bcmd, 128, "bash -c \"%s\"", cmd);
+	snprintf(bcmd, 128, "bash -l -c \"%s\"", cmd);
 	if ((retval = system(bcmd)) < 0){
 	    cli_signal_block();
 	    fprintf(stderr, "%s: system(bash -c): %s\n", 
@@ -657,7 +657,7 @@ cli_start_shell(clicon_handle h, cvec *vars, cg_var *arg)
 	}
     }
     else
-	if ((retval = system("bash")) < 0){
+	if ((retval = system("bash -l")) < 0){
 	    cli_signal_block();
 	    fprintf(stderr, "%s: system(bash): %s\n", 
 		    __FUNCTION__, strerror(errno));
