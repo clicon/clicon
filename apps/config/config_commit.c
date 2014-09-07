@@ -93,9 +93,9 @@ plugin_modify_key_value(clicon_handle h,
     clicon_err_reset();
     if (dp->dp_callback(h, db, type, op, key, dp->dp_arg) < 0){
 	if (!clicon_errno) 	/* sanity: log if clicon_err() is not called ! */
-	    clicon_err(OE_DB, 0, "%s: key: %c%s: callback does not make clicon_err call on error",
+	    clicon_log(LOG_NOTICE, "%s: key: %c%s: callback does not make clicon_err call on error",
 		       __FUNCTION__, (op==LV_SET)?'+':'-', key);
-	goto done;
+//	goto done;
     }
     retval = 0;
   done:

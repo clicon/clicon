@@ -688,9 +688,7 @@ from_client_subscription(clicon_handle h,
 }
 
 
-/*
- * from_client
- * A message has arrived from a client
+/*! A message has arrived from a client
  */
 int
 from_client(int s, void* arg)
