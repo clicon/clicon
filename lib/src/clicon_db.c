@@ -215,7 +215,8 @@ clicon_dbappend(char *db, char *key, cg_var *cv)
 
 /*! Get list of db keys
  *
- * Get list of keys in database, excluding special vector keys.
+ * Get list of keys in database, excluding special vector keys. The list is a
+ * NULL terminated array of char*
  *
  * @param   db     Name of database to search in (filename including dir path)
  * @param   len    Pointer where length of returned list is stored.
@@ -229,6 +230,7 @@ clicon_dbkeys(char *db, size_t *len, char *rx)
     int keylen;
     int npairs;
     int nkeys;
+    size_t buflen;
     char *ptr;
     char **retval = NULL;
     char **keys = NULL;
@@ -248,14 +250,15 @@ clicon_dbkeys(char *db, size_t *len, char *rx)
 	keylen += (strlen(pairs[i].dp_key)+1);
     }
 
-    
-    if ((keys = malloc(nkeys * sizeof(char *) + keylen)) == NULL) {
+    buflen = (nkeys+1) * sizeof(char *) + keylen;
+    if ((keys = malloc(buflen)) == NULL) {
 	clicon_err(OE_UNIX, errno, "%s: malloc", __FUNCTION__);
 	goto quit;
     }
-    
+    memset(keys, 0, buflen);
+
     n = 0;
-    ptr = (char *)&keys[nkeys];
+    ptr = (char *)&keys[nkeys+1];
     for (i = 0; i < npairs; i++) {
 	
 	if(key_isvector_n(pairs[i].dp_key) || key_iskeycontent(pairs[i].dp_key))
@@ -280,9 +283,11 @@ quit:
 
 
 
-/*! Get list of db keys
+/*! Get list of db items
  *
- * Get list of keys in database, excluding special vector keys.
+ * Get list of items in database, excluding special vector keys. The list
+ * is a NULL terminated array of cvec* where each cvec is named with the 
+ * database key.
  *
  * @param   db     Name of database to search in (filename including dir path)
  * @param   len    Pointer where length of returned list is stored.
@@ -316,7 +321,8 @@ clicon_dbitems(char *db, size_t *len, char *rx)
     if (nkeys == 0)
 	return NULL;
 
-    if ((items = calloc(nkeys, sizeof(cvec *))) == NULL) {
+    /* Allocate list. One extra to NULL terminate list */
+    if ((items = calloc(nkeys+1, sizeof(cvec *))) == NULL) { 
 	clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
 	goto quit;
     }
@@ -352,4 +358,15 @@ quit:
     }
     
     return retval;
+}
+
+
+void
+clicon_dbitems_free(cvec **vecs)
+{
+    int i;
+
+    for (i = 0; vecs[i]; i++)
+	cvec_free(vecs[i]);
+    free(vecs);
 }

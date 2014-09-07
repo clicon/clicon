@@ -36,7 +36,7 @@ int     clicon_dbappend(char *db, char *key, cg_var *cv);
 int     clicon_dbhaskey(char *db, char *key);
 char  **clicon_dbkeys(char *db, size_t *len, char *rx);
 cvec  **clicon_dbitems(char *db, size_t *len, char *rx);
-
+void    clicon_dbitems_free(cvec **vecs);
 
 
 /*

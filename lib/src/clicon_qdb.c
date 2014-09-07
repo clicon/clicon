@@ -358,6 +358,8 @@ db_regexp(char *file,
 		}
 	    }
 	    pair->dp_vlen = vlen;
+	    free(val);
+	    val = NULL;
 	}
 
 	(*pairs) = newpairs;
