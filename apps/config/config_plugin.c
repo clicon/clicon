@@ -234,11 +234,29 @@ plugin_start_hooks(clicon_handle h, int argc, char **argv)
     return 0;
 }
 
-/*
- * Load a plugin group.
+/* 
+ * Append plugin to list
  */
-int
-plugin_initiate(clicon_handle h)
+static int
+plugin_append(struct plugin *p)
+{
+    struct plugin *new;
+    
+    if ((new = rechunk(plugins, (nplugins+1) * sizeof (*p), NULL)) == NULL) {
+	clicon_err(OE_UNIX, errno, "chunk");
+	return -1;
+    }
+    
+    memset (&new[nplugins], 0, sizeof(new[nplugins]));
+    memcpy (&new[nplugins], p, sizeof(new[nplugins]));
+    plugins = new;
+    nplugins++;
+
+    return 0;
+}
+
+static int
+plugin_load_dir(clicon_handle h, const char *dir)
 {
     int i;
     int np=0;
@@ -249,12 +267,8 @@ plugin_initiate(clicon_handle h)
     struct dirent *dp;
     struct plugin *new;
     struct plugin *p = NULL;
-    struct plugin *tmp;
-    char *dir;
     char *master;
 
-    if ((dir = clicon_backend_dir(h)) == NULL)
-	goto quit;
     /* Format master plugin path */
     master = chunk_sprintf(__FUNCTION__, "%s.so",  clicon_master_plugin(h));
     if (master == NULL) {
@@ -283,16 +297,8 @@ plugin_initiate(clicon_handle h)
 	new = plugin_load(h, filename, RTLD_NOW|RTLD_GLOBAL, __FUNCTION__);
 	if (new == NULL)
 	    goto quit;
-	if ((tmp = rechunk(p, (np+1) * sizeof (*p), NULL)) == NULL) {
-	    clicon_err(OE_UNIX, errno, "chunk");
+	if (plugin_append(new) < 0)
 	    goto quit;
-	}
-	p = tmp;
-	memset (&p[np], 0, sizeof(p[np]));
-	memcpy (&p[np], new, sizeof(p[np]));
-	np++;
-	unchunk(new);
-	unchunk (filename);
     }  
 
     /* Now load the rest */
@@ -308,21 +314,11 @@ plugin_initiate(clicon_handle h)
 	new = plugin_load (h, filename, RTLD_NOW, __FUNCTION__);
 	if (new == NULL) 
 	    goto quit;
-	if ((tmp = rechunk(p, (np+1) * sizeof (*p), NULL)) == NULL) {
-	    clicon_err(OE_UNIX, errno, "chunk");
+	if (plugin_append(new) < 0)
 	    goto quit;
-	}
-	p = tmp;
-	memset (&p[np], 0, sizeof(p[np]));
-	memcpy (&p[np], new, sizeof(p[np]));
-	np++;
-	unchunk(new);
-	unchunk (filename);
     }
     
     /* All good. */
-    nplugins = np;
-    plugins = p;
     retval = 0;
     
 quit:
@@ -335,6 +331,28 @@ quit:
     }
     unchunk_group(__FUNCTION__);
     return retval;
+}
+
+
+/*
+ * Load a plugin group.
+ */
+int
+plugin_initiate(clicon_handle h)
+{
+    char *dir;
+
+    /* First load CLICON system plugins */
+    if (plugin_load_dir(h, CLICON_BACKEND_SYSDIR) < 0)
+	return -1;
+
+    /* Then load application plugins */
+    if ((dir = clicon_backend_dir(h)) == NULL)
+	return -1;
+    if (plugin_load_dir(h, dir) < 0)
+	return -1;
+    
+    return 0;
 }
 
 

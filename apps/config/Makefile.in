@@ -43,6 +43,8 @@ CLICON_MINOR    = @CLICON_VERSION_MINOR@
 
 # Use this clicon lib for linking
 CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
+# Location of system plugins
+CLICON_BACKEND_SYSDIR = $(libdir)/clicon/plugins/backend
 
 # For dependency. A little strange that we rely on it being built in the src dir
 # even though it may exist in $(libdir). But the new version may not have been installed yet.
@@ -101,7 +103,7 @@ install-include: clicon_backend.h clicon_backend_api.h clicon_backend_plugin.h
 .SUFFIXES: .c .o
 
 .c.o:
-	$(CC) $(INCLUDES) -D__PROGRAM__=\"$(APPL)\" $(CPPFLAGS) $(CFLAGS) -c $<
+	$(CC) $(INCLUDES) -D__PROGRAM__=\"$(APPL)\" -DCLICON_BACKEND_SYSDIR=\"$(CLICON_BACKEND_SYSDIR)\" $(CPPFLAGS) $(CFLAGS) -c $<
 
 $(APPL) : $(APPOBJ) $(MYLIBLINK) $(LIBDEPS)
 	$(CC) $(LDFLAGS) $(APPOBJ) $(OBJS) -L. -l:$(MYLIB) $(LIBS) -o $@
