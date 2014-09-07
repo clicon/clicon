@@ -64,7 +64,6 @@ struct plugin {
     trans_complete_t  *p_complete;	       /* Validation complete */
     trans_end_t       *p_end;	               /* Post commit hook */
     trans_abort_t     *p_abort;	  
-     /* Post commit hook */
 };
 /* Plugins */
 static int nplugins = 0;
@@ -383,7 +382,7 @@ plugin_begin_hooks(clicon_handle h, char *candidate)
 
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_begin) 
-	    if ((retval = (plugins[i].p_begin)(h, candidate)) < 0)
+	    if ((retval = (plugins[i].p_begin)(h)) < 0)
 		break;
     return retval;
 }
@@ -401,7 +400,7 @@ plugin_complete_hooks(clicon_handle h, char *dbname)
     
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_complete) 
-	    if ((retval = (plugins[i].p_complete)(h, dbname)) < 0)
+	    if ((retval = (plugins[i].p_complete)(h)) < 0)
 		break;
     return retval;
 }
@@ -420,7 +419,7 @@ plugin_end_hooks(clicon_handle h, char *candidate)
     
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_end) 
-	    if ((retval = (plugins[i].p_end)(h, candidate)) < 0)
+	    if ((retval = (plugins[i].p_end)(h)) < 0)
 		break;
     return retval;
 }
@@ -437,7 +436,7 @@ plugin_abort_hooks(clicon_handle h, char *candidate)
 
     for (i = 0; i < nplugins; i++)  
 	if (plugins[i].p_abort) 
-	    (plugins[i].p_abort)(h, candidate); /* dont abort on error */
+	    (plugins[i].p_abort)(h); /* dont abort on error */
     return retval;
 }
 
@@ -461,7 +460,9 @@ plugin_downcall(clicon_handle h, struct clicon_msg_call_req *req,
 	strncpy(name, plugins[i].p_name, sizeof(name)-1);
 	if (!strcmp(name+strlen(name)-3, ".so"))
 	    name[strlen(name)-3] = '\0';
-	if (!strcmp(name, req->cr_plugin)) {
+	/* If no plugin is given or the plugin-name matches */
+	if (req->cr_plugin == NULL || strlen(req->cr_plugin)==0 ||
+	    strcmp(name, req->cr_plugin) == 0) {
 	    funcp = dlsym(plugins[i].p_handle, req->cr_func);
 	    if ((error = (char*)dlerror()) != NULL) {
 		clicon_err(OE_PROTO, ENOENT,

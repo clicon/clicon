@@ -60,19 +60,8 @@
 #include "config_dbdep.h"
 #include "config_handle.h"
 
-/* 
- * Exported variables 
- */
-struct client_entry *ce_list = NULL;   /* The client list */
-
-/* 
- * Local variables 
- */
-static int client_nr = 0;              /* Number of clients */
-
-
 /*
- * See also notify_log
+ * See also backend_notify
  */
 static struct subscription *
 subscription_add(struct client_entry *ce, char *stream)
@@ -91,83 +80,6 @@ subscription_add(struct client_entry *ce, char *stream)
     return su;
 }
 
-static int
-subscription_delete(struct subscription *su)
-{
-    free(su->su_stream);
-    free(su);
-    return 0;
-}
-
-
-
-/*
- * ce_add
- * Add client entry state
- */
-struct client_entry *
-ce_add(struct client_entry **ce_list, struct sockaddr *addr)
-{
-  struct client_entry *ce;
-
-  if ((ce = (struct client_entry *)malloc(sizeof(*ce))) == NULL){
-      clicon_err(OE_PLUGIN, errno, "malloc");
-      return NULL;
-  }
-  memset(ce, 0, sizeof(*ce));
-  ce->ce_nr = client_nr++;
-  memcpy(&ce->ce_addr, addr, sizeof(*addr));
-  ce->ce_next = *ce_list;
-  *ce_list = ce;
-
-  return ce;
-}
-
-/*
- * ce_rm
- * Remove client entry state
- */
-int
-ce_rm(struct client_entry **ce_list, struct client_entry *ce)
-{
-    struct client_entry *c;
-    struct client_entry **ce_prev;
-    struct subscription *su;
-
-    ce_prev = ce_list;
-    for (c = *ce_prev; c; c = c->ce_next){
-	if (c == ce){
-	    *ce_prev = c->ce_next;
-	    if (ce->ce_s){
-		event_unreg_fd(ce->ce_s, from_client);
-		close(ce->ce_s);
-		ce->ce_s = 0;
-	    }
-	    while ((su = ce->ce_subscription) != NULL){
-		ce->ce_subscription = su->su_next;
-		subscription_delete(su);
-	    }
-	    free(ce);
-	    break;
-	}
-	ce_prev = &c->ce_next;
-    }
-    return 0;
-}
-
-#ifdef notused
-static struct client_entry *
-ce_find_bynr(struct client_entry *ce_list, int nr)
-{
-    struct client_entry *ce;
-
-    for (ce = ce_list; ce; ce = ce->ce_next)
-	if (ce->ce_nr == nr)
-	    return ce;
-    return NULL;
-}
-#endif /* notused */
-
 static struct client_entry *
 ce_find_bypid(struct client_entry *ce_list, int pid)
 {
@@ -179,6 +91,46 @@ ce_find_bypid(struct client_entry *ce_list, int pid)
     return NULL;
 }
 
+static int
+subscription_delete(struct subscription *su)
+{
+    free(su->su_stream);
+    free(su);
+    return 0;
+}
+
+/*! Remove client entry state
+ * Close down everything wrt clients (eg sockets, subscriptions)
+ * Finally actually remove client struct in handle
+ * See also backend_client_delete()
+ */
+int
+backend_client_rm(clicon_handle h, struct client_entry *ce)
+{
+    struct client_entry   *c;
+    struct client_entry   *c0;
+    struct client_entry  **ce_prev;
+    struct subscription   *su;
+
+    c0 = backend_client_list(h);
+    ce_prev = &c0; /* this points to stack and is not real backpointer */
+    for (c = *ce_prev; c; c = c->ce_next){
+	if (c == ce){
+	    if (ce->ce_s){
+		event_unreg_fd(ce->ce_s, from_client);
+		close(ce->ce_s);
+		ce->ce_s = 0;
+	    }
+	    while ((su = ce->ce_subscription) != NULL){
+		ce->ce_subscription = su->su_next;
+		subscription_delete(su);
+	    }
+	    break;
+	}
+	ce_prev = &c->ce_next;
+    }
+    return backend_client_delete(h, ce); /* actually purge it */
+}
 
 /*
  * Change entry set/delete in database
@@ -190,15 +142,16 @@ from_client_change(clicon_handle h,
 		   struct clicon_msg *msg, 
 		   const char *label)
 {
-    int retval = -1;
-    uint32_t lvec_len;
-    char *lvec;
-    char *basekey;
-    char *dbname;
-    lv_op_t op;
-    cvec *vr = NULL;
-    char *str = NULL;
+    int         retval = -1;
+    uint32_t    lvec_len;
+    char       *lvec;
+    char       *basekey;
+    char       *dbname;
+    lv_op_t     op;
+    cvec       *vr = NULL;
+    char       *str = NULL;
     dbspec_key *dbspec;
+    char       *candidate_db;
 
     dbspec = clicon_dbspec_key(h);
     if (clicon_msg_change_decode(msg, &dbname, &op,
@@ -209,8 +162,12 @@ from_client_change(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(dbname, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(dbname, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0,
@@ -297,6 +254,7 @@ from_client_load(clicon_handle h,
     int   retval = -1;
     char *dbname = NULL;
     int   replace = 0;
+    char *candidate_db;
 
     if (clicon_msg_load_decode(msg, 
 			       &replace,
@@ -307,8 +265,12 @@ from_client_load(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(dbname, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(dbname, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -348,6 +310,7 @@ from_client_initdb(clicon_handle h,
 {
     char  *filename1;
     int    retval = -1;
+    char  *candidate_db;
 
     if (clicon_msg_initdb_decode(msg, 
 			      &filename1,
@@ -356,8 +319,12 @@ from_client_initdb(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(filename1, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(filename1, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -367,7 +334,7 @@ from_client_initdb(clicon_handle h,
     if (db_init(filename1) < 0) 
 	goto done;
     /* Change mode if shared candidate. XXXX full rights for all is no good */
-    if (strcmp(filename1, clicon_candidate_db(h)) == 0)
+    if (strcmp(filename1, candidate_db) == 0)
 	chmod(filename1, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
     if (send_msg_ok(s) < 0)
@@ -389,7 +356,8 @@ from_client_rm(clicon_handle h,
 	       const char *label)
 {
     char *filename1;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
 
     if (clicon_msg_rm_decode(msg, 
 			      &filename1,
@@ -398,8 +366,12 @@ from_client_rm(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
     /* candidate is locked by other client */
-    if (strcmp(filename1, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(filename1, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -429,7 +401,8 @@ from_client_copy(clicon_handle h,
 {
     char *filename1;
     char *filename2;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
 
     if (clicon_msg_copy_decode(msg, 
 			      &filename1,
@@ -439,8 +412,13 @@ from_client_copy(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+
     /* candidate is locked by other client */
-    if (strcmp(filename2, clicon_candidate_db(h)) == 0 &&
+    if (strcmp(filename2, candidate_db) == 0 &&
 	db_islocked(h) &&
 	pid != db_islocked(h)){
 	send_msg_err(s, OE_DB, 0, "lock failed: locked by %d", db_islocked(h));
@@ -452,7 +430,7 @@ from_client_copy(clicon_handle h,
 	goto done;
     }
     /* Change mode if shared candidate. XXXX full rights for all is no good */
-    if (strcmp(filename2, clicon_candidate_db(h)) == 0)
+    if (strcmp(filename2, candidate_db) == 0)
 	chmod(filename2, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
     if (send_msg_ok(s) < 0)
 	goto done;
@@ -472,7 +450,9 @@ from_client_lock(clicon_handle h,
 		 const char *label)
 {
     char *db;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
+
 
     if (clicon_msg_lock_decode(msg, 
 			      &db,
@@ -481,9 +461,13 @@ from_client_lock(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    if (strcmp(db, clicon_candidate_db(h))){
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+    if (strcmp(db, candidate_db)){
 	send_msg_err(s, OE_DB, 0, "can not lock %s, only %s", 
-		     db, clicon_candidate_db(h));
+		     db, candidate_db);
 	goto done;
     }
     if (db_islocked(h)){
@@ -514,7 +498,9 @@ from_client_unlock(clicon_handle h,
 		   const char *label)
 {
     char *db;
-    int retval = -1;
+    int   retval = -1;
+    char *candidate_db;
+
 
     if (clicon_msg_unlock_decode(msg, 
 			      &db,
@@ -523,7 +509,12 @@ from_client_unlock(clicon_handle h,
 		     clicon_err_reason);
 	goto done;
     }
-    if (strcmp(db, clicon_candidate_db(h))){
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+
+    if (strcmp(db, candidate_db)){
 	send_msg_err(s, OE_DB, 0, "can not unlock %s, only %s", 
 		     db, clicon_candidate_db(h));
 	goto done;
@@ -565,8 +556,8 @@ from_client_kill(clicon_handle h,
 	goto done;
     }
     /* may or may not be in active client list, probably not */
-    if ((ce = ce_find_bypid(ce_list, pid)) != NULL)
-	ce_rm(&ce_list, ce);
+    if ((ce = ce_find_bypid(backend_client_list(h), pid)) != NULL)
+	backend_client_rm(h, ce);
     if (kill (pid, 0) != 0 && errno == ESRCH) /* Nothing there */
 	;
     else{
@@ -700,7 +691,6 @@ from_client_subscription(clicon_handle h,
 /*
  * from_client
  * A message has arrived from a client
- *
  */
 int
 from_client(int s, void* arg)
@@ -714,9 +704,8 @@ from_client(int s, void* arg)
     assert(s == ce->ce_s);
     if (clicon_msg_rcv(ce->ce_s, &msg, &eof, __FUNCTION__) < 0)
 	goto done;
-    if (eof){
-	ce_rm(&ce_list, ce);
-//	retval = 0; /* Nothing err with closing socket */
+    if (eof){ 
+	backend_client_rm(h, ce); 
 	goto done;
     }
     switch (msg->op_type){

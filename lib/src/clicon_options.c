@@ -86,7 +86,7 @@
  * Print registry on file. For debugging.
  */
 void
-clicon_option_dump(clicon_handle h, FILE *f)
+clicon_option_dump(clicon_handle h, int dbglevel)
 {
     clicon_hash_t *hash = clicon_options(h);
     int            i;
@@ -103,10 +103,14 @@ clicon_option_dump(clicon_handle h, FILE *f)
 	
     for(i = 0; i < klen; i++) {
 	val = hash_value(hash, keys[i], &vlen);
-	fprintf(f, "%s =\t 0x%p , length %zu", keys[i], val, vlen);
-	if (vlen && ((char*)val)[vlen-1]=='\0') /* assume string */
-	    fprintf(f, " \"%s\"", (char*)val);
-	fprintf(f, "\n");
+	if (vlen){
+	    if (((char*)val)[vlen-1]=='\0') /* assume string */
+		clicon_debug(dbglevel, "%s =\t \"%s\"", keys[i], (char*)val);
+	    else
+		clicon_debug(dbglevel, "%s =\t 0x%p , length %zu", keys[i], val, vlen);
+	}
+	else
+	    clicon_debug(dbglevel, "%s = NULL", keys[i]);
     }
     free(keys);
 
@@ -308,9 +312,7 @@ clicon_option_default(clicon_hash_t  *copt)
 }
 
 
-/*
- * clicon_options_main
- * Find appdir. Find and read configfile
+/*! Find appdir. Find and read configfile
  *
  1. First find APPDIR:
  1.1. command line arg (-a). else
@@ -378,10 +380,7 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
 }
 
 
-/*
- * clicon_option_exists
- *
- * Check if an option has a value
+/*! Check if a clicon option has a value
  */
 int
 clicon_option_exists(clicon_handle h, char *name)
@@ -391,23 +390,25 @@ clicon_option_exists(clicon_handle h, char *name)
     return (hash_lookup(copt, name) != NULL);
 }
 
-/*
- * clicon_option_str
+/*! Get a single string option string via handle
  *
- * Get a single string option string via handle
+ * @param   h       clicon_handle
+ * @param   name    option name
+ * @retval  NULL    If option not found, or value of option is NULL
+ * @retval  string  value of option if found
+ * clicon options should be strings.
+ * To differentiate the two reasons why NULL may be returned, use function 
+ * clicon_option_exists() before the call
  */
 char *
 clicon_option_str(clicon_handle h, char *name)
 {
     clicon_hash_t *copt = clicon_options(h);
 
-    if (hash_lookup(copt, name) == NULL){
-	clicon_err(OE_UNIX, 0, "Option not found %s", name);
+    if (hash_lookup(copt, name) == NULL)
 	return NULL;
-    }
     return hash_value(copt, name, NULL);
 }
-
 
 /* 
  * clicon_option_str_set
@@ -422,13 +423,21 @@ clicon_option_str_set(clicon_handle h, char *name, char *val)
     return hash_add(copt, name, val, strlen(val)+1)==NULL?-1:0;
 }
 
-/* 
- * clicon_option_int
- * get options as integer but stored as string
- * Note be saved as int but then option files are hard to handle.
- * Note also that -1 can be both error and value.
- * This means that it should be used together with clicon_option_exists().
- * Or explicitly check for values like 0 and 1.
+/*! Get options as integer but stored as string
+
+ * @param   h    clicon handle
+ * @param   name name of option
+ * @retval  int  An integer as aresult of atoi
+ * @retval  -1   If option does not exist
+ * @code
+ *  if (clicon_option_exists(h, "X")
+ *	return clicon_option_int(h, "X");
+ *  else
+ *      return 0;
+ * @endcode
+ * Note that -1 can be both error and value.
+ * This means that it should be used together with clicon_option_exists() and
+ * supply a defualt value as shown in the example.
  */
 int
 clicon_option_int(clicon_handle h, char *name)
@@ -440,9 +449,7 @@ clicon_option_int(clicon_handle h, char *name)
     return atoi(s);
 }
 
-/*
- * clicon_option_int_set
- * set option given as int.
+/*! set option given as int.
  */
 int
 clicon_option_int_set(clicon_handle h, char *name, int val)
@@ -582,11 +589,18 @@ clicon_cli_mode(clicon_handle h)
     return clicon_option_str(h, "CLICON_CLI_MODE");
 }
 
-/* Name of generated tree (use with '@' syntax in cligen spec) or 'OFF' */
+/*! Whether to generate CLIgen syntax from datamodel or not (0 or 1)
+ * Must be used with a previous clicon_option_exists().
+ */
 int
 clicon_cli_genmodel(clicon_handle h)
 {
-    return clicon_option_int(h, "CLICON_CLI_GENMODEL");
+    char const *opt = "CLICON_CLI_GENMODEL";
+
+    if (clicon_option_exists(h, opt))
+	return clicon_option_int(h, opt);
+    else
+	return 0;
 }
 
 /* How to generate and show CLI syntax: VARS|ALL */
@@ -624,7 +638,12 @@ clicon_quiet_mode(clicon_handle h)
 int
 clicon_autocommit(clicon_handle h)
 {
-    return clicon_option_int(h, "CLICON_AUTOCOMMIT");
+    char const *opt = "CLICON_AUTOCOMMIT";
+
+    if (clicon_option_exists(h, opt))
+	return clicon_option_int(h, opt);
+    else
+	return 0;
 }
 
 int
@@ -633,10 +652,17 @@ clicon_autocommit_set(clicon_handle h, int val)
     return clicon_option_int_set(h, "CLICON_AUTOCOMMIT", val);
 }
 
+/*! Dont include keys in cvec in cli vars callbacks
+ */
 int
 clicon_cli_varonly(clicon_handle h)
 {
-    return clicon_option_int(h, "CLICON_CLI_VARONLY");
+    char const *opt = "CLICON_CLI_VARONLY";
+
+    if (clicon_option_exists(h, opt))
+	return clicon_option_int(h, opt);
+    else
+	return 0;
 }
 
 int
@@ -648,7 +674,12 @@ clicon_cli_varonly_set(clicon_handle h, int val)
 int
 clicon_cli_genmodel_completion(clicon_handle h)
 {
-    return clicon_option_int(h, "CLICON_CLI_GENMODEL_COMPLETION");
+    char const *opt = "CLICON_CLI_GENMODEL_COMPLETION";
+
+    if (clicon_option_exists(h, opt))
+	return clicon_option_int(h, opt);
+    else
+	return 0;
 }
 
 /* 

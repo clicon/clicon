@@ -31,6 +31,7 @@
 #include <inttypes.h>
 #include <dirent.h>
 #include <errno.h>
+#include <unistd.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -47,6 +48,7 @@
 #include "config_dbdiff.h"
 #include "config_dbdep.h"
 #include "config_client.h"
+#include "config_handle.h"
 
 /* header part is copied from struct clicon_handle in lib/src/clicon_handle.c */
 
@@ -62,11 +64,13 @@
  * entries in the struct below.
  */
 struct backend_handle {
-    int                      cb_magic;    /* magic (HDR)*/
-    clicon_hash_t           *cb_copt;     /* clicon option list (HDR) */
-    clicon_hash_t           *cb_data;     /* internal clicon data (HDR) */
+    int                      cb_magic;     /* magic (HDR)*/
+    clicon_hash_t           *cb_copt;      /* clicon option list (HDR) */
+    clicon_hash_t           *cb_data;      /* internal clicon data (HDR) */
     /* ------ end of common handle ------ */
-    dbdep_t                 *cb_dbdep;    /* Database dependencies: commit checks */
+    dbdep_t                 *cb_dbdep;     /* Database dependencies: commit checks */
+    struct client_entry     *cb_ce_list;   /* The client list */
+    int                      cb_ce_nr;     /* Number of clients, just increment */
 };
 
 /*
@@ -86,7 +90,12 @@ backend_handle_init(void)
 int
 backend_handle_exit(clicon_handle h)
 {
+    struct client_entry   *ce;
+
     dbdeps_free(h); 
+    /* only delete client structs, not close sockets, etc, see backend_client_rm */
+    while ((ce = backend_client_list(h)) != NULL)
+	backend_client_delete(h, ce);
     clicon_handle_exit(h); /* frees h and options */
     return 0;
 }
@@ -119,7 +128,7 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
  * See also: subscription_add()
  */
 int
-notify_log(char *stream, int level, char *format, ...)
+backend_notify(clicon_handle h, char *stream, int level, char *format, ...)
 {
     va_list              args;
     int                  len;
@@ -141,7 +150,7 @@ notify_log(char *stream, int level, char *format, ...)
     va_end(args);
 
     /* Now go thru all clients(sessions), and all subscriptions and find matches */
-    for (ce = ce_list; ce; ce = ce->ce_next)
+    for (ce = backend_client_list(h); ce; ce = ce->ce_next)
 	for (su = ce->ce_subscription; su; su = su->su_next)
 	    if (strcmp(su->su_stream, stream) == 0)
 		if (send_msg_notify(ce->ce_s, level, event) < 0)
@@ -151,5 +160,53 @@ notify_log(char *stream, int level, char *format, ...)
     if (event)
 	free(event);
     return retval;
+}
+
+struct client_entry *
+backend_client_add(clicon_handle h, struct sockaddr *addr)
+{
+    struct backend_handle *cb = handle(h);
+    struct client_entry   *ce;
+
+    if ((ce = (struct client_entry *)malloc(sizeof(*ce))) == NULL){
+	clicon_err(OE_PLUGIN, errno, "malloc");
+	return NULL;
+    }
+    memset(ce, 0, sizeof(*ce));
+    ce->ce_nr = cb->cb_ce_nr++;
+    memcpy(&ce->ce_addr, addr, sizeof(*addr));
+    ce->ce_next = cb->cb_ce_list;
+    cb->cb_ce_list = ce;
+    return ce;
+}
+
+struct client_entry *
+backend_client_list(clicon_handle h)
+{
+    struct backend_handle *cb = handle(h);
+
+    return cb->cb_ce_list;
+}
+
+/*! Actually remove client from list
+ * See also backend_client_rm()
+ */
+int
+backend_client_delete(clicon_handle h, struct client_entry *ce)
+{
+    struct client_entry   *c;
+    struct client_entry  **ce_prev;
+    struct backend_handle *cb = handle(h);
+
+    ce_prev = &cb->cb_ce_list;
+    for (c = *ce_prev; c; c = c->ce_next){
+	if (c == ce){
+	    *ce_prev = c->ce_next;
+	    free(ce);
+	    break;
+	}
+	ce_prev = &c->ce_next;
+    }
+    return 0;
 }
 

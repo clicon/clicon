@@ -73,7 +73,7 @@
 #define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRc::rg:"
 
 static int
-terminate(clicon_handle h)
+config_terminate(clicon_handle h)
 {
     dbspec_key *dbspec;
     yang_spec      *yspec;
@@ -127,7 +127,7 @@ usage(char *argv0, clicon_handle h)
     fprintf(stderr, "usage:%s\n"
 	    "where options are\n"
             "    -h\t\thelp\n"
-    	    "    -D <level>\t\tdebug\n"
+    	    "    -D <level>\tdebug\n"
     	    "    -f <file>\tCLICON config file (default: %s)\n"
     	    "    -a <dir>\tSpecify application dir (default: %s)\n"
 	    "    -d <dir>\tSpecify backend plugin directory (default: %s)\n"
@@ -173,13 +173,13 @@ zapold(clicon_handle h)
 }
 
 static int
-rundb_main(clicon_handle h)
+rundb_main(clicon_handle h, char *running_db)
 {
-    if (unlink(clicon_running_db(h)) != 0 && errno != ENOENT) {
+    if (unlink(running_db) != 0 && errno != ENOENT) {
 	clicon_err(OE_UNIX, errno, "unlink");
 	return -1;
     }
-    if (db_init(clicon_running_db(h)) < 0)
+    if (db_init(running_db) < 0)
 	return -1;
     
     return 0;
@@ -191,7 +191,7 @@ rundb_main(clicon_handle h)
  * if replace is set, clean running first (in case it is non-empty)
  */
 static int
-appconf_main(clicon_handle h, char *appconf, int replace)
+appconf_main(clicon_handle h, char *appconf, char *running_db, int replace)
 {
     char *tmp;
     int retval = -1;
@@ -204,7 +204,7 @@ appconf_main(clicon_handle h, char *appconf, int replace)
 	    goto catch;
     }
     else {
-	if (file_cp(clicon_running_db(h), tmp) < 0){
+	if (file_cp(running_db, tmp) < 0){
 	    clicon_err(OE_UNIX, errno, "file copy");
 	    goto catch;
 	}
@@ -213,7 +213,7 @@ appconf_main(clicon_handle h, char *appconf, int replace)
     if (load_xml_to_db(appconf, clicon_dbspec_key(h), tmp) < 0) 
 	goto catch;
     
-    if (candidate_commit(h, tmp, clicon_running_db(h)) < 0)
+    if (candidate_commit(h, tmp, running_db) < 0)
 	goto catch;
 
     retval = 0;
@@ -248,9 +248,9 @@ server_socket(clicon_handle h)
 static int
 config_log_cb(int level, char *msg, void *arg)
 {
-    /* Notify_log() will go through all clients and see if any has registered "CLICON",
+    /* backend_notify() will go through all clients and see if any has registered "CLICON",
        and if so make a clicon_proto notify message to those clients.   */
-    return notify_log("CLICON", level, msg);
+    return backend_notify(arg, "CLICON", level, msg);
 }
 
 /*
@@ -262,7 +262,10 @@ dbspec_main_config(clicon_handle h, int printspec, int printalt)
     char            *dbspec_type;
     int              retval = -1;
 
-    dbspec_type = clicon_dbspec_type(h);
+    if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "Dbspec type not set");
+	goto quit;
+    }
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
 	if (yang_spec_main(h, stdout, printspec, printalt) < 0)
 	    goto quit;
@@ -286,28 +289,30 @@ dbspec_main_config(clicon_handle h, int printspec, int printalt)
 int
 main(int argc, char **argv)
 {
-    char       c;
-    int        zap;
-    int        foreground;
-    int        once;
-    int        init_rundb;
-    int        reset_state;
-    int        replace_config = 0;
-    char      *app_config = NULL;
-    char      *config_group;
-    char      *argv0 = argv[0];
-    char      *tmp;
-    struct stat    st;
-    clicon_handle  h;
-    int            help = 0;
+    char          c;
+    int           zap;
+    int           foreground;
+    int           once;
+    int           init_rundb;
+    char         *running_db;
+    char         *candidate_db;
+    int           reset_state;
+    int           replace_config = 0;
+    char         *app_config = NULL;
+    char         *config_group;
+    char         *argv0 = argv[0];
+    char         *tmp;
+    struct stat   st;
+    clicon_handle h;
+    int           help = 0;
 
     /* In the startup, logs to stderr & syslog and debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR|CLICON_LOG_SYSLOG); 
     /* Initiate CLICON handle */
     if ((h = backend_handle_init()) == NULL)
-	goto quit;
+	goto done;
     if (config_plugin_init(h) != 0) 
-	goto quit;
+	goto done;
 
     foreground = 0;
     once = 0;
@@ -446,45 +451,52 @@ main(int argc, char **argv)
 
     /* Parse db spec file */
     if (dbspec_main_config(h, 0, 0) < 0)
-	return -1;
-
+	goto done;
+    if ((running_db = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto done;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto done;
+    }
     /* Init running db */
-    if (init_rundb || (stat(clicon_running_db(h), &st) && errno == ENOENT))
-	if (rundb_main(h) < 0)
-	    goto quit;
+    if (init_rundb || (stat(running_db, &st) && errno == ENOENT))
+	if (rundb_main(h, running_db) < 0)
+	    goto done;
 
     /* Initialize plugins 
        (also calls plugin_init() and plugin_start(argc,argv) in each plugin */
     if (plugin_initiate(h) != 0) 
-	goto quit;
+	goto done;
     
     /* Request plugins to reset system state */
     if (reset_state)
 	if (plugin_reset_state(h) < 0)  
-	    goto quit;
+	    goto done;
 
     /* Call plugin_start */
     tmp = *(argv-1);
     *(argv-1) = argv0;
     if (plugin_start_hooks(h, argc+1, argv-1) < 0) 
-	goto quit;
+	goto done;
     *(argv-1) = tmp;
 
 
     /* Have we specified a config file to load? */
     if (app_config)
-	if (appconf_main(h, app_config, replace_config) < 0)
-	    goto quit;
+	if (appconf_main(h, app_config, running_db, replace_config) < 0)
+	    goto done;
     /* Initiate the shared candidate. Maybe we should not do this? */
-    if (file_cp(clicon_running_db(h), clicon_candidate_db(h)) < 0){
+    if (file_cp(running_db, candidate_db) < 0){
 	clicon_err(OE_UNIX, errno, "FATAL: file_cp");
-	goto quit;
+	goto done;
     }
     /* XXX Hack for now. Change mode so that we all can write. Security issue*/
-    chmod(clicon_candidate_db(h), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
+    chmod(candidate_db, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
     if (once)
-	goto quit;
+	goto done;
 
     /* Daemonize and initiate logging. Note error is initiated here to make
        demonized errors OK. Before this stage, errors are logged on stderr 
@@ -499,10 +511,10 @@ main(int argc, char **argv)
 
     /* Daemon already running? */
     if (pidfile_check(clicon_backend_pidfile(h), 0) != 0) 
-	goto quit;
+	goto done;
 
     /* Register log notifications */
-    if (clicon_log_register_callback(config_log_cb, NULL) < 0)
+    if (clicon_log_register_callback(config_log_cb, h) < 0)
 	return -1;
     clicon_log(LOG_NOTICE, "%s: %u Started", __PROGRAM__, getpid());
     if (set_signal(SIGTERM, config_sig_term, NULL) < 0){
@@ -518,11 +530,14 @@ main(int argc, char **argv)
     if (server_socket(h) < 0)
 	return -1;
 
+    if (debug)
+	clicon_option_dump(h, debug);
+
     if (event_loop() < 0)
-	goto quit;
-  quit:
-    terminate(h);
+	goto done;
+  done:
     clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
+    config_terminate(h); /* Cannot use h after this */
 
     return 0;
 }

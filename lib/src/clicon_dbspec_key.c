@@ -78,6 +78,18 @@
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
 
+/* align 4 bytes */
+static inline char * strdupalign(char *str) 
+{
+    char *dup;
+    int len;
+    len = ((strlen(str)+1)/4)*4 + 4;
+    if ((dup = malloc(len)) == NULL)
+	return NULL;
+    strncpy(dup, str, len);
+    return dup;
+}
+
 dbspec_key *
 db_spec_new(void)
 {
@@ -234,7 +246,7 @@ dbspec_parse_line(char *line, int linenr, const char *filename, dbspec_key **lis
     if ((dbp = db_spec_new()) == NULL)
 	goto catch;
     dbp->ds_vec = vr;
-    dbp->ds_key = strdup(vec[0]);
+    dbp->ds_key = strdupalign(vec[0]);
     db_spec_tailadd(list, dbp); /* dbp may be freed */
     retval = 0;
   catch:

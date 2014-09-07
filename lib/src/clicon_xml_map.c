@@ -950,7 +950,7 @@ xml2txt(FILE *f, cxobj *x, int level)
  */
 int 
 xml2cli(FILE              *f, 
-	cxobj   *x, 
+	cxobj             *x, 
 	char              *prepend0, 
 	enum genmodel_type gt,
 	const char        *label)

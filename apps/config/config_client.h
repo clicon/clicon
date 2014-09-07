@@ -48,18 +48,11 @@ struct subscription{
     char *su_stream;
 };
 
-
-/* 
- * Exported variables 
- */
-extern struct client_entry *ce_list;   /* The client list */
-
 /*
  * Prototypes
  */ 
+int backend_client_rm(clicon_handle h, struct client_entry *ce);
+
 int from_client(int fd, void *arg);
-struct client_entry *ce_add(struct client_entry **ce_list, 
-			    struct sockaddr *addr);
-int ce_rm(struct client_entry **ce_list, struct client_entry *ce);
 
 #endif  /* _CONFIG_CLIENT_H_ */

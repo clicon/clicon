@@ -217,7 +217,10 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
     int             retval = -1; 
     char            *dbspec_type;
 
-    dbspec_type = clicon_dbspec_type(h);
+    if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "Dbspec type not set");
+	goto done;
+    }
     if (strcmp(dbspec_type, "KEY") == 0 ||
 	strcmp(dbspec_type, "YANG") == 0){     /* KEY or YANG syntax bot validate using YANG */
 	if ((yspec = clicon_dbspec_yang(h)) == NULL){
@@ -633,6 +636,7 @@ from_client_validate(clicon_handle h,
 		     const char *label)
 {
     char *dbname;
+    char *running_db;
     int retval = -1;
 
     if (clicon_msg_validate_decode(msg, &dbname, label) < 0){
@@ -642,8 +646,11 @@ from_client_validate(clicon_handle h,
     }
 
     clicon_debug(1, "Validate %s",  dbname);
-
-    if (candidate_validate(h, dbname, clicon_running_db(h)) < 0){
+    if ((running_db = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto err;
+    }
+    if (candidate_validate(h, dbname, running_db) < 0){
 	clicon_debug(1, "Validate %s failed",  dbname);
 	retval = 0; /* We ignore errors from commit, but maybe
 		       we should fail on fatal errors? */

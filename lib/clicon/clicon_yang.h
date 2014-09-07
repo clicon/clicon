@@ -104,15 +104,20 @@ enum rfc_6020{
     Y_SPEC  /* XXX: NOTE NOT YANG STATEMENT, reserved for top level spec */
 };
 
-/*! yang statement */
+/*! yang statement 
+ * A word on the ys_dbkey translation.
+ * Example yang: container a {list x{key y;leaf y; leaf z;}}
+ * the container is mapped to 'a'
+ * the list is mapped to      'a.x[] $!y
+ * a key is mapped to         'a.x[] $!y $z
+*/
 struct yang_stmt{
     int                ys_len;
     struct yang_stmt **ys_stmt;
     struct yang_node  *ys_parent;    /* backpointer to parent: yang-stmt or yang-spec */
     enum rfc_6020      ys_keyword;   /* See clicon_yang_parse.tab.h */
     char              *ys_argument;  /* String / argument depending on keyword */   
-    char              *ys_dbkey;     /* dbspec key corresponding to this yang node */
-
+    char              *ys_dbkey;     /* dbspec key corresponding to this yang node, see above */
     cg_var            *ys_cv;        /* cligen variable. The following stmts have cvs::
 				        leaf, leaf-list, mandatory, fraction-digits */
     cvec              *ys_cvec;      /* List of stmt-specific variables 

@@ -267,6 +267,8 @@ load_str2fn(char *name, void *handle, char **error)
  * mapping. One could do something more elaborate with namespaces and plugins:
  * x::a, x->a, but this is not done yet.
  * Compare with load_str2fn - essentially identical.
+ * @param[in] name    Name of function
+ * @param[in] handle  Handle to plugin .so module  as returned by dlopen, see cli_plugin_load
  */
 expand_cb *
 expand_str2fn(char *name, void *handle, char **error)
@@ -306,7 +308,7 @@ expand_str2fn(char *name, void *handle, char **error)
  * Note 'file' may be destructively modified
  */
 static plghndl_t 
-plugin_load (clicon_handle h, char *file, int dlflags, const char *cnklbl)
+cli_plugin_load (clicon_handle h, char *file, int dlflags, const char *cnklbl)
 {
     char *error;
     char *name;
@@ -514,7 +516,7 @@ syntax_group_load (clicon_handle h, char *group)
     if (stat(filename, &st) == 0) {
 	clicon_debug(1, "DEBUG: Loading master plugin '%s::%.*s' ... ", 
 		    cpg->cpg_name, (int)strlen(master)-3, master);
-	if ((cp = plugin_load (h, filename, RTLD_NOW|RTLD_GLOBAL, cnklbl)) == NULL)
+	if ((cp = cli_plugin_load (h, filename, RTLD_NOW|RTLD_GLOBAL, cnklbl)) == NULL)
 	    goto quit;
 	/* Look up certain call-backs in master plugin */
 	cpg->cpg_prompt_hook = 
@@ -540,7 +542,7 @@ syntax_group_load (clicon_handle h, char *group)
 	clicon_debug(1, "DEBUG: Loading plugin '%s::%.*s' ... ", 
 		     cpg->cpg_name, (int)strlen(dp[i].d_name)-3, dp[i].d_name);
 
-	if ((cp = plugin_load (h, filename, RTLD_NOW, cnklbl)) == NULL)
+	if ((cp = cli_plugin_load (h, filename, RTLD_NOW, cnklbl)) == NULL)
 	    goto quit;
 	INSQ(cp, cpg->cpg_plugins);
 	cpg->cpg_nplugins++;

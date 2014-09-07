@@ -59,7 +59,7 @@ enum genmodel_type{
 /* Initialize options: set defaults, read config-file, etc */
 int clicon_options_main(clicon_handle h, int argc, char **argv);
 
-void clicon_option_dump(clicon_handle h, FILE *f);
+void clicon_option_dump(clicon_handle h, int dblevel);
 
 int clicon_option_exists(clicon_handle h, char *name);
 

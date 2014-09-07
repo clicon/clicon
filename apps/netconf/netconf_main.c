@@ -245,7 +245,7 @@ send_hello(int s)
 
 /* from init_candidate_db() and cli_proto_copy() */
 static int
-init_candidate_db(clicon_handle h)
+init_candidate_db(clicon_handle h, char *running_db, char *candidate_db)
 {
     struct stat      sb;
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
@@ -254,9 +254,9 @@ init_candidate_db(clicon_handle h)
 
     /* init shared candidate */
 
-    if (lstat(clicon_candidate_db(h), &sb) < 0){
-	if ((msg=clicon_msg_copy_encode(clicon_running_db(h),
-					clicon_candidate_db(h),
+    if (lstat(candidate_db, &sb) < 0){
+	if ((msg=clicon_msg_copy_encode(running_db,
+					candidate_db,
 				       __FUNCTION__)) == NULL)
 	    return -1;
 	if ((s = clicon_sock(h)) == NULL)
@@ -279,7 +279,10 @@ dbspec_main_netconf(clicon_handle h, int printspec, int printalt)
     char            *dbspec_type;
     int              retval = -1;
 
-    dbspec_type = clicon_dbspec_type(h);
+    if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "Dbspec type not set");
+	goto quit;
+    }
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
 	if (yang_spec_main(h, stdout, printspec, printalt) < 0)
 	    goto quit;
@@ -333,8 +336,8 @@ usage(char *argv0, clicon_handle h)
 	    "\t-s <file>\tSpecify db spec file\n"
 	    "\t-d <dir>\tSpecify netconf plugin directory dir (default: %s)\n",
 	    argv0,
-	    appdir,
-	    conffile,
+	    appdir?appdir:"none",
+	    conffile?conffile:"none",
 	    netconfdir
 	    );
     exit(0);
@@ -349,6 +352,8 @@ main(int argc, char **argv)
     int              quiet = 0;
     clicon_handle    h;
     int              use_syslog;
+    char              *running_db;
+    char              *candidate_db;
 
     /* Defaults */
     use_syslog = 0;
@@ -432,7 +437,15 @@ main(int argc, char **argv)
     if (netconf_plugin_load(h) < 0)
 	return -1;
 
-    if (init_candidate_db(h) < 0)
+    if ((running_db = clicon_running_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	goto done;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	goto done;
+    }
+    if (init_candidate_db(h, running_db, candidate_db) < 0)
 	return -1;
     /* Call start function is all plugins before we go interactive */
     tmp = *(argv-1);
@@ -443,10 +456,13 @@ main(int argc, char **argv)
     if (!quiet)
 	send_hello(1);
     if (event_reg_fd(0, netconf_input_cb, h, "netconf socket") < 0)
-	goto quit;
+	goto done;
+    if (debug)
+	clicon_option_dump(h, debug);
+
     if (event_loop() < 0)
-	goto quit;
-  quit:
+	goto done;
+  done:
 
     netconf_plugin_unload(h);
     terminate(h);

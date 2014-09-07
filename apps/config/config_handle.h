@@ -37,4 +37,10 @@ dbdep_t *backend_dbdep(clicon_handle h);
 
 int backend_dbdep_set(clicon_handle h, dbdep_t *dbdep);
 
+struct client_entry *backend_client_add(clicon_handle h, struct sockaddr *addr);
+
+struct client_entry *backend_client_list(clicon_handle h);
+
+int backend_client_delete(clicon_handle h, struct client_entry *ce);
+
 #endif  /* _CONFIG_HANDLE_H_ */

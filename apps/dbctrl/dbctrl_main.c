@@ -158,7 +158,7 @@ main(int argc, char **argv)
     clicon_handle    h;
     int              use_syslog;
     char            *dbspec_type;
-    dbspec_key  *dbspec = NULL;
+    dbspec_key      *dbspec = NULL;
 
     /* In the startup, logs to stderr & debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
@@ -215,6 +215,10 @@ main(int argc, char **argv)
 	return -1;
 
     /* Default use running-db */
+    if (clicon_running_db(h) == NULL){
+	clicon_err(OE_FATAL, 0, "running_db not set");
+	goto quit;
+    }
     strncpy(dbname, clicon_running_db(h), sizeof(dbname)-1);
 
     /* Now rest of options */   
@@ -265,7 +269,10 @@ main(int argc, char **argv)
     argc -= optind;
     argv += optind;
 
-    dbspec_type = clicon_dbspec_type(h);
+    if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "Dbspec type not set");
+	goto quit;
+    }
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
 	if (yang_spec_main(h, stdout, dumpdb, 0) < 0)
 	    goto quit;

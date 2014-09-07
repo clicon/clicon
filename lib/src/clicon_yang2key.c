@@ -461,6 +461,7 @@ key2yang(dbspec_key *db_spec)
     yang_stmt       *yl;
     yang_stmt       *yt;
     char            *str;
+    enum cv_type     cvtype;
 
     if ((yspec = yspec_new()) == NULL)
 	goto err;
@@ -538,7 +539,8 @@ key2yang(dbspec_key *db_spec)
 		    }
 		    if ((yt = ys_new(Y_TYPE)) == NULL) 
 			goto err; 
-		    yt->ys_argument = strdup(cv2yang_type(cv_type_get(v)));
+		    cvtype = cv_type_get(v);
+		    yt->ys_argument = strdup(cv2yang_type(cvtype));
 		    if (yn_insert((yang_node*)yl, yt) < 0)
 			goto err;
 		}
@@ -572,7 +574,8 @@ key2yang(dbspec_key *db_spec)
 	    }
 	    if ((yt = ys_new(Y_TYPE)) == NULL) 
 		goto err; 
-	    yt->ys_argument = strdup(cv2yang_type(cv_type_get(v)));
+	    cvtype = cv_type_get(v);
+	    yt->ys_argument = strdup(cv2yang_type(cvtype));
 	    if (yn_insert((yang_node*)yl, yt) < 0)
 		goto err;
 	}

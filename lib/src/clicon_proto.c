@@ -103,9 +103,7 @@ atomicio_sig_handler(int arg)
 }
 
 
-/*
- * atomicio
- * ensure all of data on socket comes through. fn is either read or write
+/*! Ensure all of data on socket comes through. fn is either read or write
  */
 static ssize_t
 atomicio(ssize_t (*fn) (int, void *, size_t), int fd, void *_s, size_t n)
@@ -194,6 +192,7 @@ clicon_msg_send(int s, struct clicon_msg *msg)
  *                     freed by caller with unchunk*(...,label)
  * @param[out]  eof    Set if eof encountered
  * @param[in]   label  Label used in chunk allocation and deallocation.
+ * Note: caller must ensure that s is closed if eof is set after call.
  */
 int
 clicon_msg_rcv(int s,

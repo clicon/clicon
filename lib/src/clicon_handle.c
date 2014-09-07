@@ -110,8 +110,8 @@ int
 clicon_handle_exit(clicon_handle h)
 {
     struct clicon_handle *ch = handle(h);
-    clicon_hash_t *copt;
-    clicon_hash_t *data;
+    clicon_hash_t        *copt;
+    clicon_hash_t        *data;
 
     if ((copt = clicon_options(h)) != NULL)
 	hash_free(copt);

@@ -26,12 +26,14 @@
 /*
  * Types
  */
-/* Following are specific to backend. For common see clicon_plugin.h */
-typedef int (plgreset_t)(void *h);		/* Reset system status */
-typedef int (trans_begin_t)(void *h, char *);   /* Transaction begin hook */
-typedef int (trans_complete_t)(void *h, char *);/* Transaction validation complete */
-typedef int (trans_end_t)(void *h, char *);     /* Transaction succeed */
-typedef int (trans_abort_t)(void *h, char *);   /* Transaction failed */
+/* Following are specific to backend. For common see clicon_plugin.h 
+   Note that the following should match the prototypes in clicon_backend_plugin.h
+*/
+typedef int (plgreset_t)(clicon_handle h);	/* Reset system status */
+typedef int (trans_begin_t)(clicon_handle h);   /* Transaction begin hook */
+typedef int (trans_complete_t)(clicon_handle h);/* Transaction validation complete */
+typedef int (trans_end_t)(clicon_handle h);     /* Transaction succeed */
+typedef int (trans_abort_t)(clicon_handle h);   /* Transaction failed */
 
 /*
  * Prototypes
