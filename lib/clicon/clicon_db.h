@@ -24,6 +24,25 @@
 #ifndef _CLICON_DB_H_
 #define _CLICON_DB_H_
 
+/*
+ * General API
+ */
+cvec   *clicon_dbget(char *db, char *key);
+cg_var *clicon_dbgetvar(char *db, char *key, char *variable);
+int     clicon_dbput(char *db, char *key, cvec *vec);
+int     clicon_dbdel(char *db, char *key);
+int     clicon_dbdelvar(char *db, char *key, char *variable);
+int     clicon_dbappend(char *db, char *key, cg_var *cv);
+int     clicon_dbhaskey(char *db, char *key);
+char  **clicon_dbkeys(char *db, size_t *len, char *rx);
+cvec  **clicon_dbitems(char *db, size_t *len, char *rx);
+
+
+
+/*
+ * Low level API
+ */
+
 struct db_pair {    
     char *dp_key;  /* database key */
     char *dp_matched; /* Matched component of key */
@@ -43,6 +62,8 @@ int db_get(char *file, char *key, void *data, size_t *datalen);
 int db_get_alloc(char *file, char *key, void **data, size_t *datalen);
 
 int db_del(char *file, char *key);
+
+int db_exists(char *file, char *key);
 
 int db_regexp(char *file, char *regexp, const char *label, 
 	      struct db_pair **pairs, int noval);
