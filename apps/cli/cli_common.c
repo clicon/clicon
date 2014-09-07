@@ -1402,8 +1402,8 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     char            *s;
     char            *candidate;
     char            *running;
-    dbspec_key  *spec;
-    clicon_dbvars_t *dbv;
+    dbspec_key      *spec;
+    clicon_dbvars_t *dbv = NULL;
     int	             retval = -1;
 
     if ((candidate = clicon_candidate_db(h)) == NULL){
@@ -1443,7 +1443,8 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 
     retval = 0;
 quit:
-    clicon_dbvars_free(dbv);
+    if (dbv)
+	clicon_dbvars_free(dbv);
 
     return retval;}
 

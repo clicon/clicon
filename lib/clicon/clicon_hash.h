@@ -34,10 +34,10 @@ typedef struct clicon_hash *clicon_hash_t;
 
 clicon_hash_t *hash_init (void);
 void hash_free (clicon_hash_t *);
-clicon_hash_t hash_lookup (clicon_hash_t *head, char *key);
-void *hash_value (clicon_hash_t *head, char *key, size_t *vlen);
-clicon_hash_t hash_add (clicon_hash_t *head, char *key, void *val, size_t vlen);
-int hash_del (clicon_hash_t *head, char *key);
+clicon_hash_t hash_lookup (clicon_hash_t *head, const char *key);
+void *hash_value (clicon_hash_t *head, const char *key, size_t *vlen);
+clicon_hash_t hash_add (clicon_hash_t *head, const char *key, void *val, size_t vlen);
+int hash_del (clicon_hash_t *head, const char *key);
 void hash_dump(clicon_hash_t *head, FILE *f);
 char **hash_keys(clicon_hash_t *hash, size_t *nkeys);
 
