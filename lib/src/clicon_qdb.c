@@ -45,6 +45,8 @@
 #include <qdbm/depot.h> /* qdb api */
 #endif 
 
+#include <cligen/cligen.h>
+
 /* clicon */
 #include "clicon_log.h"
 #include "clicon_err.h"
