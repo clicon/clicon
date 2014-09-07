@@ -383,11 +383,11 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
 /*! Check if a clicon option has a value
  */
 int
-clicon_option_exists(clicon_handle h, char *name)
+clicon_option_exists(clicon_handle h, const char *name)
 {
     clicon_hash_t *copt = clicon_options(h);
 
-    return (hash_lookup(copt, name) != NULL);
+    return (hash_lookup(copt, (char*)name) != NULL);
 }
 
 /*! Get a single string option string via handle
@@ -401,13 +401,13 @@ clicon_option_exists(clicon_handle h, char *name)
  * clicon_option_exists() before the call
  */
 char *
-clicon_option_str(clicon_handle h, char *name)
+clicon_option_str(clicon_handle h, const char *name)
 {
     clicon_hash_t *copt = clicon_options(h);
 
-    if (hash_lookup(copt, name) == NULL)
+    if (hash_lookup(copt, (char*)name) == NULL)
 	return NULL;
-    return hash_value(copt, name, NULL);
+    return hash_value(copt, (char*)name, NULL);
 }
 
 /* 
@@ -416,11 +416,11 @@ clicon_option_str(clicon_handle h, char *name)
  * Set a single string option via handle 
  */
 int
-clicon_option_str_set(clicon_handle h, char *name, char *val)
+clicon_option_str_set(clicon_handle h, const char *name, char *val)
 {
     clicon_hash_t *copt = clicon_options(h);
 
-    return hash_add(copt, name, val, strlen(val)+1)==NULL?-1:0;
+    return hash_add(copt, (char*)name, val, strlen(val)+1)==NULL?-1:0;
 }
 
 /*! Get options as integer but stored as string
@@ -440,7 +440,7 @@ clicon_option_str_set(clicon_handle h, char *name, char *val)
  * supply a defualt value as shown in the example.
  */
 int
-clicon_option_int(clicon_handle h, char *name)
+clicon_option_int(clicon_handle h, const char *name)
 {
     char *s;
 
@@ -452,7 +452,7 @@ clicon_option_int(clicon_handle h, char *name)
 /*! set option given as int.
  */
 int
-clicon_option_int_set(clicon_handle h, char *name, int val)
+clicon_option_int_set(clicon_handle h, const char *name, int val)
 {
     char s[64];
     

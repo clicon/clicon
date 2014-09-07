@@ -78,6 +78,18 @@
 #include "clicon_dbutil.h"
 #include "clicon_yang2key.h"
 
+/* align 4 bytes */
+static inline char * strdupalign(char *str) 
+{
+    char *dup;
+    int len;
+    len = ((strlen(str)+1)/4)*4 + 4;
+    if ((dup = malloc(len)) == NULL)
+	return NULL;
+    strncpy(dup, str, len);
+    return dup;
+}
+
 static int yang2key_stmt(yang_stmt *ys, cvec *keys, cvec *vars, dbspec_key **ds_list);
 
 /*! Create a dbspeckey by concatenating previous keys eg a.b.c
@@ -104,7 +116,7 @@ cli2db_genkey(cvec *keys, cvec *vars, dbspec_key **dsp)
     }
     if ((ds = db_spec_new()) == NULL) /* XXX */
 	goto err;
-    if ((ds->ds_key = strdup(key)) == NULL){
+    if ((ds->ds_key = strdupalign(key)) == NULL){
 	clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__); 
 	goto err;
     }

@@ -86,7 +86,7 @@
  * A very simplistic algorithm to calculate a hash bucket index
  */
 static uint32_t
-hash_bucket(char *str)
+hash_bucket(const char *str)
 {
     uint32_t n = 0;
 
@@ -150,7 +150,7 @@ hash_free (clicon_hash_t *hash)
  * Returns: variable structure on success, NULL on failure
  */
 clicon_hash_t
-hash_lookup (clicon_hash_t *hash, char *key)
+hash_lookup (clicon_hash_t *hash, const char *key)
 {
     uint32_t bkt;
     clicon_hash_t h;
@@ -172,7 +172,7 @@ hash_lookup (clicon_hash_t *hash, char *key)
  * Get value of hash
  */
 void *
-hash_value(clicon_hash_t *hash, char *key, size_t *vlen)
+hash_value(clicon_hash_t *hash, const char *key, size_t *vlen)
 {
     clicon_hash_t h;
 
@@ -197,7 +197,7 @@ hash_value(clicon_hash_t *hash, char *key, size_t *vlen)
  * Returns: new variable on success, NULL on failure
  */
 clicon_hash_t
-hash_add (clicon_hash_t *hash, char *key, void *val, size_t vlen)
+hash_add (clicon_hash_t *hash, const char *key, void *val, size_t vlen)
 {
     void *newval;
     clicon_hash_t h, new = NULL;
@@ -260,7 +260,7 @@ catch:
  * Returns: 0 on success, -1 on failure
  */
 int
-hash_del (clicon_hash_t *hash, char *key)
+hash_del (clicon_hash_t *hash, const char *key)
 {
     clicon_hash_t h;
 
