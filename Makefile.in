@@ -42,7 +42,7 @@ LIBS    	= @LIBS@
 INCLUDES 	= -I. -I@srcdir@ @INCLUDES@
 SHELL		= /bin/sh
 
-SUBDIRS = lib apps include doc etc 
+SUBDIRS = lib apps lang include doc etc 
 
 .PHONY:	doc all clean depend $(SUBDIRS) install 
 

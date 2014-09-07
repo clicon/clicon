@@ -57,6 +57,7 @@ AC_SUBST(EXE_SUFFIX)
 AC_SUBST(AR)
 AC_SUBST(RANLIB)
 AC_SUBST(APPDIR) # Clicon application director. Eg /hello. 
+AC_SUBST(CLICON__LIBDIR) # Clicon application director. Eg /hello. 
 
 # Some stuff installed in /usr/local/. Such as qdbm
 LIBS="-L /usr/local/lib"
@@ -100,6 +101,37 @@ AH_TEMPLATE([APPDIR],
 [In-compiled clicon application dir, overruled by -a or env-variable])
 AC_DEFINE_UNQUOTED(APPDIR, "$APPDIR")
 AC_MSG_RESULT(APPDIR is $APPDIR)	
+
+
+# Check Python
+HAVE_PYTHON=none
+AC_ARG_ENABLE(python,AS_HELP_STRING([--enable-python],[build the python plugin support]),[enable_python=yes])
+if test  "$enable_python" = "yes"; then
+  AM_PATH_PYTHON([2.7], [HAVE_PYTHON="python"])
+  AC_ARG_VAR([PYTHON_INCLUDE], [Include flags for python, bypassing python-config])
+  AC_ARG_VAR([PYTHON_CONFIG], [Path to python-config])
+  AS_IF([test -z "$PYTHON_INCLUDE"], [
+    AS_IF([test -z "$PYTHON_CONFIG"], [
+      AC_PATH_PROGS([PYTHON_CONFIG],
+                    [python$PYTHON_VERSION-config python-config],
+                    [no],
+                    [`dirname $PYTHON`])
+      AS_IF([test "$PYTHON_CONFIG" = no], [AC_MSG_ERROR([cannot find python-config for $PYTHON.])])
+    ])
+    AC_MSG_CHECKING([python includes])
+    PYTHON_INCLUDES=`$PYTHON_CONFIG --includes`
+    AC_MSG_RESULT([$PYTHON_INCLUDES])
+    AC_MSG_CHECKING([python libs])
+    PYTHON_LIBS=`$PYTHON_CONFIG --libs`
+    AC_MSG_RESULT([$PYTHON_LIBS])
+  ])
+fi
+AC_SUBST(HAVE_PYTHON)
+AC_SUBST(PYTHON_LIBS)
+AC_SUBST(PYTHON_INCLUDES)
+
+
+
 
 LDFLAGS=""
 AC_CHECK_LIB(m, main)
@@ -165,6 +197,11 @@ AC_OUTPUT(Makefile
 	  apps/config/Makefile 
 	  apps/netconf/Makefile
 	  apps/dbctrl/Makefile
+	  lang/Makefile
+	  lang/python/Makefile
+	  lang/python/lib/Makefile
+	  lang/python/backend/Makefile
+	  lang/python/cli/Makefile
 	  include/Makefile
 	  etc/Makefile
 	  etc/cliconrc
