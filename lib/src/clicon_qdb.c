@@ -60,18 +60,7 @@ static int
 db_init_mode(char *file, int omode)
 {
     DEPOT *dp;
-#if 0 /* Check in OSR? */
-    struct stat sb;  
 
-    if (stat(OSR_DB_DIR, &sb) < 0){               
-        clicon_err(OE_DB, errno, "%s", OSR_DB_DIR);
-	return -1; 
-    }          
-    if (!S_ISDIR(sb.st_mode)){
-	clicon_err(OE_DB, 0, "db_init: %s not directory", file);
-	return -1; 
-    }
-#endif
     /* Open database for writing */
     if ((dp = dpopen(file, omode | DP_OLCKNB, 0)) == NULL){
 	clicon_err(OE_DB, 0, "db_init: dpopen(%s): %s", 
@@ -249,132 +238,36 @@ db_del(char *file, char *key)
 }
 
 
-static DEPOT *iterdp = NULL;
-static regex_t iterre;
-
-static void
-db_iterend()
+/*
+ * db_exists
+ * returns: 
+ *   1 if key exists in database, 0 otherwise
+ */
+int 
+db_exists(char *file, char *key)
 {
-  if (iterdp) {
-    dpclose(iterdp);
-    iterdp = NULL;
-    regfree(&iterre);
-  }
-}
-
-
-static int
-db_iterinit(char *file, char *regexp)
-{
-    int status;
-    char errbuf[512];
-
-    /* If already iterating, close existing */
-    if (iterdp)
-      db_iterend();
-
-    if ((status = regcomp(&iterre, regexp, REG_EXTENDED)) != 0) {
-        regerror(status, &iterre, errbuf, sizeof(errbuf));
-	clicon_err(OE_DB, 0, "db_iterinit: regcomp: %s", errbuf);
-	return -1;
-    }
+    DEPOT *dp;
+    int len;
 
     /* Open database for reading */
-    if ((iterdp = dpopen(file, DP_OREADER | DP_OLCKNB, 0)) == NULL){
-        regfree(&iterre);
-	clicon_err(OE_DB, 0, "db_iterinit: dpopen(%s): %s", 
-		file,
-		dperrmsg(dpecode));
+    if ((dp = dpopen(file, DP_OREADER | DP_OLCKNB, 0)) == NULL){
+	clicon_err(OE_DB, dpecode, "%s: dpopen: %s", 
+		   __FUNCTION__, dperrmsg(dpecode));
 	return -1;
     }
 
-    if(dpiterinit(iterdp) == 0) {
-	clicon_err(OE_DB, 0, "db_iterinit: dpiterinit: %s", dperrmsg(dpecode));
-	db_iterend();
+    len = dpvsiz(dp, key, -1);
+    if (len < 0 && dpecode != DP_ENOITEM)
+	clicon_err(OE_DB, 0, "^s: dpvsiz: %s (%d)", 
+		   __FUNCTION__, dperrmsg(dpecode), dpecode);
+
+    if (dpclose(dp) == 0) {
+	clicon_err(OE_DB, 0, "%s: dpclose: %s", dperrmsg(dpecode),__FUNCTION__);
 	return -1;
     }
 
-    return 0;
+    return (len < 0) ? 0 : 1;
 }
-
-
-static struct db_pair *
-db_iternext(int noval, const char *label)
-{
-  int status;
-  char *key;
-  void *val = NULL;
-  int vlen = 0;
-  size_t nmatch = 1;
-  regmatch_t pmatch[1];
-  struct db_pair *pair;
-
-  if (!iterdp) {
-    clicon_err(OE_DB, 0, "db_iternext: Iteration not initialized");
-    return NULL;
-  }
-  key = NULL;
-  while((key = dpiternext(iterdp, NULL)) != NULL) {
-
-    status = regexec(&iterre, key, nmatch, pmatch, 0);
-    if (status != 0) { /* No match */
-      free(key);
-      continue;
-    }
-
-    if (noval == 0) {
-	if((val = dpget(iterdp, key, -1, 0, -1, &vlen)) == NULL) {
-	    clicon_log(OE_DB, "%s: dpget: %s", __FUNCTION__, dperrmsg(dpecode));
-	    goto err;
-	}
-    }
-
-    if ((pair = chunk(sizeof(*pair), label)) == NULL) {
-	clicon_log(OE_DB, "%s: chunk: %s", __FUNCTION__, strerror(errno));
-	goto err;
-    }
-    memset (pair, 0, sizeof(*pair));
-
-    pair->dp_key = chunk_sprintf(label, "%s", key);
-    pair->dp_matched = chunk_sprintf(label, "%.*s",
-				     pmatch[0].rm_eo - pmatch[0].rm_so,
-				     key + pmatch[0].rm_so);
-    if (pair->dp_key == NULL || pair->dp_matched == NULL) {
-	clicon_err(OE_DB, errno, "%s: chunk_sprintf", __FUNCTION__);
-	goto err;
-    }
-    if (noval == 0) {
-	if (vlen){
-	    pair->dp_val = chunkdup (val, vlen, label);
-	    if (pair->dp_val == NULL) {
-		clicon_err(OE_DB, errno, "%s: chunkdup", __FUNCTION__);
-		goto err;
-	    }
-	}
-	pair->dp_vlen = vlen;
-    }
-    
-   free(key);
-    free(val);
-    key = val = NULL;
-
-//    if (debug)
-//      fprintf(stderr, "%s: Key matched: %s\n", __FUNCTION__, key);
-
-    return pair;
-  }
-
-  /* End of db. Fall through */
-
- err:
-  db_iterend();
-  if (key)
-    free(key);
-  if (val)
-    free(val);
-  return NULL;
-}
-
 
 int
 db_regexp(char *file,
@@ -383,41 +276,108 @@ db_regexp(char *file,
 	  struct db_pair **pairs,
 	  int noval)
 {
-  int npairs;
-  struct db_pair *newpairs;
-  struct db_pair *pair;
-  
-  npairs = 0;
-  *pairs = NULL;
-
-  /* Initiate iterator */
-  if (db_iterinit (file, regexp) < 0)
-    return -1;
-
-
-  /* Iterate through DB */
-  while ((pair = db_iternext(noval, label))) {
-    /* Resize resulting array */
-    newpairs = rechunk(*pairs, (npairs + 1) * sizeof(struct db_pair), label);
-    if (newpairs == NULL) {
-      clicon_err(OE_DB, errno, "%s: rechunk", __FUNCTION__);
-      goto quit;
+    int npairs;
+    int status;
+    int retval = -1;
+    int vlen = 0;
+    char *key = NULL;
+    void *val = NULL;
+    char errbuf[512];
+    struct db_pair *pair;
+    struct db_pair *newpairs;
+    regex_t iterre;
+    DEPOT *iterdp = NULL;
+    regmatch_t pmatch[1];
+    size_t nmatch = 1;
+    
+    npairs = 0;
+    *pairs = NULL;
+    
+    if (regexp) {
+	if ((status = regcomp(&iterre, regexp, REG_EXTENDED)) != 0) {
+	    regerror(status, &iterre, errbuf, sizeof(errbuf));
+	    clicon_err(OE_DB, 0, "%s: regcomp: %s", __FUNCTION__, errbuf);
+	    return -1;
+	}
     }
+    
+    /* Open database for reading */
+    if ((iterdp = dpopen(file, DP_OREADER | DP_OLCKNB, 0)) == NULL){
+	clicon_err(OE_DB, 0, "%s: dpopen(%s): %s", 
+		   __FUNCTION__, file, dperrmsg(dpecode));
+	goto quit;
+    }
+    
+    /* Initiate iterator */
+    if(dpiterinit(iterdp) == 0) {
+	clicon_err(OE_DB, 0, "%s: dpiterinit: %s", __FUNCTION__, dperrmsg(dpecode));
+	goto quit;
+    }
+    
+    /* Iterate through DB */
+    while((key = dpiternext(iterdp, NULL)) != NULL) {
+	
+	if (regexp && regexec(&iterre, key, nmatch, pmatch, 0) != 0) {
+	    free(key);
+	    continue;
+	}
+	
+	/* Retrieve value if required */
+	if ( ! noval) {
+	    if((val = dpget(iterdp, key, -1, 0, -1, &vlen)) == NULL) {
+		clicon_log(OE_DB, "%s: dpget: %s", __FUNCTION__, dperrmsg(dpecode));
+		goto quit;
+	    }
+	}
 
-    /* Assign pair to new vector entry */
-    memcpy(&newpairs[npairs], pair, sizeof(*pair));
-    unchunk(pair);
+	/* Resize and populate resulting array */
+	newpairs = rechunk(*pairs, (npairs+1) * sizeof(struct db_pair), label);
+	if (newpairs == NULL) {
+	    clicon_err(OE_DB, errno, "%s: rechunk", __FUNCTION__);
+	    goto quit;
+	}
+	pair = &newpairs[npairs];
+	memset (pair, 0, sizeof(*pair));
+	
+	pair->dp_key = chunk_sprintf(label, "%s", key);
+	pair->dp_matched = chunk_sprintf(label, "%.*s",
+					 pmatch[0].rm_eo - pmatch[0].rm_so,
+					 key + pmatch[0].rm_so);
+	if (pair->dp_key == NULL || pair->dp_matched == NULL) {
+	    clicon_err(OE_DB, errno, "%s: chunk_sprintf");
+	    goto quit;
+	}
+	if ( ! noval) {
+	    if (vlen){
+		pair->dp_val = chunkdup (val, vlen, label);
+		if (pair->dp_val == NULL) {
+		    clicon_err(OE_DB, errno, "%s: chunkdup", __FUNCTION__);
+		    goto quit;
+		}
+	    }
+	    pair->dp_vlen = vlen;
+	}
 
-    (*pairs) = newpairs;
-    npairs++;
-  }
-  
-  db_iterend();
-  return npairs;
+	(*pairs) = newpairs;
+	npairs++;
+	free(key);
+    }
+	
+    retval = npairs;
+    
+quit:
+    if (key)
+	free(key);
+    if (val)
+	free(val);
+    if (regexp)
+	regfree(&iterre);
+    if (iterdp)
+	dpclose(iterdp);
+    if (retval < 0)
+	unchunk_group(label);
 
- quit:
-  db_iterend();
-  return -1;
+    return retval;
 }
 
 /*
