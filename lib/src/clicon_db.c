@@ -361,6 +361,12 @@ quit:
 }
 
 
+/*! Free list of db items
+ *
+ * Free list of database items as allocated by clicon_dbitems()
+ *
+ * @param   vecs     List of cvec pointers
+ */
 void
 clicon_dbitems_free(cvec **vecs)
 {
