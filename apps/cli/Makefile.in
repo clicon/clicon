@@ -87,6 +87,7 @@ install-lib: $(MYLIB)
 	install $(MYLIB) $(DESTDIR)$(libdir) 
 	ln -sf $(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)     # -l:libclicon_cli.so.2
 	ln -sf $(MYLIBSO) $(DESTDIR)$(libdir)/$(MYLIBLINK) # -l:libclicon_cli.so
+	install -d $(DESTDIR)$(libdir)/clicon/plugins/cli
 
 install-include:	clicon_cli.h clicon_cli_api.h clicon_cli_plugin.h
 	install -d $(DESTDIR)$(includedir)/clicon

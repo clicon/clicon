@@ -89,6 +89,7 @@ install-lib:	$(MYLIB)
 	install $(MYLIB) $(DESTDIR)$(libdir)
 	ln -sf $(MYLIB) $(DESTDIR)$(libdir)/$(MYLIBSO)	   # -l:libclicon_config.so.2
 	ln -sf $(MYLIBSO) $(DESTDIR)$(libdir)/$(MYLIBLINK) # -l:libclicon_config.so
+	install -d $(DESTDIR)$(libdir)/clicon/plugins/backend
 
 uninstall:
 	rm -f $(sbindir)/$(APPL)
