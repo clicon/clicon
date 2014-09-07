@@ -35,6 +35,7 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <assert.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -169,6 +170,7 @@ clicon_log_str(int level, char *msg)
 		return -1;
 	    }
 	    snprintf(msg2, len, "%s%s", d, msg);
+	    assert(_log_notify_arg);
 	    _log_notify_cb(level, msg2, _log_notify_arg);
 	    free(d);
 	    free(msg2);
