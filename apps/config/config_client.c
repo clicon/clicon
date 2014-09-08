@@ -681,7 +681,7 @@ from_client_subscription(clicon_handle h,
     old = clicon_log_register_callback(NULL, NULL);
     if (send_msg_ok(ce->ce_s) < 0)
 	goto done;
-    clicon_log_register_callback(old, NULL); /* XXX NULL arg? */
+    clicon_log_register_callback(old, h); /* XXX: old h */
     retval = 0;
   done:
     return retval;
