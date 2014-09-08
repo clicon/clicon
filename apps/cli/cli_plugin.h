@@ -44,14 +44,14 @@ typedef int (cli_susphook_t)(clicon_handle, char *, int, int *);
 /* CLIgen parse failure hook. Retry other mode? */
 typedef char *(cli_parsehook_t)(clicon_handle, char *, char *);
 
-struct cli_syntax_mode {
+typedef struct {
     qelem_t csm_qelem;                                     /* List header */
     char csm_name[256];                               /* Syntax mode name */
     char csm_prompt[CLI_PROMPT_LEN];                   /* Prompt for mode */
     int csm_nsyntax;             /* Num syntax specs registered by plugin */
     parse_tree csm_pt;                               /* CLIgen parse tree */
 
-};
+} cli_syntaxmode_t;
 
 /* A plugin list object */
 struct cli_plugin {
@@ -61,19 +61,18 @@ struct cli_plugin {
 };
 
 /* Plugin group object */
-struct cli_syntax_group {
-    char cpg_name[256];        
-    char cpg_dir[MAXPATHLEN];                          /* Plugin group dir */
-    char cpg_cnklbl[128];                             /* Plugin group name */
-    int cpg_nplugins;                                 /* Number of plugins */
-    struct cli_plugin *cpg_plugins;                     /* List of plugins */
-    int cpg_nmodes;                              /* Number of syntax modes */
-    struct cli_syntax_mode *cpg_active_mode; /* Current active syntax mode */
-    struct cli_syntax_mode *cpg_modes;             /* List of syntax modes */
-    cli_prompthook_t *cpg_prompt_hook;                      /* Prompt hook */
-    cli_parsehook_t *cpg_parse_hook;                    /* Parse mode hook */
-    cli_susphook_t *cpg_susp_hook;           /* Ctrl-Z hook from getline() */
-};
+typedef struct  {
+    char stx_dir[MAXPATHLEN];                          /* Plugin group dir */
+    char stx_cnklbl[128];                             /* Plugin group name */
+    int stx_nplugins;                                 /* Number of plugins */
+    struct cli_plugin *stx_plugins;                     /* List of plugins */
+    int stx_nmodes;                              /* Number of syntax modes */
+    cli_syntaxmode_t *stx_active_mode; /* Current active syntax mode */
+    cli_syntaxmode_t *stx_modes;             /* List of syntax modes */
+    cli_prompthook_t *stx_prompt_hook;                      /* Prompt hook */
+    cli_parsehook_t *stx_parse_hook;                    /* Parse mode hook */
+    cli_susphook_t *stx_susp_hook;           /* Ctrl-Z hook from getline() */
+} cli_syntax_t;
 
 
 expand_cb *expand_str2fn(char *name, void *handle, char **error);
@@ -85,8 +84,6 @@ int cli_plugin_init(clicon_handle h);
 int clicon_eval(clicon_handle h, char *cmd, cg_obj *match_obj, cvec *vr);
 
 int clicon_parse(clicon_handle h, char *cmd, char **mode, int *result);
-
-int cli_plugin_unload_oldgroup(clicon_handle h);
 
 char *clicon_cliread(clicon_handle h);
 

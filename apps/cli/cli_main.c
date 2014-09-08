@@ -114,62 +114,8 @@ cli_interactive(clicon_handle h)
 	}
 	if ((res = clicon_parse(h, cmd, &new_mode, &result)) < 0)
 	    break;
-	if (res == CG_MATCH) {
-	    /* If command loaded a new group, unload old */
-	    cli_plugin_unload_oldgroup(h);
-	}
     }
 }
-
-/*
- * set_default_syntax_group
- * In a given directory, if there is a single sub-directory in that list, return
- * it. Otherwise, return null.
- * Useful to get a default plugin-group.
- */
-static int
-set_default_syntax_group(clicon_handle h, char *dir)
-{
-    DIR	*dirp;
-    struct dirent *dp;
-    struct stat sb;
-    char filename[MAXPATHLEN];
-    char group[MAXPATHLEN];
-    int uniquedir = 0;
-    int retval = -1;
-
-    if ((dirp = opendir(dir)) == 0){
-	fprintf(stderr, "%s: opendir(%s) %s\n", __FUNCTION__, dir, strerror(errno));
-	return 0;
-    }
-    while ((dp = readdir(dirp)) != NULL){
-	if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
-	    continue;
-	snprintf(filename, MAXPATHLEN, "%s/%s", dir, dp->d_name);
-	if (lstat(filename, &sb) < 0){
-	    fprintf(stderr, "%s: stat(%s) %s\n", 
-		    __FUNCTION__, dp->d_name, strerror(errno));
-	    goto quit;
-	}
-	if (S_ISDIR(sb.st_mode)){
-	    if (uniquedir){
-		uniquedir = 0;
-		break;
-	    }
-	    else{
-		strncpy(group, dp->d_name, sizeof(group)-1);
-		uniquedir++;
-	    }
-	}
-    }
-    retval = 0;
-  quit:
-    closedir(dirp);
-    if (uniquedir)
-	clicon_option_str_set(h, "CLICON_CLI_GROUP", group);
-    return retval;
-}
-
 
 /*
  * Read database specification file.
@@ -214,7 +160,6 @@ usage(char *argv0, clicon_handle h)
     char *conffile = clicon_configfile(h);
     char *confsock = clicon_sock(h);
     char *plgdir = clicon_cli_dir(h);
-    char *plggrp = clicon_option_exists(h, "CLICON_CLI_GROUP")?clicon_cli_group(h):NULL;
 
     fprintf(stderr, "usage:%s [options] [commands]\n"
 	    "where commands is a CLI command or options passed to the main plugin\n" 
@@ -227,7 +172,6 @@ usage(char *argv0, clicon_handle h)
     	    "\t-s <file>\tDatabase spec file\n"
     	    "\t-u <sockpath>\tconfig UNIX domain path (default: %s)\n"
 	    "\t-d <dir>\tSpecify plugin directory (default: %s)\n"
-	    "\t-g <group>\tSpecify input syntax group (default: %s)\n"
             "\t-m <mode>\tSpecify plugin syntax mode\n"
     	    "\t-c \t\tWrite to candidate directly, not via config engine\n"
     	    "\t-P <dbname> \tWrite to private database\n"
@@ -242,8 +186,7 @@ usage(char *argv0, clicon_handle h)
 	    appdir ? appdir : "none",
 	    conffile ? conffile : "none",
 	    confsock ? confsock : "none",
-	    plgdir ? plgdir : "none",
-	    plggrp ? plggrp : "none"
+	    plgdir ? plgdir : "none"
 	);
     exit(1);
 }
@@ -370,11 +313,6 @@ main(int argc, char **argv)
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_DBSPEC_FILE", optarg);
 	    break;
-	case 'g' : /* CLI syntax group */
-	    if (!strlen(optarg))
-		usage(argv[0], h);
-	    clicon_option_str_set(h, "CLICON_CLI_GROUP", optarg);
-	    break;
 	case 'm': /* CLI syntax mode */
 	    if (!strlen(optarg))
 		usage(argv[0], h);
@@ -431,13 +369,6 @@ main(int argc, char **argv)
     if ((plugin_dir = clicon_cli_dir(h)) == NULL)
 	goto done;
     
-    /* Check syntax group */
-    if (!clicon_option_exists(h, "CLICON_CLI_GROUP"))
-	if (set_default_syntax_group(h, plugin_dir) < 0)
-	    goto done;
-    if (!clicon_option_exists(h, "CLICON_CLI_GROUP"))
-	if (clicon_option_str_set(h, "CLICON_CLI_GROUP", "") < 0) /* Set empty */
-	    goto done;
     /* Create tree generated from dataspec */
     if (clicon_cli_genmodel(h)){
 	yang_spec         *yspec;      /* yang spec */
@@ -476,9 +407,8 @@ main(int argc, char **argv)
 	    cligen_print(stdout, pt, 1);
     }
 
-    /* Syntax group is 'heavyweight' and cli mode is 'lightweight' */
-    /* Initialize cli syntax group */
-    if (cli_syntax_group_load(h, clicon_cli_group(h)) < 0)
+    /* Initialize cli syntax */
+    if (cli_syntax_load(h) < 0)
 	goto done;
 
     /* Set syntax mode if specified from command-line or config-file. */

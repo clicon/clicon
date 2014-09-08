@@ -63,32 +63,32 @@
 /*
  * Find syntax mode named 'mode'. Create if specified
  */
-static struct cli_syntax_mode *
-syntax_mode_find(struct cli_syntax_group *cpg, const char *mode, int create)
+static cli_syntaxmode_t *
+syntax_mode_find(cli_syntax_t *stx, const char *mode, int create)
 {
-    struct cli_syntax_mode *m;
+    cli_syntaxmode_t *m;
 
-    m = cpg->cpg_modes;
+    m = stx->stx_modes;
     if (m) {
 	do {
 	    if (strcmp(m->csm_name, mode) == 0)
 		return m;
-	    m = NEXTQ(struct cli_syntax_mode *, m);
-	} while (m && m != cpg->cpg_modes);
+	    m = NEXTQ(cli_syntaxmode_t *, m);
+	} while (m && m != stx->stx_modes);
     }
     
     if (create == 0)
 	return  NULL;
 
-    if ((m = chunk(sizeof(struct cli_syntax_mode), cpg->cpg_cnklbl)) == NULL) {
+    if ((m = chunk(sizeof(cli_syntaxmode_t), stx->stx_cnklbl)) == NULL) {
 	perror("chunk");
 	return NULL;
     }
     memset (m, 0, sizeof (*m));
     strncpy(m->csm_name, mode, sizeof(m->csm_name)-1);
     strncpy(m->csm_prompt, CLI_DEFAULT_PROMPT, sizeof(m->csm_prompt)-1);
-    INSQ(m, cpg->cpg_modes);
-    cpg->cpg_nmodes++;
+    INSQ(m, stx->stx_modes);
+    stx->stx_nmodes++;
 
     return m;
 }
@@ -97,16 +97,16 @@ syntax_mode_find(struct cli_syntax_group *cpg, const char *mode, int create)
  * Find plugin by name
  */
 static struct cli_plugin *
-plugin_find(struct cli_syntax_group *cpg, char *plgnam)
+plugin_find(cli_syntax_t *stx, char *plgnam)
 {
     struct cli_plugin *p;
     
-    p = cpg->cpg_plugins;
+    p = stx->stx_plugins;
     do {
 	if (strcmp (p->cp_name, plgnam) == 0)
 	    return p;
 	p = NEXTQ(struct cli_plugin *, p);
-    } while (p && p != cpg->cpg_plugins);
+    } while (p && p != stx->stx_plugins);
 
     return NULL;
 }
@@ -115,7 +115,7 @@ plugin_find(struct cli_syntax_group *cpg, char *plgnam)
  * Generate parse tree for syntax mode 
  */
 static int
-gen_parse_tree(clicon_handle h, struct cli_syntax_mode *m)
+gen_parse_tree(clicon_handle h, cli_syntaxmode_t *m)
 {
     cli_tree_add(h, m->csm_name, m->csm_pt);
     return 0;
@@ -123,30 +123,23 @@ gen_parse_tree(clicon_handle h, struct cli_syntax_mode *m)
 
 
 /*
- * Append syntax to syntax group
+ * Append syntax
  */
 static int
 syntax_append(clicon_handle h,
-	      struct cli_syntax_group *cpg,
+	      cli_syntax_t *stx,
 	      const char *name, 
 	      parse_tree pt)
 {
-    int retval = -1;
-    struct cli_syntax_mode *m;
+    cli_syntaxmode_t *m;
 
-    if ((m = syntax_mode_find(cpg, name, 1)) == NULL) 
+    if ((m = syntax_mode_find(stx, name, 1)) == NULL) 
 	return -1;
 
     if (cligen_parsetree_merge(&m->csm_pt, NULL, pt) < 0)
 	return -1;
     
-    /* If not active plugin group, we're initializing a new group
-     * Wait to parse syntax until end of syntax_group_load() */
-    if (cpg == cli_active_cpg(h)) 
-	retval = gen_parse_tree(h, m);
-
-    retval = 0;
-    return retval;
+    return 0;
 }
 
 /* 
@@ -178,42 +171,30 @@ plugin_unload(clicon_handle h, void *handle)
  * Unload all plugins in a group
  */
 static int
-syntax_group_unload(clicon_handle h, struct cli_syntax_group *cpg)
+syntax_unload(clicon_handle h)
 {
     struct cli_plugin *p;
+    cli_syntax_t *stx = cli_syntax(h);
+    
+    if (stx == NULL)
+	return 0;
 
-    while (cpg->cpg_nplugins > 0) {
-	p = cpg->cpg_plugins;
+    while (stx->stx_nplugins > 0) {
+	p = stx->stx_plugins;
 	plugin_unload(h, p->cp_handle);
-	clicon_debug(1, "DEBUG: Plugin '%s::%s' unloaded.", 
-		    cpg->cpg_name, p->cp_name);
-	DELQ(cpg->cpg_plugins, cpg->cpg_plugins, struct cli_plugin *);
-	cpg->cpg_nplugins--;
+	clicon_debug(1, "DEBUG: Plugin '%s' unloaded.", p->cp_name);
+	DELQ(stx->stx_plugins, stx->stx_plugins, struct cli_plugin *);
+	stx->stx_nplugins--;
     }
-    while (cpg->cpg_nmodes > 0) {
-	DELQ(cpg->cpg_modes, cpg->cpg_modes, struct cli_syntax_mode *);
-	cpg->cpg_nmodes--;
+    while (stx->stx_nmodes > 0) {
+	DELQ(stx->stx_modes, stx->stx_modes, cli_syntaxmode_t *);
+	stx->stx_nmodes--;
     }
 
-    unchunk_group(cpg->cpg_cnklbl);
+    unchunk_group(stx->stx_cnklbl);
     return 0;
 }
 
-/* 
- * Unload old plugin group if marked
- */
-int
-cli_plugin_unload_oldgroup(clicon_handle h)
-{
-    int ret = 0;
-    
-    if (cli_unloading_cpg(h)) {
-	ret = syntax_group_unload(h, cli_unloading_cpg(h));
-	cli_set_unloading_cpg(h, NULL);
-    }
-    
-    return ret;
-}
 
 /*
  * load_str2fn
@@ -370,7 +351,7 @@ cli_load_syntax(clicon_handle h, const char *filename)
     struct cli_plugin *p;
 
     if ((filepath = chunk_sprintf(__FUNCTION__, "%s/%s", 
-				  cli_cpg(h)->cpg_dir,
+				  cli_syntax(h)->stx_dir,
 				  filename)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "chunk");
 	goto done;
@@ -399,7 +380,7 @@ cli_load_syntax(clicon_handle h, const char *filename)
     mode = cvec_find_str(vr, "CLICON_MODE");
 
     if (plgnam != NULL) { /* Find plugin for callback resolving */
-	if ((p = plugin_find (cli_cpg(h), plgnam)) != NULL)
+	if ((p = plugin_find (cli_syntax(h), plgnam)) != NULL)
 	    handle = p->cp_handle;
 	if (handle == NULL){
 	    clicon_err(OE_PLUGIN, 0, "CLICON_PLUGIN set to '%s' in %s but plugin %s.so not found in %s\n", 
@@ -427,7 +408,7 @@ cli_load_syntax(clicon_handle h, const char *filename)
 	goto done;
     }
     for (i = 0; i < nvec; i++) {
-	if (syntax_append(h, cli_cpg(h), vec[i], pt) < 0) { 
+	if (syntax_append(h, cli_syntax(h), vec[i], pt) < 0) { 
 	    goto done;
 	}
 	if (prompt)
@@ -448,8 +429,8 @@ done:
 /*
  * Load a syntax group.
  */
-static struct cli_syntax_group *
-syntax_group_load (clicon_handle h, char *group)
+int
+cli_syntax_load (clicon_handle h)
 {
     char *dir;
     char *plugin_dir;
@@ -457,27 +438,21 @@ syntax_group_load (clicon_handle h, char *group)
     struct stat st;
     int ndp, i;
     char *filename;
-    char cnklbl[128];
+    char *cnklbl = "__CLICON_CLI_SYNTAX_CNK_LABEL__";
     struct dirent *dp;
     struct cli_plugin *cp;
-    struct cli_syntax_group *cpg;
-    struct cli_syntax_mode *m;
-    struct cli_syntax_group *retval = NULL;
+    cli_syntax_t *stx;
+    cli_syntaxmode_t *m;
+    int retval = -1;
 
-    /* Group already loaded.  XXX should we re-load?? */
-    if ((cpg = cli_cpg(h)) != NULL && 
-	strcmp(cpg->cpg_name, group) == 0) 
-	return cpg;
+    /* Syntax already loaded.  XXX should we re-load?? */
+    if ((stx = cli_syntax(h)) != NULL)
+	return 0;
 
-    /* Format an obscure chunk group label */
-    snprintf(cnklbl, sizeof(cnklbl)-1, "__%s_CNK_LABEL__", group);
     /* Format plugin directory path */
     if ((plugin_dir = clicon_cli_dir(h)) == NULL)
 	goto quit;
-    if (group && strlen(group))
-	dir = chunk_sprintf(__FUNCTION__, "%s/%s",  plugin_dir, group);
-    else
-	dir = chunk_sprintf(__FUNCTION__, "%s",  plugin_dir);
+    dir = chunk_sprintf(__FUNCTION__, "%s",  plugin_dir);
     if (dir == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk_sprintf plugin_dir");
 	goto quit;
@@ -490,18 +465,17 @@ syntax_group_load (clicon_handle h, char *group)
 	goto quit;
     }
     /* Allocate plugin group object */
-    if ((cpg = chunk(sizeof(*cpg), cnklbl)) == NULL) {
+    if ((stx = chunk(sizeof(*stx), cnklbl)) == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk");
 	goto quit;
     }
-    cli_set_cpg(h, cpg);
+    cli_syntax_set(h, stx);
 
-    memset (cpg, 0, sizeof (*cpg));	/* Zero out all */
+    memset (stx, 0, sizeof (*stx));	/* Zero out all */
     
     /* populate name and chunk label */
-    strncpy (cpg->cpg_name, group, sizeof(cpg->cpg_name)-1);
-    strncpy (cpg->cpg_dir, dir, sizeof(cpg->cpg_dir)-1);
-    strncpy (cpg->cpg_cnklbl, cnklbl, sizeof(cpg->cpg_cnklbl)-1);
+    strncpy (stx->stx_dir, dir, sizeof(stx->stx_dir)-1);
+    strncpy (stx->stx_cnklbl, cnklbl, sizeof(stx->stx_cnklbl)-1);
 
     /* Get plugin objects names from plugin directory */
     if ((ndp = clicon_file_dirent(dir, &dp, "(.so)$", S_IFREG, __FUNCTION__)) < 0)
@@ -514,19 +488,18 @@ syntax_group_load (clicon_handle h, char *group)
 	goto quit;
     }
     if (stat(filename, &st) == 0) {
-	clicon_debug(1, "DEBUG: Loading master plugin '%s::%.*s' ... ", 
-		    cpg->cpg_name, (int)strlen(master)-3, master);
+	clicon_debug(1, "DEBUG: Loading master plugin '%s'", master);
 	if ((cp = cli_plugin_load (h, filename, RTLD_NOW|RTLD_GLOBAL, cnklbl)) == NULL)
 	    goto quit;
 	/* Look up certain call-backs in master plugin */
-	cpg->cpg_prompt_hook = 
+	stx->stx_prompt_hook = 
 	    dlsym(cp->cp_handle, "plugin_prompt_hook");
-	cpg->cpg_parse_hook =
+	stx->stx_parse_hook =
 	    dlsym(cp->cp_handle, "plugin_parse_hook");
-	cpg->cpg_susp_hook =
+	stx->stx_susp_hook =
 	    dlsym(cp->cp_handle, "plugin_susp_hook");
-	INSQ(cp, cpg->cpg_plugins);
-	cpg->cpg_nplugins++;
+	INSQ(cp, stx->stx_plugins);
+	stx->stx_nplugins++;
     }
 
     unchunk (filename);
@@ -539,13 +512,12 @@ syntax_group_load (clicon_handle h, char *group)
 	    clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
 	    goto quit;
 	}
-	clicon_debug(1, "DEBUG: Loading plugin '%s::%.*s' ... ", 
-		     cpg->cpg_name, (int)strlen(dp[i].d_name)-3, dp[i].d_name);
+	clicon_debug(1, "DEBUG: Loading plugin '%s'", dp[i].d_name);
 
 	if ((cp = cli_plugin_load (h, filename, RTLD_NOW, cnklbl)) == NULL)
 	    goto quit;
-	INSQ(cp, cpg->cpg_plugins);
-	cpg->cpg_nplugins++;
+	INSQ(cp, stx->stx_plugins);
+	stx->stx_nplugins++;
 	unchunk (filename);
     }
     if (dp)
@@ -556,8 +528,8 @@ syntax_group_load (clicon_handle h, char *group)
 	goto quit;
     /* Load the rest */
     for (i = 0; i < ndp; i++) {
-	clicon_debug(1, "DEBUG: Loading syntax '%s::%.*s' ... ", 
-		    cpg->cpg_name, (int)strlen(dp[i].d_name)-4, dp[i].d_name);
+	clicon_debug(1, "DEBUG: Loading syntax '%.*s'", 
+		    (int)strlen(dp[i].d_name)-4, dp[i].d_name);
 	if (cli_load_syntax(h, dp[i].d_name) < 0)
 	    goto quit;
     }
@@ -566,32 +538,30 @@ syntax_group_load (clicon_handle h, char *group)
 
 
     /* Did we successfully load any syntax modes? */
-    if (cpg->cpg_nmodes <= 0) {
+    if (stx->stx_nmodes <= 0) {
 	clicon_err(OE_PLUGIN, errno, "No syntax modes initialized");
 	goto quit;
     }	
     /* Parse syntax tree for all modes */
-    m = cpg->cpg_modes;
+    m = stx->stx_modes;
     do {
 	if (gen_parse_tree(h, m) != 0)
 	    goto quit;
-	m = NEXTQ(struct cli_syntax_mode *, m);
-    } while (m && m != cpg->cpg_modes);
+	m = NEXTQ(cli_syntaxmode_t *, m);
+    } while (m && m != stx->stx_modes);
 
+
+    /* Set callbacks into  CLIgen */
+    cli_susp_hook(h, cli_syntax(h)->stx_susp_hook);
 
     /* All good. We can now proudly return a new group */
-    retval = cpg;
-    
+    retval = 0;
+
 quit:
-    if (retval == NULL) {
-	syntax_group_unload(h, cpg);
+    if (retval != 0) {
+	syntax_unload(h);
 	unchunk_group(cnklbl);
-	cli_set_cpg(h, cli_active_cpg(h));
-    }
-    else {
-	cli_set_active_cpg(h, cli_cpg(h));
-	/* Set callbacks into  CLIgen */
-	cli_susp_hook(h, cli_active_cpg(h)->cpg_susp_hook);
+	cli_syntax_set(h, NULL);
     }
 
     unchunk_group(__FUNCTION__);
@@ -605,19 +575,19 @@ int
 cli_plugin_start(clicon_handle h, int argc, char **argv)
 {
     struct cli_plugin *p;
-    struct cli_syntax_group *cpg;
+    cli_syntax_t *stx;
     plgstart_t *startfun;
 // XXX    int (*startfun)(clicon_handle, int, char **);
     
-    cpg = cli_active_cpg(h);
+    stx = cli_syntax(h);
 
-    if ((p = cpg->cpg_plugins) != NULL)
+    if ((p = stx->stx_plugins) != NULL)
 	do {
 	    startfun = dlsym(p->cp_handle, "plugin_start");
 	    if (dlerror() == NULL)
 		startfun(h, argc, argv);
 	    p = NEXTQ(struct cli_plugin *, p);
-	} while (p && p != cpg->cpg_plugins);
+	} while (p && p != stx->stx_plugins);
     
     return 0;
 }
@@ -629,18 +599,8 @@ cli_plugin_start(clicon_handle h, int argc, char **argv)
 int
 cli_plugin_finish(clicon_handle h)
 {
-    struct cli_syntax_group *cpg;
-
-    cpg = cli_unloading_cpg(h);
-    if (cpg && cpg != cli_active_cpg(h)) {
-	syntax_group_unload(h, cpg);
-	cli_set_unloading_cpg(h, NULL);
-    }
-    if (cli_active_cpg(h))
-	syntax_group_unload(h, cli_active_cpg(h));
-    cli_set_cpg(h, NULL);
-    cli_set_active_cpg(h, NULL);
-
+    syntax_unload(h);
+    cli_syntax_set(h, NULL);
     return 0;
 }
 
@@ -723,21 +683,21 @@ clicon_parse(clicon_handle h, char *cmd, char **mode, int *result)
     char *m, *msav;
     int res = -1;
     int r;
-    struct cli_syntax_group *cpg;
-    struct cli_syntax_mode *smode;
+    cli_syntax_t *stx;
+    cli_syntaxmode_t *smode;
     char       *treename;
     parse_tree *pt;     /* Orig */
     cg_obj     *match_obj;
     cvec       *vr = NULL;
     
-    cpg = cli_active_cpg(h);
+    stx = cli_syntax(h);
     m = *mode;
     if (m == NULL) {
-	smode = cpg->cpg_active_mode;
+	smode = stx->stx_active_mode;
 	m = smode->csm_name;
     }
     else {
-	if ((smode = syntax_mode_find(cpg, m, 0)) == NULL) {
+	if ((smode = syntax_mode_find(stx, m, 0)) == NULL) {
 	    cli_output(stderr, "Can't find syntax mode '%s'\n", m);
 	    return -1;
 	}
@@ -771,10 +731,10 @@ clicon_parse(clicon_handle h, char *cmd, char **mode, int *result)
 	    goto done;
 	case CG_NOMATCH: /* no match */
 	    smode = NULL;
-	    if (cpg->cpg_parse_hook) {
+	    if (stx->stx_parse_hook) {
 		/* Try to find a match in upper  modes, a'la IOS. */
-		if ((m = cpg->cpg_parse_hook(h, cmd, m)) != NULL)  {
-		    if ((smode = syntax_mode_find(cpg, m, 0)) != NULL)
+		if ((m = stx->stx_parse_hook(h, cmd, m)) != NULL)  {
+		    if ((smode = syntax_mode_find(stx, m, 0)) != NULL)
 			continue;
 		    else
 			cli_output(stderr, "Can't find syntax mode '%s'\n", m);
@@ -815,14 +775,14 @@ clicon_cliread(clicon_handle h)
 {
     char *ret;
     char *pfmt = NULL;
-    struct cli_syntax_mode *mode;
-    struct cli_syntax_group *cpg;
+    cli_syntaxmode_t *mode;
+    cli_syntax_t *stx;
 
-    cpg = cli_active_cpg(h);
-    mode = cpg->cpg_active_mode;
+    stx = cli_syntax(h);
+    mode = stx->stx_active_mode;
 
-    if (cpg->cpg_prompt_hook)
-	pfmt = cpg->cpg_prompt_hook(h, mode->csm_name);
+    if (stx->stx_prompt_hook)
+	pfmt = stx->stx_prompt_hook(h, mode->csm_name);
     cli_prompt_set(h, cli_prompt(pfmt ? pfmt : mode->csm_prompt));
     cli_tree_active_set(h, mode->csm_name);
     ret = cliread(cli_cligen(h));
@@ -842,7 +802,7 @@ cli_find_plugin(clicon_handle h, char *plugin)
 {
     struct cli_plugin *p;
     
-    p = plugin_find(cli_active_cpg(h), plugin);
+    p = plugin_find(cli_syntax(h), plugin);
     if (p)
 	return p->cp_handle;
     
@@ -882,12 +842,12 @@ cli_plugin_init(clicon_handle h)
 int
 cli_set_syntax_mode(clicon_handle h, const char *name)
 {
-    struct cli_syntax_mode *mode;
+    cli_syntaxmode_t *mode;
     
-    if ((mode = syntax_mode_find(cli_cpg(h), name, 1)) == NULL)
+    if ((mode = syntax_mode_find(cli_syntax(h), name, 1)) == NULL)
 	return 0;
     
-    cli_cpg(h)->cpg_active_mode = mode;
+    cli_syntax(h)->stx_active_mode = mode;
     return 1;
 }
 
@@ -897,9 +857,9 @@ cli_set_syntax_mode(clicon_handle h, const char *name)
 char *
 cli_syntax_mode(clicon_handle h)
 {
-    struct cli_syntax_mode *csm;
+    cli_syntaxmode_t *csm;
 
-    if ((csm = cli_active_cpg(h)->cpg_active_mode) == NULL)
+    if ((csm = cli_syntax(h)->stx_active_mode) == NULL)
 	return NULL;
     return csm->csm_name;
 }
@@ -914,9 +874,9 @@ cli_syntax_mode(clicon_handle h)
 int
 cli_set_prompt(clicon_handle h, const char *name, const char *prompt)
 {
-    struct cli_syntax_mode *m;
+    cli_syntaxmode_t *m;
 
-    if ((m = syntax_mode_find(cli_cpg(h), name, 1)) == NULL)
+    if ((m = syntax_mode_find(cli_syntax(h), name, 1)) == NULL)
 	return -1;
     
     strncpy(m->csm_prompt, prompt, sizeof(m->csm_prompt)-1);
@@ -1005,18 +965,6 @@ cli_prompt(char *fmt)
 }
 
 
-int
-cli_syntax_group_load(clicon_handle h, char *group)
-{
-    cli_set_unloading_cpg(h, cli_active_cpg(h));
-    /* Initialize plugins */
-    if (syntax_group_load(h, group) == NULL) {
-	cli_set_unloading_cpg(h, NULL);
-	return -1;
-    }
-    return 0;
-}
-
 /*
  * Run command in CLI engine
  */
@@ -1042,9 +990,9 @@ cli_ptpush(clicon_handle h, char *mode, char *string, char *op)
     int i, j, nvec;
     int found;
     parse_tree pt_top;
-    struct cli_syntax_mode *m;
+    cli_syntaxmode_t *m;
 
-    if ((m = syntax_mode_find(cli_active_cpg(h), mode, 0)) == NULL)
+    if ((m = syntax_mode_find(cli_syntax(h), mode, 0)) == NULL)
 	return 0;
     pt_top = m->csm_pt;
     if ((co_cmd = co_find_one(pt_top, op)) == NULL)
@@ -1092,9 +1040,9 @@ cli_ptpop(clicon_handle h, char *mode, char *op)
     int i;
     parse_tree *pt;
     parse_tree pt_top;
-    struct cli_syntax_mode *m;
+    cli_syntaxmode_t *m;
 
-    if ((m = syntax_mode_find(cli_active_cpg(h), mode, 0)) == NULL)
+    if ((m = syntax_mode_find(cli_syntax(h), mode, 0)) == NULL)
 	return 0;
     pt_top = m->csm_pt;
     if ((co_cmd = co_find_one(pt_top, op)) == NULL) //set
@@ -1147,7 +1095,7 @@ clicon_valcb(void *arg, cvec *vars, cg_var *cgv, char *fname, cg_var *funcarg)
      * with dlsym()
      */
     handle = NULL;
-    if (plgnam && (p = plugin_find(cli_active_cpg(h), plgnam)))
+    if (plgnam && (p = plugin_find(cli_syntax(h), plgnam)))
 	handle = p->cp_handle;
     
     /* Look up function pointer */

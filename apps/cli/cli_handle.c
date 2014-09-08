@@ -72,12 +72,8 @@ struct cli_handle {
 
     int                      cl_usedaemon;     /* Send changes to configuration daemon */
     enum candidate_db_type   cl_candidate_type;
-    /* Plugin group being active. Same as cli_cpg unless new group is being loaded*/
-    struct cli_syntax_group *cl_active_cpg;
-    /* Current plugin group. Same us cli_active_cpg(h) unless loading new group */
-    struct cli_syntax_group *cl_cpg;
-    /* If we've loaded a new plugin group, this is pending an unload */
-    struct cli_syntax_group *cl_unloading_cpg;    
+    cli_syntax_t *cl_stx;	           /* syntax structure */
+
 };
 
 /*
@@ -159,50 +155,18 @@ cli_set_candidate_type(clicon_handle h, enum candidate_db_type type)
 }
 
 /* Current syntax-group */
-struct cli_syntax_group *
-cli_cpg(clicon_handle h)
+cli_syntax_t *
+cli_syntax(clicon_handle h)
 {
     struct cli_handle *cl = handle(h);
-    return cl->cl_cpg;
+    return cl->cl_stx;
 }
 
 int
-cli_set_cpg(clicon_handle h, struct cli_syntax_group *cpg)
+cli_syntax_set(clicon_handle h, cli_syntax_t *stx)
 {
     struct cli_handle *cl = handle(h);
-    cl->cl_cpg = cpg;
-    return 0;
-}
-
-/* Active syntax-group */
-struct cli_syntax_group *
-cli_active_cpg(clicon_handle h)
-{
-    struct cli_handle *cl = handle(h);
-    return cl->cl_active_cpg;
-}
-
-int
-cli_set_active_cpg(clicon_handle h, struct cli_syntax_group *cpg)
-{
-    struct cli_handle *cl = handle(h);
-    cl->cl_active_cpg = cpg;
-    return 0;
-}
-
-/* Syntax-group pending unload */
-struct cli_syntax_group *
-cli_unloading_cpg(clicon_handle h)
-{
-    struct cli_handle *cl = handle(h);
-    return cl->cl_unloading_cpg;
-}
-
-int
-cli_set_unloading_cpg(clicon_handle h, struct cli_syntax_group *cpg)
-{
-    struct cli_handle *cl = handle(h);
-    cl->cl_unloading_cpg = cpg;
+    cl->cl_stx = stx;
     return 0;
 }
 

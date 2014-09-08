@@ -49,7 +49,7 @@ enum candidate_db_type{
 /* cli_plugin.c */
 int cli_set_syntax_mode(clicon_handle h, const char *mode);
 char *cli_syntax_mode(clicon_handle h);
-int cli_syntax_group_load(clicon_handle h, char *group);
+int cli_syntax_load(clicon_handle h);
 int cli_handler_err(FILE *fd);
 int cli_set_prompt(clicon_handle h, const char *mode, const char *prompt);
 char *cli_prompt(char *fmt);
