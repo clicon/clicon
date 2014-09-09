@@ -59,23 +59,21 @@
 #include "config_handle.h"
 #include "config_commit.h"
 
-/*
- * plugin_modify_key_value
- * A wrapper function for invoking the plugin dependency set/del call
+/*! A wrapper function for invoking the plugin dependency set/del call
  * for a changed a key value. 
  * The routine logs on debug.
  * It also checks whether an error was properly registered using clicon_err().
  * Arguments:
- *   db:   The database which contains the key value, most relevant in a set operation
+ * @param  db:   The database which contains the key value, most relevant in a set operation
  *         but may possibly in some cases be important in delete operations, although
  *         I cannot think of any,..
- *   key:  The name of the key in the database above.
- *   op:   Either set or delete
- *   dep:  plugin dependency information. Contains function and argument pointers.
+ * @param  key:  The name of the key in the database above.
+ * @param  op:   Either set or delete
+ * @param  dep:  plugin dependency information. Contains function and argument pointers.
  *
  * Returns:
- *  0: OK
- * -1: An error occured in the plugin commit function. It is assumed that 
+ * @retval  0: OK
+ * @retval -1: An error occured in the plugin commit function. It is assumed that 
  *     clicon_err() has been called there. Here, we interpret the clicon_err
  *     as a 'commit' error and does not handle it fatally. 
  */
@@ -95,7 +93,7 @@ plugin_modify_key_value(clicon_handle h,
 	if (!clicon_errno) 	/* sanity: log if clicon_err() is not called ! */
 	    clicon_log(LOG_NOTICE, "%s: key: %c%s: callback does not make clicon_err call on error",
 		       __FUNCTION__, (op==LV_SET)?'+':'-', key);
-//	goto done;
+	goto done;
     }
     retval = 0;
   done:

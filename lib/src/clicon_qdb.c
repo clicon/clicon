@@ -185,9 +185,10 @@ db_get_alloc(char *file, char *key, void **data, size_t *datalen)
 
     /* Open database for writing */
     if ((dp = dpopen(file, DP_OREADER | DP_OLCKNB, 0)) == NULL){
-	clicon_err(OE_DB, 0, "db_get_alloc: dpopen(%s): %s", 
-		file,
-		dperrmsg(dpecode));
+	clicon_err(OE_DB, 0, "%s: dpopen(%s): %s", 
+		   __FUNCTION__,
+		   file,
+		   dperrmsg(dpecode));
 	return -1;
     }
     if ((*data = dpget(dp, key, -1, 0, -1, &len)) == NULL){

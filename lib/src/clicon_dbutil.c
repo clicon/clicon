@@ -237,6 +237,7 @@ catch:
  * @param   dname  Name of database to search in (filename including dir path)
  * @param   key    String containing key to look for.
  *
+ * @retval NULL On error : key is not data key, alloc failed
  * @retval cv  A cligen vector containing all variables found. This vector contains no 
  *             variables (length == 0) if key is not found.
  */
@@ -248,8 +249,10 @@ dbkey2cvec(char *dbname, char *key)
     cvec            *cvec = NULL;
 
     /* Dont expand vector indexes, eg A.n in a A[] entry */
-    if(key_isvector_n(key) || key_iskeycontent(key))
+    if(key_isvector_n(key) || key_iskeycontent(key)){
+	clicon_err(OE_DB, 0, "%s: %s is not proper key", __FUNCTION__, key);
 	goto catch;
+    }
     /* Read key entry from database */
     if (db_get_alloc(dbname, key, (void*)&lvec, &len) < 0)
 	goto catch;

@@ -711,11 +711,13 @@ cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     if ((retval = cli_proto_commit(s, 
-			    running, 
-			    candidate, 
-			    snapshot, /* snapshot */
-				   snapshot)) < 0) /* startup */
+				   running, 
+				   candidate, 
+				   snapshot, /* snapshot */
+				   snapshot)) < 0){ /* startup */
+	cli_output(stderr, "Commit failed. Edit and try again or discard changes\n");
 	goto done;
+    }
     retval = 0;
   done:
     return retval;
@@ -729,6 +731,7 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char          *s;
     char          *candidate_db;
+    int            retval = -1;
 
     if ((s = clicon_sock(h)) == NULL)
 	return -1;
@@ -736,7 +739,9 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	return -1;
     }
-    return cli_proto_validate(s, candidate_db);
+    if ((retval = cli_proto_validate(s, candidate_db)) < 0)
+	cli_output(stderr, "Validate failed. Edit and try again or discard changes\n");
+    return retval;
 }
 
 

@@ -31,7 +31,7 @@
 /*
  * Constants
  */ 
-#define ERR_STRLEN 128
+#define ERR_STRLEN 256
 
 /*
  * Types

@@ -143,8 +143,7 @@ cli_proto_commit(char *spath, char *running_db, char *db, int snapshot, int star
     return retval;
 }
 
-/*
- * Validate contents of a database
+/*! Validate contents of a database
  * Send a validation request to the config_daemon to be passed on to backend.
  * Error handling like a clicon_lib function.
  */
