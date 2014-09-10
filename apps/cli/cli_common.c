@@ -968,6 +968,7 @@ expand_db_variable(clicon_handle h,
     cg_var         *cv = NULL;
     char          **tmp;
     char           *buf = NULL;
+    char           *k;
 
     /* adhoc to detect regexp keys. If so, dont call db_gen_rxkey */
     if (index(basekey, '^') == NULL){
@@ -982,8 +983,11 @@ expand_db_variable(clicon_handle h,
 	goto quit;
     *nr = 0;
     for (i = 0; i < npairs; i++) {
-	if ((cvec = dbkey2cvec(dbname, pairs[i].dp_key)) == NULL)
+	k = pairs[i].dp_key;
+	if(key_isvector_n(k) || key_iskeycontent(k))
 	    continue;
+	if ((cvec = dbkey2cvec(dbname, pairs[i].dp_key)) == NULL)
+	    goto quit;
 	cv = NULL;
 	while ((cv = cvec_each(cvec, cv)) != NULL) {
 	    if (strcmp(cv_name_get(cv), variable) != 0)
