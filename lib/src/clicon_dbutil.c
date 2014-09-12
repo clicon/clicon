@@ -240,6 +240,7 @@ catch:
  * @retval NULL On error : key is not data key, alloc failed
  * @retval cv  A cligen vector containing all variables found. This vector contains no 
  *             variables (length == 0) if key is not found.
+ * XXX Note NULL can also be that the key is invalid .
  */
 cvec *
 dbkey2cvec(char *dbname, char *key)
