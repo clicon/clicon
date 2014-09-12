@@ -457,11 +457,18 @@ main(int argc, char **argv)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
     }
-    if (reload_running && file_cp(running_db, candidate_db) < 0){
-	clicon_err(OE_UNIX, errno, "FATAL: file_cp");
-	goto done;
+    /* If running exists and reload_running set, make a copy to candidate */
+    if (reload_running){
+	if (stat(running_db, &st) && errno == ENOENT){
+	    clicon_log(LOG_NOTICE, "%s: -r (reload running) option given but no running_db found, proceeding without", __PROGRAM__);
+	    reload_running = 0; /* void it, so we dont commit candidate below */
+	}
+	else
+	    if (file_cp(running_db, candidate_db) < 0){
+		clicon_err(OE_UNIX, errno, "FATAL: file_cp");
+		goto done;
+	    }
     }
-
     /* Init running db 
      * -I
      */
