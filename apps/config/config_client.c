@@ -650,8 +650,7 @@ from_client_call(clicon_handle h,
 }
 
 
-/*
- * create subscription for notifications
+/*! Create subscription for notifications
  */
 static int
 from_client_subscription(clicon_handle h,

@@ -196,7 +196,7 @@ rundb_init(clicon_handle h, char *running_db)
  */
 static int
 rundb_main(clicon_handle h, 
-	     char         *app_config_file, 
+	   char         *app_config_file, 
 	   char         *running_db)
 {
     char *tmp = NULL;
@@ -240,6 +240,10 @@ server_socket(clicon_handle h)
     return ss;
 }
 
+/*! Callback for CLICON log events
+ * If you make a subscription to CLICON stream, this function is called for every
+ * log event.
+ */
 static int
 config_log_cb(int level, char *msg, void *arg)
 {

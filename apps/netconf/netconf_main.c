@@ -131,7 +131,7 @@ ed");
 	    }
 	}
 	else{
-	    if ((xf1 = cbuf_new()) == NULL){
+	    if ((xf1 = cbuf_new()) != NULL){
 		if (netconf_create_rpc_reply(xf1, xml_req, cbuf_get(xf_out), netconf_ok_get()) < 0){
 		    cbuf_free(xf_out);
 		    cbuf_free(xf_err);
