@@ -117,15 +117,18 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
     return 0;
 }
 
-/*! Define a notify log message, part of the notify mechanism
+/*! Notify event and distribute to all registered clients
  * 
- * Stream is a string used to qualify the event-stream. Distribute the event to
- * all clients registered to this backend.
- * We could extend this functionality to (1) the generic log system and (2) an event-log.
- * See also clicon_log(). We have chosen not to integrate this log-function with the
- * system-wide. Maybe we should?
- * XXX: placed here to be part of libclicon_backend, but really does not belong here?
- * See also: subscription_add()
+ * @param[in]  h       Clicon handle
+ * @param[in]  stream  Name of event stream. CLICON is predefined as LOG stream
+ * @param[in]  level   Event level (not used yet)
+ * @param[in]  format  Format string as printf
+ *
+ * Stream is a string used to qualify the event-stream. Distribute the
+ * event to all clients registered to this backend.  
+ * XXX: event-log NYI.  
+ * See also clicon_log(). 
+ * See also subscription_add()
  */
 int
 backend_notify(clicon_handle h, char *stream, int level, char *format, ...)

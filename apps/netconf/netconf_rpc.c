@@ -70,7 +70,7 @@
  */
 static int
 netconf_filter(dbspec_key *dbspec, cxobj *xfilter, 
-	       cbuf *xf, cbuf *xf_err, 
+	       cbuf *cb, cbuf *cb_err, 
 	       cxobj *xt, char *target)
 {
     cxobj *xdb; 
@@ -81,7 +81,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
     int              retval = -1;
 
     if ((xdb = db2xml(target, dbspec, "clicon")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 
 				 "error", 
@@ -97,13 +97,13 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
     if (xfilter){
 	if ((ftype = xml_find_value(xfilter, "type")) != NULL){
 	    if (strcmp(ftype, "xpath")==0){ 
-		cprintf(xf, "<configuration>"); /* XXX: hardcoded */
-		retval = netconf_xpath(xdb, xfilter, xf, xf_err, xt);
-		cprintf(xf, "</configuration>");
+		cprintf(cb, "<configuration>"); /* XXX: hardcoded */
+		retval = netconf_xpath(xdb, xfilter, cb, cb_err, xt);
+		cprintf(cb, "</configuration>");
 		goto done;
 	    }
 	    else{
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 
 				 "error", 
@@ -123,7 +123,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
 
     /* Add <configuration> under <top> */
     if ((xc = xml_insert(xdb, "configuration")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 
 				 "error", 
@@ -133,7 +133,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
     }
     if (xfilterconf != NULL){
 	if ((type = xml_find_value(xfilterconf, "type")) != NULL && strcmp(type, "subtree")){
-	    netconf_create_rpc_error(xf_err, xt, 
+	    netconf_create_rpc_error(cb_err, xt, 
 				     "bad-attribute", 
 				     "protocol", 
 				     "error", 
@@ -142,7 +142,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
 	    goto done;
 	}
 	if (xml_filter(xfilterconf, xc) < 0){
-	    netconf_create_rpc_error(xf_err, xt, 
+	    netconf_create_rpc_error(cb_err, xt, 
 				     "operation-failed", 
 				     "application", 
 				     "error", 
@@ -155,7 +155,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
     if (xml_child_nr(xc)){
 	if (debug)
 	    clicon_xml2file(stderr, xc, 0, 1);
-	clicon_xml2cbuf(xf, xc, 0, 1);
+	clicon_xml2cbuf(cb, xc, 0, 1);
     }
     retval = 0;
   done:
@@ -190,7 +190,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
 int
 netconf_get_config(clicon_handle h, dbspec_key *dbspec,
 		   cxobj *xn, 
-		   cbuf *xf, cbuf *xf_err, 
+		   cbuf *cb, cbuf *cb_err, 
 		   cxobj *xt)
 {
     cxobj *xfilter; /* filter */
@@ -198,7 +198,7 @@ netconf_get_config(clicon_handle h, dbspec_key *dbspec,
     char *target;
 
     if ((target = get_target(h, xn, "/source")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -208,7 +208,7 @@ netconf_get_config(clicon_handle h, dbspec_key *dbspec,
     }
     /* ie <filter>...</filter> */
    xfilter = xpath_first(xn, "//filter");
-   if (netconf_filter(dbspec, xfilter, xf, xf_err, xt, target) < 0)
+   if (netconf_filter(dbspec, xfilter, cb, cb_err, xt, target) < 0)
 	goto done;
     retval = 0;
   done:
@@ -234,7 +234,7 @@ get_edit_opts(cxobj *xn,
 		 enum operation_type *op, 
 		 enum test_option *testopt,
 		 enum error_option *erropt,
-		 cbuf *xf_err, 
+		 cbuf *cb_err, 
 		 cxobj *xt) 
 {
     cxobj *x;
@@ -252,7 +252,7 @@ get_edit_opts(cxobj *xn,
 		    if (strcmp(optstr, "none") == 0)
 			*op = OP_NONE;
 		    else{
-			netconf_create_rpc_error(xf_err, xt, 
+			netconf_create_rpc_error(cb_err, xt, 
 						 "invalid-value", 
 						 "protocol", 
 						 "error", 
@@ -273,7 +273,7 @@ get_edit_opts(cxobj *xn,
 	    if (strcmp(optstr, "test-only") == 0)
 		*testopt = TEST_ONLY;
 	    else{
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(cb_err, xt, 
 					 "invalid-value", 
 					 "protocol", 
 					 "error", 
@@ -291,7 +291,7 @@ get_edit_opts(cxobj *xn,
 	    if (strcmp(optstr, "continue-on-error") == 0)
 		*erropt = CONTINUE_ON_ERROR;
 	    else{
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(cb_err, xt, 
 					 "invalid-value", 
 					 "protocol", 
 					 "error", 
@@ -350,8 +350,8 @@ int
 netconf_edit_config(clicon_handle h,
 		    dbspec_key *dbspec,
 		    cxobj *xn, 
-		    cbuf *xf, 
-		    cbuf *xf_err, 
+		    cbuf *cb, 
+		    cbuf *cb_err, 
 		    cxobj *xt)
 {
     int                 retval = -1;
@@ -369,7 +369,7 @@ netconf_edit_config(clicon_handle h,
     char              *candidate_db;
 
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
-	   netconf_create_rpc_error(xf_err, xt, 
+	   netconf_create_rpc_error(cb_err, xt, 
 				    "operation-failed", 
 				    "protocol", "error", 
 				    NULL, "Internal error"); 
@@ -378,7 +378,7 @@ netconf_edit_config(clicon_handle h,
     /* must have target, and it should be candidate */
     if ((target = get_target(h, xn, "/target")) == NULL ||
 	strcmp(target, candidate_db)){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -386,7 +386,7 @@ netconf_edit_config(clicon_handle h,
 				 "<bad-element>target</bad-element>");
 	goto done;
     }
-    if (get_edit_opts(xn, &operation, &testopt, &erropt, xf_err, xt) < 0)
+    if (get_edit_opts(xn, &operation, &testopt, &erropt, cb_err, xt) < 0)
 	goto done;
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
@@ -432,7 +432,7 @@ netconf_edit_config(clicon_handle h,
 		goto done;
 	    }
 	    if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(cb_err, xt, 
 					 "access-denied", 
 					 "protocol", 
 					 "error", 
@@ -471,7 +471,7 @@ netconf_edit_config(clicon_handle h,
 int
 netconf_copy_config(clicon_handle h,
 		    cxobj *xn, 
-		    cbuf *xf, cbuf *xf_err, 
+		    cbuf *cb, cbuf *cb_err, 
 		    cxobj *xt)
 {
     char              *source, *target; /* filenames */
@@ -480,7 +480,7 @@ netconf_copy_config(clicon_handle h,
     char              *s;
 
     if ((source = get_target(h, xn, "/source")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -489,7 +489,7 @@ netconf_copy_config(clicon_handle h,
 	goto done;
     }
     if ((target = get_target(h, xn, "/target")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -501,7 +501,7 @@ netconf_copy_config(clicon_handle h,
 #ifdef notyet
     /* If target is locked and not by this client, then return an error */
     if (target_locked(&client) > 0 && client != ce_nr){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "access-denied", 
 				 "protocol", 
 				 "error", 
@@ -538,7 +538,7 @@ netconf_copy_config(clicon_handle h,
 int
 netconf_delete_config(clicon_handle h,
 		      cxobj *xn, 
-		      cbuf *xf, cbuf *xf_err, 
+		      cbuf *cb, cbuf *cb_err, 
 		      cxobj *xt)
 {
     char              *target; /* filenames */
@@ -548,7 +548,7 @@ netconf_delete_config(clicon_handle h,
     char              *candidate_db;
 
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
-	   netconf_create_rpc_error(xf_err, xt, 
+	   netconf_create_rpc_error(cb_err, xt, 
 				    "operation-failed", 
 				    "protocol", "error", 
 				    NULL, "Internal error"); 
@@ -556,7 +556,7 @@ netconf_delete_config(clicon_handle h,
     }
 
     if ((target = get_target(h, xn, "/target")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -565,7 +565,7 @@ netconf_delete_config(clicon_handle h,
 	goto done;
     }
     if (strcmp(target, candidate_db)){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "bad-element", 
 				 "protocol", 
 				 "error", 
@@ -578,7 +578,7 @@ netconf_delete_config(clicon_handle h,
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "access-denied", 
 				 "protocol", 
 				 "error", 
@@ -591,7 +591,7 @@ netconf_delete_config(clicon_handle h,
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "access-denied", 
 				 "protocol", 
 				 "error", 
@@ -610,7 +610,7 @@ netconf_delete_config(clicon_handle h,
     <close-session/> 
 */
 int
-netconf_close_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
+netconf_close_session(cxobj *xn, cbuf *cb, cbuf *cb_err, cxobj *xt)
 {
     cc_closed++;
     netconf_ok_set(1);
@@ -627,14 +627,14 @@ netconf_close_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
 int
 netconf_lock(clicon_handle h,
 	     cxobj *xn, 
-	     cbuf *xf, cbuf *xf_err, 
+	     cbuf *cb, cbuf *cb_err, 
 	     cxobj *xt)
 {
     char *target;
     int retval = -1;
 
     if ((target = get_target(h, xn, "/target")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -645,7 +645,7 @@ netconf_lock(clicon_handle h,
 #ifdef notyet
     if (target_locked(&client) > 0){
 	snprintf(info, 64, "<session-id>%d</session-id>", client);
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "lock-denied", 
 				 "protocol", 
 				 "error", 
@@ -655,7 +655,7 @@ netconf_lock(clicon_handle h,
     }
 
     if (lock_target(target) < 0){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "lock-denied", 
 				 "protocol", 
 				 "error", 
@@ -680,14 +680,14 @@ netconf_lock(clicon_handle h,
 int
 netconf_unlock(clicon_handle h, 
 	       cxobj *xn, 
-	       cbuf *xf, cbuf *xf_err, 
+	       cbuf *cb, cbuf *cb_err, 
 	       cxobj *xt)
 {
     char *target;
     int retval = -1;
 
     if ((target = get_target(h, xn, "/target")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -697,7 +697,7 @@ netconf_unlock(clicon_handle h,
     }
 #ifdef notyet
     if (target_locked(&client) == 0){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "lock-denied", 
 				 "protocol", 
 				 "error", 
@@ -708,7 +708,7 @@ netconf_unlock(clicon_handle h,
 
     if (client != ce_nr){
 	snprintf(info, 64, "<session-id>%d</session-id>", client);
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "lock-denied", 
 				 "protocol", 
 				 "error", 
@@ -717,7 +717,7 @@ netconf_unlock(clicon_handle h,
 	return -1;
     }
     if (unlock_target(target) < 0){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "lock-denied", 
 				 "protocol", 
 				 "error", 
@@ -738,7 +738,7 @@ netconf_unlock(clicon_handle h,
   </kill-session> 
  */
 int
-netconf_kill_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
+netconf_kill_session(cxobj *xn, cbuf *cb, cbuf *cb_err, cxobj *xt)
 {
 #ifdef notyet
     cxobj *xsessionid;
@@ -746,7 +746,7 @@ netconf_kill_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
     long  i;
 
     if ((xsessionid = xpath_first(xn, "//session-id")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -755,7 +755,7 @@ netconf_kill_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
 	return -1;
     }
     if (xml_find_value(xsessionid, "body") == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -768,7 +768,7 @@ netconf_kill_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
 	if ((i == LONG_MIN || i == LONG_MAX) && errno)
 	    return -1;
 	if ((ce = find_ce_bynr(i)) == NULL){
-	    netconf_create_rpc_error(xf_err, xt, 
+	    netconf_create_rpc_error(cb_err, xt, 
 				     "operation-failed", 
 				     "protocol", 
 				     "error", 
@@ -790,7 +790,7 @@ netconf_kill_session(cxobj *xn, cbuf *xf, cbuf *xf_err, cxobj *xt)
 int
 netconf_commit(clicon_handle h,
 	       cxobj *xn, 
-	       cbuf *xf, cbuf *xf_err, 
+	       cbuf *cb, cbuf *cb_err, 
 	       cxobj *xt)
 {
     struct clicon_msg *msg;     /* inline from cli_proto_commit */
@@ -800,14 +800,14 @@ netconf_commit(clicon_handle h,
     char              *running_db;
 
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "protocol", "error", 
 				 NULL, "Internal error: candidate not set"); 
 	goto done;
     }
     if ((running_db = clicon_running_db(h)) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "protocol", "error", 
 				 NULL, "Internal error: running not set"); 
@@ -817,7 +817,7 @@ netconf_commit(clicon_handle h,
 				      running_db, 
 				      1, 1, 
 				     __FUNCTION__)) == NULL){
-	   netconf_create_rpc_error(xf_err, xt, 
+	   netconf_create_rpc_error(cb_err, xt, 
 				    "operation-failed", 
 				    "protocol", "error", 
 				    NULL, "Internal error"); 
@@ -826,7 +826,7 @@ netconf_commit(clicon_handle h,
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
-	   netconf_create_rpc_error(xf_err,               /* msg buffer */
+	   netconf_create_rpc_error(cb_err,               /* msg buffer */
 				    xt,                   /* orig request */
 				    "operation-failed",   /* tag */
 				    "protocol",           /* type */
@@ -848,7 +848,7 @@ netconf_commit(clicon_handle h,
  */
 int
 netconf_discard_changes(clicon_handle h,
-			cxobj *xn, cbuf *xf, cbuf *xf_err, 
+			cxobj *xn, cbuf *cb, cbuf *cb_err, 
 			cxobj *xt)
 {
     struct clicon_msg *msg;     /* inline from cli_proto_copy */
@@ -858,14 +858,14 @@ netconf_discard_changes(clicon_handle h,
     char              *candidate_db;
 
     if ((running_db = clicon_running_db(h)) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "protocol", "error", 
 				 NULL, "Internal error: running not set"); 
 	goto done;
     }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
-	   netconf_create_rpc_error(xf_err, xt, 
+	   netconf_create_rpc_error(cb_err, xt, 
 				    "operation-failed", 
 				    "protocol", "error", 
 				    NULL, "Internal error"); 
@@ -878,7 +878,7 @@ netconf_discard_changes(clicon_handle h,
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
-	   netconf_create_rpc_error(xf_err, xt, 
+	   netconf_create_rpc_error(cb_err, xt, 
 				    "operation-failed", 
 				    "protocol", "error", 
 				    NULL, "Internal error"); 
@@ -898,14 +898,14 @@ netconf_discard_changes(clicon_handle h,
 int
 netconf_validate(clicon_handle h, 
 		 cxobj *xn, 
-		 cbuf *xf, cbuf *xf_err, 
+		 cbuf *cb, cbuf *cb_err, 
 		 cxobj *xt)
 {
     char *target;
     int retval = -1;
 
     if ((target = get_target(h, xn, "/source")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "missing-element", 
 				 "protocol", 
 				 "error", 
@@ -939,19 +939,19 @@ netconf_validate(clicon_handle h,
 static int
 netconf_notification_cb(int s, void *arg)
 {
-    cxobj   *xfilter = (cxobj *)arg; 
+    cxobj             *xfilter = (cxobj *)arg; 
     char              *selector;
     struct clicon_msg *reply;
     int                eof;
     char              *event = NULL;
     int                level;
     int                retval = -1;
-    cbuf              *xf;
-    cxobj   *xe = NULL; /* event xml */
+    cbuf              *cb;
+    cxobj             *xe = NULL; /* event xml */
 
     if (0){
-    fprintf(stderr, "%s\n", __FUNCTION__); /* debug */
-    clicon_xml2file(stderr, xfilter, 0, 1); /* debug */
+	fprintf(stderr, "%s\n", __FUNCTION__); /* debug */
+	clicon_xml2file(stderr, xfilter, 0, 1); /* debug */
     }
     /* get msg (this is the reason this function is called) */
     if (clicon_msg_rcv(s, &reply, &eof, __FUNCTION__) < 0)
@@ -972,29 +972,35 @@ netconf_notification_cb(int s, void *arg)
 	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
 	    goto done;
 	/* parse event */
-	if (clicon_xml_parse_string(&event, &xe) < 0)
-	    goto done;
-	/* find and apply filter */
-	if ((selector = xml_find_value(xfilter, "select")) == NULL)
-	    goto done;
-	if (xpath_first(xe, selector) == NULL) {
-	    fprintf(stderr, "%s no match\n", __FUNCTION__); /* debug */
-	    break;
+	if (0){ /* XXX CLICON events are not xml */
+	    if (clicon_xml_parse_string(&event, &xe) < 0)
+		goto done;
+	    /* find and apply filter */
+	    if ((selector = xml_find_value(xfilter, "select")) == NULL)
+		goto done;
+	    if (xpath_first(xe, selector) == NULL) {
+		fprintf(stderr, "%s no match\n", __FUNCTION__); /* debug */
+		break;
+	    }
 	}
 	/* create netconf message */
-	if ((xf = cbuf_new()) == NULL){
+	if ((cb = cbuf_new()) == NULL){
 	    clicon_err(OE_PLUGIN, errno, "%s: cbuf_new", __FUNCTION__);
 	    goto done;
 	}
-	add_preamble(xf); /* Make it well-formed netconf xml */
-	cprintf(xf, "%s", event); 
-	add_postamble(xf);
+	add_preamble(cb); /* Make it well-formed netconf xml */
+	cprintf(cb, "<notification>"); 
+	cprintf(cb, "<event>"); 
+	cprintf(cb, "%s", event); 
+	cprintf(cb, "</event>"); 
+	cprintf(cb, "</notification>"); 
+	add_postamble(cb);
 	/* Send it to listening client on stdout */
-	if (netconf_output(1, xf, "notification") < 0){
-	    cbuf_free(xf);
+	if (netconf_output(1, cb, "notification") < 0){
+	    cbuf_free(cb);
 	    goto done;
 	}
-	cbuf_free(xf);
+	cbuf_free(cb);
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
@@ -1006,8 +1012,8 @@ netconf_notification_cb(int s, void *arg)
   done:
     if (xe != NULL)
 	xml_free(xe);
-    if (event)
-	free(event);
+//    if (event)
+//	free(event);
     unchunk_group(__FUNCTION__);
     return retval;
 }
@@ -1024,12 +1030,12 @@ netconf_notification_cb(int s, void *arg)
 static int
 netconf_create_subscription(clicon_handle h, 
 			    cxobj *xn, 
-			    cbuf *xf, cbuf *xf_err, 
+			    cbuf *cb, cbuf *cb_err, 
 			    cxobj *xt)
 {
-    cxobj *xstream;
-    cxobj *xfilter; 
-    cxobj *xfilter2 = NULL; 
+    cxobj           *xstream;
+    cxobj           *xfilter; 
+    cxobj           *xfilter2 = NULL; 
     char            *stream = NULL;
     char            *sockpath;
     int              s;
@@ -1043,7 +1049,7 @@ netconf_create_subscription(clicon_handle h,
     if ((xfilter = xpath_first(xn, "//filter")) != NULL){
 	if ((ftype = xml_find_value(xfilter, "type")) != NULL){
 	    if (strcmp(ftype, "xpath") != 0){
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(cb_err, xt, 
 					 "operation-failed", 
 					 "application", 
 					 "error", 
@@ -1056,7 +1062,7 @@ netconf_create_subscription(clicon_handle h,
 	   and is only freed on exit since no unreg is made.
 	*/
 	if ((xfilter2 = xml_dup(xfilter)) == NULL){
-	    netconf_create_rpc_error(xf_err, xt, 
+	    netconf_create_rpc_error(cb_err, xt, 
 				     "operation-failed", 
 				     "application", 
 				     "error", 
@@ -1068,7 +1074,7 @@ netconf_create_subscription(clicon_handle h,
     }
     sockpath = clicon_sock(h);
     if (cli_proto_subscription(sockpath, stream, &s) < 0){
-	netconf_create_rpc_error(xf_err, xt, 
+	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 
 				 "error", 
@@ -1095,16 +1101,16 @@ netconf_create_subscription(clicon_handle h,
  *  dbspec  - database specification
  *  xorig   - Original request.
  *  xn      - Sub-tree (under xorig) at <rpc>...</rpc> level.
- *  xf      - Output xml stream. For reply
- *  xf_err  - Error xml stream. For error reply
+ *  cb      - Output xml stream. For reply
+ *  cb_err  - Error xml stream. For error reply
  */
 int
 netconf_rpc_dispatch(clicon_handle h,
 		     dbspec_key *dbspec,
 		     cxobj *xorig, 
 		     cxobj *xn, 
-		     cbuf *xf, 
-		     cbuf *xf_err)
+		     cbuf *cb, 
+		     cbuf *cb_err)
 {
     cxobj *xe;
     int ret = 0;
@@ -1112,49 +1118,49 @@ netconf_rpc_dispatch(clicon_handle h,
     xe = NULL;
    while ((xe = xml_child_each(xn, xe, CX_ELMNT)) != NULL) {
        if (strcmp(xml_name(xe), "close-session") == 0)
-	   return netconf_close_session(xe, xf, xf_err, xorig);
+	   return netconf_close_session(xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "get-config") == 0)
-	   return netconf_get_config(h, dbspec, xe, xf, xf_err, xorig);
+	   return netconf_get_config(h, dbspec, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "edit-config") == 0)
-	   return netconf_edit_config(h, dbspec, xe, xf, xf_err, xorig);
+	   return netconf_edit_config(h, dbspec, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "copy-config") == 0)
-	   return netconf_copy_config(h, xe, xf, xf_err, xorig);
+	   return netconf_copy_config(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "delete-config") == 0)
-	   return netconf_delete_config(h, xe, xf, xf_err, xorig);
+	   return netconf_delete_config(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "kill-session") == 0) /* TBD */
-	   return netconf_kill_session(xe, xf, xf_err, xorig);
+	   return netconf_kill_session(xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "lock") == 0) /* TBD */
-	   return netconf_lock(h, xe, xf, xf_err, xorig);
+	   return netconf_lock(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "unlock") == 0) /* TBD */
-	   return netconf_unlock(h, xe, xf, xf_err, xorig);
+	   return netconf_unlock(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "commit") == 0)
-	   return netconf_commit(h, xe, xf, xf_err, xorig);
+	   return netconf_commit(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "discard-changes") == 0)
-	   return netconf_discard_changes(h, xe, xf, xf_err, xorig);
+	   return netconf_discard_changes(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "validate") == 0)
-	   return netconf_validate(h, xe, xf, xf_err, xorig);
+	   return netconf_validate(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "create-subscription") == 0)
 	   return netconf_create_subscription(h, 
 					      //dbspec, 
-					      xe, xf, xf_err, xorig);
+					      xe, cb, cb_err, xorig);
        else{
 	   if ((ret = netconf_plugin_callbacks(h, 
 					       //dbspec, 
-					       xe, xf, xf_err, xorig)) < 0)
+					       xe, cb, cb_err, xorig)) < 0)
 	       return -1;
 	   if (ret == 0){ /* not handled by callback */
-	       netconf_create_rpc_error(xf_err, xorig, 
+	       netconf_create_rpc_error(cb_err, xorig, 
 					"operation-failed", 
 					"rpc", "error", 
 					xml_name(xe), "Not recognized"); 
@@ -1168,11 +1174,11 @@ netconf_rpc_dispatch(clicon_handle h,
 
 /*
  * netconf_create_rpc_reply
- * Create an rpc reply msg in xf
+ * Create an rpc reply msg in cb
  * Then send it using send_msg_to_client()
  */
 int 
-netconf_create_rpc_reply(cbuf *xf,            /* msg buffer */
+netconf_create_rpc_reply(cbuf *cb,            /* msg buffer */
 			 cxobj *xr, /* orig request */
 			 char *body,
 			 int ok
@@ -1180,39 +1186,39 @@ netconf_create_rpc_reply(cbuf *xf,            /* msg buffer */
 {
     cxobj *xn, *xa;
 
-    add_preamble(xf);
-    cprintf(xf, "<rpc-reply"); /* attributes from rpc */
+    add_preamble(cb);
+    cprintf(cb, "<rpc-reply"); /* attributes from rpc */
     if (xr && (xn=xpath_first(xr, "//rpc")) != NULL){
 	xa = NULL;
 	while ((xa = xml_child_each(xn, xa, CX_ATTR)) != NULL) 
-	    cprintf(xf, " %s=\"%s\"", xml_name(xa), xml_value(xa));
+	    cprintf(cb, " %s=\"%s\"", xml_name(xa), xml_value(xa));
     }
-    cprintf(xf, ">");
+    cprintf(cb, ">");
     if (ok) /* Just _maybe_ we should send data instead of ok if (if there is any)
 	       even if ok is set? */
-	cprintf(xf, "<ok/>");
+	cprintf(cb, "<ok/>");
     else{
-	cprintf(xf, "<data>");
-	cprintf(xf, "%s", body);
-	cprintf(xf, "</data>");
+	cprintf(cb, "<data>");
+	cprintf(cb, "%s", body);
+	cprintf(cb, "</data>");
     }
-    cprintf(xf, "</rpc-reply>");
-    add_postamble(xf);
+    cprintf(cb, "</rpc-reply>");
+    add_postamble(cb);
     return 0;
 }
 
 
 /*
  * netconf_create_rpc_error
- * Create an rpc error msg in xf
+ * Create an rpc error msg in cb
  * (Then it should be sent at a later stage using send_msg_to_client() )
  * Arguments:
- *  xf   msg buffer to construct netconf message in
+ *  cb   msg buffer to construct netconf message in
  *  xr   original request including an "rpc" tag
  *  ...  arguments to rpc-error reply message
  */
 int 
-netconf_create_rpc_error(cbuf *xf,            /* msg buffer */
+netconf_create_rpc_error(cbuf *cb,            /* msg buffer */
 			 cxobj *xr, /* orig request */
 			 char *tag, 
 			 char *type,
@@ -1220,20 +1226,20 @@ netconf_create_rpc_error(cbuf *xf,            /* msg buffer */
 			 char *message, 
 			 char *info)
 {
-    add_error_preamble(xf, tag);
-    cprintf(xf, "<rpc-reply>");
-    cprintf(xf, "<rpc-error>");
+    add_error_preamble(cb, tag);
+    cprintf(cb, "<rpc-reply>");
+    cprintf(cb, "<rpc-error>");
     if (tag)
-	cprintf(xf, "<error-tag>%s</error-tag>", tag);
-    cprintf(xf, "<error-type>%s</error-type>", type);
-    cprintf(xf, "<error-severity>%s</error-severity>", severity);
+	cprintf(cb, "<error-tag>%s</error-tag>", tag);
+    cprintf(cb, "<error-type>%s</error-type>", type);
+    cprintf(cb, "<error-severity>%s</error-severity>", severity);
     if (message)
-	cprintf(xf, "<error-message>%s</error-message>", message);
+	cprintf(cb, "<error-message>%s</error-message>", message);
     if (info)
-	cprintf(xf, "<error-info>%s</error-info>", info);
-    cprintf(xf, "</rpc-error>");
-    cprintf(xf, "</rpc-reply>");
-    add_error_postamble(xf);
+	cprintf(cb, "<error-info>%s</error-info>", info);
+    cprintf(cb, "</rpc-error>");
+    cprintf(cb, "</rpc-reply>");
+    add_error_postamble(cb);
     return 0;
 }
 

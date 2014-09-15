@@ -138,10 +138,10 @@ usage(char *argv0, clicon_handle h)
     	    "    -u <path>\tconfig UNIX domain path (default: %s)\n"
     	    "    -P <file>\tPid filename (default: %s)\n"
     	    "    -I\t\tInitialize running state database\n"
-    	    "    -R\t\tCall plugin_reset() in plugins to reset system state\n"
+    	    "    -R\t\tCall plugin_reset() in plugins to reset system state (use with -I)\n"
 	    "    -c [<file>]\tLoad specified application config. Default is\n"
 	    "              \t\"CLICON_STARTUP_CONFIG\" = %s\n"
-	    "    -r\t\tReplace application config. Used with -c\n"
+	    "    -r\t\tReload running database\n"
 	    "    -g <group>\tClient membership required to this group (default: %s)\n",
 	    argv0,
 	    conffile ? conffile : "none",
@@ -173,7 +173,7 @@ zapold(clicon_handle h)
 }
 
 static int
-rundb_main(clicon_handle h, char *running_db)
+rundb_init(clicon_handle h, char *running_db)
 {
     if (unlink(running_db) != 0 && errno != ENOENT) {
 	clicon_err(OE_UNIX, errno, "unlink");
@@ -185,43 +185,38 @@ rundb_main(clicon_handle h, char *running_db)
     return 0;
 }
 
-/*
- * appconf_main
- * initiziaze running-config from file appconf.
- * if replace is set, clean running first (in case it is non-empty)
+/*! Initiziaze running-config from file application configuration
+ * 
+ *
+ * @param[in] h                clicon handle
+ * @param[in] app_config_file  clicon application configuration file
+ * @param[in] running_db       Name of running db
+ * @retval    0                OK
+ * @retval   -1                Error. clicon_err set
  */
 static int
-appconf_main(clicon_handle h, char *appconf, char *running_db, int replace)
+rundb_main(clicon_handle h, 
+	   char         *app_config_file, 
+	   char         *running_db)
 {
-    char *tmp;
+    char *tmp = NULL;
     int retval = -1;
 
     if ((tmp = clicon_tmpfile(__FUNCTION__)) == NULL)
-	return -1;
-    
-    if (replace) {
-	if (db_init(tmp) < 0)
-	    goto catch;
+	goto done;
+    if (file_cp(running_db, tmp) < 0){
+	clicon_err(OE_UNIX, errno, "file copy");
+	goto done;
     }
-    else {
-	if (file_cp(running_db, tmp) < 0){
-	    clicon_err(OE_UNIX, errno, "file copy");
-	    goto catch;
-	}
-    }
-
-    if (load_xml_to_db(appconf, clicon_dbspec_key(h), tmp) < 0) 
-	goto catch;
-    
+    if (load_xml_to_db(app_config_file, clicon_dbspec_key(h), tmp) < 0) 
+	goto done;
     if (candidate_commit(h, tmp, running_db) < 0)
-	goto catch;
-
+	goto done;
     retval = 0;
-    
-catch:
-    unlink(tmp);
+done:
+    if (tmp)
+	unlink(tmp);
     unchunk_group(__FUNCTION__);
-
     return retval;
 }
 
@@ -245,6 +240,10 @@ server_socket(clicon_handle h)
     return ss;
 }
 
+/*! Callback for CLICON log events
+ * If you make a subscription to CLICON stream, this function is called for every
+ * log event.
+ */
 static int
 config_log_cb(int level, char *msg, void *arg)
 {
@@ -296,9 +295,9 @@ main(int argc, char **argv)
     int           init_rundb;
     char         *running_db;
     char         *candidate_db;
+    int           reload_running;
     int           reset_state;
-    int           replace_config = 0;
-    char         *app_config = NULL;
+    char         *app_config_file = NULL;
     char         *config_group;
     char         *argv0 = argv[0];
     char         *tmp;
@@ -318,6 +317,7 @@ main(int argc, char **argv)
     once = 0;
     zap = 0;
     init_rundb = 0;
+    reload_running = 0;
     reset_state = 0;
 
     /*
@@ -404,18 +404,18 @@ main(int argc, char **argv)
 	 case 'I': /* Initiate running db */
 	     init_rundb++;
 	     break;
-	 case 'R': /* Reset system state */
+	 case 'R': /* Reset state */
 	     reset_state++;
 	     break;
 	 case 'c': /* Load application config */
-	     app_config = optarg ? optarg : clicon_startup_config(h);
-	     if (app_config == NULL) {
+	     app_config_file = optarg ? optarg : clicon_startup_config(h);
+	     if (app_config_file == NULL) {
 		 fprintf(stderr, "Option \"CLICON_STARTUP_CONFIG\" not set\n");
 		 return -1;
 	     }
 	     break;
-	 case 'r': /* Replace application config */
-	     replace_config = 1;
+	 case 'r': /* Reload running */
+	     reload_running++;
 	     break;
 	 case 'g': /* config socket group */
 	     clicon_option_str_set(h, "CLICON_SOCK_GROUP", optarg);
@@ -452,6 +452,7 @@ main(int argc, char **argv)
     /* Parse db spec file */
     if (dbspec_main_config(h, 0, 0) < 0)
 	goto done;
+
     if ((running_db = clicon_running_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "running db not set");
 	goto done;
@@ -460,9 +461,23 @@ main(int argc, char **argv)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
     }
-    /* Init running db */
+    /* If running exists and reload_running set, make a copy to candidate */
+    if (reload_running){
+	if (stat(running_db, &st) && errno == ENOENT){
+	    clicon_log(LOG_NOTICE, "%s: -r (reload running) option given but no running_db found, proceeding without", __PROGRAM__);
+	    reload_running = 0; /* void it, so we dont commit candidate below */
+	}
+	else
+	    if (file_cp(running_db, candidate_db) < 0){
+		clicon_err(OE_UNIX, errno, "FATAL: file_cp");
+		goto done;
+	    }
+    }
+    /* Init running db 
+     * -I
+     */
     if (init_rundb || (stat(running_db, &st) && errno == ENOENT))
-	if (rundb_main(h, running_db) < 0)
+	if (rundb_init(h, running_db) < 0)
 	    goto done;
 
     /* Initialize plugins 
@@ -470,7 +485,9 @@ main(int argc, char **argv)
     if (plugin_initiate(h) != 0) 
 	goto done;
     
-    /* Request plugins to reset system state */
+    /* Request plugins to reset system state, eg initiate running from system 
+     * -R
+     */
     if (reset_state)
 	if (plugin_reset_state(h) < 0)  
 	    goto done;
@@ -482,11 +499,19 @@ main(int argc, char **argv)
 	goto done;
     *(argv-1) = tmp;
 
-
-    /* Have we specified a config file to load? */
-    if (app_config)
-	if (appconf_main(h, app_config, running_db, replace_config) < 0)
+    if (reload_running){
+	if (candidate_commit(h, candidate_db, running_db) < 0)
 	    goto done;
+    }
+
+    /* Have we specified a config file to load? eg 
+       -c <file>  
+       -r replace running (obsolete)
+    */
+    if (app_config_file)
+	if (rundb_main(h, app_config_file, running_db) < 0)
+	    goto done;
+
     /* Initiate the shared candidate. Maybe we should not do this? */
     if (file_cp(running_db, candidate_db) < 0){
 	clicon_err(OE_UNIX, errno, "FATAL: file_cp");
