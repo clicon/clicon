@@ -350,9 +350,11 @@ lvec2cvec(char *lvec, size_t len)
 	/* add cv with name as name */
 	cv = cvec_i(vr, i++);
 	lv2cv(val, cv);
-	if ((cv_name_set(cv, unique?name+1:name)) == NULL){
-	    clicon_err(OE_DB, errno , "%s: alloc name failed\n", __FUNCTION__);
-	    goto catch;
+	if (strlen(name)) {
+	    if ((cv_name_set(cv, unique?name+1:name)) == NULL){
+		clicon_err(OE_DB,errno, "%s: alloc name failed\n",__FUNCTION__);
+		goto catch;
+	    }
 	}
 	if (unique)
 	    cv_flag_set(cv, V_UNIQUE);
@@ -413,8 +415,10 @@ cvec2lvec(cvec *vr, size_t *lveclen)
     /* First compute total length */
     cv = NULL;
     while ((cv = cvec_each(vr, cv)) != NULL) {
-	len1 = hlen + 1; 
-	len1 = hlen + strlen(cv_name_get(cv)) + 1; /* first part contains name */
+	len1 = hlen + 1;
+	if ((cv_name = cv_name_get(cv)) == NULL)
+	    cv_name = "";
+	len1 = hlen + strlen(cv_name) + 1; /* first part contains name */
 	if (cv_flag(cv, V_UNIQUE)) /* '!' */
 	    len1++;
 	len2 = hlen + cv_len(cv); /* second part contains value */
@@ -429,7 +433,8 @@ cvec2lvec(cvec *vr, size_t *lveclen)
     cv = NULL;
     lv = (struct lvalue *)lvec;
     while ((cv = cvec_each(vr, cv)) != NULL) {
-	cv_name = cv_name_get(cv);
+	if ((cv_name = cv_name_get(cv)) == NULL)
+	    cv_name = "";
 	len1 = hlen + strlen(cv_name) + 1; /* first part contains name */
 	if (cv_flag(cv, V_UNIQUE)) /* '!' */
 	    len1++;
