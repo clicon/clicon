@@ -30,10 +30,12 @@
 cvec   *clicon_dbget(char *db, char *key);
 cg_var *clicon_dbgetvar(char *db, char *key, char *variable);
 int     clicon_dbput(char *db, char *key, cvec *vec);
+int     clicon_dbputvar(char *db, char *key, cg_var *cv);
 int     clicon_dbdel(char *db, char *key);
 int     clicon_dbdelvar(char *db, char *key, char *variable);
 int     clicon_dbappend(char *db, char *key, cg_var *cv);
 int     clicon_dbhaskey(char *db, char *key);
+int     clicon_dbmerge(char *db, char *key, cvec *vec);
 char  **clicon_dbkeys(char *db, size_t *len, char *rx);
 cvec  **clicon_dbitems(char *db, size_t *len, char *rx);
 void    clicon_dbitems_free(cvec **vecs);

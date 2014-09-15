@@ -72,6 +72,8 @@ clicon_dbget(char *db, char *key)
     if (db_get_alloc(db, key, (void*)&lvec, &len) < 0)
 	goto catch;
     cvec = lvec2cvec(lvec, len);
+    cvec_name_set(cvec, key);
+
 catch:
     if(lvec)
 	free(lvec);
@@ -146,6 +148,53 @@ clicon_dbput(char *db, char *key, cvec *vec)
     return 0;
 }
 
+/*! Set variable in database key
+ *
+ * Set named variable int database key. If database key doesn't exist it will
+ * be created.
+ *
+ * @param   db       Name of database to search in (filename including dir path)
+ * @param   key      Name of database key
+ * @param   cv       Variable to set
+ */
+int
+clicon_dbputvar(char *db, char *key, cg_var *cv)
+{
+    char *name;
+    cvec *vec;
+    cg_var *new = NULL;
+    int retval = -1;
+
+    if ((vec = clicon_dbget(db, key)) == NULL) {
+	if ((vec = cvec_new(0)) == NULL) {
+	    clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
+	    goto quit;
+	}
+    }
+    
+    name = cv_name_get(cv);
+    if (name == NULL || (new = cvec_find(vec, name)) == NULL) {
+	if ((new = cvec_add(vec, cv_type_get(cv))) == NULL) {
+	    clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
+	    goto quit;
+	}
+    }
+    
+    if (cv_cp(new, cv) < 0) {
+	clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
+	goto quit;
+    }
+	
+    retval = clicon_dbput(db, key, vec);
+
+ quit:
+    if (vec)
+	cvec_free(vec);
+
+    return retval;
+}
+
+
 /*! Delete database key
  *
  * Delete named key from database
@@ -172,16 +221,75 @@ clicon_dbdelvar(char *db, char *key, char *variable)
 {
     cvec *vec;
     cg_var *cv;
+    int retval = -1;
 
     if ((vec = clicon_dbget(db, key)) == NULL)
-	return -1;
+	goto quit;
     
     if ((cv = cvec_find(vec, variable)) == NULL)
-	return -1;
+	goto quit;
 
     cvec_del(vec, cv);
-    return clicon_dbput(db, key, vec);
+    retval = clicon_dbput(db, key, vec);
+
+ quit:
+    if (vec)
+	cvec_free(vec);
+
+    return retval;
 }
+
+/*! Merge a cvec into into db key
+ *
+ * Merge a cligen variable vector with the existing variable in database key.
+ * Variables with matching names will be overwritten. If key does not exist
+ * in database, a new db key will be created based on the new vector.
+ *
+ * @param   db       Name of database to search in (filename including dir path)
+ * @param   key      Name of database key
+ * @param   vec      Cligen variable vector
+ */
+int
+clicon_dbmerge(char *db, char *key, cvec *vec)
+{
+    cvec *orig;
+    cg_var *cv;
+    cg_var *new;
+    char *name;
+    int retval = -1;
+
+    if ((orig = clicon_dbget(db, key)) == NULL)
+	return clicon_dbput(db, key, vec);
+
+    cv = NULL;
+    while ((cv = cvec_each (vec, cv))) {
+    	if (cv_flag(cv, V_UNSET))  /* Allow for empty values as in db_spec */
+	    continue;
+
+	name = cv_name_get(cv);
+	if (name && (new = cvec_find(orig, name)) != NULL) {
+	    cv_reset(new);	
+	} else {
+	    if ((new = cvec_add(orig, cv_type_get(cv))) == NULL) {
+		clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
+		goto quit;
+	    }
+	}
+	
+	if (cv_cp(new, cv) < 0) {
+	    clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
+	    goto quit;
+	}
+    }
+
+    retval = clicon_dbput(db, key, orig);
+
+ quit:
+    cvec_free(orig);
+    
+    return retval;
+}
+
 
 /*! Append varriable to db key
  *
@@ -196,20 +304,27 @@ clicon_dbappend(char *db, char *key, cg_var *cv)
 {
     cvec *vec;
     cg_var *new;
-
+    int retval = -1;
+    
     if ((vec = clicon_dbget(db, key)) == NULL)
 	return -1;
     
     if ((new = cvec_add(vec, cv_type_get(cv))) == NULL) {
 	clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
-	return -1;
+	goto quit;
     }
     if (cv_cp(new, cv) < 0) {
 	clicon_err(OE_UNIX, errno, "%s:", __FUNCTION__);
-	return -1;
+	goto quit;
     }
 
-    return clicon_dbput(db, key, vec);
+    retval = clicon_dbput(db, key, vec);
+
+ quit:
+    if (vec)
+	cvec_free(vec);
+    
+    return retval;
 }
 
 
