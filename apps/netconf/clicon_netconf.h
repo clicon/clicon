@@ -33,15 +33,22 @@ typedef int (*netconf_cb_t)(
     clicon_handle h, 
     cxobj *xorig, /* Original request. */
     cxobj *xn,    /* Sub-tree (under xorig) at child: <rpc><xn></rpc> */
-    cbuf *xf,		    /* Output xml stream. For reply */
-    cbuf *xf_err,	    /* Error xml stream. For error reply */
-    void *arg               /* Argument given at netconf_register_callback() */
+    cbuf  *cb,		    /* Output xml stream. For reply */
+    cbuf  *cb_err,	    /* Error xml stream. For error reply */
+    void  *arg               /* Argument given at netconf_register_callback() */
     );  
 
 /*
  * Prototypes
  * (Duplicated. Also in netconf_*.h)
  */
+int netconf_output(int s, cbuf *xf, char *msg);
+
+int netconf_create_rpc_reply(cbuf *cb,            /* msg buffer */
+			 cxobj *xr, /* orig request */
+			 char *body,
+			 int ok);
+
 int netconf_register_callback(clicon_handle h,
 			      netconf_cb_t cb,   /* Callback called */
 			      void *arg,       /* Arg to send to callback */

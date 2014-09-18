@@ -282,9 +282,7 @@ dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
     return 0;
 }
 
-/*
- * dbmatch_one()
- * Look in the database and match first entry according to a matching expression,
+/*! Look in the database and match first entry according to a matching expression,
  * Matching expression is a variable and a shell-wildcard value.
  * Example: Database includes the following entries:
  * Key.0 $!a=442 $b=3 $uuid=u0

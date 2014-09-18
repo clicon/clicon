@@ -30,6 +30,7 @@
  * Types
  */
 
+/* See also map_type2str in clicon_proto.c */
 enum clicon_msg_type{
     CLICON_MSG_COMMIT = 1,    /* Commit a configuration db->running_db
 			    current state, set running_db. Body is:
@@ -107,9 +108,9 @@ enum clicon_msg_type{
 
 /* Protocol message header */
 struct clicon_msg {
-    uint16_t    op_len;
-    uint16_t    op_type; /* see enum clicon_proto_type */
-    char        op_body[0];  /* rest of message */
+    uint16_t    op_len;      /* length of message */
+    uint16_t    op_type;     /* message type, see enum clicon_msg_type */
+    char        op_body[0];  /* rest of message, actual data */
 };
 
 /* Generic clicon message. Either generic/internal message

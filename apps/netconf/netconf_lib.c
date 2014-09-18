@@ -268,6 +268,11 @@ done:
     return retval;
 }
 
+/*! Send netconf message from cbuf on socket
+ * @param[in]   s    
+ * @param[in]   cb   Cligen buffer that contains the XML message
+ * @param[in]   msg  Only for debug
+ */
 int 
 netconf_output(int s, cbuf *xf, char *msg)
 {

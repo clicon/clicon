@@ -58,7 +58,7 @@ struct xml{
     struct xml       *x_up;     /* parent node in hierarchy if any */
     struct xml      **x_childvec;   /* vector of children nodes */
     int               x_childvec_len; /* length of vector */
-    enum cxobj_type    x_type;       /* type of node: element, attribute, body */
+    enum cxobj_type   x_type;       /* type of node: element, attribute, body */
     char             *x_value;      /* attribute and body nodes have values */
     int               x_index;      /* key node, cf sql index */
     int              _x_vector_i;   /* internal use: xml_child_each */

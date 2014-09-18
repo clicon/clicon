@@ -59,6 +59,44 @@
 
 static int _atomicio_sig = 0;
 
+struct map_type2str{
+    enum clicon_msg_type mt_type;
+    char                *mt_str; /* string as in 4.2.4 in RFC 6020 */
+};
+
+/* Mapping between yang keyword string <--> clicon constants */
+static const struct map_type2str msgmap[] = {
+    {CLICON_MSG_COMMIT,       "commit"},
+    {CLICON_MSG_VALIDATE,     "validate"},
+    {CLICON_MSG_CHANGE,       "change"},
+    {CLICON_MSG_SAVE,         "save"},
+    {CLICON_MSG_LOAD,         "load"},
+    {CLICON_MSG_COPY,         "copy"},
+    {CLICON_MSG_RM,           "rm"},
+    {CLICON_MSG_INITDB,       "initdb"},
+    {CLICON_MSG_LOCK,         "lock"},
+    {CLICON_MSG_UNLOCK,       "unlock"},
+    {CLICON_MSG_KILL,         "kill"},
+    {CLICON_MSG_DEBUG,        "debug"},
+    {CLICON_MSG_CALL,         "call"},
+    {CLICON_MSG_SUBSCRIPTION, "subscription"},
+    {CLICON_MSG_OK,           "ok"},
+    {CLICON_MSG_NOTIFY,       "notify"},
+    {CLICON_MSG_ERR,          "err"},
+    {-1,                      NULL}, 
+};
+
+static char *
+msg_type2str(enum clicon_msg_type type)
+{
+    const struct map_type2str *mt;
+
+    for (mt = &msgmap[0]; mt->mt_str; mt++)
+	if (mt->mt_type == type)
+	    return mt->mt_str;
+    return NULL;
+}
+
 /*
  * clicon_connect_unix
  * open local connection using unix domain sockets
@@ -78,7 +116,7 @@ clicon_connect_unix(char *sockpath)
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, sockpath, sizeof(addr.sun_path)-1);
 
-    clicon_debug(1, "%s: connecting to %s", __FUNCTION__, addr.sun_path);
+    clicon_debug(2, "%s: connecting to %s", __FUNCTION__, addr.sun_path);
     if (connect(s, (struct sockaddr *)&addr, SUN_LEN(&addr)) < 0){
 	if (errno == EACCES)
 	    clicon_err(OE_CFG, errno, "connecting unix socket: %s.\n"
@@ -162,7 +200,7 @@ clicon_msg_send(int s, struct clicon_msg *msg)
 { 
     int retval = -1;
 
-    clicon_debug(1, "%s: send msg seq=%d len=%d", 
+    clicon_debug(2, "%s: send msg seq=%d len=%d", 
 	    __FUNCTION__, msg->op_type, msg->op_len);
     if (debug > 2)
 	msg_dump(msg);
@@ -222,7 +260,7 @@ clicon_msg_rcv(int s,
 	clicon_err(OE_CFG, errno, "%s: header too short (%d)", __FUNCTION__, len);
 	goto done;
     }
-    clicon_debug(1, "%s: rcv msg seq=%d, len=%d",  
+    clicon_debug(2, "%s: rcv msg seq=%d, len=%d",  
 	    __FUNCTION__, hdr.op_type, hdr.op_len);
     if ((*msg = (struct clicon_msg *)chunk(hdr.op_len, label)) == NULL){
 	clicon_err(OE_CFG, errno, "%s: chunk", __FUNCTION__);
@@ -261,6 +299,7 @@ clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
     int s = -1;
     struct stat sb;
 
+    clicon_debug(1, "Send %s msg on %s", msg_type2str(msg->op_type), sockpath);
     /* special error handling to get understandable messages (otherwise ENOENT) */
     if (stat(sockpath, &sb) < 0){
 	clicon_err(OE_PROTO, errno, "%s: config daemon not running?", sockpath);
@@ -280,6 +319,9 @@ clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
 	close(s);
     return retval;
 }
+
+
+
 
 /*! Send a clicon_msg message and wait for result.
  *
