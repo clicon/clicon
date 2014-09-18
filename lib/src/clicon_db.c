@@ -120,7 +120,7 @@ catch:
  * @param   key    Name of database key
  */
 int
-clicon_dbhaskey(char *db, char *key)
+clicon_dbexists(char *db, char *key)
 {
     return db_exists(db, key);
 }
