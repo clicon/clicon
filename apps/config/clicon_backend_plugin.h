@@ -30,7 +30,7 @@
  */
 
 /* Reset system state to original state. Eg at reboot before running thru config. */
-int plugin_reset(clicon_handle h);
+int plugin_reset(clicon_handle h, char *dbname);
 
 /* Called before a commit/validate sequence begins. Eg setup state before commit */
 int transaction_begin(clicon_handle h);

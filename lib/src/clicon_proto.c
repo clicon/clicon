@@ -19,7 +19,8 @@
   <http://www.gnu.org/licenses/>.
 
  *
- * Protocol to communicate with OSR config daemon
+ * Protocol to communicate between clients (eg clicon_cli, clicon_netconf) 
+ * and server (clicon_backend)
  */
 
 #ifdef HAVE_CONFIG_H

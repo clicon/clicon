@@ -18,14 +18,6 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
- *
- * Operation:  XXXX NO LONGER VALID
- * 1. If not startup-config exists, then create an empty startup-config.
- * 2. Parse startup-config into current-db
- * 3. Initialize router with current-db. 
- * XXX: What about if we re-start osr_config?
- * 4. Wait for commit events from clients (eg cli instances)
- * 5. For every such event, make diff and exec the differences.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -70,7 +62,7 @@
 #include "config_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRc::rg:"
+#define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRCc::rg:"
 
 static int
 config_terminate(clicon_handle h)
@@ -138,7 +130,8 @@ usage(char *argv0, clicon_handle h)
     	    "    -u <path>\tconfig UNIX domain path (default: %s)\n"
     	    "    -P <file>\tPid filename (default: %s)\n"
     	    "    -I\t\tInitialize running state database\n"
-    	    "    -R\t\tCall plugin_reset() in plugins to reset system state (use with -I)\n"
+    	    "    -R\t\tCall plugin_reset() in plugins to reset system state in running db (use with -I)\n"
+	    "    -C\t\tCall plugin_reset() in plugins to reset system state in candidate db (use with -I)\n"
 	    "    -c [<file>]\tLoad specified application config. Default is\n"
 	    "              \t\"CLICON_STARTUP_CONFIG\" = %s\n"
 	    "    -r\t\tReload running database\n"
@@ -221,6 +214,34 @@ done:
 }
 
 
+static int
+candb_reset(clicon_handle h, char *running_db)
+{
+    int retval = -1;
+    char *tmp = NULL;
+
+    if ((tmp = clicon_tmpfile(__FUNCTION__)) == NULL)
+	goto done;
+    if (file_cp(running_db, tmp) < 0){
+	clicon_err(OE_UNIX, errno, "file copy");
+	goto done;
+    }
+    /* Request plugins to reset system state, eg initiate running from system 
+     * -R
+     */
+    if (plugin_reset_state(h, tmp) < 0)  
+	goto done;
+    if (candidate_commit(h, tmp, running_db) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (tmp)
+	unlink(tmp);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+
 /*! Create backend server socket and register callback
  */
 static int
@@ -296,7 +317,8 @@ main(int argc, char **argv)
     char         *running_db;
     char         *candidate_db;
     int           reload_running;
-    int           reset_state;
+    int           reset_state_running;
+    int           reset_state_candidate;
     char         *app_config_file = NULL;
     char         *config_group;
     char         *argv0 = argv[0];
@@ -318,7 +340,8 @@ main(int argc, char **argv)
     zap = 0;
     init_rundb = 0;
     reload_running = 0;
-    reset_state = 0;
+    reset_state_running = 0;
+    reset_state_candidate = 0;
 
     /*
      * Command-line options for appdir, config-file, debug and help
@@ -404,8 +427,11 @@ main(int argc, char **argv)
 	 case 'I': /* Initiate running db */
 	     init_rundb++;
 	     break;
-	 case 'R': /* Reset state */
-	     reset_state++;
+	 case 'R': /* Reset state directly into running */
+	     reset_state_running++;
+	     break;
+	 case 'C': /* Reset state into candidate and then commit it */
+	     reset_state_candidate++;
 	     break;
 	 case 'c': /* Load application config */
 	     app_config_file = optarg ? optarg : clicon_startup_config(h);
@@ -485,19 +511,22 @@ main(int argc, char **argv)
     if (plugin_initiate(h) != 0) 
 	goto done;
     
-    /* Request plugins to reset system state, eg initiate running from system 
-     * -R
-     */
-    if (reset_state)
-	if (plugin_reset_state(h) < 0)  
+    if (reset_state_candidate){
+	if (candb_reset(h, running_db) < 0) 
 	    goto done;
-
+    }
+    else
+	if (reset_state_running){
+	    if (plugin_reset_state(h, running_db) < 0) 
+		goto done;
+	}
     /* Call plugin_start */
     tmp = *(argv-1);
     *(argv-1) = argv0;
     if (plugin_start_hooks(h, argc+1, argv-1) < 0) 
 	goto done;
     *(argv-1) = tmp;
+
 
     if (reload_running){
 	if (candidate_commit(h, candidate_db, running_db) < 0)

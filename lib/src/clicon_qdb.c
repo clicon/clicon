@@ -52,11 +52,10 @@
 #include "clicon_err.h"
 #include "clicon_queue.h"
 #include "clicon_chunk.h"
-#include "clicon_db.h" /* api defined here, there isno osr_qdb.h */
+#include "clicon_db.h" 
 
 /*
  * db_init_mode
- * We could hardwire all databases to be in OSR_DB_DIR?
  */
 static int 
 db_init_mode(char *file, int omode)
@@ -85,7 +84,7 @@ db_init_mode(char *file, int omode)
 int 
 db_init(char *file)
 {
-    return db_init_mode(file, DP_OWRITER | DP_OCREAT );
+    return db_init_mode(file, DP_OWRITER | DP_OCREAT ); /* DP_OTRUNC? */
 }
 
 int 

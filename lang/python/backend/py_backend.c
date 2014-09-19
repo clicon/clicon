@@ -285,7 +285,7 @@ quit:
  * plugin reset
  */
 int
-plugin_reset(clicon_handle h)
+plugin_reset(clicon_handle h, char *dbname)
 {
     return plugin_call(h, "_plugin_reset");
 }

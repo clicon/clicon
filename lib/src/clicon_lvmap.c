@@ -242,7 +242,7 @@ lvmap_get_dbvector(char *dbname,
 
 /*
  * lvmap_get_dbregex_sort
- * qosrt function for lvmap_get_dbregex. 
+ * qsort function for lvmap_get_dbregex. 
  * Normal string compare will not sort "numbered keys" properly. For example
  * "my.key.10" will come before "my.key.2". This sort function uses the
  * following logic to solve that. It splits the keys delimited by '.'

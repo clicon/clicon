@@ -27,7 +27,7 @@
  * Comment sign is '#'
  * The resulting parse-tree is in a linked list of db_spec:s
  * Each db_spec contains a key and a variable-headm which in turn contains
- * a list of variables (see osr_var.h).
+ * a list of variables 
  *
  * Translation between database specs
  *     dbspec_key                   yang_spec                     CLIgen parse_tree

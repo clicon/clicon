@@ -29,7 +29,7 @@
 /* Following are specific to backend. For common see clicon_plugin.h 
    Note that the following should match the prototypes in clicon_backend_plugin.h
 */
-typedef int (plgreset_t)(clicon_handle h);	/* Reset system status */
+typedef int (plgreset_t)(clicon_handle h, char *dbname);	/* Reset system status */
 typedef int (trans_begin_t)(clicon_handle h);   /* Transaction begin hook */
 typedef int (trans_complete_t)(clicon_handle h);/* Transaction validation complete */
 typedef int (trans_end_t)(clicon_handle h);     /* Transaction succeed */
@@ -47,7 +47,7 @@ int  plugin_complete_hooks(clicon_handle h, char *candidate);
 int  plugin_end_hooks(clicon_handle h, char *candidate);
 int  plugin_abort_hooks(clicon_handle h, char *candidate);
 
-int  plugin_reset_state(clicon_handle h);
+int  plugin_reset_state(clicon_handle h, char *dbname);
 int  plugin_start_hooks(clicon_handle h, int argc, char **argv);
 int  plugin_downcall(clicon_handle h, struct clicon_msg_call_req *req,
 		    uint16_t *retlen,  void **retarg);

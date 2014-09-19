@@ -274,12 +274,12 @@ main(int argc, char **argv)
 	goto quit;
     }
     if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
-	if (yang_spec_main(h, stdout, dumpdb, 0) < 0)
+	if (yang_spec_main(h, stdout, 0, 0) < 0)
 	    goto quit;
     }
     else
 	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if (dbspec_key_main(h, stdout, dumpdb, 0) < 0)
+	    if (dbspec_key_main(h, stdout, 0, 0) < 0)
 		goto quit;	    
 	}
 	else{

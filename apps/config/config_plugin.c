@@ -192,7 +192,7 @@ plugin_load (clicon_handle h, char *file, int dlflags, const char *label)
  * The system 'state' should be the same as the contents of running_db
  */
 int
-plugin_reset_state(clicon_handle h)
+plugin_reset_state(clicon_handle h, char *dbname)
 { 
     int i;
 
@@ -200,14 +200,13 @@ plugin_reset_state(clicon_handle h)
 	if (plugins[i].p_reset) {
 	    clicon_debug(1, "Calling plugin_reset() for %s\n",
 			 plugins[i].p_name);
-	    if (((plugins[i].p_reset)(h)) < 0) {
+	    if (((plugins[i].p_reset)(h, dbname)) < 0) {
 		clicon_err(OE_FATAL, 0, "plugin_reset() failed for %s\n",
 			   plugins[i].p_name);
 		return -1;
 	    }
 	}
     }
-	
     return 0;
 }
 
