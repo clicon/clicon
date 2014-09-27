@@ -52,7 +52,6 @@
 #include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
 #include "clicon_hash.h"
-#include "clicon_buf.h"
 #include "clicon_lvalue.h"
 #include "clicon_lvmap.h"
 #include "clicon_chunk.h"

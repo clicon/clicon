@@ -31,8 +31,10 @@
 
 #include "clicon_xml_parse.tab.h"   /* generated file */
 
+/* cligen */
+#include <cligen/cligen.h>
+
 /* clicon */
-#include "clicon_buf.h"
 #include "clicon_xml.h"
 #include "clicon_xml_parse.h"
 

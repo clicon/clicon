@@ -31,11 +31,13 @@
 #include <stdint.h>
 #include <assert.h>
 
+/* cligen */
+#include <cligen/cligen.h>
+
 /* clicon */
 #include "clicon_err.h"
 #include "clicon_queue.h"
 #include "clicon_chunk.h"
-#include "clicon_buf.h"
 #include "clicon_xml.h"
 #include "clicon_xml_parse.h"
 

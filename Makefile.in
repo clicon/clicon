@@ -99,6 +99,6 @@ distclean:
 		do (cd $$i; $(MAKE) $(MFLAGS) $@); done
 
 TAGS:
-	find $(srcdir) -name '*.[chyl]' ! grep -v \.tab\.[ch] | grep -v lex.*.c | grep -v .yy.c | etags -
+	find $(srcdir) -name '*.[chyl]' | grep -v \.tab\.[ch] | grep -v lex.*.c | grep -v .yy.c | etags -
 
 

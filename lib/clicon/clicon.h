@@ -59,7 +59,6 @@
 #include <clicon/clicon_proto_client.h>
 #include <clicon/clicon_proc.h>
 #include <clicon/clicon_options.h>
-#include <clicon/clicon_buf.h>
 #include <clicon/clicon_xml.h>
 #include <clicon/clicon_xml_map.h>
 #include <clicon/clicon_xsl.h>

@@ -58,9 +58,11 @@ to the xml standards:
 #include <stdint.h>
 #include <assert.h>
 
+/* cligen */
+#include <cligen/cligen.h>
+
 /* clicon */
 #include "clicon_err.h"
-#include "clicon_buf.h"
 #include "clicon_xml.h"
 #include "clicon_xsl.h"
 

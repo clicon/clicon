@@ -49,10 +49,12 @@
 #include <errno.h>
 #include <stdlib.h>
 
+/* cligen */
+#include <cligen/cligen.h>
+
 /* clicon */
 #include "clicon_err.h"
 #include "clicon_log.h"
-#include "clicon_buf.h"
 #include "clicon_xml.h"
 #include "clicon_xml_parse.h"
 
