@@ -44,7 +44,7 @@ SHELL		= /bin/sh
 
 SUBDIRS = lib apps lang include doc etc 
 
-.PHONY:	doc all clean depend $(SUBDIRS) install 
+.PHONY:	doc all clean depend $(SUBDIRS) install TAGS .config.status
 
 all:	$(SUBDIRS) clicon.conf.cpp clicon.mk
 
@@ -81,7 +81,6 @@ uninstall:
 	rm -f $(datadir)/clicon/clicon.conf.cpp
 	rm -f $(datadir)/clicon/clicon.mk
 
-.PHONY: config.status
 config.status:	configure
 	$(SHELL) config.status --recheck
 
@@ -99,7 +98,7 @@ distclean:
 	for i in $(SUBDIRS) examples; \
 		do (cd $$i; $(MAKE) $(MFLAGS) $@); done
 
-tags:
-	find $(srcdir) -name '*.[chyl]' ! -path ./sdk/\* -print | grep -v \.tab\.[ch] | grep -v lex.*.c | grep -v .yy.c | etags -
+TAGS:
+	find $(srcdir) -name '*.[chyl]' ! grep -v \.tab\.[ch] | grep -v lex.*.c | grep -v .yy.c | etags -
 
 

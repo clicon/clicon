@@ -199,7 +199,6 @@ main(int argc, char **argv)
     char         c;    
     enum candidate_db_type dbtype;
     char         private_db[MAXPATHLEN];
-    char        *plugin_dir;
     char	*tmp;
     char	*argv0 = argv[0];
     clicon_handle h;
@@ -366,7 +365,7 @@ main(int argc, char **argv)
 	goto done;
 
     /* Check plugin directory */
-    if ((plugin_dir = clicon_cli_dir(h)) == NULL)
+    if (clicon_cli_dir(h) == NULL)
 	goto done;
     
     /* Create tree generated from dataspec */

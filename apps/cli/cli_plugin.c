@@ -97,7 +97,7 @@ syntax_mode_find(cli_syntax_t *stx, const char *mode, int create)
  * Find plugin by name
  */
 static struct cli_plugin *
-plugin_find(cli_syntax_t *stx, char *plgnam)
+plugin_find_cli(cli_syntax_t *stx, char *plgnam)
 {
     struct cli_plugin *p;
     
@@ -335,7 +335,7 @@ quit:
  *   filename	: Name of file where syntax is specified (in syntax-group dir)
  */
 static int
-cli_load_syntax(clicon_handle h, const char *filename)
+cli_load_syntax(clicon_handle h, const char *filename, const char *clispec_dir)
 {
     void      *handle = NULL;  /* Handle to plugin .so module */
     char      *mode = NULL;    /* Name of syntax mode to append new syntax */
@@ -351,7 +351,7 @@ cli_load_syntax(clicon_handle h, const char *filename)
     struct cli_plugin *p;
 
     if ((filepath = chunk_sprintf(__FUNCTION__, "%s/%s", 
-				  cli_syntax(h)->stx_dir,
+				  clispec_dir,
 				  filename)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "chunk");
 	goto done;
@@ -380,7 +380,7 @@ cli_load_syntax(clicon_handle h, const char *filename)
     mode = cvec_find_str(vr, "CLICON_MODE");
 
     if (plgnam != NULL) { /* Find plugin for callback resolving */
-	if ((p = plugin_find (cli_syntax(h), plgnam)) != NULL)
+	if ((p = plugin_find_cli (cli_syntax(h), plgnam)) != NULL)
 	    handle = p->cp_handle;
 	if (handle == NULL){
 	    clicon_err(OE_PLUGIN, 0, "CLICON_PLUGIN set to '%s' in %s but plugin %s.so not found in %s\n", 
@@ -392,7 +392,8 @@ cli_load_syntax(clicon_handle h, const char *filename)
 
     /* Resolve callback names to function pointers */
     if (cligen_callback_str2fn(pt, load_str2fn, handle) < 0){     
-	clicon_err(OE_PLUGIN, 0, "(Check CLICON_PLUGIN variable in cli file %s?)\n", filename);
+	clicon_err(OE_PLUGIN, 0, "(Check CLICON_PLUGIN variable in cli file %s?)", 
+		   filename);
 	goto done;
     }
     if (cligen_expand_str2fn(pt, expand_str2fn, handle) < 0)     
@@ -432,29 +433,31 @@ done:
 int
 cli_syntax_load (clicon_handle h)
 {
-    char *dir;
-    char *plugin_dir;
-    char *master;
-    struct stat st;
-    int ndp, i;
-    char *filename;
-    char *cnklbl = "__CLICON_CLI_SYNTAX_CNK_LABEL__";
-    struct dirent *dp;
+    char              *plugin_dir = NULL;
+    char              *clispec_dir = NULL;
+    char              *master;
+    struct stat        st;
+    int                ndp;
+    int                i;
+    char              *filename;
+    char              *cnklbl = "__CLICON_CLI_SYNTAX_CNK_LABEL__";
+    struct dirent     *dp;
     struct cli_plugin *cp;
-    cli_syntax_t *stx;
-    cli_syntaxmode_t *m;
-    int retval = -1;
+    cli_syntax_t      *stx;
+    cli_syntaxmode_t  *m;
+    int                retval = -1;
 
     /* Syntax already loaded.  XXX should we re-load?? */
     if ((stx = cli_syntax(h)) != NULL)
 	return 0;
 
     /* Format plugin directory path */
-    if ((plugin_dir = clicon_cli_dir(h)) == NULL)
+    if ((plugin_dir = clicon_cli_dir(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "clicon_cli_dir not set");
 	goto quit;
-    dir = chunk_sprintf(__FUNCTION__, "%s",  plugin_dir);
-    if (dir == NULL) {
-	clicon_err(OE_UNIX, errno, "chunk_sprintf plugin_dir");
+    }
+    if ((clispec_dir = clicon_clispec_dir(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "clicon_clispec_dir not set");
 	goto quit;
     }
 
@@ -474,15 +477,14 @@ cli_syntax_load (clicon_handle h)
     memset (stx, 0, sizeof (*stx));	/* Zero out all */
     
     /* populate name and chunk label */
-    strncpy (stx->stx_dir, dir, sizeof(stx->stx_dir)-1);
     strncpy (stx->stx_cnklbl, cnklbl, sizeof(stx->stx_cnklbl)-1);
 
     /* Get plugin objects names from plugin directory */
-    if ((ndp = clicon_file_dirent(dir, &dp, "(.so)$", S_IFREG, __FUNCTION__)) < 0)
+    if ((ndp = clicon_file_dirent(plugin_dir, &dp, "(.so)$", S_IFREG, __FUNCTION__)) < 0)
 	goto quit;
 
     /* Load master plugin first */
-    filename = chunk_sprintf(__FUNCTION__, "%s/%s", dir, master);
+    filename = chunk_sprintf(__FUNCTION__, "%s/%s", plugin_dir, master);
     if (filename == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
 	goto quit;
@@ -507,7 +509,7 @@ cli_syntax_load (clicon_handle h)
     for (i = 0; i < ndp; i++) {
 	if (strcmp (dp[i].d_name, master) == 0)
 	    continue; /* Skip master now */
-	filename = chunk_sprintf(__FUNCTION__, "%s/%s", dir, dp[i].d_name);
+	filename = chunk_sprintf(__FUNCTION__, "%s/%s", plugin_dir, dp[i].d_name);
 	if (filename == NULL) {
 	    clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
 	    goto quit;
@@ -524,13 +526,13 @@ cli_syntax_load (clicon_handle h)
 	unchunk(dp);
 
     /* load syntaxfiles */
-    if ((ndp = clicon_file_dirent(dir, &dp, "(.cli)$", S_IFREG, __FUNCTION__)) < 0)
+    if ((ndp = clicon_file_dirent(clispec_dir, &dp, "(.cli)$", S_IFREG, __FUNCTION__)) < 0)
 	goto quit;
     /* Load the rest */
     for (i = 0; i < ndp; i++) {
 	clicon_debug(1, "DEBUG: Loading syntax '%.*s'", 
 		    (int)strlen(dp[i].d_name)-4, dp[i].d_name);
-	if (cli_load_syntax(h, dp[i].d_name) < 0)
+	if (cli_load_syntax(h, dp[i].d_name, clispec_dir) < 0)
 	    goto quit;
     }
     if (dp)
@@ -563,7 +565,6 @@ quit:
 	unchunk_group(cnklbl);
 	cli_syntax_set(h, NULL);
     }
-
     unchunk_group(__FUNCTION__);
     return retval;
 }
@@ -802,7 +803,7 @@ cli_find_plugin(clicon_handle h, char *plugin)
 {
     struct cli_plugin *p;
     
-    p = plugin_find(cli_syntax(h), plugin);
+    p = plugin_find_cli(cli_syntax(h), plugin);
     if (p)
 	return p->cp_handle;
     
@@ -1095,7 +1096,7 @@ clicon_valcb(void *arg, cvec *vars, cg_var *cgv, char *fname, cg_var *funcarg)
      * with dlsym()
      */
     handle = NULL;
-    if (plgnam && (p = plugin_find(cli_syntax(h), plgnam)))
+    if (plgnam && (p = plugin_find_cli(cli_syntax(h), plgnam)))
 	handle = p->cp_handle;
     
     /* Look up function pointer */

@@ -470,8 +470,11 @@ main(int argc, char **argv)
     if (group_name2gid(config_group, NULL) < 0){
 	clicon_log(LOG_ERR, "'%s' does not seem to be a valid user group.\n" 
 		"The config demon requires a valid group to create a server UNIX socket\n"
-		"Define a valid CLICON_SOCK_GROUP in %s or via the -g option\n", 
-		config_group, clicon_configfile(h));
+		"Define a valid CLICON_SOCK_GROUP in %s or via the -g option\n"
+		"or create the group and add the user to it. On linux for example:"
+		"  sudo groupadd %s:\n" 
+		"  sudo usermod -G %s user\n", 
+		   config_group, clicon_configfile(h), config_group, config_group);
 	return -1;
     }
 

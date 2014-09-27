@@ -197,9 +197,15 @@ clicon_option_default(clicon_hash_t  *copt)
 	return -1;
     }
     if (!hash_lookup(copt, "CLICON_CLI_DIR")){
-	if ((val = chunk_sprintf(__FUNCTION__, "%s/frontend", appdir)) == NULL)
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/cli", appdir)) == NULL)
 	    goto catch;
 	if (hash_add(copt, "CLICON_CLI_DIR", val, strlen(val)+1) < 0)
+	    goto catch;
+    }
+    if (!hash_lookup(copt, "CLICON_CLISPEC_DIR")){
+	if ((val = chunk_sprintf(__FUNCTION__, "%s/clispec", appdir)) == NULL)
+	    goto catch;
+	if (hash_add(copt, "CLICON_CLISPEC_DIR", val, strlen(val)+1) < 0)
 	    goto catch;
     }
     if (!hash_lookup(copt, "CLICON_BACKEND_DIR")){
@@ -527,10 +533,18 @@ clicon_backend_dir(clicon_handle h)
     return clicon_option_str(h, "CLICON_BACKEND_DIR");
 }
 
+/* contains .so files CLICON_CLI_DIR */
 char *
 clicon_cli_dir(clicon_handle h)
 {
     return clicon_option_str(h, "CLICON_CLI_DIR");
+}
+
+/* contains .cli files - CLICON_CLISPEC_DIR */
+char *
+clicon_clispec_dir(clicon_handle h)
+{
+    return clicon_option_str(h, "CLICON_CLISPEC_DIR");
 }
 
 char *

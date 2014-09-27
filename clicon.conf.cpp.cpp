@@ -1,5 +1,3 @@
-# 
-#
 # Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
 #
 # This file is part of CLICON.
@@ -53,16 +51,16 @@ CLICON_RUNNING_DB      localstatedir/APPNAME/running_db
 CLICON_BACKEND_DIR     libdir/APPNAME/backend
 
 # Location of netconf (frontend) .so plugins
-CLICON_NETCONF_DIR     libdir/APPNAME/netconf 
+CLICON_NETCONF_DIR    libdir/APPNAME/netconf 
 
-# Location of cli fronted .so plugins
-CLICON_FRONTEND_DIR    libdir/APPNAME/frontend
+# Location of cli frontend .so plugins
+CLICON_CLI_DIR        libdir/APPNAME/cli
 
 # Location of frontend .cli cligen spec files
-CLICON_CLI_DIR    libdir/APPNAME/frontend
+CLICON_CLISPEC_DIR    libdir/APPNAME/clispec
 
-# XXX Directory where to save configuration commit history (in XML). Snapshots
-# are saved chronolically
+# Directory where to save configuration commit history (in XML). Snapshots
+# are saved chronologically
 CLICON_ARCHIVE_DIR      localstatedir/APPNAME/archive
 
 # XXX Name of startup configuration file (in XML)

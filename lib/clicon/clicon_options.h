@@ -81,6 +81,7 @@ char *clicon_running_db(clicon_handle h);
 char *clicon_candidate_db(clicon_handle h);
 char *clicon_backend_dir(clicon_handle h);
 char *clicon_cli_dir(clicon_handle h);
+char *clicon_clispec_dir(clicon_handle h);
 char *clicon_netconf_dir(clicon_handle h);
 char *clicon_archive_dir(clicon_handle h);
 char *clicon_startup_config(clicon_handle h);
