@@ -60,6 +60,18 @@
 #include "clicon_err.h"
 #include "clicon_xml.h"
 
+/* align 4 bytes */
+static inline char * strdupalign(char *str) 
+{
+    char *dup;
+    int len;
+    len = ((strlen(str)+1)/4)*4 + 4;
+    if ((dup = malloc(len)) == NULL)
+	return NULL;
+    strncpy(dup, str, len);
+    return dup;
+}
+
 /*
  * var2xml_all
  * create sub-elements for every variable in vh
@@ -670,7 +682,7 @@ xml2db_1(cxobj          *xn,
 	snprintf(key, len+1, "%s.%s", key0, xml_name(xn));
     }
     else
-	if ((key = strdup(xml_name(xn))) == NULL)
+	if ((key = strdupalign(xml_name(xn))) == NULL)
 	    goto catch;
 
     if (spec == NULL){

@@ -44,8 +44,8 @@ struct client_entry{
 /* Notification subscription info */
 struct subscription{
     struct subscription *su_next;
-    int   su_s; /* stream socket */
-    char *su_stream;
+    int                  su_s; /* stream socket */
+    char                *su_stream;
 };
 
 /*

@@ -92,13 +92,35 @@ ce_find_bypid(struct client_entry *ce_list, int pid)
 }
 
 static int
-subscription_delete(struct subscription *su)
+subscription_delete(struct client_entry *ce, struct subscription *su0)
 {
-    free(su->su_stream);
-    free(su);
+    struct subscription   *su;
+    struct subscription  **su_prev;
+
+    su_prev = &ce->ce_subscription; /* this points to stack and is not real backpointer */
+    for (su = *su_prev; su; su = su->su_next){
+	if (su == su0){
+	    *su_prev = su->su_next;
+	    free(su->su_stream);
+	    free(su);
+	    break;
+	}
+	su_prev = &su->su_next;
+    }
     return 0;
 }
 
+static struct subscription *
+subscription_find(struct client_entry *ce, char *stream)
+{
+    struct subscription   *su = NULL;
+
+    for (su = ce->ce_subscription; su; su = su->su_next)
+	if (strcmp(su->su_stream, stream) == 0)
+	    break;
+
+    return su;
+}
 /*! Remove client entry state
  * Close down everything wrt clients (eg sockets, subscriptions)
  * Finally actually remove client struct in handle
@@ -121,10 +143,8 @@ backend_client_rm(clicon_handle h, struct client_entry *ce)
 		close(ce->ce_s);
 		ce->ce_s = 0;
 	    }
-	    while ((su = ce->ce_subscription) != NULL){
-		ce->ce_subscription = su->su_next;
-		subscription_delete(su);
-	    }
+	    while ((su = ce->ce_subscription) != NULL)
+		subscription_delete(ce, su);
 	    break;
 	}
 	ce_prev = &c->ce_next;
@@ -658,12 +678,14 @@ from_client_subscription(clicon_handle h,
 			 struct clicon_msg *msg, 
 			 const char *label)
 {
-    char *stream;
-    int retval = -1;
+    int                  status;
+    char                *stream;
+    int                  retval = -1;
     struct subscription *su;
     clicon_log_notify_t *old;
 
     if (clicon_msg_subscription_decode(msg, 
+				       &status,
 				       &stream,
 				       label) < 0){
 	send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
@@ -671,10 +693,16 @@ from_client_subscription(clicon_handle h,
 	goto done;
     }
 
-    if ((su = subscription_add(ce, stream)) == NULL){
-	send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
-		     clicon_err_reason);
-	goto done;
+    if (status){
+	if ((su = subscription_add(ce, stream)) == NULL){
+	    send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
+			 clicon_err_reason);
+	    goto done;
+	}
+    }
+    else{
+	if ((su = subscription_find(ce, stream)) != NULL)
+	    subscription_delete(ce, su);
     }
     /* Avoid recursion when sending logs */
     old = clicon_log_register_callback(NULL, NULL);

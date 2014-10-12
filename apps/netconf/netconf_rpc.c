@@ -1073,7 +1073,7 @@ netconf_create_subscription(clicon_handle h,
 
     }
     sockpath = clicon_sock(h);
-    if (cli_proto_subscription(sockpath, stream, &s) < 0){
+    if (cli_proto_subscription(sockpath, 1, stream, &s) < 0){
 	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 

@@ -93,7 +93,8 @@ enum clicon_msg_type{
 		       */
     CLICON_MSG_SUBSCRIPTION, /* Create a new notification subscription. 
 			        Body is:
-			        1. name of stream */
+			        1. int: status off/on
+			        2. string: name of stream */
     CLICON_MSG_OK,       /* server->client reply */
     CLICON_MSG_NOTIFY,   /* Notification. Body is:
 			    1. int: loglevel
