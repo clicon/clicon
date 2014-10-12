@@ -1882,7 +1882,6 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     size_t           len;
     char            *logname;
 
-
     if (arg==NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
 	goto done;
@@ -1902,7 +1901,7 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_PLUGIN, errno, "%s: chunk_sprintf", __FUNCTION__);
 	goto done;
     }
-    if ((p = hash_value(cdat, cmd, &len)) != NULL)
+    if ((p = hash_value(cdat, logname, &len)) != NULL)
 	s_exist = *(int*)p;
 
     if (status){
