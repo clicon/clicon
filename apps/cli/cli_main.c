@@ -117,8 +117,7 @@ cli_interactive(clicon_handle h)
     }
 }
 
-/*
- * Read database specification file.
+/*! Read database specification file.
  * Some complications: there are two variants of syntax: 
  * CLI and KEY set by CLICON_DBSPEC_TYPE
  * CLICON_DBSPEC_FILE  contains the syntax-spec. Either CLI or KEY.

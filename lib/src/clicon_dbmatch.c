@@ -47,6 +47,7 @@
 /* clicon */
 #include "clicon_err.h"
 #include "clicon_queue.h"
+#include "clicon_mem.h"
 #include "clicon_string.h"
 #include "clicon_chunk.h"
 #include "clicon_hash.h"
@@ -233,7 +234,7 @@ dbmatch_vec(void *handle,
 	    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 	    goto done;
 	}
-	if ((keyv[match-1] = strdup(key)) == NULL){
+	if ((keyv[match-1] = strdup4(key)) == NULL){
 	    clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 	    goto done;
 	}
@@ -350,7 +351,7 @@ dbmatch_one(void *handle,
 	if (cvecp)
 	    *cvecp = vr;
 	if (keyp)
-	    if ((*keyp = strdup(key)) == NULL){
+	    if ((*keyp = strdup4(key)) == NULL){
 		clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 		goto done;
 	    }

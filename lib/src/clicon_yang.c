@@ -620,7 +620,8 @@ ys_populate(yang_stmt *ys, void *arg)
 	if (ys_populate_range(ys, arg) < 0)
 	    goto done;
 	break;
-    case Y_MANDATORY:
+    case Y_MANDATORY: /* call yang_mandatory() to check if set */
+    case Y_CONFIG:
 	if (ys_parse(ys, CGV_BOOL) == NULL) 
 	    goto done;
 	break;
@@ -996,9 +997,9 @@ yang_xpath(yang_node *yn, char *xpath)
 
 /*! Parse argument as CV and save result in yang cv variable
  *
- * Note that some CV:s are parsed directly (eg mandatory) while others are parsed 
+ * Note that some CV:s are parsed directly (eg fraction-digits) while others are parsed 
  * in second pass (ys_populate). The reason being that all information is not 
- * available in the first pass.
+ * available in the first pass. Prefer ys_populate
  */
 cg_var *
 ys_parse(yang_stmt *ys, enum cv_type cvtype)
@@ -1080,6 +1081,26 @@ yang_mandatory(yang_stmt *ys)
 	return cv_bool_get(ym->ys_cv);
     }
     return 0;
+}
+
+/*! Return config state of this node
+ * config statement is default true. 
+ * Note that a node with config=false may not have a sub
+ * statement where config=true. And this function does not check the sttaus of a parent.
+ * @retval 0 if node has a config sub-statement and it is false
+ * @retval 1 node has not config sub-statement or it is true
+ */
+int
+yang_config(yang_stmt *ys)
+{
+    yang_stmt *ym;
+
+    if ((ym = yang_find((yang_node*)ys, Y_CONFIG, NULL)) != NULL){
+	if (ym->ys_cv == NULL) /* shouldnt happen */
+	    return 1; 
+	return cv_bool_get(ym->ys_cv);
+    }
+    return 1;
 }
 
 

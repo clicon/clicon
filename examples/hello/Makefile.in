@@ -82,13 +82,14 @@ install:	hello.conf datamodel.spec hello_cli.cli $(PLUGINS)
 	install -d $(clicon_SYSCONFDIR)
 	install -d $(clicon_LOCALSTATEDIR)
 	install -d $(clicon_LIBDIR)
-	install -d $(clicon_LIBDIR)/frontend
+	install -d $(clicon_LIBDIR)/cli
+	install -d $(clicon_LIBDIR)/clispec
 	install -d $(clicon_LIBDIR)/backend
 	install -d $(clicon_LIBDIR)/netconf
 	install hello.conf $(clicon_SYSCONFDIR)/
 	install datamodel.spec $(clicon_DBSPECDIR)/
 	for i in $(FE_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/frontend/`basename $$i`; \
+		install $$i $(clicon_LIBDIR)/cli/`basename $$i`; \
 	done
 	for i in $(NC_PLUGIN); do \
 		install $$i $(clicon_LIBDIR)/netconf/`basename $$i`; \
@@ -97,7 +98,7 @@ install:	hello.conf datamodel.spec hello_cli.cli $(PLUGINS)
 		install $$i $(clicon_LIBDIR)/backend/`basename $$i`; \
 	done
 	for i in hello_cli.cli; do \
-		install $$i $(clicon_LIBDIR)/frontend/`basename $$i`; \
+		install $$i $(clicon_LIBDIR)/clispec/`basename $$i`; \
 	done
 
 uninstall: 
