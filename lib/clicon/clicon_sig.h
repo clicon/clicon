@@ -35,6 +35,9 @@ typedef void (*sigfn_t)(int);
 int set_signal(int signo, void (*handler)(int), void (**oldhandler)(int));
 void clicon_signal_block(int);
 void clicon_signal_unblock(int);
-pid_t pidfile_check(char *pidfile, int kill_it);
+
+int pidfile_get(char *pidfile, pid_t *pid0);
+int pidfile_write(char *pidfile);
+int pidfile_zapold(pid_t pid);
 
 #endif  /* _CLICON_SIG_H_ */
