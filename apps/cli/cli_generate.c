@@ -357,7 +357,7 @@ yang2cli_stmt(clicon_handle h,
     int           retval = -1;
     int           i;
 
-    if (!yang_config(ys)){
+    if (yang_config(ys)){
 	switch (ys->ys_keyword){
 	case Y_CONTAINER:
 	    if (yang2cli_container(h, ys, cbuf, gt, level) < 0)

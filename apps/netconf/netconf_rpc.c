@@ -388,8 +388,13 @@ netconf_edit_config(clicon_handle h,
     }
     if (get_edit_opts(xn, &operation, &testopt, &erropt, cb_err, xt) < 0)
 	goto done;
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	netconf_create_rpc_error(cb_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error"); 
 	goto done;
+    }
     switch(operation){
     case OP_REPLACE: /* replace or create config-data */
     case OP_MERGE: /* merge config-data */
@@ -403,8 +408,10 @@ netconf_edit_config(clicon_handle h,
 		goto done;
 	    }
 	    /* also read by group */
-	    if ((config_group = clicon_sock_group(h)) == NULL)
+	    if ((config_group = clicon_sock_group(h)) == NULL){
+		clicon_err(OE_FATAL, 0, "clicon_sock_group option not set");
 		return -1;
+	    }
 	    if (group_name2gid(config_group, &gid) < 0)
 		return -1;
 
@@ -515,8 +522,13 @@ netconf_copy_config(clicon_handle h,
 				   __FUNCTION__)) == NULL)
 	goto done;
 
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	netconf_create_rpc_error(cb_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error"); 
 	goto done;
+    }
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0)
 	goto done;
     netconf_ok_set(1);
@@ -575,8 +587,15 @@ netconf_delete_config(clicon_handle h,
     }
     if ((msg=clicon_msg_rm_encode(target, __FUNCTION__)) == NULL)
 	goto done;
-    if ((s = clicon_sock(h)) == NULL)
+
+    if ((s = clicon_sock(h)) == NULL){
+	netconf_create_rpc_error(cb_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error"); 
 	goto done;
+    }
+
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
 	netconf_create_rpc_error(cb_err, xt, 
 				 "access-denied", 
@@ -587,8 +606,6 @@ netconf_delete_config(clicon_handle h,
 	goto done;
     }
     if ((msg=clicon_msg_initdb_encode(target, __FUNCTION__)) == NULL)
-	goto done;
-    if ((s = clicon_sock(h)) == NULL)
 	goto done;
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
 	netconf_create_rpc_error(cb_err, xt, 
@@ -823,8 +840,13 @@ netconf_commit(clicon_handle h,
 				    NULL, "Internal error"); 
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	netconf_create_rpc_error(cb_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error"); 
 	goto done;
+    }
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
 	   netconf_create_rpc_error(cb_err,               /* msg buffer */
 				    xt,                   /* orig request */
@@ -875,8 +897,13 @@ netconf_discard_changes(clicon_handle h,
 				    candidate_db,
 				   __FUNCTION__)) == NULL)
 	goto done;
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	netconf_create_rpc_error(cb_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error"); 
 	goto done;
+    }
     if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0){
 	   netconf_create_rpc_error(cb_err, xt, 
 				    "operation-failed", 
@@ -1072,7 +1099,14 @@ netconf_create_subscription(clicon_handle h,
 	}
 
     }
-    sockpath = clicon_sock(h);
+
+    if ((sockpath = clicon_sock(h)) == NULL){
+	netconf_create_rpc_error(cb_err, xt, 
+				 "operation-failed", 
+				 "protocol", "error", 
+				 NULL, "Internal error"); 
+	goto done;
+    }
     if (cli_proto_subscription(sockpath, 1, stream, &s) < 0){
 	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 

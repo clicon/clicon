@@ -143,8 +143,10 @@ netconf_plugin_load(clicon_handle h)
     char          *filename;
     plghndl_t     *handle;
 
-    if ((dir = clicon_netconf_dir(h)) == NULL)
+    if ((dir = clicon_netconf_dir(h)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "clicon_netconf_dir not defined");
 	goto quit;
+    }
 
     /* Get plugin objects names from plugin directory */
     if((ndp = clicon_file_dirent(dir, &dp, "(.so)$", S_IFREG, __FUNCTION__))<0)

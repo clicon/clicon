@@ -433,9 +433,11 @@ done:
 int
 cli_syntax_load (clicon_handle h)
 {
+    int                retval = -1;
     char              *plugin_dir = NULL;
     char              *clispec_dir = NULL;
     char              *master;
+    char              *master_plugin;
     struct stat        st;
     int                ndp;
     int                i;
@@ -445,7 +447,6 @@ cli_syntax_load (clicon_handle h)
     struct cli_plugin *cp;
     cli_syntax_t      *stx;
     cli_syntaxmode_t  *m;
-    int                retval = -1;
 
     /* Syntax already loaded.  XXX should we re-load?? */
     if ((stx = cli_syntax(h)) != NULL)
@@ -462,8 +463,11 @@ cli_syntax_load (clicon_handle h)
     }
 
     /* Format master plugin path */
-    master = chunk_sprintf(__FUNCTION__, "%s.so", clicon_master_plugin(h));
-    if (master == NULL) {
+    if ((master_plugin = clicon_master_plugin(h)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "clicon_master_plugin option not set");
+	goto quit;
+    }
+    if ((master = chunk_sprintf(__FUNCTION__, "%s.so", master_plugin)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "chunk_sprintf master plugin");
 	goto quit;
     }

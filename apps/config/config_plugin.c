@@ -256,19 +256,24 @@ plugin_append(struct plugin *p)
 static int
 plugin_load_dir(clicon_handle h, const char *dir)
 {
-    int i;
-    int np=0;
-    int ndp;
-    int retval = -1;
-    struct stat st;
-    char *filename;
+    int            retval = -1;
+    int            i;
+    int            np = 0;
+    int            ndp;
+    struct stat    st;
+    char          *filename;
     struct dirent *dp;
     struct plugin *new;
     struct plugin *p = NULL;
-    char *master;
+    char          *master;
+    char          *master_plugin;
 
     /* Format master plugin path */
-    master = chunk_sprintf(__FUNCTION__, "%s.so",  clicon_master_plugin(h));
+    if ((master_plugin = clicon_master_plugin(h)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "clicon_master_plugin option not set");
+	goto quit;
+    }
+    master = chunk_sprintf(__FUNCTION__, "%s.so",  master_plugin);
     if (master == NULL) {
 	clicon_err(OE_PLUGIN, errno, "chunk_sprintf master plugin");
 	goto quit;
@@ -345,8 +350,10 @@ plugin_initiate(clicon_handle h)
 	return -1;
 
     /* Then load application plugins */
-    if ((dir = clicon_backend_dir(h)) == NULL)
+    if ((dir = clicon_backend_dir(h)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "backend_dir not defined");
 	return -1;
+    }
     if (plugin_load_dir(h, dir) < 0)
 	return -1;
     

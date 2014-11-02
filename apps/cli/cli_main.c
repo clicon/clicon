@@ -364,8 +364,10 @@ main(int argc, char **argv)
 	goto done;
 
     /* Check plugin directory */
-    if (clicon_cli_dir(h) == NULL)
+    if (clicon_cli_dir(h) == NULL){
+	clicon_err(OE_PLUGIN, 0, "clicon_cli_dir not defined");
 	goto done;
+    }
     
     /* Create tree generated from dataspec */
     if (clicon_cli_genmodel(h)){

@@ -612,8 +612,10 @@ cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
     char            *spath;
     int              retval = -1;
 
-    if ((spath = clicon_sock(h)) == NULL)
+    if ((spath = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
+    }
     if ((lvec = cvec2lvec(cvv, &lvec_len)) == NULL)
 	goto done;
     retval = cli_proto_change(spath, db, op, key, lvec, lvec_len);

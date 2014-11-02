@@ -104,7 +104,10 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
 	break;
     case CANDIDATE_DB_SHARED:
 	if (lstat(candidate_db, &sb) < 0){
-	    s = clicon_sock(h);
+	    if ((s = clicon_sock(h)) == NULL){
+		clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+		goto err;
+	    }
 	    cli_proto_copy(s, running_db, candidate_db);
 	}
 	break;
@@ -631,7 +634,6 @@ cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
     }
-
     if ((s = clicon_sock(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
@@ -659,8 +661,10 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
     char          *candidate_db;
     int            retval = -1;
 
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	return -1;
+    }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	return -1;
@@ -1320,8 +1324,10 @@ cli_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
 				      paramlen, param, 
 				      label)) == NULL)
 	goto done;
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
+    }
     if (clicon_rpc_connect(msg, s, (char**)ret, retlen, label) < 0)
 	goto done;
     retval = 0;
@@ -1354,11 +1360,12 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     }
     spec = clicon_dbspec_key(h);
     
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
-
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto quit;
+    }
     if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
-	return -1;
+	goto quit;
 
     if (cli_usedaemon(h)) {
 	if (cli_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
@@ -1376,7 +1383,6 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	    goto quit;
 	}
     }
-
     retval = 0;
 quit:
     if (dbv)
@@ -1473,8 +1479,10 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  		filename, strerror(errno));
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if (cli_proto_load(s, replace, dbname, filename) < 0)
 	goto done;
 
@@ -1544,10 +1552,10 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     filename = vecp[0];
-
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
-  
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if (cli_proto_save(s, dbname, 0, filename) < 0) /*  */
 	goto done;
     retval = 0;
@@ -1582,8 +1590,10 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "dbname not set");
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
+    }
     cli_proto_rm(s, dbname);
     cli_proto_initdb(s, dbname);
     retval = 0;
@@ -1599,7 +1609,10 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
     char *candidate_db;
     int   retval = -1;
 
-    s = clicon_sock(h);
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
@@ -1896,7 +1909,11 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     }
     stream = vec[0];
     status = atoi(vec[1]);
-    sockpath = clicon_sock(h);
+
+    if ((sockpath = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if ((logname = chunk_sprintf(__FUNCTION__, "log_socket_%s", stream)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "%s: chunk_sprintf", __FUNCTION__);
 	goto done;

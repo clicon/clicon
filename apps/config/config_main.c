@@ -480,8 +480,10 @@ main(int argc, char **argv)
 	unlink(sockpath);   
 
     /* Sanity check: config group exists */
-    if ((config_group = clicon_sock_group(h)) == NULL)
+    if ((config_group = clicon_sock_group(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "clicon_sock_group option not set");
 	return -1;
+    }
 
     if (group_name2gid(config_group, NULL) < 0){
 	clicon_log(LOG_ERR, "'%s' does not seem to be a valid user group.\n" 
@@ -581,7 +583,8 @@ main(int argc, char **argv)
 	}
     }
     /* Write pid-file */
-    if ((pid = pidfile_write(clicon_backend_pidfile(h))) <  0) 
+
+    if ((pid = pidfile_write(pidfile)) <  0)
 	goto done;
 
     /* Register log notifications */

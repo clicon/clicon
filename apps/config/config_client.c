@@ -224,9 +224,10 @@ from_client_save(clicon_handle h,
 		 struct clicon_msg *msg, 
 		 const char *label)
 {
-    char *filename;
-    int retval = -1;
-    char *db;
+    int      retval = -1;
+    char    *filename;
+    char    *archive_dir;
+    char    *db;
     uint32_t snapshot;
 
     if (clicon_msg_save_decode(msg, 
@@ -239,7 +240,11 @@ from_client_save(clicon_handle h,
 	goto done;
     }
     if (snapshot){
-	if (config_snapshot(clicon_dbspec_key(h), db, clicon_archive_dir(h)) < 0){
+	if ((archive_dir = clicon_archive_dir(h)) == NULL){
+	    clicon_err(OE_PLUGIN, 0, "snapshot set and clicon_archive_dir not defined");
+	    goto done;
+	}
+	if (config_snapshot(clicon_dbspec_key(h), db, archive_dir) < 0){
 	    send_msg_err(s, clicon_errno, clicon_suberrno,
 		     clicon_err_reason);
 

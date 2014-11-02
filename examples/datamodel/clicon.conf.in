@@ -84,10 +84,6 @@ CLICON_YANG_MODULE_MAIN	datamodel
 # Location of frontend .cli cligen spec files
 #CLICON_CLISPEC_DIR    $(APPDIR)/clispec
 
-# Optional name of syntax group to start from if many. 
-# Should be subdir of CLICON_CLI_DIR. Only frontend.
-# CLICON_CLI_GROUP
-
 # Startup CLI mode
 CLICON_CLI_MODE datamodel
 

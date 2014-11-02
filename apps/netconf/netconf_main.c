@@ -259,8 +259,10 @@ init_candidate_db(clicon_handle h, char *running_db, char *candidate_db)
 					candidate_db,
 				       __FUNCTION__)) == NULL)
 	    return -1;
-	if ((s = clicon_sock(h)) == NULL)
+	if ((s = clicon_sock(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	    goto done;
+	}
 	if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0)
 	    goto done;
     }
