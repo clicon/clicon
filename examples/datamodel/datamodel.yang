@@ -1,9 +1,9 @@
 module datamodel{
     container cont{
 	leaf a{
-    	    mandatory true;
-	    type uint64{
-	             range "-12..231321";
+	    mandatory true;
+	    type int64{
+		range "-12..231321";
             }
 	}
     }

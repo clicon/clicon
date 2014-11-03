@@ -104,7 +104,10 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
 	break;
     case CANDIDATE_DB_SHARED:
 	if (lstat(candidate_db, &sb) < 0){
-	    s = clicon_sock(h);
+	    if ((s = clicon_sock(h)) == NULL){
+		clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+		goto err;
+	    }
 	    cli_proto_copy(s, running_db, candidate_db);
 	}
 	break;
@@ -210,17 +213,23 @@ cli_fmt_output_cb(char *fmt, ...)
 int 
 cli_run(clicon_handle h, cvec *vr, cg_var *arg)
 {
-  int ret;
-  char *cmd;
+    int   retval = -1;
+    char *cmd = NULL;
+    char *str;
 
-  cmd = cgv_fmt_string (vr, cv_string_get(arg));
-  if (cmd == NULL)
-    return 0;
-
-  ret = clicon_proc_run(cmd, cli_output_cb, 1);
-  free (cmd);
-
-  return ret;
+    if (arg==NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    if ((cmd = cgv_fmt_string (vr, str)) == NULL)
+	goto done;
+    if ((retval = clicon_proc_run(cmd, cli_output_cb, 1)) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (cmd)
+	free (cmd);
+    return retval;
 }
 
 
@@ -231,14 +240,20 @@ cli_run(clicon_handle h, cvec *vr, cg_var *arg)
  * arg is a vector of args delimited by ';'
  */
 int 
-cli_mset(clicon_handle h, cvec *vars, cg_var *argv)
+cli_mset(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    char **vec = NULL;
-    int i, nvec;
-    int retval = -1;
+    char  **vec = NULL;
+    int     i;
+    int     nvec;
+    int     retval = -1;
     cg_var *cv;
+    char   *str = NULL;
 
-    if ((vec = clicon_strsplit(cv_string_get(argv), ";", &nvec, __FUNCTION__)) == NULL){
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    if ((vec = clicon_strsplit(str, ";", &nvec, __FUNCTION__)) == NULL){
 	goto done;
     }
     for (i=0; i<nvec; i++){
@@ -270,12 +285,18 @@ cli_mset(clicon_handle h, cvec *vars, cg_var *argv)
 int 
 cli_mmerge(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    char **vec = NULL;
-    int i, nvec;
-    int retval = -1;
+    char  **vec = NULL;
+    int     i;
+    int     nvec;
+    int     retval = -1;
     cg_var *cv = NULL; 
+    char   *str = NULL;
 
-    if ((vec = clicon_strsplit(cv_string_get(arg), ";", &nvec, __FUNCTION__)) == NULL){
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    if ((vec = clicon_strsplit(str, ";", &nvec, __FUNCTION__)) == NULL){
 	goto done;
     }
     for (i=0; i<nvec; i++){
@@ -309,13 +330,18 @@ cli_mmerge(clicon_handle h, cvec *vars, cg_var *arg)
 int
 cli_del_tree(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    char *key;
-    char *ptr;
-    char *opcmd;
-    int retval = -1;
+    int     retval = -1;
+    char   *key;
+    char   *ptr;
+    char   *opcmd;
     cg_var *cv; 
+    char   *str = NULL;
 
-    key = chunkdup(cv_string_get(arg), strlen(cv_string_get(arg))+1, __FUNCTION__);
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    key = chunkdup(str, strlen(str)+1, __FUNCTION__);
     if (key == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk");
 	goto done;
@@ -507,8 +533,17 @@ record_command(char *str)
 int
 cli_set_mode(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    cli_set_syntax_mode(h, cv_string_get(arg));
-    return 0;
+    int     retval = -1;
+    char   *str = NULL;
+
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    cli_set_syntax_mode(h, str);
+    retval = 0;
+  done:
+    return retval;
 }
 
 /*
@@ -599,7 +634,6 @@ cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
     }
-
     if ((s = clicon_sock(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
@@ -627,8 +661,10 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
     char          *candidate_db;
     int            retval = -1;
 
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	return -1;
+    }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	return -1;
@@ -671,10 +707,10 @@ expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg,
     char  *str;
     char  *dbstr, *keystr, *varstr;  
 
-    if (arg == NULL)
-	return -1;
-    if ((str = cv_string_get(arg)) == NULL)
-	return -1;
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
     if ((vec = clicon_strsplit(cv_string_get(arg), " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
@@ -760,11 +796,11 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
     clicon_dbvars_t *dbv = NULL;
     cg_var          *cv;
 
-    if (arg == NULL)
-	return -1;
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
     /* In the example, str = "candidate a[].b[] $!x $!y" */
-    if ((str = cv_string_get(arg)) == NULL)
-	return -1;
     if ((vec = clicon_strsplit(cv_string_get(arg), " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
@@ -1288,8 +1324,10 @@ cli_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
 				      paramlen, param, 
 				      label)) == NULL)
 	goto done;
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
+    }
     if (clicon_rpc_connect(msg, s, (char**)ret, retlen, label) < 0)
 	goto done;
     retval = 0;
@@ -1308,7 +1346,10 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     dbspec_key      *spec;
     clicon_dbvars_t *dbv = NULL;
     int	             retval = -1;
+    char            *str = NULL;
 
+    if (arg != NULL) 
+	str = cv_string_get(arg);
     if ((candidate = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto quit;
@@ -1319,13 +1360,12 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     }
     spec = clicon_dbspec_key(h);
     
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
-
-    dbv = cli_set_parse(h, spec, candidate, vars, 
-			arg?cv_string_get(arg):""); 
-    if (dbv == NULL)
-	return -1;
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto quit;
+    }
+    if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
+	goto quit;
 
     if (cli_usedaemon(h)) {
 	if (cli_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
@@ -1343,7 +1383,6 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	    goto quit;
 	}
     }
-
     retval = 0;
 quit:
     if (dbv)
@@ -1399,9 +1438,10 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char       *opstr;
     char       *varstr;
 
-    if (arg == NULL)
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
 	goto done;
-    str = cv_string_get(arg);
+    }
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
@@ -1439,8 +1479,10 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  		filename, strerror(errno));
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if (cli_proto_load(s, replace, dbname, filename) < 0)
 	goto done;
 
@@ -1473,9 +1515,10 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char      *dbstr;
     char      *varstr;
 
-    if (arg == NULL)
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
 	goto done;
-    str = cv_string_get(arg);
+    }
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
@@ -1509,10 +1552,10 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     filename = vecp[0];
-
-    if ((s = clicon_sock(h)) == NULL)
-	return -1;
-  
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if (cli_proto_save(s, dbname, 0, filename) < 0) /*  */
 	goto done;
     retval = 0;
@@ -1530,9 +1573,10 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
     char            *dbstr;
     int              retval = -1;
 
-    if (arg == NULL)
-	return -1;
-    dbstr = cv_string_get(arg);
+    if (arg == NULL || (dbstr = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
     if (strcmp(dbstr, "running") == 0) 
 	dbname = clicon_running_db(h);
     else
@@ -1546,8 +1590,10 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "dbname not set");
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
+    }
     cli_proto_rm(s, dbname);
     cli_proto_initdb(s, dbname);
     retval = 0;
@@ -1563,7 +1609,10 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
     char *candidate_db;
     int   retval = -1;
 
-    s = clicon_sock(h);
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	goto done;
+    }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
@@ -1614,7 +1663,10 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
     char           **keyv;
     cvec           **cvecv;
 
-    str = cv_string_get(arg);
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
     if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
@@ -1817,36 +1869,95 @@ cli_notification_cb(int s, void *arg)
 
 }
 
-/*! Send a notify subscription to backend and register callback for return messages.
+/*! Send a notify subscription to backend and un/register callback for return messages.
+ * 
+ * @param[in] h      Clicon handle
+ * @param[in] vars   Not used
+ * @param[in] arg    A string with log stream name and stream status
+ * @code
+ * cmd("comment"), cli_setlog("mystream 0"); # turn off logging of mystream
+ * @endcode
  */
 int
-cli_getlog(clicon_handle h, cvec *vars, cg_var *arg)
+cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char            *sockpath;
     int              s;
     char            *stream = NULL;
     int              retval = -1;
+    char           **vec = NULL;
+    int              nvec;
+    char            *str;
+    int              status;
+    clicon_hash_t   *cdat = clicon_data(h);
+    void            *p;
+    int              s_exist = -1;
+    size_t           len;
+    char            *logname;
 
-    if (arg==NULL)
+    if (arg==NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
 	goto done;
-    stream = cv_string_get(arg);
-    sockpath = clicon_sock(h);
-    if (cli_proto_subscription(sockpath, stream, &s) < 0)
+    }
+    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
-    
-    if (cligen_regfd(s, cli_notification_cb, NULL) < 0)
+    }
+    if (nvec != 2){
+	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <stream> <status>", str);	
 	goto done;
-#if 0
-    if (event_reg_fd(s, cli_notification_cb, NULL, "notification socket") < 0)
+    }
+    stream = vec[0];
+    status = atoi(vec[1]);
+
+    if ((sockpath = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
-#endif
+    }
+    if ((logname = chunk_sprintf(__FUNCTION__, "log_socket_%s", stream)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "%s: chunk_sprintf", __FUNCTION__);
+	goto done;
+    }
+    if ((p = hash_value(cdat, logname, &len)) != NULL)
+	s_exist = *(int*)p;
+
+    if (status){
+	if (s_exist!=-1){
+	    clicon_err(OE_PLUGIN, 0, "%s: result log socket already exists", __FUNCTION__);
+	    goto done;
+	}
+	if (cli_proto_subscription(sockpath, status, stream, &s) < 0)
+	    goto done;
+	if (cligen_regfd(s, cli_notification_cb, NULL) < 0)
+	    goto done;
+	fprintf(stderr, "%s: reg %d\n", __FUNCTION__, s);
+	if (hash_add(cdat, logname, &s, sizeof(s)) == NULL)
+	    goto done;
+    }
+    else{
+	if (s_exist != -1){
+	    cligen_unregfd(s_exist);
+	}
+	hash_del(cdat, logname);
+	if (cli_proto_subscription(sockpath, status, stream, NULL) < 0)
+	    goto done;
+
+    }
+
     retval = 0;
   done:
+    unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * xml2csv. Translate XML -> CSV commands
+/* XXX backward comnpatible */
+int 
+cli_getlog(clicon_handle h, cvec *vars, cg_var *arg)
+{
+    return cli_setlog(h, vars, arg);
+}
+
+/* Translate XML -> CSV commands
  * Can only be made in a 'flat tree', ie on the form:
  * <X><A>B</A></X> --> 
  * Type, A

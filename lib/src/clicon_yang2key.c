@@ -39,6 +39,11 @@
  *        |db_spec_parse_file           |yang_parse
  *        |                             |
  *      <file>                        <file>
+ *
+ * Example yang: container a {list x{key y;leaf y; leaf z;}}
+ * the container is mapped to 'a'
+ * the list is mapped to      'a.x[] $!y
+ * a key is mapped to         'a.x[] $!y $z
  */
 
 #ifdef HAVE_CONFIG_H
@@ -63,6 +68,7 @@
 /* clicon */
 #include "clicon_log.h"
 #include "clicon_err.h"
+#include "clicon_mem.h"
 #include "clicon_string.h"
 #include "clicon_queue.h"
 #include "clicon_hash.h"
@@ -77,18 +83,6 @@
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
 #include "clicon_yang2key.h"
-
-/* align 4 bytes */
-static inline char * strdupalign(char *str) 
-{
-    char *dup;
-    int len;
-    len = ((strlen(str)+1)/4)*4 + 4;
-    if ((dup = malloc(len)) == NULL)
-	return NULL;
-    strncpy(dup, str, len);
-    return dup;
-}
 
 static int yang2key_stmt(yang_stmt *ys, cvec *keys, cvec *vars, dbspec_key **ds_list);
 
@@ -116,7 +110,7 @@ cli2db_genkey(cvec *keys, cvec *vars, dbspec_key **dsp)
     }
     if ((ds = db_spec_new()) == NULL) /* XXX */
 	goto err;
-    if ((ds->ds_key = strdupalign(key)) == NULL){
+    if ((ds->ds_key = strdup4(key)) == NULL){
 	clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__); 
 	goto err;
     }

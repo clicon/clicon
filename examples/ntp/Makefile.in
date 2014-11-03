@@ -77,13 +77,14 @@ install:	clicon.conf ntp.yang ntp_cli.cli $(PLUGINS)
 	install -m 755 -d $(DESTDIR)$(APPDIR) 
 	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
 	install -m 755 ntp.yang $(DESTDIR)$(APPDIR)
-	install -m 755 -d $(DESTDIR)$(APPDIR)/frontend
+	install -m 755 -d $(DESTDIR)$(APPDIR)/cli
+	install -m 755 -d $(DESTDIR)$(APPDIR)/clispec
 	install -m 755 -d $(DESTDIR)$(APPDIR)/netconf
 	install -m 755 -d $(DESTDIR)$(APPDIR)/backend
 	install -m 755 -d $(DESTDIR)$(APPDIR)/db
 	install -m 755 -d $(DESTDIR)$(APPDIR)/archive
 	for i in $(FE_PLUGIN); do \
-		install $$i $(DESTDIR)$(APPDIR)/frontend/`basename $$i`; \
+		install $$i $(DESTDIR)$(APPDIR)/cli/`basename $$i`; \
 	done
 	for i in $(NC_PLUGIN); do \
 		install $$i $(DESTDIR)$(APPDIR)/netconf/`basename $$i`; \
@@ -92,11 +93,12 @@ install:	clicon.conf ntp.yang ntp_cli.cli $(PLUGINS)
 		install $$i $(DESTDIR)$(APPDIR)/backend/`basename $$i`; \
 	done
 	for i in ntp_cli.cli; do \
-		install $$i $(DESTDIR)$(APPDIR)/frontend/`basename $$i`; \
+		install $$i $(DESTDIR)$(APPDIR)/clispec/`basename $$i`; \
 	done
 
 uninstall: 
-	rm -rf $(APPDIR)/frontend
+	rm -rf $(APPDIR)/cli
+	rm -rf $(APPDIR)/clispec
 	rm -rf $(APPDIR)/backend
 	rm -rf $(APPDIR)/netconf
 	rm -rf $(APPDIR)/db

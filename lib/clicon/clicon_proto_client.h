@@ -41,7 +41,7 @@ int cli_proto_rm(char *spath, char *filename);
 int cli_proto_lock(char *spath, char *dbname);
 int cli_proto_unlock(char *spath, char *dbname);
 int cli_proto_kill(char *spath, int session_id);
-int cli_proto_subscription(char *spath, char *stream, int *s);
+int cli_proto_subscription(char *spath, int status, char *stream, int *s);
 int cli_proto_debug(char *spath, int level);
 
 #endif  /* _CLICON_PROTO_CLIENT_H_ */

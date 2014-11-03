@@ -258,9 +258,10 @@ netconf_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
 				      paramlen, param, 
 				      label)) == NULL)
 	goto done;
-
-    if ((s = clicon_sock(h)) == NULL)
+    if ((s = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
+    }
     if (clicon_rpc_connect(msg, s, (char**)ret, retlen, label) < 0)
 	goto done;
     retval = 0;

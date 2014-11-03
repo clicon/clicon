@@ -34,6 +34,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 /* cligen */
@@ -393,13 +394,11 @@ cli_proto_debug(char *spath, int level)
     return retval;
 }
 
-/*
- * cli_proto_subscription
- * create a new notification subscription
+/* Create a new notification subscription
  * return socket
  */
 int
-cli_proto_subscription(char *sockpath, char *stream, int *s0)
+cli_proto_subscription(char *sockpath, int status, char *stream, int *s0)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -417,7 +416,7 @@ cli_proto_subscription(char *sockpath, char *stream, int *s0)
     }
     if ((s = clicon_connect_unix(sockpath)) < 0)
 	goto done;
-    if ((msg=clicon_msg_subscription_encode(stream, __FUNCTION__)) == NULL)
+    if ((msg=clicon_msg_subscription_encode(status, stream, __FUNCTION__)) == NULL)
 	return -1;
     if (clicon_rpc(s, msg, NULL, 0, __FUNCTION__) < 0){
 #if 0
@@ -428,7 +427,11 @@ cli_proto_subscription(char *sockpath, char *stream, int *s0)
 #endif
 	goto done;
     }
-    *s0 = s;
+    /* Regular rpc if close, but if start, then do not close socket */
+    if (status == 0)
+	close(s);
+    else
+	*s0 = s;
     retval = 0;
   done:
     unchunk_group(__FUNCTION__);

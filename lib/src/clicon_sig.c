@@ -100,53 +100,86 @@ clicon_signal_unblock (int sig)
 	sigprocmask (SIG_UNBLOCK, &set, NULL);
 }
 
-/*
- * pidfile_check
- * Check if there is a pid file.
- * If so, kill the old process is specified.
- * Then write new pidfile.
- * Maybe we should do the opposite: if there exists one dont start this one?
+/*! Read pidfile and return pid, if any
+ *
+ * @param[in]  pidfile  Name of pidfile
+ * @param[out] pid0     Process id of (eventual) existing daemon process
+ * @retval    0         OK. if pid > 0 old process exists w that pid
+ * @retval    -1        Error, and clicon_err() called
  */
-pid_t
-pidfile_check(char *pidfile, int kill_it)
+int
+pidfile_get(char *pidfile, pid_t *pid0)
 {
-    FILE *f;
+    FILE   *f;
     char   *ptr;
-    char buf[32];
-    pid_t pid;
+    char    buf[32];
+    pid_t   pid;
 
     if ((f = fopen (pidfile, "r")) != NULL){
 	ptr = fgets(buf, sizeof(buf), f);
 	fclose (f);
 	if (ptr != NULL && (pid = atoi (ptr)) > 1) {
 	    if (kill (pid, 0) == 0 || errno != ESRCH) {
-		if (kill_it == 0) /* Don't kill, report pid */
-		    return pid;
-		clicon_debug(1, "Killing old daemon with pid: %d", pid);
-		killpg(pid, SIGTERM);
-		kill(pid, SIGTERM);
-		sleep(1); /* check again */
-		if ((kill (pid, 0)) != 0 && errno == ESRCH) /* Nothing there */
-		    ;
-		else{ /* problem: couldnt kill it */
-		    clicon_err(OE_DEMON, errno, "Killing old demon");
-		    return -1;
-		}
+		/* Yes there is a process */
+		*pid0 = pid;
+		return 0;
 	    }
-	    unlink(pidfile);	
 	}
     }
+    *pid0 = 0;
+    return 0;
+}
+
+/*! Given a pid, kill that process
+ *
+ * @param[in] pid   Process id
+ * @retval    0     Killed OK
+ * @retval    -1    Could not kill. 
+ * Maybe shouldk not belong to pidfile code,..
+ */
+int
+pidfile_zapold(pid_t pid)
+{
+    clicon_log(LOG_NOTICE, "Killing old daemon with pid: %d", pid);
+    killpg(pid, SIGTERM);
+    kill(pid, SIGTERM);
+    sleep(1); /* check again */
+    if ((kill (pid, 0)) != 0 && errno == ESRCH) /* Nothing there */
+	;
+    else{ /* problem: couldnt kill it */
+	clicon_err(OE_DEMON, errno, "Killing old demon");
+	return -1;
+    }
+    return 0;
+}
+
+/*! Write a pid-file
+ *
+ * @param[in] pidfile   Name of pidfile
+ * @param[in] kill_it   If set, kill existing process otherwise return pid
+ */
+int
+pidfile_write(char *pidfile)
+{
+    FILE *f = NULL;
+    int   retval = -1;
+
     /* Here, there should be no old agent and no pidfile */
     if ((f = fopen(pidfile, "wb")) == NULL){
 	if (errno == EACCES)
 	    clicon_err(OE_DEMON, errno, "Creating pid-file %s (Try run as root?)", pidfile);
 	else
 	    clicon_err(OE_DEMON, errno, "Creating pid-file %s", pidfile);
-	return -1;
+	goto done;
     } 
-    fprintf(f, "%ld\n", (long) getpid());
-    fclose(f);
+    if ((retval = fprintf(f, "%ld\n", (long) getpid())) < 1){
+	clicon_err(OE_DEMON, errno, "Could not write pid to %s", pidfile);
+	goto done;
+    }
     clicon_debug(1, "Opened pidfile %s with pid %d", pidfile, getpid());
-    
-    return 0;
+    retval = 0;
+ done:
+    if (f != NULL)
+	fclose(f);
+    return retval;
 }

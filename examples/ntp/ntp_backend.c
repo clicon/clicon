@@ -39,7 +39,7 @@
 #define NTPD_PARMS	"-g"
 
 #define NTP_CONF	"/etc/ntp.conf"
-#define NTP_DRIFT	"/osr/flash/etc/ntp.drift"
+#define NTP_DRIFT	"/etc/ntp.drift"
 #if 0
 #define NTP_RESTART	"/etc/rc.d/ntpd restart"
 #define NTP_START	"/etc/rc.d/ntpd start"

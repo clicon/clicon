@@ -357,26 +357,28 @@ yang2cli_stmt(clicon_handle h,
     int           retval = -1;
     int           i;
 
-    switch (ys->ys_keyword){
-    case Y_CONTAINER:
-	if (yang2cli_container(h, ys, cbuf, gt, level) < 0)
-	    goto done;
-	break;
-    case Y_LIST:
-	if (yang2cli_list(h, ys, cbuf, gt, level) < 0)
-	    goto done;
-	break;
-    case Y_LEAF_LIST:
-    case Y_LEAF:
-	if (yang2cli_leaf(h, ys, cbuf, gt, level) < 0)
-	    goto done;
-	break;
-    default:
-    for (i=0; i<ys->ys_len; i++)
-	if ((yc = ys->ys_stmt[i]) != NULL)
-	    if (yang2cli_stmt(h, yc, cbuf, gt, level+1) < 0)
+    if (yang_config(ys)){
+	switch (ys->ys_keyword){
+	case Y_CONTAINER:
+	    if (yang2cli_container(h, ys, cbuf, gt, level) < 0)
 		goto done;
-	break;
+	    break;
+	case Y_LIST:
+	    if (yang2cli_list(h, ys, cbuf, gt, level) < 0)
+		goto done;
+	    break;
+	case Y_LEAF_LIST:
+	case Y_LEAF:
+	    if (yang2cli_leaf(h, ys, cbuf, gt, level) < 0)
+		goto done;
+	    break;
+	default:
+	    for (i=0; i<ys->ys_len; i++)
+		if ((yc = ys->ys_stmt[i]) != NULL)
+		    if (yang2cli_stmt(h, yc, cbuf, gt, level+1) < 0)
+			goto done;
+	    break;
+	}
     }
 
     retval = 0;

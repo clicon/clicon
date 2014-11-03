@@ -106,11 +106,10 @@ plugin_start(clicon_handle h, int argc, char **argv)
  * This is called on start if you call clicon_config with -R
  */
 int
-plugin_reset(clicon_handle h)
+plugin_reset(clicon_handle h, char *dbname)
 {
     return 0;
 }
-
 
 /*
  * Reset reload-flag before we start.
@@ -120,7 +119,7 @@ transaction_begin(clicon_handle h)
 {
     return 0;
 }
-
+trans_begin_t *fn = transaction_begin;
 /*
  * Validation complete
  */

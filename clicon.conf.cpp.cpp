@@ -82,10 +82,6 @@ CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 # callbacks for frontends. See clicon user manual for more info.
 # CLICON_MASTER_PLUGIN    master
 
-# Optional name of syntax group to start from if many. 
-# Should be subdir of CLICON_CLI_DIR. Only frontend.
-# CLICON_CLI_GROUP
-
 # Startup CLI mode
 # CLICON_CLI_MODE 
 

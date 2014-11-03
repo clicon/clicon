@@ -696,6 +696,7 @@ FSM(char *tag, char ch, int state)
  * Note, you need to free the xml parse tree after use, using xml_free()
  * Returns: 0 on sucess, -1 on failure.
  * XXX: There is a potential leak here on some return values.
+ * May block
  */
 int 
 clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)

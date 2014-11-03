@@ -45,6 +45,7 @@
 #include "clicon_string.h"
 #include "clicon_queue.h"
 #include "clicon_hash.h"
+#include "clicon_mem.h"
 #include "clicon_db.h"
 #include "clicon_chunk.h"
 #include "clicon_handle.h"
@@ -670,7 +671,7 @@ xml2db_1(cxobj          *xn,
 	snprintf(key, len+1, "%s.%s", key0, xml_name(xn));
     }
     else
-	if ((key = strdup(xml_name(xn))) == NULL)
+	if ((key = strdup4(xml_name(xn))) == NULL)
 	    goto catch;
 
     if (spec == NULL){

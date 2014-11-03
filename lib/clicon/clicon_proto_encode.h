@@ -137,11 +137,12 @@ clicon_msg_call_decode(struct clicon_msg *msg,
 		      const char *label);
 
 struct clicon_msg *
-clicon_msg_subscription_encode(char *stream, const char *label);
+clicon_msg_subscription_encode(int status, char *stream, const char *label);
 
 int clicon_msg_subscription_decode(struct clicon_msg *msg, 
-				   char **stream, 
-				   const char *label);
+				   int               *status, 
+				   char             **stream, 
+				   const char        *label);
 
 struct clicon_msg *
 clicon_msg_notify_encode(int level, char *event, const char *label);

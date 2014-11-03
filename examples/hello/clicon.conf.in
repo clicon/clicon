@@ -73,11 +73,10 @@ CLICON_DBSPEC_FILE        @APPDIR@/hello.spec
 # CLICON_NETCONF_DIR  $(APPDIR)/netconf
 
 # Location of fronted .so plugins
-# CLICON_CLI_DIR $(APPDIR)/frontend
+#CLICON_CLI_DIR        $(APPDIR)/cli
 
-# Optional name of syntax group to start from if many. 
-# Should be subdir of CLICON_CLI_DIR. Only frontend.
-# CLICON_CLI_GROUP
+# Location of frontend .cli cligen spec files
+#CLICON_CLISPEC_DIR    $(APPDIR)/clispec
 
 # Startup CLI mode
 CLICON_CLI_MODE hello

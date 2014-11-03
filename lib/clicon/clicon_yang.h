@@ -105,12 +105,7 @@ enum rfc_6020{
 };
 
 /*! yang statement 
- * A word on the ys_dbkey translation.
- * Example yang: container a {list x{key y;leaf y; leaf z;}}
- * the container is mapped to 'a'
- * the list is mapped to      'a.x[] $!y
- * a key is mapped to         'a.x[] $!y $z
-*/
+ */
 struct yang_stmt{
     int                ys_len;
     struct yang_stmt **ys_stmt;
@@ -174,6 +169,7 @@ yang_stmt *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
 int        ys_parse_sub(yang_stmt *ys);
 int        yang_mandatory(yang_stmt *ys);
+int        yang_config(yang_stmt *ys);
 int        yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt);
 
 #endif  /* _CLICON_YANG_H_ */

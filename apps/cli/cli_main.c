@@ -117,8 +117,7 @@ cli_interactive(clicon_handle h)
     }
 }
 
-/*
- * Read database specification file.
+/*! Read database specification file.
  * Some complications: there are two variants of syntax: 
  * CLI and KEY set by CLICON_DBSPEC_TYPE
  * CLICON_DBSPEC_FILE  contains the syntax-spec. Either CLI or KEY.
@@ -365,8 +364,10 @@ main(int argc, char **argv)
 	goto done;
 
     /* Check plugin directory */
-    if (clicon_cli_dir(h) == NULL)
+    if (clicon_cli_dir(h) == NULL){
+	clicon_err(OE_PLUGIN, 0, "clicon_cli_dir not defined");
 	goto done;
+    }
     
     /* Create tree generated from dataspec */
     if (clicon_cli_genmodel(h)){

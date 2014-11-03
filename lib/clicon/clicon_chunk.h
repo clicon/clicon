@@ -136,7 +136,6 @@ struct _chunk_grpent_t {
 	chunk_t	       *ce_cnk;		/* Pointer to the chunk */
 }; 
 
-
 /*
  * Public function declarations
  */

@@ -81,15 +81,19 @@ config_socket_init(clicon_handle h)
     struct stat        st;
 
     /* first find sockpath and remove it if it exists (it shouldn't) */
-    if ((config_sock = clicon_sock(h)) == NULL)
+    if ((config_sock = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	return -1;
+    }
     if (lstat(config_sock, &st) == 0 && unlink(config_sock) < 0){
 	clicon_err(OE_UNIX, errno, "%s: unlink(%s)", __FUNCTION__, config_sock);
 	return -1;
     }
     /* then find configuration group (for clients) and find its groupid */
-    if ((config_group = clicon_sock_group(h)) == NULL)
+    if ((config_group = clicon_sock_group(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "clicon_sock_group option not set");
 	return -1;
+    }
     if (group_name2gid(config_group, &gid) < 0)
 	return -1;
 #if 0
@@ -177,8 +181,10 @@ config_accept_client(int fd, void *arg)
     ce->ce_handle = h;
 
     /* check credentials of caller (not properly implemented yet) */
-    if ((config_group = clicon_sock_group(h)) == NULL)
+    if ((config_group = clicon_sock_group(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "clicon_sock_group option not set");
 	return -1;
+    }
     if ((gr = getgrnam(config_group)) != NULL){
 	i = 0; /* one of mem should correspond to ce->ce_uid */
 	while ((mem = gr->gr_mem[i++]) != NULL)

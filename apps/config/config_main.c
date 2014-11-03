@@ -150,22 +150,6 @@ usage(char *argv0, clicon_handle h)
 }
 
 static int
-zapold(clicon_handle h)
-{
-    char *pidfile = clicon_backend_pidfile(h);
-    char *sockpath = clicon_sock(h);
-    struct stat sb;
-
-    (void)pidfile_check(pidfile, 1);
-    fprintf(stderr, "Zap\n");
-    if (lstat(pidfile, &sb) == 0)
-	unlink(pidfile);   
-    if (lstat(sockpath, &sb) == 0)
-	unlink(sockpath);   
-    return 0;
-}
-
-static int
 rundb_init(clicon_handle h, char *running_db)
 {
     if (unlink(running_db) != 0 && errno != ENOENT) {
@@ -326,15 +310,17 @@ main(int argc, char **argv)
     struct stat   st;
     clicon_handle h;
     int           help = 0;
+    int           pid;
+    char         *pidfile;
+    char         *sockpath;
 
     /* In the startup, logs to stderr & syslog and debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR|CLICON_LOG_SYSLOG); 
     /* Initiate CLICON handle */
     if ((h = backend_handle_init()) == NULL)
-	goto done;
+	return -1;
     if (config_plugin_init(h) != 0) 
-	goto done;
-
+	return -1;
     foreground = 0;
     once = 0;
     zap = 0;
@@ -458,14 +444,46 @@ main(int argc, char **argv)
     if (help)
 	usage(argv[0], h);
 
-    /* Zap: just kill old demon */
-    if (zap) {
-	zapold(h);
+    /* Check pid-file, if zap kil the old daemon, else return here */
+    if ((pidfile = clicon_backend_pidfile(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "pidfile not set");
+	goto done;
+    }
+    if ((sockpath = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "sockpath not set");
+	goto done;
+    }
+    if (pidfile_get(pidfile, &pid) < 0)
+	return -1;
+    if (zap){
+	if (pid && pidfile_zapold(pid) < 0)
+	    return -1;
+	if (lstat(pidfile, &st) == 0)
+	    unlink(pidfile);   
+	if (lstat(sockpath, &st) == 0)
+	    unlink(sockpath);   
 	exit(0);
     }
+    else
+	if (pid){
+	    clicon_err(OE_DEMON, 0, "Daemon already running with pid %d\n(Try killing it with %s -z)", 
+		       pid, argv0);
+	    return -1; /* goto done deletes pidfile */
+	}
+
+
+    /* After thospoint we can goto done on error */
+    /* Here there is either no old process or we have killed it,.. */
+    if (lstat(pidfile, &st) == 0)
+	unlink(pidfile);   
+    if (lstat(sockpath, &st) == 0)
+	unlink(sockpath);   
+
     /* Sanity check: config group exists */
-    if ((config_group = clicon_sock_group(h)) == NULL)
+    if ((config_group = clicon_sock_group(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "clicon_sock_group option not set");
 	return -1;
+    }
 
     if (group_name2gid(config_group, NULL) < 0){
 	clicon_log(LOG_ERR, "'%s' does not seem to be a valid user group.\n" 
@@ -530,7 +548,6 @@ main(int argc, char **argv)
 	goto done;
     *(argv-1) = tmp;
 
-
     if (reload_running){
 	if (candidate_commit(h, candidate_db, running_db) < 0)
 	    goto done;
@@ -565,27 +582,27 @@ main(int argc, char **argv)
 	    exit(0);
 	}
     }
+    /* Write pid-file */
 
-    /* Daemon already running? */
-    if (pidfile_check(clicon_backend_pidfile(h), 0) != 0) 
+    if ((pid = pidfile_write(pidfile)) <  0)
 	goto done;
 
     /* Register log notifications */
     if (clicon_log_register_callback(config_log_cb, h) < 0)
-	return -1;
+	goto done;
     clicon_log(LOG_NOTICE, "%s: %u Started", __PROGRAM__, getpid());
     if (set_signal(SIGTERM, config_sig_term, NULL) < 0){
 	clicon_err(OE_DEMON, errno, "Setting signal");
-	return -1;
+	goto done;
     }
     if (set_signal(SIGINT, config_sig_term, NULL) < 0){
 	clicon_err(OE_DEMON, errno, "Setting signal");
-	return -1;
+	goto done;
     }
 	
     /* Initialize server socket */
     if (server_socket(h) < 0)
-	return -1;
+	goto done;
 
     if (debug)
 	clicon_option_dump(h, debug);

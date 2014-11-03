@@ -40,7 +40,6 @@
  * CLICON_BACKEND_DIR      $APPDIR/backend/<group> # Dirs of all backend plugins
  * CLICON_BACKEND_PIDFILE  $APPDIR/clicon.pidfile
  * CLICON_CLI_DIR          $APPDIR/frontend   # Dir of all CLI plugins/ syntax group dirs
- * CLICON_CLI_GROUP        # cli syntax group to start in (clicon_cli)
  * CLICON_CLI_MODE         base # Initial cli syntax mode to start in clicon_cli.
  * CLICON_CLI_GENMODEL     1 # Generate CLIgen syntax from model
  * CLICON_CLI_GENMODEL_TYPE VARS   # NONE|VARS|ALL
@@ -590,12 +589,6 @@ clicon_master_plugin(clicon_handle h)
     return clicon_option_str(h, "CLICON_MASTER_PLUGIN");
 }
 
-char *
-clicon_cli_group(clicon_handle h)
-{
-    return clicon_option_str(h, "CLICON_CLI_GROUP");
-}
-
 /* return initial clicon cli mode */
 char *
 clicon_cli_mode(clicon_handle h)
@@ -760,7 +753,6 @@ clicon_dbspec_yang_set(clicon_handle h, struct yang_spec *ys)
 	return -1;
     return 0;
 }
-
 
 /* 
  * Get dbspec name as read from spec. Can be used in CLI '@' syntax.

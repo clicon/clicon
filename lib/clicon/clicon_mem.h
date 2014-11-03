@@ -1,8 +1,7 @@
 /*
  *
   Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
-  Olof Hagsand
- *
+
   This file is part of CLICON.
 
   CLICON is free software; you can redistribute it and/or modify
@@ -21,23 +20,19 @@
 
  */
 
-#ifndef _CLICON_SIG_H_
-#define _CLICON_SIG_H_
+#ifndef _CLICON_MEM_H_
+#define _CLICON_MEM_H_
 
-/*
- * Types
- */
-typedef void (*sigfn_t)(int);
+/*! A strdup version of strdup that aligns on 4 bytes. To avoid warning from valgrind */
+static inline char * strdup4(char *str) 
+{
+    char *dup;
+    int len;
+    len = ((strlen(str)+1)/4)*4 + 4;
+    if ((dup = malloc(len)) == NULL)
+	return NULL;
+    strncpy(dup, str, len);
+    return dup;
+}
 
-/*
- * Prototypes
- */ 
-int set_signal(int signo, void (*handler)(int), void (**oldhandler)(int));
-void clicon_signal_block(int);
-void clicon_signal_unblock(int);
-
-int pidfile_get(char *pidfile, pid_t *pid0);
-int pidfile_write(char *pidfile);
-int pidfile_zapold(pid_t pid);
-
-#endif  /* _CLICON_SIG_H_ */
+#endif /* _CLICON_MEM_H */

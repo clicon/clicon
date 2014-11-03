@@ -89,7 +89,6 @@ char *clicon_sock(clicon_handle h);
 char *clicon_backend_pidfile(clicon_handle h);
 char *clicon_sock_group(clicon_handle h);
 char *clicon_master_plugin(clicon_handle h);
-char *clicon_cli_group(clicon_handle h);
 char *clicon_cli_mode(clicon_handle h);
 int   clicon_cli_genmodel(clicon_handle h);
 int   clicon_cli_varonly(clicon_handle h);

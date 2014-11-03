@@ -748,22 +748,58 @@ clicon_msg_call_decode(struct clicon_msg *msg,
 }
 
 struct clicon_msg *
-clicon_msg_subscription_encode(char *stream, const char *label)
+clicon_msg_subscription_encode(int status, char *stream, const char *label)
 {
-    clicon_debug(2, "%s: stream: %s", __FUNCTION__, stream);
-    return clicon_msg_1str_encode(stream, CLICON_MSG_SUBSCRIPTION, label);
+    struct clicon_msg *msg;
+    int len;
+    int hdrlen = sizeof(*msg);
+    int p;
+    int tmp;
+
+    clicon_debug(2, "%s: %d %s", __FUNCTION__, status, stream);
+    p = 0;
+    hdrlen = sizeof(*msg);
+    len = sizeof(*msg) + sizeof(uint32_t) + strlen(stream) + 1;
+    if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk", __FUNCTION__);
+	return NULL;
+    }
+    memset(msg, 0, len);
+    /* hdr */
+    msg->op_type = CLICON_MSG_SUBSCRIPTION;
+    msg->op_len = len;
+    /* body */
+    tmp = htonl(status);
+    memcpy(msg->op_body+p, &tmp, sizeof(int));
+    p += sizeof(int);
+    strncpy(msg->op_body+p, stream, len-p-hdrlen);
+    p += strlen(stream)+1;
+
+    return msg;
 }
 
 int
 clicon_msg_subscription_decode(struct clicon_msg *msg, 
-			       char **stream, 
-			       const char *label)
+			       int               *status,
+			       char             **stream, 
+			       const char        *label)
 {
-    int retval;
+    int p;
+    int tmp;
 
-    retval = clicon_msg_1str_decode(msg, stream, label);
-    clicon_debug(2, "%s: stream: %s",  __FUNCTION__, *stream);
-    return retval;
+    p = 0;
+    /* body */
+    memcpy(&tmp, msg->op_body+p, sizeof(int));
+    *status = ntohl(tmp);
+    p += sizeof(int);
+    if ((*stream = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		__FUNCTION__);
+	return -1;
+    }
+    p += strlen(*stream)+1;
+    clicon_debug(2, "%s: %d %s", __FUNCTION__, *status, *stream);
+    return 0;
 }
 
 struct clicon_msg *

@@ -65,6 +65,7 @@
 #include "clicon_log.h"
 #include "clicon_err.h"
 #include "clicon_string.h"
+#include "clicon_mem.h"
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
@@ -77,18 +78,6 @@
 #include "clicon_yang2key.h"
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
-
-/* align 4 bytes */
-static inline char * strdupalign(char *str) 
-{
-    char *dup;
-    int len;
-    len = ((strlen(str)+1)/4)*4 + 4;
-    if ((dup = malloc(len)) == NULL)
-	return NULL;
-    strncpy(dup, str, len);
-    return dup;
-}
 
 dbspec_key *
 db_spec_new(void)
@@ -246,7 +235,7 @@ dbspec_parse_line(char *line, int linenr, const char *filename, dbspec_key **lis
     if ((dbp = db_spec_new()) == NULL)
 	goto catch;
     dbp->ds_vec = vr;
-    dbp->ds_key = strdupalign(vec[0]);
+    dbp->ds_key = strdup4(vec[0]);
     db_spec_tailadd(list, dbp); /* dbp may be freed */
     retval = 0;
   catch:
