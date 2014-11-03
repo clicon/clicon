@@ -556,9 +556,9 @@ db_lv_vec_find(dbspec_key *dbspec, /* spec list */
 	goto quit;
     }
     /* vu is last unique variable */
-    if ((str = dbspec_last_unique_str(ds, setvars)) == NULL)
+    if ((str = dbspec_unique_str(ds, setvars)) == NULL)
 	goto quit;
-    /* keycontent key: A.n.<value of unique var> */
+    /* keycontent key: A.n.<value of unique vars> */
     if((key = chunk_sprintf(__FUNCTION__, "%s.n.%s", basekey, str)) == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk");
 	free(str);
@@ -893,9 +893,9 @@ db_lv_vec_del(dbspec_key *dbspec, /* spec list */
 	goto quit;
     }
     /* vu is last unique variable */
-    if ((str = dbspec_last_unique_str(ds, setvars)) == NULL)
+    if ((str = dbspec_unique_str(ds, setvars)) == NULL)
 	goto quit;
-    /* keycontent key: A.n.<value of unique var> */
+    /* keycontent key: A.n.<value of unique vars> */
     if((key = chunk_sprintf(__FUNCTION__, "%s.n.%s", basekey, str)) == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk");
 	free(str);

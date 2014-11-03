@@ -60,6 +60,8 @@ char *lv2str(struct lvalue *lv);
 
 char *db_gen_rxkey(char *basekey, const char *label);
 
+char *dbspec_unique_str(dbspec_key *ds, cvec *setvars);
+
 char *dbspec_last_unique_str(dbspec_key *ds, cvec *setvars);
 
 int cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,

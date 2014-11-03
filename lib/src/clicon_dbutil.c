@@ -565,6 +565,69 @@ quit:
 }
 
 
+/*
+ * dbspec_unique_str
+ * Given key, and its db_spec, return concatenated string of unique variables
+ * delimuted by dots.
+ */
+char *
+dbspec_unique_str(dbspec_key *ds, cvec *setvars)
+{
+    cvec           *vr;
+    cg_var         *cv;
+    cg_var         *cvc;
+    char           *tmp = NULL;
+    char           *cvs = NULL;
+    char           *str = NULL;
+    char           *retval = NULL;
+    int             len;
+    int             slen = 0;
+
+    vr = db_spec2cvec(ds);
+    cv = NULL;
+    while ((cv = cvec_each(vr, cv))) {
+	if (cv_flag(cv, V_UNIQUE)) {
+
+	    /* Get value of unique variable - value we should set/delete */
+	    if ((cvc = cvec_find(setvars, cv_name_get(cv))) == NULL){
+		clicon_log(LOG_ERR,
+			   "%s: No unique value for %s found in setvars\n",
+			   __FUNCTION__, cv_name_get(cv));
+		goto quit;
+	    }
+	    
+	    /* Append to key index string */
+	    if ((cvs = cv2str_dup(cvc)) == NULL) {
+		clicon_err(OE_UNIX, errno, "cv2str_dup");
+		goto quit;
+	    }
+	    len = slen + strlen(".") + strlen(cvs) +1;
+	    if ((tmp = realloc(str, len)) == NULL) {
+		clicon_err(OE_UNIX, errno, "realloc");
+		goto quit;
+	    }
+	    str = tmp;
+	    if (slen == 0)
+		memset(str, '\0', len);
+	    else
+		strncat(str, ".", len-1);
+	    slen = len;
+	    strncat(str, cvs, len-strlen(str)-1);
+	    free(cvs);
+	    cvs = NULL;
+	}
+    }
+    
+    retval = str;
+    
+quit:
+    if (retval == NULL)
+	free(str);
+    free(cvs);
+      
+    return retval;
+}
+
 
 /*
  * dbspec_last_unique_str
