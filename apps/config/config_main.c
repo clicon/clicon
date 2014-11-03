@@ -252,9 +252,36 @@ server_socket(clicon_handle h)
 static int
 config_log_cb(int level, char *msg, void *arg)
 {
+    size_t n;
+    char *ptr;
+    char *nptr;
+    char *newmsg = NULL;
+    int retval = -1;
+
     /* backend_notify() will go through all clients and see if any has registered "CLICON",
        and if so make a clicon_proto notify message to those clients.   */
-    return backend_notify(arg, "CLICON", level, msg);
+    
+
+    /* Sanitize '%' into "%%" to prevent segvfaults in vsnprintf later.
+       At this stage all formatting is already done */
+    n = 0;
+    for(ptr=msg; *ptr; ptr++)
+	if (*ptr == '%')
+	    n++;
+    if ((newmsg = malloc(strlen(msg) + n + 1)) == NULL) {
+	clicon_err(OE_UNIX, errno, "malloc");
+	return -1;
+    }
+    for(ptr=msg, nptr=newmsg; *ptr; ptr++) {
+	*nptr++ = *ptr;
+	if (*ptr == '%')
+	    *nptr++ = '%';
+    }
+    
+    retval = backend_notify(arg, "CLICON", level, newmsg);
+    free(newmsg);
+
+    return retval;
 }
 
 /*
