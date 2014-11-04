@@ -619,7 +619,8 @@ dbspec_unique_str(dbspec_key *ds, cvec *setvars)
 	    slen = len;
 	    strncat(str, sha1str, len-strlen(str)-1);
 	    free(cvs);
-	    cvs = NULL;
+	    free(sha1str);
+	    cvs = sha1str = NULL;
 	}
     }
     
@@ -629,6 +630,7 @@ quit:
     if (retval == NULL)
 	free(str);
     free(cvs);
+    free(sha1str);
       
     return retval;
 }
