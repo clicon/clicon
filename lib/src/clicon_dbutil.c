@@ -64,6 +64,7 @@
 #include <assert.h>
 #include <syslog.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <fnmatch.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -89,6 +90,7 @@
 #include "clicon_options.h"
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
+#include "clicon_sha1.h"
 
 /*! Append a new cligen variable (cv) to cligen variable vector (cvec),
  *
@@ -578,6 +580,7 @@ dbspec_unique_str(dbspec_key *ds, cvec *setvars)
     cg_var         *cvc;
     char           *tmp = NULL;
     char           *cvs = NULL;
+    char           *sha1str = NULL;
     char           *str = NULL;
     char           *retval = NULL;
     int             len;
@@ -601,7 +604,9 @@ dbspec_unique_str(dbspec_key *ds, cvec *setvars)
 		clicon_err(OE_UNIX, errno, "cv2str_dup");
 		goto quit;
 	    }
-	    len = slen + strlen(".") + strlen(cvs) +1;
+	    if ((sha1str = clicon_sha1hex(cvs)) == NULL)
+		goto quit;
+	    len = slen + strlen(".") + strlen(sha1str) +1;
 	    if ((tmp = realloc(str, len)) == NULL) {
 		clicon_err(OE_UNIX, errno, "realloc");
 		goto quit;
@@ -612,7 +617,7 @@ dbspec_unique_str(dbspec_key *ds, cvec *setvars)
 	    else
 		strncat(str, ".", len-1);
 	    slen = len;
-	    strncat(str, cvs, len-strlen(str)-1);
+	    strncat(str, sha1str, len-strlen(str)-1);
 	    free(cvs);
 	    cvs = NULL;
 	}
