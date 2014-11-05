@@ -75,7 +75,7 @@ int cli_set_candidate_type(clicon_handle h, enum candidate_db_type type);
 int init_candidate_db(clicon_handle h, enum candidate_db_type type);
 int exit_candidate_db(clicon_handle h);
 #define cli_output cligen_output
-void cli_output_cb (char *str);
+void cli_output_formatted (char *str);
 void cli_fmt_output_cb(char *fmt, ...);
 int cli_run (clicon_handle h, cvec *vars, cg_var *arg);
 int cli_mset (clicon_handle h, cvec *vars, cg_var *arg);

@@ -148,7 +148,7 @@ exit_candidate_db(clicon_handle h)
  * before sending to cligen_output()
  */
 void
-cli_output_cb (char *str)
+cli_output_formatted (char *str)
 {
   int idx;
   int npcnt;
@@ -203,7 +203,7 @@ cli_fmt_output_cb(char *fmt, ...)
   str[len] = '\0';
   va_end(ap);
 
-  cli_output_cb(str);
+  cli_output_formatted(str);
   unchunk_group(__FUNCTION__);
 }
 
@@ -223,7 +223,7 @@ cli_run(clicon_handle h, cvec *vr, cg_var *arg)
     }
     if ((cmd = cgv_fmt_string (vr, str)) == NULL)
 	goto done;
-    if ((retval = clicon_proc_run(cmd, cli_output_cb, 1)) < 0)
+    if ((retval = clicon_proc_run(cmd, cli_output_formatted, 1)) < 0)
 	goto done;
     retval = 0;
   done:
@@ -396,10 +396,10 @@ cli_show_lvmap(char *dbname, struct lvmap *lmap)
   if (lvmap_print(f, dbname, lmap, NULL) < 0)
     goto done;
 
-  /* Now send contents of file to cligen_output via cli_output_cb() */
+  /* Now send contents of file to cligen_output via cli_output_formatted() */
   rewind(f);
   while(fgets(buf, sizeof(buf), f))
-    cli_output_cb(buf);
+    cli_output_formatted(buf);
   
   res = 0;
 
