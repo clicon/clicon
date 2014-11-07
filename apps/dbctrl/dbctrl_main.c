@@ -262,6 +262,11 @@ main(int argc, char **argv)
 	        usage(argv[0]);
 	    matchent++;
 	    break;
+	case 'D':  /* Processed earlier, ignore now. */
+	case 'a':
+	case 'f':
+	case 'S':
+	    break;
 	default:
 	    usage(argv[0]);
 	    break;
