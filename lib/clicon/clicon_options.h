@@ -65,11 +65,12 @@ int clicon_option_exists(clicon_handle h, const char *name);
 
 /* Get a single option via handle */
 char *clicon_option_str(clicon_handle h, const char *name);
+int clicon_option_int(clicon_handle h, const char *name);
 /* Set a single option via handle */
 int clicon_option_str_set(clicon_handle h, const char *name, char *val);
-
-int clicon_option_int(clicon_handle h, const char *name);
 int clicon_option_int_set(clicon_handle h, const char *name, int val);
+/* Delete a single option via handle */
+int clicon_option_del(clicon_handle h, const char *name);
 
 char *clicon_appdir(clicon_handle h);
 char *clicon_configfile(clicon_handle h);
