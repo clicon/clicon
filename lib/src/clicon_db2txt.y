@@ -242,8 +242,16 @@ get_dbvar(void *_ya, char *varstr)
 	    return NULL;
 	}
 	key = new;
+    } 
+    /* Or a clicon option? */
+    else if (clicon_option_exists(_YA->ya_handle, key)) {
+	if ((new = strdup(clicon_option_str(_YA->ya_handle, key))) == NULL) {
+	    clicon_db2txterror(_YA, "malloc failed");
+	    return NULL;
+	}
+	key = new;
     }
-    
+
     cv = dbvar2cv(_YA->ya_db, key, var);
     if (new)
 	free(new);
