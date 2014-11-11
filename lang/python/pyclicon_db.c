@@ -242,47 +242,45 @@ static PyObject *
 _keys(CliconDB *self, PyObject *args)
 {
     int i;
-    int npairs;
-    struct db_pair *pairs;
-    PyObject *keys;
-    PyObject *key;
-    char *rx;
+    size_t nkeys;
+    char **keys;
+    PyObject *Keys;
+    PyObject *Key;
+    char *rx = ".*";
 
-    if (!PyArg_ParseTuple(args, "s", &rx))
+    if (!PyArg_ParseTuple(args, "|s", &rx))
         return NULL;
     
-    npairs = db_regexp(self->filename, rx, __FUNCTION__, &pairs, 1);
-    if (npairs < 0) {
+    if ((keys = clicon_dbkeys(self->filename, &nkeys, rx)) == NULL) {
 	/* XXX Need CLICON exceptoions */
-	PyErr_Format(PyExc_RuntimeError, "CLICON: db_regexp failed");
+	PyErr_Format(PyExc_RuntimeError, "clicon_dbkeys failed");
 	return NULL;
     }
     
-    if ((keys = PyTuple_New(npairs)) == NULL) {
-	unchunk_group(__FUNCTION__);
+    if ((Keys = PyTuple_New(nkeys)) == NULL) {
+	free(keys);
 	return NULL;
-    }
-    
-    for (i = 0; i < npairs; i++) {
-	if ((key = StringFromString( pairs[i].dp_key)) == NULL) {
-	    unchunk_group(__FUNCTION__);
-	    Py_DECREF(keys);
-	    return NULL;
-	}
-	PyTuple_SET_ITEM(keys, i, key);
     }
 
-    unchunk_group(__FUNCTION__);
-    return keys;    
+    for (i = 0; i < nkeys; i++) {
+	if ((Key = StringFromString( keys[i])) == NULL) {
+	    Py_DECREF(Keys);
+	    free(keys);
+	    return NULL;
+	}
+	PyTuple_SET_ITEM(Keys, i, Key);
+    }
+    free(keys);
+
+    return Keys;    
 }
 
 static PyObject *
 _items(CliconDB *self, PyObject *args)
 {
     int i;
-    int npairs;
-    struct db_pair *pairs;
-    cvec *vr = NULL;
+    size_t len;
+    cvec **items = NULL;
     PyObject *Ret;
     PyObject *Item = NULL;
     PyObject *Items = NULL;
@@ -295,32 +293,22 @@ _items(CliconDB *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "|s", &rx))
         return NULL;
     
-    npairs = db_regexp(self->filename, rx, __FUNCTION__, &pairs, 0);
-    if (npairs < 0) {
+    if ((items = clicon_dbitems(self->filename, &len, rx)) == NULL) {
 	/* XXX Need CLICON exceptions */
-	PyErr_Format(PyExc_RuntimeError, "CLICON: db_regexp failed");
+	PyErr_Format(PyExc_RuntimeError, "clicon_dbitems failed");
 	return NULL;
     }
     
-    if ((Items = PyList_New(0)) == NULL) {
-	unchunk_group(__FUNCTION__);
-	return NULL;
-    }
+    if ((Items = PyList_New(len)) == NULL)
+	goto quit;
     
-    for (i = 0; i < npairs; i++) {
-	/* Dont include vector indexes, eg A.n in a A[] entry */
-	if(key_isvector_n(pairs[i].dp_key) || key_iskeycontent(pairs[i].dp_key))
-	    continue;
+    for (i = 0; i < len; i++) {
 	
 	/* Create key object */
-	if ((Key = StringFromString( pairs[i].dp_key)) == NULL)
+	if ((Key = StringFromString(cvec_name_get(items[i]))) == NULL)
 	    goto quit;
 	
-	/* Create value object */
-	if ((vr = lvec2cvec(pairs[i].dp_val, pairs[i].dp_vlen)) == NULL)
-	    goto quit;
-	if ((Capsule = PyCapsule_New((void *)vr, NULL, NULL)) == NULL)
-
+	if ((Capsule = PyCapsule_New((void *)items[i], NULL, NULL)) == NULL)
 	    goto quit;
 
 	if ((Val = PyObject_CallMethod(__cligen_module(),"Cvec", NULL)) == NULL)
@@ -338,20 +326,18 @@ _items(CliconDB *self, PyObject *args)
 	Key = Val = NULL; /* References stolen by Item */
 
 	/* Append tuple to list */
-	if ((PyList_Append(Items, Item)) < 0)
+	PyList_SET_ITEM(Items, i, Item);
 	    goto quit;
-	Py_DECREF(Item);
 	Item = NULL;
     }
 
     Retval = Items;
 
 quit:
-    if(vr)
-	cvec_free(vr);
     if (Retval == NULL)
 	Py_XDECREF(Items);
-    unchunk_group(__FUNCTION__);
+    if (items)
+	clicon_dbitems_free(items);
     Py_XDECREF(Item);
     Py_XDECREF(Key);
     Py_XDECREF(Val);
