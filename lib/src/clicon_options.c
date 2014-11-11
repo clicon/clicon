@@ -466,6 +466,16 @@ clicon_option_int_set(clicon_handle h, const char *name, int val)
     return clicon_option_str_set(h, name, s);
 }
 
+/*! delete option 
+ */
+int
+clicon_option_del(clicon_handle h, const char *name)
+{
+    clicon_hash_t *copt = clicon_options(h);
+
+    return hash_del(copt, (char*)name);
+}
+
 /*-----------------------------------------------------------------
  * Specific option access functions.
  * These should be commonly accessible for all users of clicon lib 

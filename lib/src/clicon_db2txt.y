@@ -233,6 +233,24 @@ get_dbvar(void *_ya, char *varstr)
     /* First look for an each vector variable */
     if ((new = get_loopkey(_ya, key)) != NULL)
 	key = new;
+    /* Is it a parser variable? */
+    else if (_YA->ya_vars && 
+	         (cv = cvec_find(_YA->ya_vars, key)) != NULL &&
+	         cv_type_get(cv) == CGV_STRING) {
+	if ((new = strdup(cv_string_get(cv))) == NULL) {
+	    clicon_db2txterror(_YA, "malloc failed");
+	    return NULL;
+	}
+	key = new;
+    } 
+    /* Or a clicon option? */
+    else if (clicon_option_exists(_YA->ya_handle, key)) {
+	if ((new = strdup(clicon_option_str(_YA->ya_handle, key))) == NULL) {
+	    clicon_db2txterror(_YA, "malloc failed");
+	    return NULL;
+	}
+	key = new;
+    }
 
     cv = dbvar2cv(_YA->ya_db, key, var);
     if (new)
@@ -746,7 +764,7 @@ elsestatement:
 	ELSE {
 	    code_stack_t *cs, *parent;
 	    
-	    if ((cs = (code_stack_t *)_YA->ya_code_stack) == NULL) {
+	    if ((cs = (code_stack_t *)_YA->ya_code_stack) != NULL) {
 		if (cs->codetype == ELSE) {
 		    clicon_db2txterror(_YA, "multiple @else");
 		    YYERROR;
@@ -757,7 +775,7 @@ elsestatement:
 		}
 	    }
 	    parent = NEXTQ(code_stack_t *, cs);
-	    if (parent != NULL && parent != cs && parent->processing)
+	    if (parent == NULL || parent == cs || parent->processing)
 		cs->processing = ! cs->processing;
 	    cs->codetype = ELSE;
 	}
