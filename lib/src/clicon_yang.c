@@ -419,9 +419,9 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     cg_var         *cv = NULL;
     yang_node      *yparent; 
     yang_stmt      *ydef; 
-    yang_stmt      *ykey = NULL; 
     enum cv_type    cvtype = CGV_ERR;
     int             cvret;
+    int             ret;
     char           *reason = NULL;
     yang_stmt      *yrestype;  /* resolved type */
     char           *restype;  /* resolved type */
@@ -468,10 +468,12 @@ ys_populate_leaf(yang_stmt *ys, void *arg)
     }
 
     /* 4. Check if leaf is part of list, if key exists mark leaf as key/unique */
-    if (yparent && yparent->yn_keyword == Y_LIST &&
-	(ykey = yang_find(yparent, Y_KEY, ys->ys_argument)) != NULL)
-	cv_flag_set(cv, V_UNIQUE);
-
+    if (yparent && yparent->yn_keyword == Y_LIST){
+	if ((ret = yang_key_match(yparent, ys->ys_argument)) < 0)
+	    goto done;
+	if (ret == 1)
+	    cv_flag_set(cv, V_UNIQUE);
+    }
     ys->ys_cv = cv;
     retval = 0;
   done:
@@ -1037,6 +1039,8 @@ ys_parse(yang_stmt *ys, enum cv_type cvtype)
  *
  * The cv:s created in parse-tree as follows:
  * fraction-digits : Create cv as uint8, check limits [1:8] (must be made in 1st pass)
+ *
+ * See also ys_populate
  */
 int
 ys_parse_sub(yang_stmt *ys)
@@ -1149,5 +1153,94 @@ yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
     }
     retval = 0;
   done:
+    return retval;
+}
+
+/*! Given a yang node, translate the argument string to a cv vector
+ *
+ * @param[in]  ys         Yang statement 
+ * @param[in]  delimiter  Delimiter character (eg ' ' or ',')
+ * @retval     NULL  Error
+ * @retval     cvec  Vector of strings
+ * @code
+ *    cvec   *cvv;
+ *    cg_var *cv = NULL;
+ *    if ((cvv = yang_arg2cvec(ys, " ")) == NULL)
+ *       goto err;
+ *    while ((cv = cvec_each(cvv, cv)) != NULL) 
+ *         ...cv_string_get(cv);
+ *    cvec_free(cvv);
+ * @endcode
+ * Note: must free return value after use w cvec_free
+ */
+cvec *
+yang_arg2cvec(yang_stmt *ys, char *delim)
+{
+    char  **vec;
+    int     i;
+    int     nvec;
+    cvec   *cvv = NULL;
+    cg_var *cv;
+
+    if ((vec = clicon_strsplit(ys->ys_argument, " ", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_YANG, errno, "clicon_strsplit");	
+	goto done;
+    }
+    if ((cvv = cvec_new(nvec)) == NULL){
+	clicon_err(OE_YANG, errno, "cvec_new");	
+	goto done;
+    }
+    for (i = 0; i < nvec; i++) {
+	cv = cvec_i(cvv, i);
+	cv_type_set(cv, CGV_STRING);
+	if ((cv_string_set(cv, vec[i])) == NULL){
+	    clicon_err(OE_YANG, errno, "cv_string_set");	
+	    cvv = NULL;
+	    goto done;
+	}
+    }
+ done:
+    unchunk_group(__FUNCTION__);
+    return cvv;
+}
+
+/*! Check if yang node yn has key-stmt as child which matches name
+ *
+ * @param[in]  yn   Yang node with sub-statements (look for a key child)
+ * @param[in]  name Check if this name (eg "b") is a key in the yang key statement
+ *
+ * @retval   -1     Error
+ * @retval    0     No match
+ * @retval    1     Yes match
+ */
+int
+yang_key_match(yang_node *yn, char *name)
+{
+    int        retval = -1;
+    yang_stmt *ys = NULL;
+    int        i;
+    cvec      *cvv = NULL;
+    cg_var    *cv;
+
+    for (i=0; i<yn->yn_len; i++){
+	ys = yn->yn_stmt[i];
+	if (ys->ys_keyword == Y_KEY){
+	    if ((cvv = yang_arg2cvec(ys, " ")) == NULL)
+		goto done;
+	    cv = NULL;
+	    while ((cv = cvec_each(cvv, cv)) != NULL) {
+		if (strcmp(name, cv_string_get(cv)) == 0){
+		    retval = 1; /* match */
+		    goto done;
+		}
+	    }
+	    cvec_free(cvv);
+	    cvv = NULL;
+	}
+    }
+    retval = 0;
+ done: 
+    if (cvv)
+	cvec_free(cvv);
     return retval;
 }

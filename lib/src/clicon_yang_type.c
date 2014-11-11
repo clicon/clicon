@@ -459,6 +459,7 @@ ys_cv_validate(cg_var *cv, yang_stmt *ys, char **reason)
     case CGV_URL: 
     case CGV_UUID: 
     case CGV_TIME: 
+    case CGV_EMPTY:  /* XXX */
 	break;
     }
 

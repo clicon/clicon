@@ -45,7 +45,6 @@
 #include "clicon_string.h"
 #include "clicon_queue.h"
 #include "clicon_hash.h"
-#include "clicon_mem.h"
 #include "clicon_db.h"
 #include "clicon_chunk.h"
 #include "clicon_handle.h"
@@ -61,29 +60,27 @@
 #include "clicon_err.h"
 #include "clicon_xml.h"
 
-/*
- * var2xml_all
- * create sub-elements for every variable in vh
- * EXCEPT in the uvh list which are the 'unique' variables of vectors
- * that shpould already have been added.
+/*! Create sub-elements for every variable in skiplist
+ * The skipvr list are the 'unique' variables of vectors
+ * that should already have been added.
  */
 static int
 var2xml_all(cxobj *xnp, cvec *vr, cvec *skipvr)
 {
-    cxobj *xn;
-    cxobj *xnb;
-    cg_var          *cv = NULL;
-    char            *vnam;
-    char            *str;
+    cxobj    *xn;
+    cxobj    *xnb;
+    cg_var   *cv = NULL;
+    char     *vname;
+    char     *str;
 
     /* Print/Calculate varible format string if variable exist */
     cv = NULL;
     while ((cv = cvec_each(vr, cv))) {
-	vnam = cv_name_get(cv);
-	if (cvec_find(skipvr, vnam))
-	    continue; /* skipe the ones in skiplist */
+	vname = cv_name_get(cv);
+	if (cvec_find(skipvr, vname))
+	    continue; /* skip the ones in skiplist */
 	/* create a parse-node here */
-	if ((xn = xml_new(vnam, xnp)) == NULL)
+	if ((xn = xml_new(vname, xnp)) == NULL)
 	    goto catch;
 	if ((str = cv2str_dup(cv)) == NULL)
 	    goto catch;
@@ -143,40 +140,54 @@ regex:
    |
    body value== str
 */
-
 static cxobj *
-xml_xfind(cxobj *xn, char *node, char *key, char *str)
+xml_xfind_vec(cxobj *xn, char *node, cvec *cvv)
 {
-    cxobj *xnode;
-    cxobj *xkey;
-    cxobj *xbody;
+    cxobj  *xnode;
+    cxobj  *xkey;
+    cxobj  *xbody;
+    cg_var *cv;
+    int     found = 0;
 
     xnode = NULL;
+    if (xn == NULL)
+	return 0;
     while ((xnode = xml_child_each(xn, xnode, CX_ELMNT)) != NULL) {
 	if (strcmp(node, xml_name(xnode)))
 	    continue;
 	xkey = NULL;
-	while ((xkey = xml_child_each(xnode, xkey, CX_ELMNT)) != NULL) {
-	    if (strcmp(key, xml_name(xkey)))
-		continue;
-	    xbody = NULL;
-	    while ((xbody = xml_child_each(xkey, xbody, CX_BODY)) != NULL) {
-		if (strcmp(str, xml_value(xbody)))
+	/* Must match all variable and values in cvv */
+	cv = NULL;
+	while ((cv = cvec_each(cvv, cv)) != NULL){
+	    found = 0;
+	    while ((xkey = xml_child_each(xnode, xkey, CX_ELMNT)) != NULL) {
+		if (strcmp(cv_name_get(cv), xml_name(xkey)))
 		    continue;
-		goto done;
+		xbody = NULL;
+		while ((xbody = xml_child_each(xkey, xbody, CX_BODY)) != NULL) {
+		    if (strcmp(cv_string_get(cv), xml_value(xbody)))
+			continue;
+		    found++;
+		    break;
+		}
+		break; /* Assume only one matching key */
 	    }
-	    break; /* Assume only one matching key */
-	}
+	    if (!found) /* this cv not matched */
+		break;
+	} /* cv */
+	if (found)
+	    return xnode;
     }
-    xnode = NULL; /* not found */
-  done:
-    return xnode;
+    //  done:
+    return NULL;
 }
 
 /*
  * dbkey2xml
  * key is a name of a unique variable, we look it up in variable list vh
  * and then find the object it corresponds to in xml tree xn.
+ * @param[out]   xnt
+
  * XXX: A[] $!a; A[].B[] $!a $!b should be shown as:
  <Group>
   <GroupName>G</GroupName>
@@ -195,30 +206,31 @@ Now it is shown with this appended:
  */
 int
 dbkey2xml(dbspec_key *db_spec, 
-	  cxobj *xnt, 
-	  char *key, 
-	  char *val, 
-	  int vlen)
+	  cxobj      *xnt, 
+	  char       *key, 
+	  char       *val, 
+	  int         vlen)
 {
-    cxobj *xnp;   /* parent */
-    cxobj *xn = NULL;
-    cxobj *xb;
-    cxobj *xv;
-    char            *subkey;
-    dbspec_key      *subspec;
-    cvec           *vr;
-    cvec           *subvr;
-    cg_var         *v;
-    cg_var         *ncv;
-    char           **vec;
-    int              nvec;
-    int              isvec;
-    int              n;
-    char            *str;
-    char            *bstr;
-    char            *fmt;
-    cvec            *uvr = NULL; /* unique var set */
-    int              prevspec;
+    cxobj      *xnp;   /* parent */
+    cxobj      *xn = NULL;
+    cxobj      *xb;
+    cxobj      *xv;
+    char       *subkey;
+    dbspec_key *subspec;
+    cvec       *vr;
+    cvec       *subvr;
+    cg_var     *vs;
+    cg_var     *v;
+    char       *vname;
+    cg_var     *ncv;
+    char      **vec;
+    int         nvec;
+    int         isvec;
+    int         n;
+    char       *str;
+    cvec       *uvr = NULL; /* unique var set */
+    cvec       *uvr0 = NULL; /* tmp unique var set */
+    int         prevspec;
 
     if (debug > 1)
 	fprintf(stderr, "%s: key:%s\n", __FUNCTION__, key);
@@ -229,7 +241,10 @@ dbkey2xml(dbspec_key *db_spec,
 	goto catch;
     if ((vr = lvec2cvec(val, vlen)) == NULL)
 	goto catch;
-    uvr = cvec_new(0);
+    if ((uvr = cvec_new(0)) == NULL){
+	clicon_err(OE_UNIX, errno, "cvec_new");	
+	goto catch;
+    }
     prevspec = 1;
     /* 
      * semantics of prevspec:
@@ -262,75 +277,69 @@ dbkey2xml(dbspec_key *db_spec,
 		    __FUNCTION__, isvec);
 	if (isvec){ /* subkey is vector, on the form a.b.<n> */
 	    prevspec++;
-	    /* find unique variable from spec (assume only one) */
+	    /* find unique variables from spec */
 	    subvr = db_spec2cvec(subspec);
-	    v = NULL; 		
-	    while ((v = cvec_each(subvr, v)))
-		if (cv_flag(v, V_UNIQUE) && !cvec_find(uvr, cv_name_get(v)))
-		    break;
-	    if (v == NULL) /* bad spec */
-		continue;
-	    if ((ncv = cvec_add(uvr, CGV_INT32)) == NULL)
-		goto catch;
-	    if (cv_name_set(ncv, cv_name_get(v)) == NULL)
-		goto catch;
-	    cv_flag_set(ncv, V_UNSET);
-	    if (debug>1)
-		fprintf(stderr, "%s: unique var:%s\n", 
-			__FUNCTION__, cv_name_get(v));
-	    /* get key's value of v */
-	    if ((v = cvec_find(vr, cv_name_get(v))) == NULL)
-		continue; /* bad spec */
-	    if ((str = cv2str_dup(v)) == NULL)
-		continue; /* bad spec */
-	    if (debug>1)
-		fprintf(stderr, "%s: var value:%s\n", 
-			__FUNCTION__, str);
-	    if ((fmt = chunk_sprintf(__FUNCTION__, "/%s[%s=%s]",
-				     vec[n-1], cv_name_get(v), str)) == NULL) {
-		free(str);
+	    /* uvr0 is the list of unique variables for this key */
+	    if ((uvr0 = cvec_new(0)) == NULL){
+		clicon_err(OE_UNIX, errno, "cvec_new");	
 		goto catch;
 	    }
-	    if (debug>1)
-		fprintf(stderr, "%s: fmt:%s\n", __FUNCTION__, fmt);
-	    /* example: /Foo[SenderName=S998] */
-
-#if 0 /* we are trying to optimize */
-	    if  ((xn = xpath_first(xnp, fmt)) != NULL){
-#else
-	    if (1) /* XXX: Is this necessary? */
-	    if  ((xn = xml_xfind(xnp, vec[n-1], cv_name_get(v), str)) != NULL){
-#endif
-		if ((bstr = xml_find_body(xn, cv_name_get(v))) == NULL){
-		    free(str);
-		    continue; /* shouldnt happen */
+	    vs = NULL;
+	    while ((vs = cvec_each(subvr, vs)))
+		if (cv_flag(vs, V_UNIQUE)){
+		    vname = cv_name_get(vs);
+		    if (cvec_find(uvr, vname) == NULL){
+			/* Add to unique vars vec */
+			if ((ncv = cvec_add(uvr0, CGV_STRING)) == NULL)
+			    goto catch;
+			if (cv_name_set(ncv, vname) == NULL)
+			    goto catch;
+			//cv_flag_set(ncv, V_UNSET);
+			/* get key's value of v (actual data, not the vs spec) */
+			if ((v = cvec_find(vr, vname)) == NULL)
+			    continue; /* bad spec */
+			if ((str = cv2str_dup(v)) == NULL)
+			    continue; /* bad spec */
+			cv_string_set(ncv, str);
+			free(str);
+		    }
 		}
-		if (strcmp(str, bstr)==0){ /* does exist */
-		    free(str);
-		    xnp = xn;
-		    continue;
-		}
+	    if (cvec_len(uvr0) == 0){ /* bad spec */
+		clicon_log(LOG_WARNING, "%s: list has no unique variable %s", 
+			   __FUNCTION__, subkey);
+		continue;
+	    }
+	    /* Copy local vnr0 to stacked vnr unique variables */
+	    vs = NULL;
+	    while ((vs = cvec_each(uvr0, vs)))
+		cvec_add_cv(uvr, vs);
+	    /* If node found, replace xnp and traverse one step deeper */
+	    if  ((xn = xml_xfind_vec(xnp, vec[n-1], uvr0)) != NULL){
+		xnp = xn;
+		continue;
 	    }
 	    assert(n>0);
-	    if (debug>1)
-		fprintf(stderr, "%s: create <%s><%s>%s\n", 
-			__FUNCTION__, vec[n-1], cv_name_get(v), str);
-	    if ((xn = xml_new(vec[n-1], xnp)) == NULL){
-		free(str);
+	    if ((xn = xml_new(vec[n-1], xnp)) == NULL)
 		goto catch;
+	    vs = NULL;
+	    while ((vs = cvec_each(uvr0, vs))){
+		vname = cv_name_get(vs); /* Cache name of the unique variable */
+		str = cv_string_get(vs);
+		if (debug>1)
+		    fprintf(stderr, "%s: create <%s><%s>%s\n", 
+			    __FUNCTION__, vec[n-1], vname, str);
+		if ((xv = xml_new(vname, xn)) == NULL){
+		    goto catch;
+		}
+		xml_index_set(xv, xml_index(xv)+1);
+		if ((xb = xml_new("body", xv)) == NULL){
+		    goto catch;
+		}
+		xml_type_set(xb, CX_BODY);
+		xml_value_set(xb, str);
 	    }
-	    if ((xv = xml_new(cv_name_get(v), xn)) == NULL){
-		free(str);
-		goto catch;
-	    }
-	    xml_index_set(xv, xml_index(xv)+1);
-	    if ((xb = xml_new("body", xv)) == NULL){
-		free(str);
-		goto catch;
-	    }
-	    xml_type_set(xb, CX_BODY);
-	    xml_value_set(xb, str);
-	    free(str);
+	    cvec_free(uvr0);
+	    uvr0 = NULL;
 	} /* vector */
 	else{
 	    if (!prevspec){
@@ -354,11 +363,17 @@ dbkey2xml(dbspec_key *db_spec,
 	goto catch;
     if (uvr) /* clear unique var set */
 	cvec_free(uvr);
+    if (uvr0) /* clear unique var set */
+	cvec_free(uvr0);
     cvec_free (vr);
     vr = NULL;
     unchunk_group(__FUNCTION__);  
     return 0;
   catch:
+    if (uvr) /* clear unique var set */
+	cvec_free(uvr);
+    if (uvr0) /* clear unique var set */
+	cvec_free(uvr0);
     unchunk_group(__FUNCTION__);  
     return -1;
 }
@@ -427,10 +442,9 @@ db2xml(char *dbname, dbspec_key *db_spec, char *toptag)
     return NULL;
 }
 
-/*
- * key2xml
- * Given a database and a key in that database,
- * Return an xml parsetree.
+/*! Given a database and a key in that database, return an xml parsetree.
+ * 
+ * @param[out]   xtop
  */
 int
 key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop)
@@ -465,24 +479,22 @@ leaf(cxobj *xn)
     return xc;
 }
 
-/*
- * xml2db_tranform_key
- * Input args:
- *   xn       xml-parse tree of a 'superleaf', ie parent to leafs
- *   dbspex   Database specification 
- *   dbname   Name of a database we are creating
- *   key      A database key, example ipv4.domain
- *   spec     A database spec entry.
- *   uv       Unique (key) variable vector
+/*!
+ * @param  xn       xml-parse tree of a 'superleaf', ie parent to leafs
+ * @param  dbspex   Database specification 
+ * @param  dbname   Name of a database we are creating
+ * @param  key      A database key, example ipv4.domain
+ * @param  spec     A database spec entry.
+ * @param  uv       Unique (key) variable vector
  */
 static int
-xml2db_transform_key(cxobj *xn, 
+xml2db_transform_key(cxobj       *xn, 
 		     dbspec_key  *dbspec, 
-		     char            *dbname, 
-		     int              isvector,
-		     char           **key, 
+		     char        *dbname, 
+		     int          isvector,
+		     char       **key, 
 		     dbspec_key  *spec,
-		     cvec            *uv)
+		     cvec        *uv)
 {
     cxobj  *xc;          /* xml parse-tree child (leaf) */
     cxobj  *xb;          /* xml body (text) */
@@ -621,13 +633,13 @@ key2spec(char            *name,
 
 /*
  * xml2db_1
- * XXX: We have a problem here with decimal64. he xml parsing is taking its info
+ * XXX: We have a problem here with decimal64. the xml parsing is taking its info
  * from keyspec, but there is no fraction-digits there. Can we change this code to take the 
  * spec from yang instead or as a complimentary?
  */
 static int
 xml2db_1(cxobj          *xn, 
-	 dbspec_key *dbspec, 
+	 dbspec_key     *dbspec, 
 	 char           *dbname, 
 	 cvec           *uv,
 	 char           *basekey0,     /* on format A[].B[] */
@@ -710,9 +722,11 @@ xml2db_1(cxobj          *xn,
 	if (uniquevars == 0) /* bad spec */
 	    clicon_log(LOG_WARNING, "%s: xml should contain unique variable %s", 
 		       __FUNCTION__, xml_name(xn));
+#ifdef notanymore
 	if (uniquevars > 1) /* bad spec */
 	    clicon_log(LOG_WARNING, "%s: xml should contain exactly one new unique variable %s", 
 		       __FUNCTION__, xml_name(xn));
+#endif
     }
     /* At least one sub is a leaf, then mark this node as superleaf
        and transform to DB */
@@ -723,7 +737,6 @@ xml2db_1(cxobj          *xn,
 		superleaf++;
 		break;
 	    }
-    
     /* 
      */
     if (superleaf){
@@ -748,7 +761,6 @@ xml2db_1(cxobj          *xn,
 	    cv = cvec_i(uv, cvec_len(uv)-1);
 	    cv_reset(cv);
 	    cvec_del(uv, cv);
-
 	}
     }
     if (key)

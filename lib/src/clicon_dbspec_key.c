@@ -65,7 +65,6 @@
 #include "clicon_log.h"
 #include "clicon_err.h"
 #include "clicon_string.h"
-#include "clicon_mem.h"
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"

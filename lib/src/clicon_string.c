@@ -78,10 +78,17 @@ clicon_sepsplit (char *string, char *delim, int *nvec, const char *label)
     return vec;
 }
 
-/*
- * Splits a string into a vector of strings using 'delim' as delimiter. 
+/*! Splits a string into a vector of strings using 'delim' as delimiter. 
  * The vector returned is one single memory chunk that must be unchunked 
  * by the caller
+ * @code
+ *  char **vec;
+ *  int    nvec;
+ *  vec = clicon_strsplit(mode, ":", &nvec, __FUNCTION__);
+ *  for (i = 0; i < nvec; i++) 
+ *      ... vec[i] ...
+ *  unchunk_group(__FUNCTION__);
+ * @endcode
  */
 char **
 clicon_strsplit (char *string, char *delim, int *nvec, const char *label)

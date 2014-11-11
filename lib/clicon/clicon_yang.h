@@ -171,5 +171,7 @@ int        ys_parse_sub(yang_stmt *ys);
 int        yang_mandatory(yang_stmt *ys);
 int        yang_config(yang_stmt *ys);
 int        yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt);
+cvec      *yang_arg2cvec(yang_stmt *ys, char *delimi);
+int        yang_key_match(yang_node *yn, char *name);
 
 #endif  /* _CLICON_YANG_H_ */

@@ -232,13 +232,17 @@ yang2cli_var(clicon_handle h,
     return retval;
 }
 
-
+/*!
+ * @param[in]  h         Clicon handle
+ * @param[in]  callback  If set, include a "; cli_set()" callback, otherwise not.
+ */
 static int
 yang2cli_leaf(clicon_handle h, 
 	      yang_stmt    *ys, 
 	      cbuf         *cbuf,
 	      enum genmodel_type gt,
-	      int           level)
+	      int           level,
+	      int           callback)
 {
     yang_stmt    *yd;  /* description */
     int           retval = -1;
@@ -258,11 +262,11 @@ yang2cli_leaf(clicon_handle h,
     }
     else
 	yang2cli_var(h, ys, cbuf, description);
-
-
-    if ((keyspec = yang_dbkey_get(ys)) != NULL)
-	cprintf(cbuf, ",cli_set(\"%s\")", keyspec);
-   cprintf(cbuf, ";\n");
+    if (callback){
+	if ((keyspec = yang_dbkey_get(ys)) != NULL)
+	    cprintf(cbuf, ",cli_set(\"%s\")", keyspec);
+	cprintf(cbuf, ";\n");
+    }
 
     retval = 0;
 //  done:
@@ -311,28 +315,50 @@ yang2cli_list(clicon_handle h,
     yang_stmt    *ykey;
     yang_stmt    *yleaf;
     int           i;
+    cg_var       *cvi;
+    char         *keyname;
+    cvec         *cvk = NULL; /* vector of index keys */
     int           retval = -1;
 
     cprintf(cbuf, "%*s%s", level*3, "", ys->ys_argument);
     if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
 	cprintf(cbuf, "(\"%s\")", yd->ys_argument);
-    /* Look for key variable */
+    /* Loop over all key variables */
     if ((ykey = yang_find((yang_node*)ys, Y_KEY, NULL)) == NULL){
-	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
+	clicon_err(OE_XML, 0, "List statement \"%s\" has no key", ys->ys_argument);
 	goto done;
     }
-    if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, ykey->ys_argument)) == NULL){
-	clicon_err(OE_XML, errno, "List statement \"%s\" has no key leaf \"%s\"", 
-		   ys->ys_argument, ykey->ys_argument);
+    if ((cvk = yang_arg2cvec(ykey, " ")) == NULL)
 	goto done;
+    cvi = NULL;
+    while ((cvi = cvec_each(cvk, cvi)) != NULL) {
+	keyname = cv_string_get(cvi);
+	if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, keyname)) == NULL){
+	    clicon_err(OE_XML, 0, "List statement \"%s\" has no key leaf \"%s\"", 
+		       ys->ys_argument, keyname);
+	    goto done;
+	}
+	/* Print key variable now, and skip it in loop below 
+	   Note, only print callbcak on last statement
+	 */
+	if (yang2cli_leaf(h, yleaf, cbuf, gt==GT_VARS?GT_NONE:gt, level+1, 
+			  cvec_next(cvk, cvi)?0:1) < 0)
+	    goto done;
     }
-    /* Print key variable now, and skip it in loop below */
-    if (yang2cli_leaf(h, yleaf, cbuf, gt==GT_VARS?GT_NONE:gt, level+1) < 0)
-	goto done;
+
     cprintf(cbuf, "{\n");
     for (i=0; i<ys->ys_len; i++)
 	if ((yc = ys->ys_stmt[i]) != NULL){
-	    if (yc == yleaf) /* skip key leaf since done above */
+	    /*  cvk is a cvec of strings containing variable names
+		yc is a leaf that may match one of the values of cvk.
+	     */
+	    cvi = NULL;
+	    while ((cvi = cvec_each(cvk, cvi)) != NULL) {
+		keyname = cv_string_get(cvi);
+		if (strcmp(keyname, yc->ys_argument) == 0)
+		    break;
+	    }
+	    if (cvi != NULL)
 		continue;
 	    if (yang2cli_stmt(h, yc, cbuf, gt, level+1) < 0)
 		goto done;
@@ -340,6 +366,8 @@ yang2cli_list(clicon_handle h,
     cprintf(cbuf, "%*s}\n", level*3, "");
     retval = 0;
   done:
+    if (cvk)
+	cvec_free(cvk);
     return retval;
 }
 
@@ -369,7 +397,7 @@ yang2cli_stmt(clicon_handle h,
 	    break;
 	case Y_LEAF_LIST:
 	case Y_LEAF:
-	    if (yang2cli_leaf(h, ys, cbuf, gt, level) < 0)
+	    if (yang2cli_leaf(h, ys, cbuf, gt, level, 1) < 0)
 		goto done;
 	    break;
 	default:
@@ -416,7 +444,7 @@ yang2cli(clicon_handle h,
 	    if (yang2cli_stmt(h, ys, cbuf, gt, 0) < 0)
 		goto done;
 	}
-    clicon_debug(2, "%s: buf\n%s\n", __FUNCTION__, cbuf_get(cbuf));
+    clicon_debug(1, "%s: buf\n%s\n", __FUNCTION__, cbuf_get(cbuf));
     /* Parse the buffer using cligen parser. XXX why this?*/
     if ((globals = cvec_new(0)) == NULL)
 	goto done;
@@ -424,6 +452,7 @@ yang2cli(clicon_handle h,
     if (cligen_parse_str(cli_cligen(h), cbuf_get(cbuf), 
 			 "yang2cli", ptnew, globals) < 0)
 	goto done;
+
     cvec_free(globals);
     /* handle=NULL for global namespace, this means expand callbacks must be in
        CLICON namespace, not in a cli frontend plugin. */

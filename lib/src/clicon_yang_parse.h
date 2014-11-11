@@ -78,7 +78,6 @@ int yang_parse_exit(struct clicon_yang_yacc_arg *ya);
 int clicon_yang_parselex(void *_ya);
 int clicon_yang_parseparse(void *);
 void clicon_yang_parseerror(void *_ya, char*);
-int clicon_yang_parsedebug(int d);
 
 int ystack_pop(struct clicon_yang_yacc_arg *ya);
 struct ys_stack *ystack_push(struct clicon_yang_yacc_arg *ya, yang_node *yn);

@@ -68,7 +68,6 @@
 /* clicon */
 #include "clicon_log.h"
 #include "clicon_err.h"
-#include "clicon_mem.h"
 #include "clicon_string.h"
 #include "clicon_queue.h"
 #include "clicon_hash.h"
@@ -191,15 +190,17 @@ yang2key_leaf(yang_stmt       *ys,
     dbspec_key *ds = NULL;
     char           *keyspec = NULL;
     yang_node      *yparent; 
-    yang_stmt      *ykey = NULL; 
+    int             ret;
 
     /* If called from generic loop in yang2key_stmt, 
        check if this leaf is a key leaf by finding parent and its key node 
        If it is, we have already added it, see yang2key_list()
      */
-    if (!fromlist &&
-	(yparent = ys->ys_parent) != NULL && yparent->yn_keyword == Y_LIST){
-	if ((ykey = yang_find(yparent, Y_KEY, ys->ys_argument)) != NULL){
+    if (!fromlist && (yparent = ys->ys_parent) != NULL && 
+	yparent->yn_keyword == Y_LIST){
+	if ((ret = yang_key_match(yparent, ys->ys_argument)) < 0)
+	    goto done;
+	if (ret == 1){
 	    retval = 0; /* We are good */
 	    goto done;
 	}
@@ -243,32 +244,39 @@ yang2key_list(yang_stmt       *ys,
 {
     int             retval = -1;
     cg_var         *cv;
+    cg_var         *cvi;
     char           *str = NULL;
     dbspec_key *ds = NULL;
-    yang_stmt      *ykey;
+    char           *keyname;
     yang_stmt      *yleaf;
+    yang_stmt      *ykey;
+    cvec           *cvv = NULL;
 
-    /* 1. Append a key to dbspec for every container. */
+    /* 1. Append a key to dbspec for every list. */
     if ((cv = cvec_add_name(keys0, CGV_STRING, ys->ys_argument)) == NULL){
 	clicon_err(OE_DB, errno, "%s: cvec_add", __FUNCTION__); 
 	goto done;
     }
     /* A list has a key(index) variable, mark it as CLICON list (print as x[]) */
     cv_flag_set(cv, V_UNIQUE); 	
-
     if ((ykey = yang_find((yang_node*)ys, Y_KEY, NULL)) == NULL){
 	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
 	goto done;
     }
-    if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, ykey->ys_argument)) == NULL){
-	clicon_err(OE_XML, errno, "List statement \"%s\" has no key leaf \"%s\"", 
-		   ys->ys_argument, ykey->ys_argument);
+    if ((cvv = yang_arg2cvec(ykey, " ")) == NULL)
 	goto done;
+    cvi = NULL;
+    while ((cvi = cvec_each(cvv, cvi)) != NULL) {
+	keyname = cv_string_get(cvi);
+	if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, keyname)) == NULL){
+	    clicon_err(OE_XML, 0, "List statement \"%s\" has no key leaf \"%s\"", 
+		       ys->ys_argument, keyname);
+	    goto done;
+	}	
+	/* Call leaf directly, then ensure it is not called again in yang2key_stmt() */
+	if (yang2key_leaf(yleaf, keys0, vars0, 1, ds_list) < 0)
+	    goto done;
     }
-    /* Call leaf directly, then ensure it is not called again in yang2key_stmt() */
-    if (yang2key_leaf(yleaf, keys0, vars0, 1, ds_list) < 0)
-	goto done;
-
     /* 2. Add symbol to dbspec structure (used in callback) */
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
@@ -283,6 +291,8 @@ yang2key_list(yang_stmt       *ys,
 	goto done;
     retval = 0;
   done:
+    if (cvv)
+	cvec_free(cvv);
     if (str)
 	free(str);
     return retval;
@@ -464,6 +474,7 @@ key2yang(dbspec_key *db_spec)
     yang_stmt       *ym; /* module */
     yang_node       *yp; /* parent */
     yang_stmt       *ys;
+    yang_stmt       *yk;
     yang_stmt       *yl;
     yang_stmt       *yt;
     char            *str;
@@ -507,6 +518,7 @@ key2yang(dbspec_key *db_spec)
 		}
 	    }
 	    else {
+		/* XXX */
 		/* Find unique key and add that as sub (if it does not already exist) */
 		v = NULL; /* unique variable */
 		while ((v = cvec_each(subvh, v))) 
@@ -524,10 +536,10 @@ key2yang(dbspec_key *db_spec)
 		    if (yn_insert(yp, ys) < 0)
 			goto err;
 		    /* Create key */
-		    if ((yl = ys_new(Y_KEY)) == NULL) 
+		    if ((yk = ys_new(Y_KEY)) == NULL) 
 			goto err;
-		    yl->ys_argument = strdup(cv_name_get(v));
-		    if (yn_insert((yang_node*)ys, yl) < 0)
+		    yk->ys_argument = strdup(cv_name_get(v));
+		    if (yn_insert((yang_node*)ys, yk) < 0)
 			goto err; 
 		    /* Create leaf */
 		    if ((yl = ys_new(Y_LEAF)) == NULL) 

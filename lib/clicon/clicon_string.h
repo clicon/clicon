@@ -24,6 +24,18 @@
 #ifndef _CLICON_STRING_H_
 #define _CLICON_STRING_H_
 
+/*! A strdup version of strdup that aligns on 4 bytes. To avoid warning from valgrind */
+static inline char * strdup4(char *str) 
+{
+    char *dup;
+    int len;
+    len = ((strlen(str)+1)/4)*4 + 4;
+    if ((dup = malloc(len)) == NULL)
+	return NULL;
+    strncpy(dup, str, len);
+    return dup;
+}
+
 /*
  * Prototypes
  */ 
