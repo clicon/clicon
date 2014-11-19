@@ -29,7 +29,6 @@
  */ 
 int 
 netconf_rpc_dispatch(clicon_handle h,
-		     dbspec_key *ds,
 		     cxobj *xorig, 
 		     cxobj *xn, 
 		     cbuf *xf, 

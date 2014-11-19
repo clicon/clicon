@@ -550,6 +550,7 @@ list_substmts : list_substmts list_substmt
 
 list_substmt  : if_feature_stmt      { clicon_debug(2,"list-substmt -> if-feature-stmt"); }
               | key_stmt             { clicon_debug(2,"list-substmt -> key-stmt"); }
+              | unique_stmt          { clicon_debug(2,"list-substmt -> unique-stmt"); }
               | config_stmt          { clicon_debug(2,"list-substmt -> config-stmt"); }
               | status_stmt          { clicon_debug(2,"list-substmt -> status-stmt"); }
               | description_stmt     { clicon_debug(2,"list-substmt -> description-stmt"); }
@@ -932,6 +933,11 @@ mandatory_stmt: K_MANDATORY string ';'
               ;
 
 key_stmt      : K_KEY id_arg_str ';' /* XXX key_arg_str */
+                         { if (ysp_add(_yy, Y_KEY, $2)== NULL) _YYERROR("63"); 
+			   clicon_debug(2,"key-stmt -> KEY id-arg-str ;");}
+              ;
+
+unique_stmt   : K_UNIQUE id_arg_str ';' /* XXX key_arg_str */
                          { if (ysp_add(_yy, Y_KEY, $2)== NULL) _YYERROR("63"); 
 			   clicon_debug(2,"key-stmt -> KEY id-arg-str ;");}
               ;

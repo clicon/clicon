@@ -34,12 +34,30 @@
 #include <clicon/clicon_netconf.h>
 
 
+static int 
+netconf_config_cb(clicon_handle h, 
+		  cxobj *xorig, /* Original request. */
+		  cxobj *xn,    /* Sub-tree (under xorig) at child of <rpc> */
+		  cbuf *xf,		    /* Output xml stream. For reply */
+		  cbuf *xf_err,	    /* Error xml stream. For error reply */
+		  void *arg)
+{
+    fprintf(stderr, "%s\n", __FUNCTION__);
+    return 0;
+}
+
 /*
  * Plugin initialization
  */
 int
 plugin_init(clicon_handle h)
 {
+    fprintf(stderr, "%s\n", __FUNCTION__);
+    netconf_register_callback(h,
+			      netconf_config_cb,  /* Callback called */
+			      NULL,               /* Arg to send to callback */
+			      "config");         /* Xml tag when callback is made */
+
     return 0;
 }
 

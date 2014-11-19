@@ -76,7 +76,7 @@ distclean: clean
 install:	clicon.conf ntp.yang ntp_cli.cli $(PLUGINS)
 	install -m 755 -d $(DESTDIR)$(APPDIR) 
 	install -m 755 clicon.conf $(DESTDIR)$(APPDIR)
-	install -m 755 ntp.yang $(DESTDIR)$(APPDIR)
+	install -m 755 ntp.yang $(DESTDIR)$(APPDIR)/yang
 	install -m 755 -d $(DESTDIR)$(APPDIR)/cli
 	install -m 755 -d $(DESTDIR)$(APPDIR)/clispec
 	install -m 755 -d $(DESTDIR)$(APPDIR)/netconf

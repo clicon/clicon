@@ -41,7 +41,7 @@ CLICON_DBSPEC_FILE        @APPDIR@/yang/datamodel.yang
 # YANG module directory. 
 # CLICON_YANG_DIR           @APPDIR@/yang
 
-# 
+# main yang module is ${CLICON_YANG_DIR}/${CLICON_YANG_MODULE_MAIN}.yang
 CLICON_YANG_MODULE_MAIN	datamodel
 
 # Candidate qdbm database

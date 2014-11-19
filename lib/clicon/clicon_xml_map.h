@@ -50,5 +50,6 @@ int save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname);
 int load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname);
 int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);
+int xml_yang_validate(cxobj *xt, yang_spec *ys);
 
 #endif  /* _CLICON_XML_MAP_H_ */

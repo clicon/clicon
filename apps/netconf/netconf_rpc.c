@@ -69,9 +69,12 @@
  * sub-function., focus on xfilter part here.
  */
 static int
-netconf_filter(dbspec_key *dbspec, cxobj *xfilter, 
-	       cbuf *cb, cbuf *cb_err, 
-	       cxobj *xt, char *target)
+netconf_filter(clicon_handle h, 
+	       cxobj        *xfilter, 
+	       cbuf         *cb, 
+	       cbuf         *cb_err, 
+	       cxobj        *xt, 
+	       char         *target)
 {
     cxobj *xdb; 
     cxobj *xc; 
@@ -79,6 +82,7 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
     char            *type;
     char            *ftype;
     int              retval = -1;
+    dbspec_key *dbspec =    clicon_dbspec_key(h); /* XXX */
 
     if ((xdb = db2xml(target, dbspec, "clicon")) == NULL){
 	netconf_create_rpc_error(cb_err, xt, 
@@ -188,10 +192,11 @@ netconf_filter(dbspec_key *dbspec, cxobj *xfilter,
    </get-config></rpc>]]>]]>
  */
 int
-netconf_get_config(clicon_handle h, dbspec_key *dbspec,
-		   cxobj *xn, 
-		   cbuf *cb, cbuf *cb_err, 
-		   cxobj *xt)
+netconf_get_config(clicon_handle h, 
+		   cxobj        *xn, 
+		   cbuf         *cb, 
+		   cbuf         *cb_err, 
+		   cxobj        *xt)
 {
     cxobj *xfilter; /* filter */
     int retval = -1;
@@ -208,7 +213,7 @@ netconf_get_config(clicon_handle h, dbspec_key *dbspec,
     }
     /* ie <filter>...</filter> */
    xfilter = xpath_first(xn, "//filter");
-   if (netconf_filter(dbspec, xfilter, cb, cb_err, xt, target) < 0)
+   if (netconf_filter(h, xfilter, cb, cb_err, xt, target) < 0)
 	goto done;
     retval = 0;
   done:
@@ -348,17 +353,17 @@ get_edit_opts(cxobj *xn,
  */
 int
 netconf_edit_config(clicon_handle h,
-		    dbspec_key *dbspec,
-		    cxobj *xn, 
-		    cbuf *cb, 
-		    cbuf *cb_err, 
-		    cxobj *xt)
+		    cxobj        *xn, 
+		    cbuf         *cb, 
+		    cbuf         *cb_err, 
+		    cxobj        *xt)
 {
     int                 retval = -1;
+    int                 ret;
     enum operation_type operation = OP_MERGE;
     enum test_option    testopt = TEST_THEN_SET;
     enum error_option   erropt = STOP_ON_ERROR;
-    cxobj    *xc;      /* config */
+    cxobj    *xc;       /* config */
     char               *target;  /* db */
     char               *s;       /* config socket */
     struct clicon_msg  *msg;     
@@ -399,6 +404,14 @@ netconf_edit_config(clicon_handle h,
     case OP_REPLACE: /* replace or create config-data */
     case OP_MERGE: /* merge config-data */
 	if ((xc  = xpath_first(xn, "//config")) != NULL){
+	    /* application-specific code registers 'config' */
+	    if ((ret = netconf_plugin_callbacks(h, xc, cb, cb_err, xt)) < 0){
+		netconf_create_rpc_error(cb_err, xt, 
+					 "operation-failed", 
+					 "protocol", "error", 
+					 NULL, "Validation"); 
+		goto done;
+	    }
 	    if ((tmpfile = clicon_tmpfile(__FUNCTION__)) == NULL)
 		goto done;
 
@@ -425,7 +438,7 @@ netconf_edit_config(clicon_handle h,
 	    }
 
 	    snprintf(xml_name(xc), strlen(xml_name(xn))+1, "clicon"); /* NOTE: same length as "config" */
-	    if (clicon_xml2file(f, xc, 0, 1) < 0){
+	    if (clicon_xml2file(f, xc, 0, 0) < 0){
 		fclose(f);
 		unlink(tmpfile);
 		goto done;
@@ -1132,7 +1145,6 @@ netconf_create_subscription(clicon_handle h,
  * error.
  * Input:
  *  h       - clicon handle option
- *  dbspec  - database specification
  *  xorig   - Original request.
  *  xn      - Sub-tree (under xorig) at <rpc>...</rpc> level.
  *  cb      - Output xml stream. For reply
@@ -1140,25 +1152,24 @@ netconf_create_subscription(clicon_handle h,
  */
 int
 netconf_rpc_dispatch(clicon_handle h,
-		     dbspec_key *dbspec,
-		     cxobj *xorig, 
-		     cxobj *xn, 
-		     cbuf *cb, 
-		     cbuf *cb_err)
+		     cxobj        *xorig, 
+		     cxobj        *xn, 
+		     cbuf         *cb, 
+		     cbuf         *cb_err)
 {
-    cxobj *xe;
-    int ret = 0;
+    cxobj      *xe;
+    int         ret = 0;
     
     xe = NULL;
-   while ((xe = xml_child_each(xn, xe, CX_ELMNT)) != NULL) {
+    while ((xe = xml_child_each(xn, xe, CX_ELMNT)) != NULL) {
        if (strcmp(xml_name(xe), "close-session") == 0)
 	   return netconf_close_session(xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "get-config") == 0)
-	   return netconf_get_config(h, dbspec, xe, cb, cb_err, xorig);
+	   return netconf_get_config(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "edit-config") == 0)
-	   return netconf_edit_config(h, dbspec, xe, cb, cb_err, xorig);
+	   return netconf_edit_config(h, xe, cb, cb_err, xorig);
        else
 	   if (strcmp(xml_name(xe), "copy-config") == 0)
 	   return netconf_copy_config(h, xe, cb, cb_err, xorig);
@@ -1186,11 +1197,9 @@ netconf_rpc_dispatch(clicon_handle h,
        else
 	   if (strcmp(xml_name(xe), "create-subscription") == 0)
 	   return netconf_create_subscription(h, 
-					      //dbspec, 
 					      xe, cb, cb_err, xorig);
        else{
 	   if ((ret = netconf_plugin_callbacks(h, 
-					       //dbspec, 
 					       xe, cb, cb_err, xorig)) < 0)
 	       return -1;
 	   if (ret == 0){ /* not handled by callback */

@@ -573,6 +573,7 @@ clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
     if (clicon_xml2cbuf(cb, xn, level, prettyprint) < 0)
 	goto done;
     fprintf(f, "%s", cbuf_get(cb));
+    retval = 0;
   done:
     if (cb)
 	cbuf_free(cb);
