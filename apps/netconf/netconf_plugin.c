@@ -250,20 +250,16 @@ catch:
     return -1;
 }
     
-/*
- * netconf_plugin_callbacks
- * See if there is any callback registered for this tag
+/*! See if there is any callback registered for this tag
  *
- * Input parameters
- *  xn      - Sub-tree (under xorig) at child of rpc: <rpc><xn></rpc>.
- *  xf      - Output xml stream. For reply
- *  xf_err  - Error xml stream. For error reply
- *  xorig   - Original request.
+ * @param  xn      Sub-tree (under xorig) at child of rpc: <rpc><xn></rpc>.
+ * @param  xf      Output xml stream. For reply
+ * @param  xf_err  Error xml stream. For error reply
+ * @param  xorig   Original request.
  *
- * Return values:
- *  -1 : error
- *  0  : OK, not found handler.
- *  1  : OK, handler called
+ * @retval -1   Error
+ * @retval  0   OK, not found handler.
+ * @retval  1   OK, handler called
  */
 int
 netconf_plugin_callbacks(clicon_handle h,

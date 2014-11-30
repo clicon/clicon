@@ -1028,3 +1028,16 @@ xml2cli(FILE              *f,
     return retval;
 
 }
+
+/*! Validate an XML tree with yang spsecification
+ * XXX
+ */
+int
+xml_yang_validate(cxobj *xt, yang_spec *ys)
+{
+    int retval = -1;
+
+    retval = 0;
+    // done:
+    return retval;
+}

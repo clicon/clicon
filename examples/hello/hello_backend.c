@@ -119,7 +119,7 @@ transaction_begin(clicon_handle h)
 {
     return 0;
 }
-trans_begin_t *fn = transaction_begin;
+
 /*
  * Validation complete
  */

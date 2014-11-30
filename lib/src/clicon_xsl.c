@@ -322,12 +322,15 @@ xpath_exec(cxobj *cxtop, char *xpath0, searchvec *sv)
 	    if (!recurse){
 		cxc = NULL;
 		while ((cxc = xml_child_each(cxn, cxc, CX_ELMNT)) != NULL) {
-		    if (fnmatch(strn, xml_name(cxc), 0) == 0 &&
-			xml_type(cxc) == CX_ELMNT){
-
-			if (sv->sv_v1len >= sv->sv_max)
-			    if (vec_alloc(sv) < 0)
-				return -1;
+		    if (fnmatch(strn, xml_name(cxc), 0) == 0){
+			if (xml_type(cxc) == CX_ELMNT){
+			    if (sv->sv_v1len >= sv->sv_max){
+				if (vec_alloc(sv) < 0)
+				    return -1;
+			    }
+			    sv->sv_v1[sv->sv_v1len] = cxc;
+			    sv->sv_v1len += 1;
+			}
 		    }
 		}
 	    }

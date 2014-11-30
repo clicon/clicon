@@ -60,14 +60,15 @@
 #define NETCONF_OPTS "hDa:f:Sqs:d:"
 
 static int
-packet(clicon_handle h, dbspec_key *ds, cbuf *xf)
+packet(clicon_handle h, cbuf *xf)
 {
-    char *str, *str0;
+    char  *str;
+    char  *str0;
     cxobj *xml_req = NULL; /* Request (in) */
-    int isrpc = 0;   /* either hello or rpc */
-    cbuf *xf_out;
-    cbuf *xf_err;
-    cbuf *xf1;
+    int    isrpc = 0;   /* either hello or rpc */
+    cbuf  *xf_out;
+    cbuf  *xf_err;
+    cbuf  *xf1;
 
     clicon_debug(1, "RECV");
     clicon_debug(2, "%s: RCV: \"%s\"", __FUNCTION__, cbuf_get(xf));
@@ -101,7 +102,7 @@ packet(clicon_handle h, dbspec_key *ds, cbuf *xf)
         if (xpath_first(xml_req, "//hello") != NULL)
 	    ;
         else{
-            clicon_log(LOG_WARNING, "Illegal netconf msg: neither rpc or hello: dropp\
+            clicon_log(LOG_WARNING, "Invalid netconf msg: neither rpc or hello: dropp\
 ed");
             goto done;
         }
@@ -119,7 +120,6 @@ ed");
     netconf_ok_set(0);
     if (isrpc){
 	if (netconf_rpc_dispatch(h, 
-				 ds,
 				 xml_req, 
 				 xpath_first(xml_req, "//rpc"), 
 				 xf_out, xf_err) < 0){
@@ -165,20 +165,23 @@ ed");
 }
 
 
+/*! Get netconf message: detect end-of-msg */
 static int
 netconf_input_cb(int s, void *arg)
 {
     clicon_handle h = arg;
     unsigned char buf[BUFSIZ];
-    int i, len;
-    cbuf *xf;
-    int xml_state = 0;
-    int retval = -1;
+    int           i;
+    int           len;
+    static cbuf  *xf; /* XXX: should use ce state? */
+    int           xml_state = 0;
+    int           retval = -1;
 
-    if ((xf = cbuf_new()) == NULL){
-	clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
-	return retval;
-    }
+    if (xf == NULL)
+	if ((xf = cbuf_new()) == NULL){
+	    clicon_err(OE_XML, errno, "%s: cbuf_new", __FUNCTION__);
+	    return retval;
+	}
     memset(buf, 0, sizeof(buf));
     if ((len = read(s, buf, sizeof(buf))) < 0){
 	if (errno == ECONNRESET)
@@ -194,6 +197,7 @@ netconf_input_cb(int s, void *arg)
 	retval = 0;
 	goto done;
     }
+
     for (i=0; i<len; i++){
 	if (buf[i] == 0)
 	    continue; /* Skip NULL chars (eg from terminals) */
@@ -202,7 +206,7 @@ netconf_input_cb(int s, void *arg)
 			  buf[i],
 			  &xml_state)) {
 	    /* OK, we have an xml string from a client */
-	    if (packet(h, clicon_dbspec_key(h), xf) < 0){
+	    if (packet(h, xf) < 0){
 		goto done;
 	    }
 	    if (cc_closed)
@@ -212,7 +216,7 @@ netconf_input_cb(int s, void *arg)
     }
     retval = 0;
   done:
-    cbuf_free(xf);
+    //    cbuf_free(xf);
     if (cc_closed) 
 	retval = -1;
     return retval;
