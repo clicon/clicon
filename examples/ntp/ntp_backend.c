@@ -24,6 +24,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
@@ -50,13 +51,22 @@
 /* Flag set if config changed and we need to restart ntpd */
 static int ntp_reload;
 
-/* lvmap formats for db to config-file transforms */
-struct lvmap ntp_conf_fmts[] = {
-  {"ntp.server[]", "server\t\t$address\nrestrict\t$address", NULL, LVPRINT_CMD},
-  {"ntp.logging", "logconfig\t" NTP_LOGGING "\n", NULL, LVPRINT_CMD},
-  {NULL, NULL, NULL}
+/* ntp db keys */
+static char *ntp_keys[] = {
+    "ntp.server[]",
+    "ntp.logging",
+    NULL
 };
-
+/* ntp config file format */
+static char *ntp_fmt =
+    "driftfile\t" NTP_DRIFT "\n"
+    "restrict\t127.0.0.1\n"
+    "@EACH($ntp.server[], $serv)\n"
+    "server\t\t${serv->address}\nrestrict\t${serv->address}\n"
+    "@END\n"
+    "@IF($ntp.logging)\n"
+    "logconfig\t" NTP_LOGGING "\n"
+    "@END\n";
 
 /*
  * Commit callback. 
@@ -87,8 +97,8 @@ plugin_init(clicon_handle h)
     char *key;
     int retval = -1;
 
-    for (i = 0; ntp_conf_fmts[i].lm_key; i++) {
-	key = ntp_conf_fmts[i].lm_key;
+    for (i = 0; ntp_keys[i]; i++) {
+	key = ntp_keys[i];
 	if (dbdep(h, TRANS_CB_COMMIT, ntp_commit, (void *)NULL, 1, key) == NULL) {
 	    clicon_debug(1, "Failed to create dependency '%s'", key);
 	    goto done;
@@ -128,6 +138,7 @@ transaction_end(clicon_handle h)
 {
     int retval = -1;
     FILE *out = NULL;
+    char *d2t;
 
     if (ntp_reload == 0)
 	return 0; /* Nothing has changed */
@@ -137,11 +148,15 @@ transaction_end(clicon_handle h)
 	goto catch;
     }
     
-    fprintf (out, "driftfile\t%s\n", NTP_DRIFT);
-    fprintf (out, "restrict\t127.0.0.1\n");
-    lvmap_print(out, clicon_running_db(h), ntp_conf_fmts, NULL);
-    fclose(out);
+    if ((d2t = clicon_db2txt_buf(h, clicon_running_db(h), ntp_fmt)) == NULL) {
+	fclose(out);
+	goto catch;
+    }
 
+    fprintf (out, "%s", d2t);
+    free(d2t);
+    fclose(out);
+ 
     /* Restart ntpd. XXX Any way to do a soft reconfig? */
     clicon_debug(1, "Re-loading NTP daemon\n");
     { /* XXX: platform dependent */
