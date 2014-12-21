@@ -391,9 +391,11 @@ xml_find(cxobj *x_up, char *name)
     return NULL;
 }
 
-/*
- * xml_addsub
- * Add xc as child to xp. and remove xc from previous parent.
+/*! Add xc as child to xp. Remove xc from previous parent.
+ * @param[in] xp  Parent xml node
+ * @param[in] xc  Child xml node to insert under xp
+ * @retval    0   OK
+ * @retval    -1  Error
  */
 int
 xml_addsub(cxobj *xp, cxobj *xc)
@@ -408,11 +410,12 @@ xml_addsub(cxobj *xp, cxobj *xc)
     return 0;
 }
 
-/*
- * xml_insert
- * Insert a new element (xc) under an xml node (xp), and move all original children
- * of the top to xc.
- * return the child (xc)
+/*! Insert a new element (xc) under an xml node (xp), move all children to xc.
+ *  Before:  xp --> xt
+ *  After:   xp --> xc --> xt
+ * @param[in] xp  Parent xml node
+ * @param[in] tag Name of new xml child
+ * @retval    xc  Return the new child (xc)
  */
 cxobj *
 xml_insert(cxobj *xp, char *tag)
@@ -491,7 +494,7 @@ xml_find_body(cxobj *xn, char *name)
 /*! Remove an xml node from a parent xml node.
  * @param[in]   xparent     xml parent node
  * @param[in]   xchild      xml child node (to remove)
- * @param[in]   purge       free the child node, not just remove from parent
+ * @param[in]   purge       if 1, free the child node, not just remove from parent
  * @retval      0           OK
  * @retval      -1
  *
@@ -559,6 +562,7 @@ xml_free(cxobj *x)
  * @param[in]   xn          xmlgen xml tree
  * @param[in]   level       how many spaces to insert before each line
  * @param[in]   prettyprint insert \n and spaces tomake the xml more readable.
+ * See also clicon_xml2cbuf
  */
 int
 clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
@@ -596,7 +600,7 @@ clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
  *   goto err;
  * cbuf_free(cb);
  * @endcode
- * See also clicon_xml2str
+ * See also clicon_xml2file
  */
 int
 clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
@@ -650,6 +654,9 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
     return 0;
 }
 
+/*! Internal xml parsing function.
+ * @see clicon_xml_parse_file clicon_xml_parse_string
+ */
 static int 
 xml_parse(char **str, cxobj *x_up)
 {
@@ -685,17 +692,24 @@ FSM(char *tag, char ch, int state)
 	return 0;
 }
 
-
 /*! Read an XML definition from file and parse it into a parse-tree. 
  *
- * @param fd       A file descriptor containing the XML file (as ASCII characters)
- * @param xml_top  Pointer to an (on entry empty) pointer to an XML parse tree 
+ * @param[in]  fd  A file descriptor containing the XML file (as ASCII characters)
+ * @param[out] xt  Pointer to an (on entry empty) pointer to an XML parse tree 
  *                 _created_ by this function.
- * @param  eof     If true, fd is at eof after reading the XML definition.
  * @param  endtag  Read until you encounter "endtag" in the stream
+ * @retval  0  OK
+ * @retval -1  Error with clicon_err called
  *
+ * @code
+ *  cxobj *xt;
+ *  clicon_xml_parse_file(0, &xt, "</clicon>");
+ *  xml_free(xt);
+ * @endcode
+ *  * @see clicon_xml_parse_string
  * Note, you need to free the xml parse tree after use, using xml_free()
- * Returns: 0 on sucess, -1 on failure.
+ * Note, xt will add a top-level symbol called "top" meaning that <tree../> will look as:
+ *  <top><tree.../></tree>
  * XXX: There is a potential leak here on some return values.
  * May block
  */
@@ -760,6 +774,14 @@ clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)
 
 /*! Read an XML definition from string and parse it into a parse-tree. 
  *
+ * @param[in] str   Pointer to string containing XML definition. NOTE: destructively
+ *          modified. This means if str is malloced, you need to make a copy
+ *          of str before use and free that. 
+ * @param[out]  xml_top  Top of XML parse tree. Will add extra top element called 'top'.
+ *                       you must free it after use, using xml_free()
+ * @retval  0  OK
+ * @retval -1  Error with clicon_err called
+ *
  * @code
  *  str = strdup(...);
  *  str0 = str;
@@ -767,13 +789,7 @@ clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)
  *  free(str0);
  *  xml_free(cxobj);
  * @endcode
- *
- * @param str   Pointer to string containing XML definition. NOTE: destructively
- *          modified. This means if str is malloced, you need tomake a copy
- *          of str before use and free that. 
- *
- * @param  xml_top Top of the XML parse tree created by this function.
- *
+ * @see clicon_xml_parse_file
  * Note, you need to free the xml parse tree after use, using xml_free()
  * Update: with yacc parser I dont think it changes,....
  */

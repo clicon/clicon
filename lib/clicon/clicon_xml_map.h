@@ -37,12 +37,11 @@ enum {
 };
 
 
-/* Forward declaration, proper definition in xmlgen_xml.h */
 
 /*
  * Prototypes
  */
-cxobj *db2xml(char *dbname, dbspec_key *db_spec, char *toptag);
+cxobj *db2xml_key(char *dbname, dbspec_key *dbspec, char *key_regex, char *toptag);
 int key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop);
 int xml2db(cxobj *, dbspec_key *dbspec, char *dbname);
 
@@ -50,6 +49,13 @@ int save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname);
 int load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname);
 int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);
-int xml_yang_validate(cxobj *xt, yang_spec *ys);
+int xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys) ;
+
+/* backward compatible */
+static inline cxobj *db2xml(char *dbname, dbspec_key *dbspec, char *toptag){
+    return db2xml_key(dbname, dbspec, NULL, toptag);
+}
+
+
 
 #endif  /* _CLICON_XML_MAP_H_ */

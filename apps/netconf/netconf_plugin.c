@@ -263,7 +263,6 @@ catch:
  */
 int
 netconf_plugin_callbacks(clicon_handle h,
-//			 dbspec_key *dbspec,
 			 cxobj *xn, 
 			 cbuf *xf, 
 			 cbuf *xf_err, 

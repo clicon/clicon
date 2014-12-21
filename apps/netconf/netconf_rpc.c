@@ -84,7 +84,7 @@ netconf_filter(clicon_handle h,
     int              retval = -1;
     dbspec_key *dbspec =    clicon_dbspec_key(h); /* XXX */
 
-    if ((xdb = db2xml(target, dbspec, "clicon")) == NULL){
+    if ((xdb = db2xml_key(target, dbspec, NULL, "clicon")) == NULL){
 	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 

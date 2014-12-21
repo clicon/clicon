@@ -386,9 +386,9 @@ dbkey2xml(dbspec_key *db_spec,
  */
 static int
 dbpairs2xml(struct db_pair *pairs, 
-	    int npairs, 
-	    dbspec_key *db_spec, 
-	    cxobj *xnt)
+	    int             npairs, 
+	    dbspec_key     *db_spec, 
+	    cxobj          *xnt)
 {
     int              i;
     int retval = -1;
@@ -409,27 +409,34 @@ dbpairs2xml(struct db_pair *pairs,
     return retval;
 } /* dbpairs2xml */
 
-/*
- * db2xml
- * Given a database go through all keys and return an xml parse-tree.
- * First get all keys from db by general match, getting db_pairs (we only use the key)
- * Sort them.
- * Build a parse-tree in xml, and return that.
+/*! Given a database and key regex go through all keys and return an xml parse-tree.
+ *
+ * @param[in]  dbname    Name of database to check
+ * @param[in]  dbspec    Database specification in key format
+ * @param[in]  key_regex Reg-exp of database keys. "^.*$" is all keys in database
+ * @param[in]  toptag    The XML tree returned will have this top XML tag
+ * retval      xt        XML parse tree, free with xml_free()
+ * retval      NULL      on error
+ *
  * dont work:
  * system.hostname (only hostname)
  * inet.address (only hostname)
- * XXX: uvh?
  */
 cxobj *
-db2xml(char *dbname, dbspec_key *db_spec, char *toptag)
+db2xml_key(char       *dbname, 
+	   dbspec_key *db_spec, 
+	   char       *key_regex,
+	   char       *toptag)
 {
     struct db_pair   *pairs;
     int               npairs;
-    cxobj  *xt;
+    cxobj            *xt;
 
+    if (key_regex == NULL)
+	key_regex = "^.*$";
     if ((xt = xml_new(toptag, NULL)) == NULL)
 	goto catch;
-    if ((npairs = db_regexp(dbname, "^.*$", __FUNCTION__, &pairs, 0)) < 0)
+    if ((npairs = db_regexp(dbname, key_regex, __FUNCTION__, &pairs, 0)) < 0)
 	goto catch;
     if (dbpairs2xml(pairs, npairs, db_spec, xt) < 0)
 	goto catch;
@@ -440,6 +447,15 @@ db2xml(char *dbname, dbspec_key *db_spec, char *toptag)
 	xml_free(xt);
     unchunk_group(__FUNCTION__);  
     return NULL;
+}
+
+/*! Given a database go through all keys and return an xml parse-tree. Consider remove */
+cxobj *
+db2xml(char       *dbname, 
+       dbspec_key *db_spec, 
+       char       *toptag)
+{
+    return db2xml_key(dbname, db_spec, "^.*$", toptag);
 }
 
 /*! Given a database and a key in that database, return an xml parsetree.
@@ -1029,11 +1045,11 @@ xml2cli(FILE              *f,
 
 }
 
-/*! Validate an XML tree with yang spsecification
- * XXX
+/*! Validate an XML tree with yang specification
+ * @retval 
  */
 int
-xml_yang_validate(cxobj *xt, yang_spec *ys)
+xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
 {
     int retval = -1;
 

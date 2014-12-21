@@ -1204,9 +1204,9 @@ compare_dbs(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
     }
-    if ((xc1 = db2xml(running, clicon_dbspec_key(h), "dbr")) == NULL)
+    if ((xc1 = db2xml_key(running, clicon_dbspec_key(h), NULL, "dbr")) == NULL)
 	goto done;
-    if ((xc2 = db2xml(candidate, clicon_dbspec_key(h), "dbc")) == NULL)
+    if ((xc2 = db2xml_key(candidate, clicon_dbspec_key(h), NULL, "dbc")) == NULL)
 	goto done;
 
     if (compare_xmls(xc1, xc2, arg?cv_int32_get(arg):0) < 0) /* astext? */
