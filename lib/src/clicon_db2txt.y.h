@@ -76,8 +76,6 @@ struct db2txt {
     void	*ya_cbarg;		/* Upcall arg */
 #endif
     state_t	*ya_lex_state;		/* Lexer state stack */
-    char	*ya_prevtok;		/* Previous token in lexer */
-    int		 ya_fullcomment;	/* Is this a full line comment? */
     file_stack_t   *ya_file_stack;	/* Files processed */
     code_stack_t   *ya_code_stack;	/* Code section stack */
     buffer_stack_t *ya_buffer_stack;	/* Parser buffer stack */
