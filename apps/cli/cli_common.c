@@ -684,8 +684,7 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
  *   <keypattern> matches a set of database keys
  *   <variable>   is name of a variable occuring in the cli command string
  * Example: "candidate ^Create.*$" GroupName"
- * (See also expand_db_variable(). But this is more generic and can be called
- * as cligen callback)
+ * (See also expand_db_variable(). 
  *
  * Assume callback given in a cligen spec: a <x:int expand_dbvar_auto("arg")
  * @param[in]   h        clicon handle 
@@ -695,10 +694,17 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
  * @param[out]  nr       len of return commands & helptxt 
  * @param[out]  commands vector of function pointers to callback functions
  * @param[out]  helptexts vector of pointers to helptexts
+ * @see  expand_db_variable    But this function is more generic and can be called
+ *                             as cligen callback
  */
 int
-expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg, 
-	     int *nr, char ***commands, char ***helptexts)
+expand_dbvar(void   *h, 
+	     char   *name, 
+	     cvec   *vars, 
+	     cg_var *arg, 
+	     int    *nr, 
+	     char  ***commands, 
+	     char  ***helptexts)
 {
     char  *dbname;
     int    nvec;
@@ -744,7 +750,6 @@ expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg,
     return retval;
 }
 
-
 /*! Completion callback primarily intended for automatically generated data model
  *
  * Returns an expand-type list of commands as used by cligen 'expand' 
@@ -770,15 +775,13 @@ expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg,
  *   20
  *
  * Assume callback given in a cligen spec: a <x:int expand_dbvar_auto("arg")
- * IN:
- *   h        clicon handle 
- *   name     Name of this function (eg "expand_dbvar-auto")
- *   cvec     The command so far. Eg: cvec [0]:"a 5 b"; [1]: x=5;
- *   arg      Argument given at the callback ("arg")
- * OUT:
- *   len      len of return commands & helptxt 
- *   commands vector of function pointers to callback functions
- *   helptxt  vector of pointers to helptexts
+ * @param[in]   h        clicon handle 
+ * @param[in]   name     Name of this function (eg "expand_dbvar-auto")
+ * @param[in]   cvec     The command so far. Eg: cvec [0]:"a 5 b"; [1]: x=5;
+ * @param[in]   arg      Argument given at the callback ("arg")
+ * @param[out]  len      len of return commands & helptxt 
+ * @param[out]  commands vector of function pointers to callback functions
+ * @param[out]  helptxt  vector of pointers to helptexts
  */
 int
 expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg, 
@@ -875,11 +878,10 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
 
 }
 
-/*
- * expand_db_variable
+/*! Expand database variable
  * Given a database, a basekey (pattern) and a variable, return an expand-type
  * list of commands as used by cligen 'expand' functionality.
- * (See also expand_dbvar())
+ * @see expand_dbvar
  */
 int
 expand_db_variable(clicon_handle h, 
@@ -891,13 +893,14 @@ expand_db_variable(clicon_handle h,
 {
     char           *key;
     int             i;
+    int             j;
     int             retval = -1;
     int             npairs;
     struct db_pair *pairs;
     cvec           *cvec;
     cg_var         *cv = NULL;
     char          **tmp;
-    char           *buf = NULL;
+    char           *val = NULL;
     char           *k;
 
     /* adhoc to detect regexp keys. If so, dont call db_gen_rxkey */
@@ -922,16 +925,26 @@ expand_db_variable(clicon_handle h,
 	while ((cv = cvec_each(cvec, cv)) != NULL) {
 	    if (strcmp(cv_name_get(cv), variable) != 0)
 		continue;
-	    if ((buf = cv2str_dup(cv)) == NULL)
+	    if ((val = cv2str_dup(cv)) == NULL)
 		goto quit;
+	    /* Check if value already in vector? No duplicates */
+	    for (j=0; j<*nr; j++)
+		if (strcmp(val, (*commands)[j]) == 0)
+		    break;
+	    if (j<*nr){
+		free(val);
+		val = NULL;
+		continue;
+	    }
 	    if ((tmp = realloc(*commands, sizeof(char *) * ((*nr)+1))) == NULL) {
 		clicon_err(OE_UNDEF, errno, "realloc: %s", strerror (errno));	
 		goto quit;
 	    }
 	    *commands = tmp;
-	    (*commands)[*nr] = buf;
-	    buf = NULL;
+	    (*commands)[*nr] = val;
+	    val = NULL;
 	    (*nr)++;
+	    break;
 	}
 	cvec_free(cvec);
     }
