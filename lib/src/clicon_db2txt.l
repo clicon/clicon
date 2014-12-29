@@ -136,12 +136,7 @@ append_loopbufs(void *_ya, char *token)
     }
     return 0;
 }
-#define APPBUF	{ \
-  if(_YA->ya_prevtok) \
-      free(_YA->ya_prevtok); \
-   _YA->ya_prevtok = strdup(yytext); \
-   append_loopbufs(_YA, yytext); \
-}
+#define APPBUF		append_loopbufs(_YA, yytext)
 
 
 int
@@ -174,12 +169,7 @@ db2txt_debug(const char *s, ...)
 <INITIAL>\\		{ APPBUF; push_state (_YA, ESCAPE); }
 <INITIAL>\n		{ APPBUF; _YA->ya_file_stack->line++; return NL; }
 <INITIAL><<EOF>>	{ return MY_EOF; }
-<INITIAL>#		{ 
-    			  if(_YA->ya_prevtok == NULL ||
-			     _YA->ya_prevtok[strlen(_YA->ya_prevtok)-1]=='\n')
-			      _YA->ya_fullcomment = 1;
-			  push_state (_YA, COMMENT); 
- 			}
+<INITIAL>#		{ push_state (_YA, COMMENT); }
 <INITIAL>\$		{ APPBUF;  push_state (_YA, VAR); return *yytext; }
 <INITIAL>@[sS][eE][tT]	{ APPBUF;  push_state (_YA, CODE); return SET; }
 <INITIAL>@[iI][fF]	{ APPBUF;  push_state (_YA, CODE); return IF; }
@@ -207,11 +197,8 @@ db2txt_debug(const char *s, ...)
 
 
 <COMMENT>\n             {
+			  _YA->ya_file_stack->line++;
 			  pop_state(_YA); 
-			  if (_YA->ya_fullcomment == 0)
-			      unput(*yytext);
-			  else
-			      _YA->ya_file_stack->line++;
  			}
 <COMMENT><<EOF>>        { return MY_EOF; }
 <COMMENT>.
@@ -518,8 +505,6 @@ db2txt_exit(db2txt_t *d2t)
 
     while(db2txt_popbuf((void *)d2t))
 	;
-    if (d2t->ya_prevtok)
-	free(d2t->ya_prevtok);
     if (d2t->ya_vars)
 	cvec_free(d2t->ya_vars);
     if (d2t->ya_null)

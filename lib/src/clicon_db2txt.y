@@ -628,8 +628,10 @@ token:
 	}
 	|
 	NL {
+#if 0
 	    if (db2txt_out(_YA, "\n") != 0)
 		YYERROR;
+#endif
 	}
 	|
 	variable {	
@@ -860,7 +862,7 @@ eachstatement:
 		cs->append_loopbuf = TRUE;
 	}
 |
-	'(' vector ',' '$' VARIABLE ',' string ')' eat_newline {
+	'(' vector ',' '$' VARIABLE ',' string ')' {
 	    code_stack_t *cs;
 	    
 	    yyclearin;
