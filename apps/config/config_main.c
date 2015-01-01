@@ -337,6 +337,7 @@ main(int argc, char **argv)
     struct stat   st;
     clicon_handle h;
     int           help = 0;
+    int           printalt = 0;
     int           pid;
     char         *pidfile;
     char         *sockpath;
@@ -459,6 +460,9 @@ main(int argc, char **argv)
 	 case 'g': /* config socket group */
 	     clicon_option_str_set(h, "CLICON_SOCK_GROUP", optarg);
 	     break;
+	case 't' : /* Print alternative dbspec format (eg if YANG, print KEY) */
+	    printalt++;
+	    break;
 	default:
 	    usage(argv[0], h);
 	    break;
@@ -524,7 +528,7 @@ main(int argc, char **argv)
     }
 
     /* Parse db spec file */
-    if (dbspec_main_config(h, 0, 0) < 0)
+    if (dbspec_main_config(h, 0, printalt) < 0)
 	goto done;
 
     if ((running_db = clicon_running_db(h)) == NULL){

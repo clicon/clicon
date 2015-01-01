@@ -196,9 +196,8 @@ syntax_unload(clicon_handle h)
 }
 
 
-/*
- * load_str2fn
- * Dynamic string to function mapper
+/*! Dynamic string to function mapper
+ *
  * The cli load function uses this function to map from strings to names.
  * handle is the dlopen handle, so it only looks in the current plugin being
  * loaded. It should also look in libraries?
@@ -392,8 +391,8 @@ cli_load_syntax(clicon_handle h, const char *filename, const char *clispec_dir)
 
     /* Resolve callback names to function pointers */
     if (cligen_callback_str2fn(pt, load_str2fn, handle) < 0){     
-	clicon_err(OE_PLUGIN, 0, "(Check CLICON_PLUGIN variable in cli file %s?)", 
-		   filename);
+	clicon_err(OE_PLUGIN, 0, "Mismatch between CLIgen file '%s' and CLI plugin file '%s'. Some possible errors:\n\t1. A function given in the CLIgen file does not exist in the plugin (ie link error)\n\t2. The CLIgen spec does not point to the correct plugin .so file (CLICON_PLUGIN=\"%s\" is wrong)", 
+		   filename, plgnam, plgnam);
 	goto done;
     }
     if (cligen_expand_str2fn(pt, expand_str2fn, handle) < 0)     
