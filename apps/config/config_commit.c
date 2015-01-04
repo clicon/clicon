@@ -319,11 +319,11 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec, char *candidate)
                       +---------------+    +---------------+
                       |    dbdep_t    |--> |  dbdep_ent_t  | [key, var] 
                       +---------------+    +---------------+
-                      ^ Database dependency description
+                      ^ Database dependency description (static callback description)
 from dbdep_commit()   |
 +---------------+*    |dd_dep
 |  dbdep_dd_t   |-----+
-+---------------+     |dd_dbdiff
++---------------+     |dd_dbdiff (what has changed?)
 (dd_)                 |
                       v
 +---------------+     +---------------+  
@@ -358,14 +358,14 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     }
     memset(&df, 0, sizeof(df));
 
-    /* Find the differences between the two databases and store it in dd vector. */
+    /* Find the differences between the two databases and store it in df vector. */
     if (db_diff(running, candidate,
 		__FUNCTION__,
 		clicon_dbspec_key(h),
 		&df
 	    ) < 0)
 	goto done;
-    /* 1. Get commit processing dbdiff vector: one entry per key that changed.
+    /* 1. Get commit processing to dbdiff vector: one entry per key that changed.
           changes are registered as if they exist in the 1st(candidate) or
 	  2nd(running) dbs.
      */

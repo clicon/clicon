@@ -103,7 +103,7 @@ dbdep_create()
  * Create config dependency component named 'name' and register the
  * callback 'cb' and callback argument 'arg'. 
  * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as depencency 
+ * The optional following arguments will be treated as dependency 
  * entries that in the form of "<db-key>[:<variable>]". These entries
  * can be set separately via the dbdep_ent() function. 
  *
@@ -118,13 +118,12 @@ dbdep_create()
  * NOTE: this function should replace dbdep()!
  */
 dbdep_handle_t
-dbdep_row(
-    clicon_handle h, /* Config handle */
-    uint16_t row, 
-    trans_cb_type trans_cb_type,  /* Type of callback: commit/validate or both */
-    trans_cb cb,    /* Callback called */
-    void *arg,        /* Arg to send to callback */
-    int nkeys, ...)   /* How many keys (that follow) */
+dbdep_row(clicon_handle h, /* Config handle */
+	  uint16_t      row, 
+	  trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
+	  trans_cb      cb,    /* Callback called */
+	  void         *arg,        /* Arg to send to callback */
+	  int           nkeys, ...)   /* How many keys (that follow) */
 {
     int      i;
     dbdep_t *dp, *deps;
@@ -182,12 +181,11 @@ catch:
  * NOTE: this function should be replaced by dbdep_row()!
  */
 dbdep_handle_t
-dbdep(
-    clicon_handle h, /* Config handle */
-    trans_cb_type trans_cb_type,  /* Type of callback: commit/validate or both */
-    trans_cb cb,    /* Callback called */
-    void *arg,        /* Arg to send to callback */
-    int nkeys, ...)   /* How many keys (that follow) */
+dbdep(clicon_handle h, /* Config handle */
+      trans_cb_type trans_cb_type,  /* Type of callback: commit/validate or both */
+      trans_cb cb,    /* Callback called */
+      void *arg,        /* Arg to send to callback */
+      int nkeys, ...)   /* How many keys (that follow) */
 {
     int      i;
     dbdep_t *dp, *deps;
@@ -415,7 +413,6 @@ dbdep_commitvec(clicon_handle h,
     dbdep_dd_t *ddvec;
     char       *key;
     dbdep_t    *dp;
-    dbdep_dd_t *tmp;
     dbdep_t    *deps;
 
     nvec = 0;
@@ -423,6 +420,33 @@ dbdep_commitvec(clicon_handle h,
     if ((deps = backend_dbdep(h)) == NULL) /* No dependencies registered, OK */
 	goto done;
     
+#if 0
+    /* Match any config component matching the key and add to vector */
+    dp = deps;
+    do {
+	for (i = 0; i < dd->df_nr; i++) {
+
+	    /* We only have to check one key. Vector keys may have different 
+	       vector index making the actual keys different, but they both
+	       relate to the same spec-key and therefore the same config component
+	    */
+	    if ((key = dd->df_ents[i].dfe_key1) == NULL)
+		key = dd->df_ents[i].dfe_key2;
+	    if (dp->dp_ent && dbdep_match (dp->dp_ent, key)) {
+		if ((ddvec = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
+		    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
+		    goto err;
+		}
+		ddvec[nvec].dd_dep = dp;
+		ddvec[nvec].dd_dbdiff  = &dd->df_ents[i];
+		nvec++;
+		break; /* Just once per dp_dep */
+	    }
+	}
+	dp = NEXTQ(dbdep_t *, dp);
+    } while (dp != deps);
+
+#else
     for (i = 0; i < dd->df_nr; i++) {
 
 	/* We only have to check one key. Vector keys may have different 
@@ -436,11 +460,10 @@ dbdep_commitvec(clicon_handle h,
 	dp = deps;
 	do {
 	    if (dp->dp_ent && dbdep_match (dp->dp_ent, key)) {
-		if ((tmp = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
+		if ((ddvec = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
 		    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 		    goto err;
 		}
-		ddvec = tmp;
 		ddvec[nvec].dd_dep = dp;
 		ddvec[nvec].dd_dbdiff  = &dd->df_ents[i];
 		nvec++;
@@ -448,7 +471,7 @@ dbdep_commitvec(clicon_handle h,
 	    dp = NEXTQ(dbdep_t *, dp);
 	} while (dp != deps);
     }
-    
+#endif    
     /* Now sort vector based on dbdep row number */
     qsort(ddvec, nvec, sizeof(*ddvec), dbdep_commitvec_sort);
 

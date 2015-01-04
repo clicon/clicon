@@ -179,8 +179,7 @@ usage(char *argv0, clicon_handle h)
 	    "\t-t \t\tPrint alternate spec translation (eg if YANG print KEY, if KEY print YANG)\n"
 	    "\t-G \t\tPrint CLI syntax generated from dbspec (if CLICON_CLI_GENMODEL enabled)\n"
 	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
-	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
-	    "\t-t \t\tDump DTD of database spec and exit\n",
+	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n",
 	    argv0,
 	    appdir ? appdir : "none",
 	    conffile ? conffile : "none",

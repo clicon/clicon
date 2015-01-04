@@ -1,10 +1,21 @@
 module datamodel{
-    container cont{
-	leaf a{
-	    mandatory true;
-	    type int64{
-		range "-12..231321";
-            }
+    list a{
+        key "x"; 
+	leaf x{
+	    type string;
+	}
+	leaf k {
+	    type string;
+	}
+	container b{
+	    leaf y{
+		type string;
+	    }
+	}
+	container c{
+	    leaf z{
+		type string;
+	    }
 	}
     }
 }
