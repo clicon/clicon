@@ -118,7 +118,7 @@ usage(char *argv0, clicon_handle h)
 
     fprintf(stderr, "usage:%s\n"
 	    "where options are\n"
-            "    -h\t\thelp\n"
+            "    -h\t\tHelp\n"
     	    "    -D <level>\tdebug\n"
     	    "    -f <file>\tCLICON config file (default: %s)\n"
     	    "    -a <dir>\tSpecify application dir (default: %s)\n"
@@ -135,6 +135,8 @@ usage(char *argv0, clicon_handle h)
 	    "    -c [<file>]\tLoad specified application config. Default is\n"
 	    "              \t\"CLICON_STARTUP_CONFIG\" = %s\n"
 	    "    -r\t\tReload running database\n"
+	    "    -p \t\tPrint database specification (YANG or KEY depending on CLICON_DBSPEC_TYPE)\n"
+	    "    -t \t\tPrint alternate spec translation (eg if YANG print KEY, if KEY print YANG)\n"
 	    "    -g <group>\tClient membership required to this group (default: %s)\n",
 	    argv0,
 	    conffile ? conffile : "none",
@@ -337,6 +339,7 @@ main(int argc, char **argv)
     struct stat   st;
     clicon_handle h;
     int           help = 0;
+    int           printspec = 0;
     int           printalt = 0;
     int           pid;
     char         *pidfile;
@@ -460,6 +463,9 @@ main(int argc, char **argv)
 	 case 'g': /* config socket group */
 	     clicon_option_str_set(h, "CLICON_SOCK_GROUP", optarg);
 	     break;
+	case 'p' : /* Print spec */
+	    printspec++;
+	    break;
 	case 't' : /* Print alternative dbspec format (eg if YANG, print KEY) */
 	    printalt++;
 	    break;
@@ -528,7 +534,7 @@ main(int argc, char **argv)
     }
 
     /* Parse db spec file */
-    if (dbspec_main_config(h, 0, printalt) < 0)
+    if (dbspec_main_config(h, printspec, printalt) < 0)
 	goto done;
 
     if ((running_db = clicon_running_db(h)) == NULL){

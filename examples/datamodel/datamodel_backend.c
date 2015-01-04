@@ -61,22 +61,11 @@ datamodel_commit(clicon_handle h,
 int
 plugin_init(clicon_handle h)
 {
-    char *key;
     int retval = -1;
 
-    key = "a[]";
-    if (dbdep(h, TRANS_CB_COMMIT, datamodel_commit, (void *)NULL, 1, key) == NULL) {
-	clicon_debug(1, "Failed to create dependency '%s'", key);
-	goto done;
-    }
-    key = "a[].b";
-    if (dbdep(h, TRANS_CB_COMMIT, datamodel_commit, (void *)NULL, 1, key) == NULL) {
-	clicon_debug(1, "Failed to create dependency '%s'", key);
-	goto done;
-    }
-    key = "a[].c";
-    if (dbdep(h, TRANS_CB_COMMIT, datamodel_commit, (void *)NULL, 1, key) == NULL) {
-	clicon_debug(1, "Failed to create dependency '%s'", key);
+    if (dbdep(h, TRANS_CB_COMMIT, datamodel_commit, 
+	      (void *)NULL, 3, "a[]", "a[].b", "a[].c") == NULL) {
+	clicon_debug(1, "Failed to create dependency");
 	goto done;
     }
     retval = 0;
