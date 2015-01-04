@@ -301,3 +301,32 @@ clicon_strmatch(const char *str, const char *regexp, char **match)
 
     return len;
 }
+
+/*
+ * clicon_strsub - substitute pattern in string.
+ * Returns new malloc:ed string on success or NULL on failure.
+ */
+char *
+clicon_strsub(char *str, char *from, char *to)
+{
+    char **vec;
+    int nvec;
+    char *new;
+    char *retval = NULL;
+
+    if ((vec = clicon_strsplit(str, from, &nvec, __FUNCTION__)) == NULL) {
+        clicon_err(OE_UNIX, errno, "Failed to split string");
+	goto done;
+    }
+
+    if ((new = clicon_strjoin (nvec, vec, to, __FUNCTION__)) == NULL) {
+        clicon_err(OE_UNIX, errno, "Failed to split string");
+	goto done;
+    }
+    
+    retval = strdup(new);
+
+ done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
