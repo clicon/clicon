@@ -62,7 +62,7 @@
 #include "config_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRCc::rg:"
+#define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRCc::rg:pt"
 
 static int
 config_terminate(clicon_handle h)

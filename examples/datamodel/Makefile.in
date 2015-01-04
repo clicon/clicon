@@ -50,6 +50,7 @@ $(BE_PLUGIN): $(BE_OBJ)
 	$(CC) -shared -o $(BE_PLUGIN) -lc $<
 
 clean:
+	rm -f $(OBJS) $(BE_PLUGIN)
 
 distclean: clean
 	rm -f clicon.conf Makefile *~ .depend
