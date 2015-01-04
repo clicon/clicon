@@ -1,6 +1,6 @@
 /*
  *
-  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
   Olof Hagsand
  *
   This file is part of CLICON.
