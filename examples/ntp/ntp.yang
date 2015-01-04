@@ -6,7 +6,7 @@ module ntp { // In CLIgen, this datamodel will be called datamodel:ntp
 
      description
        "This module contains a YANG definitions for CLICON NTP
-        Copyright (c) 2014 Olof Hagsand and Benny Holmgren.
+        Copyright (c) 2009-2015 Olof Hagsand and Benny Holmgren.
         All rights reserved.";
 
      revision 2014-06-26 {

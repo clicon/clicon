@@ -1,7 +1,7 @@
 #
 #  PyCLICON module
 #
-# Copyright (C) 2014 Olof Hagsand & Benny Holmgren
+# Copyright (C) 2009-2015 Olof Hagsand & Benny Holmgren
 #
 #  This file is part of CLICON.
 #
