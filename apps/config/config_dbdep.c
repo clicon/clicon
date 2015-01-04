@@ -152,8 +152,8 @@ dbdep_row(
     }
     va_end(ap);
 
-    deps = backend_dbdep(h); /* INSQ must work w an explicit variable */
-    INSQ(dp, deps);
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
     backend_dbdep_set(h, deps);
     return dp;
 
@@ -215,8 +215,8 @@ dbdep(
     }
     va_end(ap);
 
-    deps = backend_dbdep(h); /* INSQ must work w an explicit variable */
-    INSQ(dp, deps);
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
     backend_dbdep_set(h, deps);
     return dp;
 
@@ -248,7 +248,7 @@ dbdep_ent(dbdep_handle_t dh, const char *key, const char *var)
 	goto err;
     }
     
-    INSQ(dpe, dp->dp_ent);
+    ADDQ(dpe, dp->dp_ent);
     return 0;
     
 err:
@@ -263,6 +263,70 @@ err:
 } 
 
 
+/*
+ * spec_key_index
+ * eat numerical tokens from key.
+ * key is expected to be on the form '123.a.b', eat until '.a.b'
+ */
+static int
+match_key_index(int *i0, char *key)
+{
+    int i = *i0;
+
+    while (isdigit(key[i]))
+	i++;
+    if (i == *i0)
+	return 0; /* fail */
+    i--;
+    *i0 = i;
+    return 1;
+}
+
+
+/*
+ * dbdep_match_key
+ * key on the form A.4.B.4
+ * skey on the form A[].B[]
+ * return 0 on fail, 1 on sucess.
+ * key:  a.0b
+ * skey: a[]
+ */
+static int
+dbdep_match_key(char *key, char *skey)
+{
+    int   i, j;
+    char  k, s;
+    int   vec;
+
+    vec = 0;
+    for (i=0, j=0; i<strlen(key) && j<strlen(skey); i++, j++){
+	k = key[i];
+	s = skey[j];
+	if (s == '*') 
+	    return 1;
+
+	if (vec){
+	    vec = 0;
+	    if (s == ']') /* skey has [] entry */
+		if (match_key_index(&i, key) == 1)
+		    continue; /* ok */
+	    break; /* fail */
+	}
+	else{
+	    if (s == '[' && k == '.')
+		vec++;
+	    else
+		if (k != s)
+		    break; /* fail */
+	}
+    } /* for */
+    if (i>=strlen(key) && j>=strlen(skey) && vec==0)
+	return 1; /* ok */
+    else if (i>=strlen(key) && j==strlen(skey)-1 && vec==0)
+        return 1; /* wildcard, ok */
+    else
+	return 0; /* fail */
+}
 /*
  * Match an actual database key to a key in a dependency entry.
  */
@@ -280,7 +344,7 @@ dbdep_match(dbdep_ent_t *dent, const char *dbkey)
     dpe = dent;
     do {
 #if 1
-	if (match_key((char*)dbkey, dpe->dpe_key)){
+	if (dbdep_match_key((char*)dbkey, dpe->dpe_key)){
 	    retval = dpe;
 	    break;
 	}
