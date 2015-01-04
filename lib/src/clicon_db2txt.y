@@ -871,7 +871,7 @@ eachstatement:
 		cs = push_code(_YA, FALSE, EACH_INLINE);
 		cs->keyvec = $2;
 		cs->loopvar = $5;
-		cs->loopbuf = strdup(cv_string_get($7));
+		cs->loopbuf = clicon_strsub(cv_string_get($7), "\n", "\\n");
 		cs->append_loopbuf = TRUE; /* Setup state for end_each() */
 		end_each(_YA);
 		cv_free($7);
