@@ -1,7 +1,7 @@
 /*
  *  CVS Version: $Id: linux-tunnel.c,v 1.2 2012/01/08 04:55:23 benny Exp $
  *
- *  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+ *  Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
  *
  *  This file is part of CLICON.
  *

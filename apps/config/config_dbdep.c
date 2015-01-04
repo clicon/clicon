@@ -1,6 +1,6 @@
 /*
  *
-  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 
@@ -31,6 +31,7 @@
 #include <inttypes.h>
 #include <dirent.h>
 #include <errno.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <regex.h>
 #include <netinet/in.h>
@@ -98,6 +99,72 @@ dbdep_create()
     return dp;
 }
 
+
+/*! Create plugin commit/validate tree dependency and register callback
+ *
+ * Create config tree dependency component named 'name' and register the
+ * callback 'cb' and callback argument 'arg'. 
+ * The entries are pushed on the list (last first)
+ * The optional following arguments will be treated as dependency 
+ * entries that in the form of "<db-key>[:<variable>]". These entries
+ * can be set separately via the dbdep_ent() function. 
+ *
+ * @param h     Config handle
+ * @param row   weight / row. The lower the number, the earlier it is called.
+ * @param cb    Callback to call
+ * @param arg   Arg to send to callback
+ * @param nkeys Number of keys to follow
+ * @param ...   Keys
+ *
+ *  return value needs to be freed.
+ * NOTE: this function should replace dbdep()!
+ */
+dbdep_handle_t
+dbdep_tree(clicon_handle h, /* Config handle */
+	  uint16_t      row, 
+	  trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
+	  trans_cb      cb,    /* Callback called */
+	  void         *arg,        /* Arg to send to callback */
+	  int           nkeys, ...)   /* How many keys (that follow) */
+{
+    int      i;
+    dbdep_t *dp, *deps;
+    va_list  ap;
+    char    *var;
+    char    *key;
+
+    if ((dp = dbdep_create()) == NULL)
+	return NULL;
+    dp->dp_row = row;
+    dp->dp_deptype = DBDEP_TREE;
+    dp->dp_callback = cb;
+    dp->dp_arg  = arg;
+    dp->dp_type = trans_cb_type;
+    
+    va_start(ap, nkeys);
+    for (i = 0; i < nkeys; i++) {
+	key = va_arg(ap, char *);
+	clicon_debug(2, "%s: Created tree dependency '%s'", __FUNCTION__, key);
+	if ((var = strchr(key, ':')))
+	    *var++ = '\0';
+	if (dbdep_ent(dp, key, var) < 0)
+	    goto catch;
+	if (var)
+	    *(var-1) = ':';
+    }
+    va_end(ap);
+
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
+    backend_dbdep_set(h, deps);
+    return dp;
+
+catch:
+    if (dp)
+	dbdep_free(dp);
+    return NULL;
+}
+
 /*! Create plugin commit/validate dependency and register callback
  *
  * Create config dependency component named 'name' and register the
@@ -134,6 +201,7 @@ dbdep_row(clicon_handle h, /* Config handle */
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
     dp->dp_row = row;
+    dp->dp_deptype = DBDEP_KEY;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
     dp->dp_type = trans_cb_type;
@@ -151,8 +219,8 @@ dbdep_row(clicon_handle h, /* Config handle */
     }
     va_end(ap);
 
-    deps = backend_dbdep(h); /* INSQ must work w an explicit variable */
-    INSQ(dp, deps);
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
     backend_dbdep_set(h, deps);
     return dp;
 
@@ -196,6 +264,7 @@ dbdep(clicon_handle h, /* Config handle */
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
     dp->dp_row = 0xffff;
+    dp->dp_deptype = DBDEP_KEY;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
     dp->dp_type = trans_cb_type;
@@ -213,8 +282,8 @@ dbdep(clicon_handle h, /* Config handle */
     }
     va_end(ap);
 
-    deps = backend_dbdep(h); /* INSQ must work w an explicit variable */
-    INSQ(dp, deps);
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
     backend_dbdep_set(h, deps);
     return dp;
 
@@ -246,7 +315,7 @@ dbdep_ent(dbdep_handle_t dh, const char *key, const char *var)
 	goto err;
     }
     
-    INSQ(dpe, dp->dp_ent);
+    ADDQ(dpe, dp->dp_ent);
     return 0;
     
 err:
@@ -262,6 +331,78 @@ err:
 
 
 /*
+ * spec_key_index
+ * eat numerical tokens from key.
+ * key is expected to be on the form '123.a.b', eat until '.a.b'
+ */
+static int
+match_key_index(int *i0, char *key)
+{
+    int i = *i0;
+
+    while (isdigit(key[i]))
+	i++;
+    if (i == *i0)
+	return 0; /* fail */
+    i--;
+    *i0 = i;
+    return 1;
+}
+
+
+/*
+ * dbdep_match_key
+ * key on the form A.4.B.4
+ * skey on the form A[].B[]
+ * return 0 on fail, 1 on sucess.
+ * key:  a.0b
+ * skey: a[]
+ */
+static int
+dbdep_match_key(char *key, char *skey, char **matched)
+{
+    int   i, j;
+    char  k, s;
+    int   vec;
+
+    vec = 0;
+    for (i=0, j=0; i<strlen(key) && j<strlen(skey); i++, j++){
+	k = key[i];
+	s = skey[j];
+	if (s == '*') 
+	    goto ok;
+
+	if (vec){
+	    vec = 0;
+	    if (s == ']') /* skey has [] entry */
+		if (match_key_index(&i, key) == 1)
+		    continue; /* ok */
+	    break; /* fail */
+	}
+	else{
+	    if (s == '[' && k == '.')
+		vec++;
+	    else
+		if (k != s)
+		    break; /* fail */
+	}
+    } /* for */
+    if (i>=strlen(key) && j>=strlen(skey) && vec==0)
+        goto ok; /* ok */
+    else if (i>=strlen(key) && j==strlen(skey)-1 && vec==0)
+        goto ok; /* wildcard, ok */
+    else
+	return 0; /* fail */
+
+ ok:
+    if (matched) {
+        if ((*matched = strdup(key)) != NULL)
+	  (*matched)[i] = '\0';
+    }
+    return 1;
+}
+
+/*
  * Match an actual database key to a key in a dependency entry.
  */
 static dbdep_ent_t *
@@ -274,11 +415,11 @@ dbdep_match(dbdep_ent_t *dent, const char *dbkey)
 #endif
     dbdep_ent_t *dpe;
     dbdep_ent_t *retval = NULL;
-    
+
     dpe = dent;
     do {
 #if 1
-	if (match_key((char*)dbkey, dpe->dpe_key)){
+        if (dbdep_match_key((char*)dbkey, dpe->dpe_key, NULL)){
 	    retval = dpe;
 	    break;
 	}
@@ -344,7 +485,7 @@ dbdep_commitvec(clicon_handle h,
 		int *nvecp, 
 		dbdep_dd_t **ddvec0)
 {
-    int         i;
+    int         i, j;
     int         nvec;
     dbdep_dd_t *ddvec;
     char       *key;
@@ -373,6 +514,7 @@ dbdep_commitvec(clicon_handle h,
 		    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 		    goto err;
 		}
+		memset(&ddvec[nvec], 0, sizeof(ddvec[nvec]));
 		ddvec[nvec].dd_dep = dp;
 		ddvec[nvec].dd_dbdiff  = &dd->df_ents[i];
 		nvec++;
@@ -396,14 +538,48 @@ dbdep_commitvec(clicon_handle h,
 	dp = deps;
 	do {
 	    if (dp->dp_ent && dbdep_match (dp->dp_ent, key)) {
+	        if (dp->dp_deptype == DBDEP_TREE) /* If tree depencency, Check for uniqueness */
+		    for (j = 0; j < nvec; j++)
+		        if (ddvec[j].dd_dep == dp)
+			    goto skip;
 		if ((ddvec = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
 		    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 		    goto err;
 		}
+		memset(&ddvec[nvec], 0, sizeof(ddvec[nvec]));
 		ddvec[nvec].dd_dep = dp;
 		ddvec[nvec].dd_dbdiff  = &dd->df_ents[i];
+	        if (dp->dp_deptype == DBDEP_TREE) { /* Get matched part of key */
+		    if (dd->df_ents[i].dfe_key1) {
+		        dbdep_match_key (dd->df_ents[i].dfe_key1, dp->dp_ent->dpe_key, &ddvec[nvec].dd_mkey1);
+		        if (ddvec[nvec].dd_mkey1 == NULL) {
+			    clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
+			    goto err;
+			}
+		    }
+		    if (dd->df_ents[i].dfe_key2) {
+		        dbdep_match_key (dd->df_ents[i].dfe_key2, dp->dp_ent->dpe_key, &ddvec[nvec].dd_mkey2);
+		        if (ddvec[nvec].dd_mkey2 == NULL) {
+			    clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
+			    goto err;
+			}
+		    }
+		} else {
+		    if (dd->df_ents[i].dfe_key1)
+		      if ((ddvec[nvec].dd_mkey1 = strdup(dd->df_ents[i].dfe_key1)) == NULL) {
+			clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
+			goto err;
+		      }
+		    if (dd->df_ents[i].dfe_key2)
+		      if ((ddvec[nvec].dd_mkey2 = strdup(dd->df_ents[i].dfe_key2)) == NULL) {
+			clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
+			goto err;
+		      }
+		}
 		nvec++;
+	
 	    }
+	skip:
 	    dp = NEXTQ(dbdep_t *, dp);
 	} while (dp != deps);
     }
@@ -422,3 +598,17 @@ err:
 }
 
 
+/*
+ * dbdep_commitvec_free - Free the 
+ */
+void
+dbdep_commitvec_free(dbdep_dd_t *ddvec, int nvec)
+{
+    int i;
+  
+    for (i=0; i < nvec; i++) {
+      free(ddvec[i].dd_mkey1);
+      free(ddvec[i].dd_mkey2);
+    }
+    free(ddvec);
+}

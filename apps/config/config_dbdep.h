@@ -1,6 +1,6 @@
 /*
  *
-  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 
@@ -35,11 +35,16 @@ struct dbdep_ent {
 };
 typedef struct dbdep_ent dbdep_ent_t;
 
+enum dbdep_type {
+  DBDEP_KEY,
+  DBDEP_TREE
+};
 
 /* Database dependency description */
 struct dbdep {
     qelem_t 	 dp_qelem;	/* List header */
     uint16_t	 dp_row;	/* "Row" number for processing order */
+    uint8_t	 dp_deptype;	/* Type of dependency; key (per key callback) or tree (per tree callback) */
     enum trans_cb_type dp_type; /* Commit, validate or both */
     trans_cb	 dp_callback;	/* Validation/Commit Callback */
     void	*dp_arg;	/* Application specific argument to cb */
@@ -51,6 +56,8 @@ typedef struct dbdep dbdep_t;
 struct dbdep_dd {
     dbdep_t		*dd_dep;
     struct dbdiff_ent	*dd_dbdiff;
+    char		*dd_mkey1;	/* Matched part of key (tree deps) */
+    char		*dd_mkey2;	/* Matched part of key (tree deps) */
 };
 typedef struct dbdep_dd dbdep_dd_t;
 
@@ -61,5 +68,6 @@ typedef struct dbdep_dd dbdep_dd_t;
 void dbdeps_free(clicon_handle h);
 
 int dbdep_commitvec(clicon_handle h, const struct dbdiff *, int *, dbdep_dd_t **);
+void dbdep_commitvec_free(dbdep_dd_t *ddvec, int nvec);
 
 #endif  /* _CONFIG_DBDEP_H_ */

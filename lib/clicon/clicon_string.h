@@ -1,6 +1,6 @@
 /*
  *
-  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
   Olof Hagsand
  *
   This file is part of CLICON.
@@ -48,6 +48,7 @@ int clicon_sep(char *s, const char sep[2], const char *label, char**a0, char **b
 char *clicon_strndup (const char *, size_t);
 #endif /* ! HAVE_STRNDUP */
 int clicon_strmatch(const char *str, const char *regexp, char **match);
+char *clicon_strsub(char *str, char *from, char *to);
 
 
 #endif  /* _CLICON_STRING_H_ */

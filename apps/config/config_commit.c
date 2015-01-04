@@ -1,6 +1,6 @@
 /*
  *
-  Copyright (C) 2009-2014 Olof Hagsand and Benny Holmgren
+  Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
 
   This file is part of CLICON.
 
@@ -346,6 +346,7 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     int                failed = 0;
     struct stat        sb;
     void              *firsterr = NULL;
+    char	      *key;
 
     /* Sanity checks that databases exists. */
     if (stat(running, &sb) < 0){
@@ -395,11 +396,12 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	dd = &ddvec[i];
 	dfe = dd->dd_dbdiff; /* key1/key2/op */
 	dp = dd->dd_dep;     /* op, callback, arg */
+	key = dd->dd_mkey1;  /* key */
 	if (dp->dp_type & TRANS_CB_COMMIT &&
 	    dfe->dfe_op & DBDIFF_OP_FIRST &&
 	    plugin_modify_key_value(h, running,        /* db */
-				    dfe->dfe_key1,     /* key */
-				    TRANS_CB_COMMIT, /* commit|validate */
+				    key,               /* key */
+				    TRANS_CB_COMMIT,   /* commit|validate */
 				    LV_DELETE,         /* operation */
 				    dp                 /* callback(arg) */
 		) < 0){
@@ -413,13 +415,14 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	    dd = &ddvec[j];
 	    dfe = dd->dd_dbdiff; /* key1/key2/op */
 	    dp = dd->dd_dep;     /* op, callback, arg */
+	    key = dd->dd_mkey1;  /* key */
 	    if (dp->dp_type & TRANS_CB_COMMIT &&
 		dfe->dfe_op & DBDIFF_OP_FIRST &&
 		plugin_modify_key_value(h, running,       /* db */
-					dfe->dfe_key1,    /* key */
+					key,              /* key */
 					TRANS_CB_COMMIT,  /* commit|validate */
 					LV_SET,           /* operation */
-					dp                 /* callback(arg) */
+					dp                /* callback(arg) */
 		    ) < 0)
 		continue; /* ignore errors or signal major setback ? */
 	}
@@ -431,13 +434,14 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	dd = &ddvec[i];
 	dfe = dd->dd_dbdiff; /* key1/key2/op */
 	dp = dd->dd_dep;     /* op, callback, arg */
+	key = dd->dd_mkey2;  /* key */
 	if (dp->dp_type & TRANS_CB_COMMIT &&
 	    dfe->dfe_op & DBDIFF_OP_SECOND &&
 	    plugin_modify_key_value(h, candidate,        /* db */
-				    dfe->dfe_key2,     /* key */
-				    TRANS_CB_COMMIT, /* commit|validate */
-				    LV_SET,         /* operation */
-				    dp                 /* callback(arg) */
+				    key,                 /* key */
+				    TRANS_CB_COMMIT,     /* commit|validate */
+				    LV_SET,              /* operation */
+				    dp                   /* callback(arg) */
 		) < 0){
 	    firsterr = clicon_err_save(); /* save this error */
 	    failed++;
@@ -455,10 +459,11 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	    dd = &ddvec[j];
 	    dfe = dd->dd_dbdiff; /* key1/key2/op */
 	    dp = dd->dd_dep;     /* op, callback, arg */
+	    key = dd->dd_mkey2;  /* key */
 	    if (dp->dp_type & TRANS_CB_COMMIT &&
 		dfe->dfe_op & DBDIFF_OP_SECOND &&
 		plugin_modify_key_value(h, candidate,    /* db */
-					dfe->dfe_key2,   /* key */
+					key,             /* key */
 					TRANS_CB_COMMIT, /* commit|validate */
 					LV_DELETE,       /* operation */
 					dp               /* callback(arg) */
@@ -470,12 +475,13 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	    dd = &ddvec[j];
 	    dfe = dd->dd_dbdiff; /* key1/key2/op */
 	    dp = dd->dd_dep;     /* op, callback, arg */
+	    key = dd->dd_mkey1;  /* key */
 	    if (dp->dp_type & TRANS_CB_COMMIT &&
 		dfe->dfe_op & DBDIFF_OP_FIRST &&
 		plugin_modify_key_value(h, running,        /* db */
-					dfe->dfe_key1,     /* key */
-					TRANS_CB_COMMIT, /* commit|validate */
-					LV_SET,         /* operation */
+					key,               /* key */
+					TRANS_CB_COMMIT,   /* commit|validate */
+					LV_SET,            /* operation */
 					dp                 /* callback(arg) */
 		    ) < 0)
 		continue; /* ignore errors or signal major setback ? */
@@ -497,7 +503,7 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     if (retval < 0) /* Call plugin fail-commit hooks */
 	plugin_abort_hooks(h, candidate);
     if (ddvec)
-	free(ddvec);
+        dbdep_commitvec_free(ddvec, nvec);
     unchunk_group(__FUNCTION__); 
     if (firsterr)
 	clicon_err_restore(firsterr);
