@@ -571,7 +571,7 @@ dbdep_commitvec(clicon_handle h,
 			goto err;
 		      }
 		    if (dd->df_ents[i].dfe_key2)
-		      if ((ddvec[nvec].dd_mkey1 = strdup(dd->df_ents[i].dfe_key2)) == NULL) {
+		      if ((ddvec[nvec].dd_mkey2 = strdup(dd->df_ents[i].dfe_key2)) == NULL) {
 			clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 			goto err;
 		      }
