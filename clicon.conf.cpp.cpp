@@ -82,8 +82,8 @@ CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 # callbacks for frontends. See clicon user manual for more info.
 # CLICON_MASTER_PLUGIN    master
 
-# Startup CLI mode
-# CLICON_CLI_MODE 
+# Startup CLI mode. This should match the CLICON_MODE in your startup clispec file
+# CLICON_CLI_MODE         base
 
 # Generate code for CLI completion of existing db symbols. Add name="myspec" in 
 # datamodel spec and reference as @myspec.
