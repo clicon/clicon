@@ -64,14 +64,15 @@ plugin_init(clicon_handle h)
     int retval = -1;
 
 #if 0
-    if (dbdep(h, TRANS_CB_COMMIT, datamodel_commit, 
-	      (void *)NULL, 3, "a[]", "a[].b", "a[].c") == NULL) {
-	clicon_debug(1, "Failed to create dependency");
+    if ((dbdep(h, 0,  TRANS_CB_COMMIT, datamodel_commit, NULL, "a[]") == NULL) ||
+	(dbdep(h, 0, TRANS_CB_COMMIT, datamodel_commit, NULL, "a[].b") == NULL) ||
+	(dbdep(h, 0, TRANS_CB_COMMIT, datamodel_commit, NULL, "a[].c") == NULL)) {
+        clicon_debug(1, "Failed to create dependency");
 	goto done;
     }
 #endif
     if (dbdep_tree(h, 0, TRANS_CB_COMMIT, datamodel_commit, 
-			 (void *)NULL, 1, "a[]*") == NULL) {
+			 (void *)NULL, "a[]*") == NULL) {
 	clicon_debug(1, "Failed to create dependency");
 	goto done;
     }

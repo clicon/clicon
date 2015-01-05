@@ -99,7 +99,7 @@ plugin_init(clicon_handle h)
 
     for (i = 0; ntp_keys[i]; i++) {
 	key = ntp_keys[i];
-	if (dbdep(h, TRANS_CB_COMMIT, ntp_commit, (void *)NULL, 1, key) == NULL) {
+	if (dbdep(h, 0, TRANS_CB_COMMIT, ntp_commit, (void *)NULL, key) == NULL) {
 	    clicon_debug(1, "Failed to create dependency '%s'", key);
 	    goto done;
 	}

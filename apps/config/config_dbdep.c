@@ -100,204 +100,10 @@ dbdep_create()
 }
 
 
-/*! Create plugin commit/validate tree dependency and register callback
- *
- * Create config tree dependency component named 'name' and register the
- * callback 'cb' and callback argument 'arg'. 
- * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as dependency 
- * entries that in the form of "<db-key>[:<variable>]". These entries
- * can be set separately via the dbdep_ent() function. 
- *
- * @param h     Config handle
- * @param row   weight / row. The lower the number, the earlier it is called.
- * @param cb    Callback to call
- * @param arg   Arg to send to callback
- * @param nkeys Number of keys to follow
- * @param ...   Keys
- *
- *  return value needs to be freed.
- * NOTE: this function should replace dbdep()!
- */
-dbdep_handle_t
-dbdep_tree(clicon_handle h, /* Config handle */
-	  uint16_t      row, 
-	  trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
-	  trans_cb      cb,    /* Callback called */
-	  void         *arg,        /* Arg to send to callback */
-	  int           nkeys, ...)   /* How many keys (that follow) */
-{
-    int      i;
-    dbdep_t *dp, *deps;
-    va_list  ap;
-    char    *var;
-    char    *key;
-
-    if ((dp = dbdep_create()) == NULL)
-	return NULL;
-    dp->dp_row = row;
-    dp->dp_deptype = DBDEP_TREE;
-    dp->dp_callback = cb;
-    dp->dp_arg  = arg;
-    dp->dp_type = trans_cb_type;
-    
-    va_start(ap, nkeys);
-    for (i = 0; i < nkeys; i++) {
-	key = va_arg(ap, char *);
-	clicon_debug(2, "%s: Created tree dependency '%s'", __FUNCTION__, key);
-	if ((var = strchr(key, ':')))
-	    *var++ = '\0';
-	if (dbdep_ent(dp, key, var) < 0)
-	    goto catch;
-	if (var)
-	    *(var-1) = ':';
-    }
-    va_end(ap);
-
-    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
-    ADDQ(dp, deps);
-    backend_dbdep_set(h, deps);
-    return dp;
-
-catch:
-    if (dp)
-	dbdep_free(dp);
-    return NULL;
-}
-
-/*! Create plugin commit/validate dependency and register callback
- *
- * Create config dependency component named 'name' and register the
- * callback 'cb' and callback argument 'arg'. 
- * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as dependency 
- * entries that in the form of "<db-key>[:<variable>]". These entries
- * can be set separately via the dbdep_ent() function. 
- *
- * @param h     Config handle
- * @param row   weight / row. The lower the number, the earlier it is called.
- * @param cb    Callback to call
- * @param arg   Arg to send to callback
- * @param nkeys Number of keys to follow
- * @param ...   Keys
- *
- *  return value needs to be freed.
- * NOTE: this function should replace dbdep()!
- */
-dbdep_handle_t
-dbdep_row(clicon_handle h, /* Config handle */
-	  uint16_t      row, 
-	  trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
-	  trans_cb      cb,    /* Callback called */
-	  void         *arg,        /* Arg to send to callback */
-	  int           nkeys, ...)   /* How many keys (that follow) */
-{
-    int      i;
-    dbdep_t *dp, *deps;
-    va_list  ap;
-    char    *var;
-    char    *key;
-
-    if ((dp = dbdep_create()) == NULL)
-	return NULL;
-    dp->dp_row = row;
-    dp->dp_deptype = DBDEP_KEY;
-    dp->dp_callback = cb;
-    dp->dp_arg  = arg;
-    dp->dp_type = trans_cb_type;
-    
-    va_start(ap, nkeys);
-    for (i = 0; i < nkeys; i++) {
-	key = va_arg(ap, char *);
-	clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
-	if ((var = strchr(key, ':')))
-	    *var++ = '\0';
-	if (dbdep_ent(dp, key, var) < 0)
-	    goto catch;
-	if (var)
-	    *(var-1) = ':';
-    }
-    va_end(ap);
-
-    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
-    ADDQ(dp, deps);
-    backend_dbdep_set(h, deps);
-    return dp;
-
-catch:
-    if (dp)
-	dbdep_free(dp);
-    return NULL;
-}
-
-/*! Create plugin commit/validate dependency and register callback
- *
- * Create config dependency component named 'name' and register the
- * callback 'cb' and callback argument 'arg'. 
- * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as depencency 
- * entries that in the form of "<db-key>[:<variable>]". These entries
- * can be set separately via the dbdep_ent() function. 
- *
- * @param  h    Config handle
- * @param cb    Callback to call
- * @param arg   Arg to send to callback
- * @param nkeys Number of keys to follow
- * @param ...   Keys
- *
- *  return value needs to be freed.
- * NOTE: this function should be replaced by dbdep_row()!
- */
-dbdep_handle_t
-dbdep(clicon_handle h, /* Config handle */
-      trans_cb_type trans_cb_type,  /* Type of callback: commit/validate or both */
-      trans_cb cb,    /* Callback called */
-      void *arg,        /* Arg to send to callback */
-      int nkeys, ...)   /* How many keys (that follow) */
-{
-    int      i;
-    dbdep_t *dp, *deps;
-    va_list  ap;
-    char    *var;
-    char    *key;
-
-    if ((dp = dbdep_create()) == NULL)
-	return NULL;
-    dp->dp_row = 0xffff;
-    dp->dp_deptype = DBDEP_KEY;
-    dp->dp_callback = cb;
-    dp->dp_arg  = arg;
-    dp->dp_type = trans_cb_type;
-    
-    va_start(ap, nkeys);
-    for (i = 0; i < nkeys; i++) {
-	key = va_arg(ap, char *);
-	clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
-	if ((var = strchr(key, ':')))
-	    *var++ = '\0';
-	if (dbdep_ent(dp, key, var) < 0)
-	    goto catch;
-	if (var)
-	    *(var-1) = ':';
-    }
-    va_end(ap);
-
-    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
-    ADDQ(dp, deps);
-    backend_dbdep_set(h, deps);
-    return dp;
-
-catch:
-    if (dp)
-	dbdep_free(dp);
-    return NULL;
-}
-
-
 /*
  * Add a key+var dependency entry to a dependency component
  */
-int
+static int
 dbdep_ent(dbdep_handle_t dh, const char *key, const char *var)
 {
     dbdep_ent_t *dpe;
@@ -328,6 +134,119 @@ err:
     }
     return -1;
 } 
+
+
+/*! Create plugin commit/validate tree dependency and register callback
+ *
+ * Create config tree dependency component named 'name' and register the
+ * callback 'cb' and callback argument 'arg'. 
+ * The entries are pushed on the list (last first)
+ * The optional following arguments will be treated as dependency 
+ * entries that in the form of "<db-key>[:<variable>]". These entries
+ * can be set separately via the dbdep_ent() function. 
+ *
+ * @param h     Config handle
+ * @param row   weight / row. The lower the number, the earlier it is called.
+ * @param cb    Callback to call
+ * @param arg   Arg to send to callback
+ * @param key   Key we're depending on
+ *
+ *  return value needs to be freed.
+ * NOTE: this function should replace dbdep()!
+ */
+dbdep_handle_t
+dbdep_tree(clicon_handle h, /* Config handle */
+	   uint16_t      row, 
+	   trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
+	   trans_cb      cb,            /* Callback called */
+	   void         *arg,           /* Arg to send to callback */
+	   char         *key)           /* Key we're depending on */
+{
+    dbdep_t *dp, *deps;
+    char    *var;
+
+    if ((dp = dbdep_create()) == NULL)
+	return NULL;
+    dp->dp_row = row;
+    dp->dp_deptype = DBDEP_TREE;
+    dp->dp_callback = cb;
+    dp->dp_arg  = arg;
+    dp->dp_type = trans_cb_type;
+    
+    clicon_debug(2, "%s: Created tree dependency '%s'", __FUNCTION__, key);
+    if ((var = strchr(key, ':')))
+      *var++ = '\0';
+    if (dbdep_ent(dp, key, var) < 0)
+      goto catch;
+    if (var)
+      *(var-1) = ':';
+
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
+    backend_dbdep_set(h, deps);
+    return dp;
+
+catch:
+    if (dp)
+	dbdep_free(dp);
+    return NULL;
+}
+
+/*! Create plugin commit/validate dependency and register callback
+ *
+ * Create config dependency component named 'name' and register the
+ * callback 'cb' and callback argument 'arg'. 
+ * The entries are pushed on the list (last first)
+ * The optional following arguments will be treated as dependency 
+ * entries that in the form of "<db-key>[:<variable>]". These entries
+ * can be set separately via the dbdep_ent() function. 
+ *
+ * @param h     Config handle
+ * @param row   weight / row. The lower the number, the earlier it is called.
+ * @param cb    Callback to call
+ * @param arg   Arg to send to callback
+ * @param key   Key we're depending on
+ *
+ *  return value needs to be freed.
+ */
+dbdep_handle_t
+dbdep(clicon_handle h, /* Config handle */
+      uint16_t      row, 
+      trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
+      trans_cb      cb,            /* Callback called */
+      void         *arg,           /* Arg to send to callback */
+      char         *key)           /* Key we're depending on */
+{
+    dbdep_t *dp, *deps;
+    char    *var;
+
+    if ((dp = dbdep_create()) == NULL)
+	return NULL;
+    dp->dp_row = row;
+    dp->dp_deptype = DBDEP_KEY;
+    dp->dp_callback = cb;
+    dp->dp_arg  = arg;
+    dp->dp_type = trans_cb_type;
+    
+    clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
+    if ((var = strchr(key, ':')))
+      *var++ = '\0';
+    if (dbdep_ent(dp, key, var) < 0)
+      goto catch;
+    if (var)
+      *(var-1) = ':';
+
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
+    backend_dbdep_set(h, deps);
+    return dp;
+
+catch:
+    if (dp)
+	dbdep_free(dp);
+    return NULL;
+}
+
 
 
 /*

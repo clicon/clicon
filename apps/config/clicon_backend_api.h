@@ -64,14 +64,8 @@ typedef void *dbdep_handle_t;
 /*
  * Add DB dependency
  */
-dbdep_handle_t dbdep(clicon_handle h, trans_cb_type, trans_cb, void *, int, ...);
-dbdep_handle_t dbdep_row(clicon_handle h, uint16_t row, trans_cb_type, trans_cb, void *, int, ...);
-dbdep_handle_t dbdep_tree(clicon_handle h, uint16_t row, trans_cb_type, trans_cb, void *, int, ...);
-
-/*
- * Add DB dependency entry
- */
-int dbdep_ent(dbdep_handle_t, const char *, const char *);
+dbdep_handle_t dbdep(clicon_handle h, uint16_t row, trans_cb_type, trans_cb, void *, char *);
+dbdep_handle_t dbdep_tree(clicon_handle h, uint16_t row, trans_cb_type, trans_cb, void *, char *);
 
 /*
  * Log for netconf notify function (config_client.c)

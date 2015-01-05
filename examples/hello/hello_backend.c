@@ -65,13 +65,13 @@ plugin_init(clicon_handle h)
 
     for (i = 0; key2ops[i].key; i++) {
 	key = key2ops[i].key;
-	if ((dp = dbdep(h, TRANS_CB_VALIDATE, hello_validate, 
-			(void*)&key2ops[i].arg, 1, key)) == NULL) {
+	if ((dp = dbdep(h, 0, TRANS_CB_VALIDATE, hello_validate, 
+			(void*)&key2ops[i].arg, key)) == NULL) {
 	    clicon_debug(1, "Failed to create dependency '%s'", key);
 	    goto done;
 	}
-	if ((dp = dbdep(h, TRANS_CB_COMMIT, hello_commit, 
-			(void*)&key2ops[i].arg, 1, key)) == NULL) {
+	if ((dp = dbdep(h, 0, TRANS_CB_COMMIT, hello_commit, 
+			(void*)&key2ops[i].arg, key)) == NULL) {
 	    clicon_debug(1, "Failed to create dependency '%s'", key);
 	    goto done;
 	}
