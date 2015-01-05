@@ -406,7 +406,7 @@ dbdep_match_key(char *key, char *skey, char **matched)
  * Match an actual database key to a key in a dependency entry.
  */
 static dbdep_ent_t *
-dbdep_match(dbdep_ent_t *dent, const char *dbkey)
+dbdep_match(dbdep_ent_t *dent, const char *dbkey, char **match)
 {
 #if 0
     char *key;
@@ -418,33 +418,10 @@ dbdep_match(dbdep_ent_t *dent, const char *dbkey)
 
     dpe = dent;
     do {
-#if 1
-        if (dbdep_match_key((char*)dbkey, dpe->dpe_key, NULL)){
+        if (dbdep_match_key((char*)dbkey, dpe->dpe_key, match)){
 	    retval = dpe;
 	    break;
 	}
-#else
-	if (key_isanyvector(dpe->dpe_key)) {
-	    status = REG_NOMATCH;
-	    if((key = db_gen_rxkey(dpe->dpe_key, __FUNCTION__)) != NULL) {
-		if(regcomp(&re, key, REG_NOSUB|REG_EXTENDED) == 0) {
-		    status = regexec(&re, dbkey, (size_t) 0, NULL, 0);
-		    regfree(&re);
-		}
-		unchunk (key);
-	    }
-	    if (status == 0) { /* Match */
-		retval = dpe;
-		break;
-	    }
-	}
-	else {
-	    if (!strcmp (dpe->dpe_key, dbkey)) {
-		retval = dpe;
-		break;
-	    }
-	}
-#endif
 	dpe = NEXTQ(dbdep_ent_t *, dpe);
     } while (dpe != dent);
 
@@ -491,59 +468,45 @@ dbdep_commitvec(clicon_handle h,
     char       *key;
     dbdep_t    *dp;
     dbdep_t    *deps;
+    char       *match;
+    char       *ddkey;
 
     nvec = 0;
     ddvec = NULL;
     if ((deps = backend_dbdep(h)) == NULL) /* No dependencies registered, OK */
 	goto done;
     
-#if 0
-    /* Match any config component matching the key and add to vector */
-    dp = deps;
-    do {
-	for (i = 0; i < dd->df_nr; i++) {
-
-	    /* We only have to check one key. Vector keys may have different 
-	       vector index making the actual keys different, but they both
-	       relate to the same spec-key and therefore the same config component
-	    */
-	    if ((key = dd->df_ents[i].dfe_key1) == NULL)
-		key = dd->df_ents[i].dfe_key2;
-	    if (dp->dp_ent && dbdep_match (dp->dp_ent, key)) {
-		if ((ddvec = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
-		    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
-		    goto err;
-		}
-		memset(&ddvec[nvec], 0, sizeof(ddvec[nvec]));
-		ddvec[nvec].dd_dep = dp;
-		ddvec[nvec].dd_dbdiff  = &dd->df_ents[i];
-		nvec++;
-		break; /* Just once per dp_dep */
-	    }
-	}
-	dp = NEXTQ(dbdep_t *, dp);
-    } while (dp != deps);
-
-#else
     for (i = 0; i < dd->df_nr; i++) {
 
 	/* We only have to check one key. Vector keys may have different 
 	   vector index making the actual keys different, but they both
 	   relate to the same spec-key and therefore the same config component
 	*/
-	if ((key = dd->df_ents[i].dfe_key1) == NULL)
+        if (dd->df_ents[i].dfe_op & DBDIFF_OP_FIRST)
+	    key = dd->df_ents[i].dfe_key1;
+	else
 	    key = dd->df_ents[i].dfe_key2;
 
 	/* Match any config component matching the key and add to vector */
 	dp = deps;
 	do {
-	    if (dp->dp_ent && dbdep_match (dp->dp_ent, key)) {
-	        if (dp->dp_deptype == DBDEP_TREE) /* If tree depencency, Check for uniqueness */
-		    for (j = 0; j < nvec; j++)
-		        if (ddvec[j].dd_dep == dp)
+	   if (dp->dp_ent && dbdep_match (dp->dp_ent, key, &match)) {
+	       if (dp->dp_deptype == DBDEP_TREE)  {/* If tree depencency, Check for uniqueness */
+		    for (j = 0; j < nvec; j++) {
+		        if (ddvec[j].dd_dbdiff->dfe_op & DBDIFF_OP_FIRST)
+			    ddkey = ddvec[j].dd_mkey1;
+			else
+			    ddkey = ddvec[j].dd_mkey2;
+			if (ddvec[j].dd_dep == dp && match && strcmp(match, ddkey) == 0) {
+			    free(match);
 			    goto skip;
-		if ((ddvec = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
-		    clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
+			}
+		    }
+	       }
+	       if(match)
+		   free(match);
+	       if ((ddvec = realloc(ddvec, (nvec+1) * sizeof(*ddvec))) == NULL){
+		  clicon_err(OE_DB, errno, "%s: realloc", __FUNCTION__);
 		    goto err;
 		}
 		memset(&ddvec[nvec], 0, sizeof(ddvec[nvec]));
@@ -583,7 +546,7 @@ dbdep_commitvec(clicon_handle h,
 	    dp = NEXTQ(dbdep_t *, dp);
 	} while (dp != deps);
     }
-#endif    
+    
     /* Now sort vector based on dbdep row number */
     qsort(ddvec, nvec, sizeof(*ddvec), dbdep_commitvec_sort);
 
