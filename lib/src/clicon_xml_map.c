@@ -895,12 +895,10 @@ tleaf(cxobj *x)
 }
 
 
-/*
- * xml2txt. Translate XML -> TEXT
- * Displays 'junos-like' text for a configuration based on XML.
- * XXX: includes kludges for junos syntax
+/*! Translate XML -> TEXT
+ * @param[in]  level  print 4 spaces per level in front of each line
+ * XXX: Why special treatment for name? 
  */
-#define KLUDGES_FOR_JUNOS 0
 int 
 xml2txt(FILE *f, cxobj *x, int level)
 {
@@ -930,16 +928,9 @@ xml2txt(FILE *f, cxobj *x, int level)
 	goto done;
     }
     fprintf(f, "%*s", 4*level, "");
-#if KLUDGES_FOR_JUNOS
-    if (strcmp(xml_name(x), "interface")== 0 || 
-	strcmp(xml_name(x), "prefix-list-item")== 0)
-	;
-    else
-#endif
-	{
-	    if (strcmp(xml_name(x), "name") != 0)
-		fprintf(f, "%s ", xml_name(x));
-    }
+    /* XXX: Why special treatment for name? */
+    if (strcmp(xml_name(x), "name") != 0)
+	fprintf(f, "%s ", xml_name(x));
     if ((xname = xml_find(x, "name")) != NULL){
 	if (children > 1)
 	    fprintf(f, "%s ", xml_body(xname));

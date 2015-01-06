@@ -1060,8 +1060,8 @@ netconf_notification_cb(int s, void *arg)
 
 /*
     <create-subscription> 
-       <stream/> # If not present, events in the default NETCONF stream will be sent.
-       <filter/>
+       <stream>RESULT</stream> # If not present, events in the default NETCONF stream will be sent.
+       <filter>XPATH-EXPR<(filter>
        <startTime/> # only for replay (NYI)
        <stopTime/>  # only for replay (NYI)
     </create-subscription> 

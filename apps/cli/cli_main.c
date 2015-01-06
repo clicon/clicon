@@ -56,7 +56,7 @@
 #include "cli_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define CLI_OPTS "hD:f:F:a:s:u:d:og:m:bcP:qpGLl:t"
+#define CLI_OPTS "hD:f:F:1a:s:u:d:og:m:bcP:qpGLl:t"
 
 static int
 cli_terminate(clicon_handle h)
@@ -168,7 +168,8 @@ usage(char *argv0, clicon_handle h)
     	    "\t-a <dir>\tApplication dir (default: %s)\n"
     	    "\t-f <file> \tConfig-file (default: %s)\n"
     	    "\t-F <file> \tRead commands from file (default stdin)\n"
-    	    "\t-s <file>\tDatabase spec file\n"
+	    "\t-1\t\tDont enter interactive mode\n"
+	    "\t-s <file>\tDatabase spec file\n"
     	    "\t-u <sockpath>\tconfig UNIX domain path (default: %s)\n"
 	    "\t-d <dir>\tSpecify plugin directory (default: %s)\n"
             "\t-m <mode>\tSpecify plugin syntax mode\n"
@@ -197,6 +198,7 @@ main(int argc, char **argv)
     char         c;    
     enum candidate_db_type dbtype;
     char         private_db[MAXPATHLEN];
+    int          once;
     char	*tmp;
     char	*argv0 = argv[0];
     clicon_handle h;
@@ -218,6 +220,7 @@ main(int argc, char **argv)
     if (cli_plugin_init(h) != 0) 
 	goto done;
     dbtype = CANDIDATE_DB_SHARED;
+    once = 0;
     private_db[0] = '\0';
     cli_set_usedaemon(h, 1); /* send changes to config daemon */
     cli_set_comment(h, '#'); /* Default to handle #! clicon_cli scripts */
@@ -295,6 +298,9 @@ main(int argc, char **argv)
 		return -1;
 	    }
 	    break; 
+	case '1' : /* Quit after reading database once - dont wait for events */
+	    once = 1;
+	    break;
 	case 'u': /* config unix domain path */
 	    if (!strlen(optarg))
 		usage(argv[0], h);
@@ -452,8 +458,9 @@ main(int argc, char **argv)
     cli_plugin_start(h, argc+1, argv-1);
     *(argv-1) = tmp;
 
-    /* Lauch interfactive event loop */
-    cli_interactive(h);
+    /* Launch interfactive event loop, unless -1 */
+    if (once == 0)
+	cli_interactive(h);
   done:
     // Gets in your face if we log on stderr
     clicon_log_init(__PROGRAM__, LOG_INFO, 0); /* Log on syslog no stderr */

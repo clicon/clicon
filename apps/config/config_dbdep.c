@@ -135,37 +135,45 @@ err:
     return -1;
 } 
 
-/*! Create plugin validate dependency and register callback
+/*! Create plugin validate dependency and register callback 
  *
- * Create config validation dependency component named 'name' and register the
- * callback 'cb' and callback argument 'arg'. 
- * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as dependency 
- * entries that in the form of "<db-key>[:<variable>]". These entries
- * can be set separately via the dbdep_ent() function. 
+ * Create config validate dependency and register a callback with argument. 
+ * The dependency specifies a database key or key pattern (eg "a[].b*"). A callback with the 
+ * following signature is registered:
+ *   cb(h, dbname, op, key, arg);
+ * where 'h' is the clicon handle, dbname is the database (eg running), op is delete or set,
+ * and arg is the argument specified in this function.
+ * Whenever a key matching the pattern (eg a.0.b.8, a.0.b.8.c), cb will be 
+ * for each matching key:
+ *   cb(h, dbname, op, a.0.b.8, arg);
+ *   cb(h, dbname, op, a.0.b.8.c, arg);
  *
- * @param h     Config handle
- * @param row   weight / row. The lower the number, the earlier it is called.
- * @param cb    Callback to call
- * @param arg   Arg to send to callback
- * @param key   Key we're depending on
+ * @param  h     Config handle
+ * @param  prio  Priority. The lower the number, the earlier the callback is called.
+ * @param  cb    Function to call
+ * @param  arg   Arg to send as parameter to callback
+ * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]"XXX?
  *
- *  return value needs to be freed.
- * NOTE: this function should replace dbdep()!
+ * @retval NULL  Error
+ * @retval dp    Dependency handle. Must be freed XXX?
+ * @code
+ * dbdep(h, 0, mycommit, NULL, "a[].b*");
+ * @endcode
+ * @see dbdep, dbdep_tree
  */
 dbdep_handle_t
 dbdep_validate(clicon_handle h, /* Config handle */
-      uint16_t      row, 
-      trans_cb      cb,            /* Callback called */
-      void         *arg,           /* Arg to send to callback */
-      char         *key)           /* Key we're depending on */
+	       uint16_t      prio, 
+	       trans_cb      cb,            /* Callback called */
+	       void         *arg,           /* Arg to send to callback */
+	       char         *key)           /* Key we're depending on */
 {
     dbdep_t *dp, *deps;
     char    *var;
 
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
-    dp->dp_row = row;
+    dp->dp_row = prio;
     dp->dp_deptype = DBDEP_KEY;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
@@ -190,27 +198,36 @@ catch:
     return NULL;
 }
 
-/*! Create plugin commit/validate tree dependency and register callback
+/*! Create recursive plugin commit dependency and register callback
  *
- * Create config tree dependency component named 'name' and register the
- * callback 'cb' and callback argument 'arg'. 
- * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as dependency 
- * entries that in the form of "<db-key>[:<variable>]". These entries
- * can be set separately via the dbdep_ent() function. 
+ * Create recursive config dependency and register a callback with argument. 
+ * The dependency specifies a database key or key pattern (eg "a[].b*"). A callback with the 
+ * following signature is registered:
+ *   cb(h, dbname, op, key, arg);
+ * where 'h' is the clicon handle, dbname is the database (eg running), op is delete or set,
+ * and arg is the argument specified in this function.
+ * Whenever a key matching the pattern (eg a.0.b.8, a.0.b.8.c), a single call to cb will be 
+ * made:
+ *   cb(h, dbname, op, a.0.b, arg);
+ * The difference with dbdep() is that only a single callback is made
  *
- * @param h     Config handle
- * @param row   weight / row. The lower the number, the earlier it is called.
- * @param cb    Callback to call
- * @param arg   Arg to send to callback
- * @param key   Key we're depending on
+ * @param  h     Config handle
+ * @param  prio  Priority. The lower the number, the earlier the callback is called.
+ * @param  cb    Function to call
+ * @param  arg   Arg to send as parameter to callback
+ * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]"
  *
- *  return value needs to be freed.
- * NOTE: this function should replace dbdep()!
+ * @retval NULL  Error
+ * @retval dp    Dependency handle. Must be freed XXX?
+ * @code
+ * dbdep_tree(h, 0, mycommit, NULL, "a[].b*");
+ * @endcode
+ * @see dbdep, dbdep_validate
  */
+
 dbdep_handle_t
 dbdep_tree(clicon_handle h, /* Config handle */
-	   uint16_t      row, 
+	   uint16_t      prio, 
 	   trans_cb      cb,            /* Callback called */
 	   void         *arg,           /* Arg to send to callback */
 	   char         *key)           /* Key we're depending on */
@@ -220,7 +237,7 @@ dbdep_tree(clicon_handle h, /* Config handle */
 
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
-    dp->dp_row = row;
+    dp->dp_row = prio;
     dp->dp_deptype = DBDEP_TREE;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
@@ -245,26 +262,36 @@ catch:
     return NULL;
 }
 
-/*! Create plugin commit/validate dependency and register callback
+/*! Create plugin commit dependency and register callback 
  *
- * Create config dependency component named 'name' and register the
- * callback 'cb' and callback argument 'arg'. 
- * The entries are pushed on the list (last first)
- * The optional following arguments will be treated as dependency 
- * entries that in the form of "<db-key>[:<variable>]". These entries
- * can be set separately via the dbdep_ent() function. 
+ * Create config dependency and register a callback with argument. 
+ * The dependency specifies a database key or key pattern (eg "a[].b*"). A callback with the 
+ * following signature is registered:
+ *   cb(h, dbname, op, key, arg);
+ * where 'h' is the clicon handle, dbname is the database (eg running), op is delete or set,
+ * and arg is the argument specified in this function.
+ * Whenever a key matching the pattern (eg a.0.b.8, a.0.b.10.c), cb will be 
+ * for each matching key as follows:
+ *   cb(h, dbname, op, a.0.b.8, arg);
+ *   cb(h, dbname, op, a.0.b.10.c, arg);
+ * The difference with dbdep_tree is that a callback for each changed key will be made.
  *
- * @param h     Config handle
- * @param row   weight / row. The lower the number, the earlier it is called.
- * @param cb    Callback to call
- * @param arg   Arg to send to callback
- * @param key   Key we're depending on
+ * @param  h     Config handle
+ * @param  prio  Priority. The lower the number, the earlier the callback is called.
+ * @param  cb    Function to call
+ * @param  arg   Arg to send as parameter to callback
+ * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]" XXX?
  *
- *  return value needs to be freed.
+ * @retval NULL  Error
+ * @retval dp    Dependency handle. Must be freed XXX?
+ * @code
+ *   dbdep(h, 0, mycommit, NULL, "a[].b*");
+ * @endcode
+ * @see dbdep_tree, dbdep_validate
  */
 dbdep_handle_t
-dbdep(clicon_handle h, /* Config handle */
-      uint16_t      row, 
+dbdep(clicon_handle h,             /* Config handle */
+      uint16_t      prio, 
       trans_cb      cb,            /* Callback called */
       void         *arg,           /* Arg to send to callback */
       char         *key)           /* Key we're depending on */
@@ -274,11 +301,11 @@ dbdep(clicon_handle h, /* Config handle */
 
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
-    dp->dp_row = row;
-    dp->dp_deptype = DBDEP_KEY;
+    dp->dp_row      = prio;
+    dp->dp_deptype  = DBDEP_KEY;
     dp->dp_callback = cb;
-    dp->dp_arg  = arg;
-    dp->dp_type = TRANS_CB_COMMIT;
+    dp->dp_arg      = arg;
+    dp->dp_type     = TRANS_CB_COMMIT;
     
     clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
     if ((var = strchr(key, ':')))

@@ -61,6 +61,8 @@
 
 #include "cli_common.h"
 
+static int xml2csv(FILE *f, cxobj *x, cvec *cvv);
+static int xml2csv_raw(FILE *f, cxobj *x);
 
 /*
  * init_candidate_db
@@ -1169,7 +1171,7 @@ compare_xmls(cxobj *xc1, cxobj *xc2, int astext)
     close(fd);
 
     if ((fd = mkstemp(filename2)) < 0){
-	clicon_err(OE_UNDEF, errno, "tmpfile: %s", strerror (errno));
+	clicon_err(OE_UNDEF, errno, "mkstemp: %s", strerror (errno));
 	goto done;
     }
     if ((f = fdopen(fd, "w")) == NULL)
@@ -1724,7 +1726,6 @@ done:
     if (val)
 	free(val);
     return retval;
-
 }
 
 /* callback used by show_conf_* just to merge xml */
@@ -1844,14 +1845,27 @@ show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
     return show_conf_as_command(h, vars, arg, NULL); /* XXX: how to set prepend? */
 }
 
+enum showas{
+    SHOWAS_XML = 0,
+    SHOWAS_CSV,
+    SHOWAS_TEXT
+};
+
+/*! This is the callback used by cli_setlog to print log message in CLI
+ * param[in]  s    UNIX socket from backend  where message should be read
+ * param[in]  arg  format int:  0 (xml), 1 csv, 2 (
+ */
 static int
 cli_notification_cb(int s, void *arg)
 {
     struct clicon_msg *reply;
     int                eof;
     int                retval = -1;
-    char              *event = NULL;
+    char              *eventstr = NULL;
     int                level;
+    cxobj             *xt = NULL;
+    cxobj             *xc;
+    enum showas        format = (enum showas)arg;
 
     /* get msg (this is the reason this function is called) */
     if (clicon_msg_rcv(s, &reply, &eof, __FUNCTION__) < 0)
@@ -1865,9 +1879,29 @@ cli_notification_cb(int s, void *arg)
     }
     switch (reply->op_type){
     case CLICON_MSG_NOTIFY:
-	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
+	if (clicon_msg_notify_decode(reply, &level, &eventstr, __FUNCTION__) < 0) 
 	    goto done;
-	fprintf(stderr, "%s\n", event);
+	switch(format){
+	case SHOWAS_XML: 
+	    fprintf(stdout, "%s", eventstr);
+	    break;
+	case SHOWAS_CSV:
+	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
+		goto done;
+	    /* XXX: This is hardcoded to find //sample */
+	    if ((xc= xpath_first(xt, "//sample")) != NULL)
+		if (xml2csv_raw(stdout, xc) < 0)
+		    goto done;
+	    break;
+	case SHOWAS_TEXT: 
+	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
+		goto done;
+	    if (xml_child_nr(xt) && xml2txt(stdout, xml_child_i(xt, 0), 0) < 0)
+		goto done;
+	    break;
+	default:
+	    break;
+	}
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
@@ -1877,18 +1911,23 @@ cli_notification_cb(int s, void *arg)
     }
     retval = 0;
   done:
+    if (xt)
+	xml_free(xt);
     unchunk_group(__FUNCTION__); /* event allocated by chunk */
     return retval;
 
 }
 
-/*! Send a notify subscription to backend and un/register callback for return messages.
+/*! Make a notify subscription to backend and un/register callback for return messages.
  * 
  * @param[in] h      Clicon handle
  * @param[in] vars   Not used
- * @param[in] arg    A string with log stream name and stream status
+ * @param[in] arg    A string with <log stream name> <stream status> [<format>]
+ * where <status> is 0 or 1
+ * and   <format> is of type enum showas (default XML)
  * @code
- * cmd("comment"), cli_setlog("mystream 0"); # turn off logging of mystream
+ * # Start logging of mystream and show logs as xml
+ * cmd("comment"), cli_setlog("mystream 1 0"); 
  * @endcode
  */
 int
@@ -1907,6 +1946,7 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     int              s_exist = -1;
     size_t           len;
     char            *logname;
+    enum showas      format = 0;
 
     if (arg==NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1916,12 +1956,14 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
 	goto done;
     }
-    if (nvec != 2){
+    if (nvec < 2){
 	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <stream> <status>", str);	
 	goto done;
     }
     stream = vec[0];
     status = atoi(vec[1]);
+    if (nvec > 2)
+	format = atoi(vec[2]);
 
     if ((sockpath = clicon_sock(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
@@ -1941,9 +1983,8 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
 	}
 	if (cli_proto_subscription(sockpath, status, stream, &s) < 0)
 	    goto done;
-	if (cligen_regfd(s, cli_notification_cb, NULL) < 0)
+	if (cligen_regfd(s, cli_notification_cb, (void*)format) < 0)
 	    goto done;
-	fprintf(stderr, "%s: reg %d\n", __FUNCTION__, s);
 	if (hash_add(cdat, logname, &s, sizeof(s)) == NULL)
 	    goto done;
     }
@@ -1963,21 +2004,46 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     return retval;
 }
 
-/* XXX backward comnpatible */
-int 
-cli_getlog(clicon_handle h, cvec *vars, cg_var *arg)
+/*! XML to CSV raw variant 
+ * @see xml2csv
+ */
+static int 
+xml2csv_raw(FILE *f, cxobj *x)
 {
-    return cli_setlog(h, vars, arg);
+    cxobj           *xc;
+    cxobj           *xb;
+    int              retval = -1;
+    int              i = 0;
+
+    xc = NULL;
+    while ((xc = xml_child_each(x, xc, CX_ELMNT)) != NULL) {
+	if (xml_child_nr(xc)){
+	    xb = xml_child_i(xc, 0);
+	    if (xml_type(xb) == CX_BODY){
+		if (i++)
+		    fprintf(f, ";");
+		fprintf(f, "%s", xml_value(xb));
+	    }
+	}
+    }
+    fprintf(f, "\n");
+    retval = 0;
+    return retval;
 }
 
-/* Translate XML -> CSV commands
+
+/*! Translate XML -> CSV commands
  * Can only be made in a 'flat tree', ie on the form:
  * <X><A>B</A></X> --> 
  * Type, A
  * X,  B
+ * @param[in]  f     Output file
+ * @param[in]  x     XML tree
+ * @param[in]  cvv   A vector of field names present in XML
+ * This means that only fields in x that are listed in cvv will be printed.
  */
-int 
-xml2csv(FILE *f, cxobj *x, cvec *vh)
+static int 
+xml2csv(FILE *f, cxobj *x, cvec *cvv)
 {
     cxobj *xe, *xb;
     int              retval = -1;
@@ -1987,7 +2053,7 @@ xml2csv(FILE *f, cxobj *x, cvec *vh)
     xe = NULL;
 
     vs = NULL;
-    while ((vs = cvec_each(vh, vs))) {
+    while ((vs = cvec_each(cvv, vs))) {
 	if ((xe = xml_find(x, cv_name_get(vs))) == NULL){
 	    fprintf(f, ";");
 	    continue;
@@ -2000,7 +2066,6 @@ xml2csv(FILE *f, cxobj *x, cvec *vh)
     fprintf(f, "\n");
     retval = 0;
     return retval;
-
 }
 
 
@@ -2012,7 +2077,7 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
     int              retval = -1;
     dbspec_key  *dbspec, *ds=NULL; 
     cg_var          *vs;
-    cvec            *vh=NULL;
+    cvec            *cvv=NULL;
     char            *str;
 
     dbspec = clicon_dbspec_key(h);
@@ -2027,15 +2092,15 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 	    goto done;
 	if (ds==NULL && (ds = key2spec_key(dbspec, str)) != NULL){
 	    fprintf(stdout, "Type");
-	    vh = db_spec2cvec(ds);
+	    cvv = db_spec2cvec(ds);
 	    vs = NULL;
-	    while ((vs = cvec_each(vh, vs))) 
+	    while ((vs = cvec_each(cvv, vs))) 
 		fprintf(stdout, ";%s",	cv_name_get(vs));
 	    fprintf(stdout, "\n");
 	} /* Now values just need to follow,... */
-	if (vh== NULL)
+	if (cvv== NULL)
 	    goto done;
-	xml2csv(stdout, xc, vh); /* cli syntax */
+	xml2csv(stdout, xc, cvv); /* cli syntax */
     }
 
     retval = 0;

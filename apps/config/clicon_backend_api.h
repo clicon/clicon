@@ -40,11 +40,11 @@ typedef enum trans_cb_type trans_cb_type;
  * Transaction operation (commit/validate after object add/del/modify) to backend plugin 
  * when dependencies changed
  */
-typedef int (*trans_cb)(clicon_handle h, 
-			  char *dbname, 
-			  lv_op_t op, 
-			  char *key, 
-			  void *arg);  
+typedef int (*trans_cb)(clicon_handle h,
+			char *dbname,
+			lv_op_t op,
+			char *key,
+			void *arg);
 
 /*
  * Generic downcall registration. Enables any function to be called from (cli) frontend

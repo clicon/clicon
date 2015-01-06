@@ -783,11 +783,12 @@ clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)
  * @retval -1  Error with clicon_err called
  *
  * @code
+ *  cxobj *cx = NULL;
  *  str = strdup(...);
  *  str0 = str;
- *  clicon_xml_parse_string(&str, &cxobj)
+ *  clicon_xml_parse_string(&str0, &cx)
  *  free(str0);
- *  xml_free(cxobj);
+ *  xml_free(cx);
  * @endcode
  * @see clicon_xml_parse_file
  * Note, you need to free the xml parse tree after use, using xml_free()
