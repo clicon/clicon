@@ -135,6 +135,60 @@ err:
     return -1;
 } 
 
+/*! Create plugin validate dependency and register callback
+ *
+ * Create config validation dependency component named 'name' and register the
+ * callback 'cb' and callback argument 'arg'. 
+ * The entries are pushed on the list (last first)
+ * The optional following arguments will be treated as dependency 
+ * entries that in the form of "<db-key>[:<variable>]". These entries
+ * can be set separately via the dbdep_ent() function. 
+ *
+ * @param h     Config handle
+ * @param row   weight / row. The lower the number, the earlier it is called.
+ * @param cb    Callback to call
+ * @param arg   Arg to send to callback
+ * @param key   Key we're depending on
+ *
+ *  return value needs to be freed.
+ * NOTE: this function should replace dbdep()!
+ */
+dbdep_handle_t
+dbdep_validate(clicon_handle h, /* Config handle */
+      uint16_t      row, 
+      trans_cb      cb,            /* Callback called */
+      void         *arg,           /* Arg to send to callback */
+      char         *key)           /* Key we're depending on */
+{
+    dbdep_t *dp, *deps;
+    char    *var;
+
+    if ((dp = dbdep_create()) == NULL)
+	return NULL;
+    dp->dp_row = row;
+    dp->dp_deptype = DBDEP_KEY;
+    dp->dp_callback = cb;
+    dp->dp_arg  = arg;
+    dp->dp_type = TRANS_CB_VALIDATE;
+    
+    clicon_debug(2, "%s: Created validation dependency '%s'", __FUNCTION__, key);
+    if ((var = strchr(key, ':')))
+      *var++ = '\0';
+    if (dbdep_ent(dp, key, var) < 0)
+      goto catch;
+    if (var)
+      *(var-1) = ':';
+
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
+    backend_dbdep_set(h, deps);
+    return dp;
+
+catch:
+    if (dp)
+	dbdep_free(dp);
+    return NULL;
+}
 
 /*! Create plugin commit/validate tree dependency and register callback
  *
@@ -157,7 +211,6 @@ err:
 dbdep_handle_t
 dbdep_tree(clicon_handle h, /* Config handle */
 	   uint16_t      row, 
-	   trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
 	   trans_cb      cb,            /* Callback called */
 	   void         *arg,           /* Arg to send to callback */
 	   char         *key)           /* Key we're depending on */
@@ -171,7 +224,7 @@ dbdep_tree(clicon_handle h, /* Config handle */
     dp->dp_deptype = DBDEP_TREE;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
-    dp->dp_type = trans_cb_type;
+    dp->dp_type = TRANS_CB_COMMIT;
     
     clicon_debug(2, "%s: Created tree dependency '%s'", __FUNCTION__, key);
     if ((var = strchr(key, ':')))
@@ -212,7 +265,6 @@ catch:
 dbdep_handle_t
 dbdep(clicon_handle h, /* Config handle */
       uint16_t      row, 
-      trans_cb_type trans_cb_type, /* Type of callback: commit/validate or both */
       trans_cb      cb,            /* Callback called */
       void         *arg,           /* Arg to send to callback */
       char         *key)           /* Key we're depending on */
@@ -226,7 +278,7 @@ dbdep(clicon_handle h, /* Config handle */
     dp->dp_deptype = DBDEP_KEY;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
-    dp->dp_type = trans_cb_type;
+    dp->dp_type = TRANS_CB_COMMIT;
     
     clicon_debug(2, "%s: Created dependency '%s'", __FUNCTION__, key);
     if ((var = strchr(key, ':')))

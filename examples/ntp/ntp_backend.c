@@ -76,7 +76,6 @@ static char *ntp_fmt =
 int
 ntp_commit(clicon_handle h, 
 	   char *db,
-	   trans_cb_type tt, 
 	    lv_op_t op,
 	    char *key,
 	    void *arg)
@@ -99,7 +98,7 @@ plugin_init(clicon_handle h)
 
     for (i = 0; ntp_keys[i]; i++) {
 	key = ntp_keys[i];
-	if (dbdep(h, 0, TRANS_CB_COMMIT, ntp_commit, (void *)NULL, key) == NULL) {
+	if (dbdep(h, 0, ntp_commit, (void *)NULL, key) == NULL) {
 	    clicon_debug(1, "Failed to create dependency '%s'", key);
 	    goto done;
 	}

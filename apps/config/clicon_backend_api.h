@@ -42,7 +42,6 @@ typedef enum trans_cb_type trans_cb_type;
  */
 typedef int (*trans_cb)(clicon_handle h, 
 			  char *dbname, 
-			  trans_cb_type trans_cb_type, 
 			  lv_op_t op, 
 			  char *key, 
 			  void *arg);  
@@ -64,8 +63,9 @@ typedef void *dbdep_handle_t;
 /*
  * Add DB dependency
  */
-dbdep_handle_t dbdep(clicon_handle h, uint16_t row, trans_cb_type, trans_cb, void *, char *);
-dbdep_handle_t dbdep_tree(clicon_handle h, uint16_t row, trans_cb_type, trans_cb, void *, char *);
+dbdep_handle_t dbdep(clicon_handle h, uint16_t row, trans_cb, void *, char *);
+dbdep_handle_t dbdep_tree(clicon_handle h, uint16_t row, trans_cb, void *, char *);
+dbdep_handle_t dbdep_validate(clicon_handle h, uint16_t row, trans_cb, void *, char *);
 
 /*
  * Log for netconf notify function (config_client.c)

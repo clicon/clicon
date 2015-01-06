@@ -81,7 +81,6 @@ static int
 plugin_modify_key_value(clicon_handle h, 
 			char *db, 
 			char *key,
-			enum trans_cb_type type,
 			lv_op_t op,
 			dbdep_t *dp)
 {
@@ -89,7 +88,7 @@ plugin_modify_key_value(clicon_handle h,
 
     clicon_debug(2, "commit diff %c%s", (op==LV_SET)?'+':'-', key);
     clicon_err_reset();
-    if (dp->dp_callback(h, db, type, op, key, dp->dp_arg) < 0){
+    if (dp->dp_callback(h, db, op, key, dp->dp_arg) < 0){
 	if (!clicon_errno) 	/* sanity: log if clicon_err() is not called ! */
 	    clicon_log(LOG_NOTICE, "%s: key: %c%s: callback does not make clicon_err call on error",
 		       __FUNCTION__, (op==LV_SET)?'+':'-', key);
@@ -258,7 +257,6 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec, char *candidate)
 	    (dfe->dfe_op & DBDIFF_OP_FIRST) == DBDIFF_OP_FIRST &&
 	    plugin_modify_key_value(h, candidate,      /* db */
 				    dfe->dfe_key1,     /* key */
-				    TRANS_CB_VALIDATE, /* commit|validate */
 				    LV_DELETE,         /* operation */
 				    dp                 /* callback(arg) */
 		) < 0){
@@ -274,7 +272,6 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec, char *candidate)
 	    dfe->dfe_op == DBDIFF_OP_BOTH &&
 	    plugin_modify_key_value(h, candidate,      /* db */
 				    dfe->dfe_key2,     /* key */
-				    TRANS_CB_VALIDATE, /* commit|validate */
 				    LV_SET,            /* operation */
 				    dp                 /* callback(arg) */
 		) < 0){
@@ -290,7 +287,6 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec, char *candidate)
 	    dfe->dfe_op == DBDIFF_OP_SECOND &&
 	    plugin_modify_key_value(h, candidate,      /* db */
 				    dfe->dfe_key2,     /* key */
-				    TRANS_CB_VALIDATE, /* commit|validate */
 				    LV_SET,            /* operation */
 				    dp                 /* callback(arg) */
 		) < 0){
@@ -401,7 +397,6 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	    dfe->dfe_op & DBDIFF_OP_FIRST &&
 	    plugin_modify_key_value(h, running,        /* db */
 				    key,               /* key */
-				    TRANS_CB_COMMIT,   /* commit|validate */
 				    LV_DELETE,         /* operation */
 				    dp                 /* callback(arg) */
 		) < 0){
@@ -420,7 +415,6 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 		dfe->dfe_op & DBDIFF_OP_FIRST &&
 		plugin_modify_key_value(h, running,       /* db */
 					key,              /* key */
-					TRANS_CB_COMMIT,  /* commit|validate */
 					LV_SET,           /* operation */
 					dp                /* callback(arg) */
 		    ) < 0)
@@ -439,7 +433,6 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 	    dfe->dfe_op & DBDIFF_OP_SECOND &&
 	    plugin_modify_key_value(h, candidate,        /* db */
 				    key,                 /* key */
-				    TRANS_CB_COMMIT,     /* commit|validate */
 				    LV_SET,              /* operation */
 				    dp                   /* callback(arg) */
 		) < 0){
@@ -464,7 +457,6 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 		dfe->dfe_op & DBDIFF_OP_SECOND &&
 		plugin_modify_key_value(h, candidate,    /* db */
 					key,             /* key */
-					TRANS_CB_COMMIT, /* commit|validate */
 					LV_DELETE,       /* operation */
 					dp               /* callback(arg) */
 		    ) < 0)
@@ -480,7 +472,6 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 		dfe->dfe_op & DBDIFF_OP_FIRST &&
 		plugin_modify_key_value(h, running,        /* db */
 					key,               /* key */
-					TRANS_CB_COMMIT,   /* commit|validate */
 					LV_SET,            /* operation */
 					dp                 /* callback(arg) */
 		    ) < 0)
