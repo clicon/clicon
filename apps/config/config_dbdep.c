@@ -152,10 +152,10 @@ err:
  * @param  prio  Priority. The lower the number, the earlier the callback is called.
  * @param  cb    Function to call
  * @param  arg   Arg to send as parameter to callback
- * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]"XXX?
+ * @param  key   A database key or key pattern. 
  *
  * @retval NULL  Error
- * @retval dp    Dependency handle. Must be freed XXX?
+ * @retval dp    Dependency handle.
  * @code
  * dbdep(h, 0, mycommit, NULL, "a[].b*");
  * @endcode
@@ -215,10 +215,10 @@ catch:
  * @param  prio  Priority. The lower the number, the earlier the callback is called.
  * @param  cb    Function to call
  * @param  arg   Arg to send as parameter to callback
- * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]"
+ * @param  key   A database key or key pattern.
  *
  * @retval NULL  Error
- * @retval dp    Dependency handle. Must be freed XXX?
+ * @retval dp    Dependency handle.
  * @code
  * dbdep_tree(h, 0, mycommit, NULL, "a[].b*");
  * @endcode
@@ -280,10 +280,10 @@ catch:
  * @param  prio  Priority. The lower the number, the earlier the callback is called.
  * @param  cb    Function to call
  * @param  arg   Arg to send as parameter to callback
- * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]" XXX?
+ * @param  key   A database key or key pattern.
  *
  * @retval NULL  Error
- * @retval dp    Dependency handle. Must be freed XXX?
+ * @retval dp    Dependency handle.
  * @code
  *   dbdep(h, 0, mycommit, NULL, "a[].b*");
  * @endcode
