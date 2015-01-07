@@ -117,5 +117,7 @@ int show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_text(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_csv(clicon_handle h, cvec *vars, cg_var *arg);
+int cli_notification_register(clicon_handle h, char *stream, int status, 
+			      int (*fn)(int, void*), void *arg);
 
 #endif /* _CLICON_CLI_API_H_ */

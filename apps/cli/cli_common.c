@@ -62,7 +62,7 @@
 #include "cli_common.h"
 
 static int xml2csv(FILE *f, cxobj *x, cvec *cvv);
-static int xml2csv_raw(FILE *f, cxobj *x);
+//static int xml2csv_raw(FILE *f, cxobj *x);
 
 /*
  * init_candidate_db
@@ -1847,7 +1847,6 @@ show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
 
 enum showas{
     SHOWAS_XML = 0,
-    SHOWAS_CSV,
     SHOWAS_TEXT
 };
 
@@ -1864,7 +1863,6 @@ cli_notification_cb(int s, void *arg)
     char              *eventstr = NULL;
     int                level;
     cxobj             *xt = NULL;
-    cxobj             *xc;
     enum showas        format = (enum showas)arg;
 
     /* get msg (this is the reason this function is called) */
@@ -1884,14 +1882,6 @@ cli_notification_cb(int s, void *arg)
 	switch(format){
 	case SHOWAS_XML: 
 	    fprintf(stdout, "%s", eventstr);
-	    break;
-	case SHOWAS_CSV:
-	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
-		goto done;
-	    /* XXX: This is hardcoded to find //sample */
-	    if ((xc= xpath_first(xt, "//sample")) != NULL)
-		if (xml2csv_raw(stdout, xc) < 0)
-		    goto done;
 	    break;
 	case SHOWAS_TEXT: 
 	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
@@ -1918,52 +1908,28 @@ cli_notification_cb(int s, void *arg)
 
 }
 
-/*! Make a notify subscription to backend and un/register callback for return messages.
- * 
- * @param[in] h      Clicon handle
- * @param[in] vars   Not used
- * @param[in] arg    A string with <log stream name> <stream status> [<format>]
- * where <status> is 0 or 1
- * and   <format> is of type enum showas (default XML)
- * @code
- * # Start logging of mystream and show logs as xml
- * cmd("comment"), cli_setlog("mystream 1 0"); 
- * @endcode
+/*! Register log notification stream
+ * @param[in] h       Clicon handle
+ * @param[in] stream  Event stream CLICON is predefined, others are application-defined
+ * @param[in] status  0 for stop, 1 to start
+ * @param[in] fn      Callback function called when notification occurs
+ * @param[in] arg     Argumnent to function
  */
 int
-cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
+cli_notification_register(clicon_handle h, 
+			  char         *stream, 
+			  int           status, 
+			  int         (*fn)(int, void*),
+			  void         *arg)
 {
+    int retval = -1;
     char            *sockpath;
-    int              s;
-    char            *stream = NULL;
-    int              retval = -1;
-    char           **vec = NULL;
-    int              nvec;
-    char            *str;
-    int              status;
-    clicon_hash_t   *cdat = clicon_data(h);
-    void            *p;
-    int              s_exist = -1;
-    size_t           len;
     char            *logname;
-    enum showas      format = 0;
-
-    if (arg==NULL || (str = cv_string_get(arg)) == NULL){
-	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
-	goto done;
-    }
-    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
-	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
-	goto done;
-    }
-    if (nvec < 2){
-	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <stream> <status>", str);	
-	goto done;
-    }
-    stream = vec[0];
-    status = atoi(vec[1]);
-    if (nvec > 2)
-	format = atoi(vec[2]);
+    void            *p;
+    int              s;
+    clicon_hash_t   *cdat = clicon_data(h);
+    size_t           len;
+    int              s_exist = -1;
 
     if ((sockpath = clicon_sock(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
@@ -1983,7 +1949,7 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
 	}
 	if (cli_proto_subscription(sockpath, status, stream, &s) < 0)
 	    goto done;
-	if (cligen_regfd(s, cli_notification_cb, (void*)format) < 0)
+	if (cligen_regfd(s, fn, arg) < 0)
 	    goto done;
 	if (hash_add(cdat, logname, &s, sizeof(s)) == NULL)
 	    goto done;
@@ -1997,6 +1963,53 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
 	    goto done;
 
     }
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! Make a notify subscription to backend and un/register callback for return messages.
+ * 
+ * @param[in] h      Clicon handle
+ * @param[in] vars   Not used
+ * @param[in] arg    A string with <log stream name> <stream status> [<format>]
+ * where <status> is 0 or 1
+ * and   <format> is of type enum showas (default XML)
+ * @code
+ * # Start logging of mystream and show logs as xml
+ * cmd("comment"), cli_setlog("mystream 1 0"); 
+ * @endcode
+ */
+int
+cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
+{
+    char            *stream = NULL;
+    int              retval = -1;
+    char           **vec = NULL;
+    int              nvec;
+    char            *str;
+    int              status;
+    enum showas      format = 0;
+
+    if (arg==NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
+	goto done;
+    }
+    if (nvec < 2){
+	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <stream> <status>", str);	
+	goto done;
+    }
+    stream = vec[0];
+    status = atoi(vec[1]);
+    if (nvec > 2)
+	format = atoi(vec[2]);
+    if (cli_notification_register(h, stream, status, cli_notification_cb, (void*)format) < 0)
+	goto done;
 
     retval = 0;
   done:
@@ -2004,6 +2017,7 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     return retval;
 }
 
+#ifdef notused
 /*! XML to CSV raw variant 
  * @see xml2csv
  */
@@ -2030,7 +2044,7 @@ xml2csv_raw(FILE *f, cxobj *x)
     retval = 0;
     return retval;
 }
-
+#endif
 
 /*! Translate XML -> CSV commands
  * Can only be made in a 'flat tree', ie on the form:

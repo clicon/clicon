@@ -63,8 +63,8 @@ typedef void *dbdep_handle_t;
 /*
  * Add DB dependency
  */
-dbdep_handle_t dbdep(clicon_handle h, uint16_t row, trans_cb, void *, char *);
-dbdep_handle_t dbdep_tree(clicon_handle h, uint16_t row, trans_cb, void *, char *);
+dbdep_handle_t dbdep(clicon_handle h, uint16_t prio, trans_cb, void *, char *);
+dbdep_handle_t dbdep_tree(clicon_handle h, uint16_t prio, trans_cb, void *, char *);
 dbdep_handle_t dbdep_validate(clicon_handle h, uint16_t row, trans_cb, void *, char *);
 dbdep_handle_t dbdep_tree_validate(clicon_handle h, uint16_t row, trans_cb, void *, char *);
 
