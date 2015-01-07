@@ -198,6 +198,69 @@ catch:
     return NULL;
 }
 
+/*! Create recursive plugin validate dependency and register callback
+ *
+ * Create recursive validate dependency and register a callback with argument. 
+ * The dependency specifies a database key or key pattern (eg "a[].b*"). A callback with the 
+ * following signature is registered:
+ *   cb(h, dbname, op, key, arg);
+ * where 'h' is the clicon handle, dbname is the database (eg running), op is delete or set,
+ * and arg is the argument specified in this function.
+ * Whenever a key matching the pattern (eg a.0.b.8, a.0.b.8.c), a single call to cb will be 
+ * made:
+ *   cb(h, dbname, op, a.0.b, arg);
+ * The difference with dbdep_validate() is that only a single callback is made
+ *
+ * @param  h     Config handle
+ * @param  prio  Priority. The lower the number, the earlier the callback is called.
+ * @param  cb    Function to call
+ * @param  arg   Arg to send as parameter to callback
+ * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]"
+ *
+ * @retval NULL  Error
+ * @retval dp    Dependency handle. Must be freed XXX?
+ * @code
+ * dbdep_tree(h, 0, mycommit, NULL, "a[].b*");
+ * @endcode
+ * @see dbdep, dbdep_validate
+ */
+dbdep_handle_t
+dbdep_tree_validate(clicon_handle h, /* Config handle */
+		    uint16_t      prio, 
+		    trans_cb      cb,            /* Callback called */
+		    void         *arg,           /* Arg to send to callback */
+		    char         *key)           /* Key we're depending on */
+{
+  dbdep_t *dp, *deps;
+    char    *var;
+
+    if ((dp = dbdep_create()) == NULL)
+	return NULL;
+    dp->dp_row = prio;
+    dp->dp_deptype = DBDEP_KEY;
+    dp->dp_callback = cb;
+    dp->dp_arg  = arg;
+    dp->dp_type = TRANS_CB_VALIDATE;
+    
+    clicon_debug(2, "%s: Created validation dependency '%s'", __FUNCTION__, key);
+    if ((var = strchr(key, ':')))
+      *var++ = '\0';
+    if (dbdep_ent(dp, key, var) < 0)
+      goto catch;
+    if (var)
+      *(var-1) = ':';
+
+    deps = backend_dbdep(h); /* ADDQ must work w an explicit variable */
+    ADDQ(dp, deps);
+    backend_dbdep_set(h, deps);
+    return dp;
+
+catch:
+    if (dp)
+	dbdep_free(dp);
+    return NULL;
+}
+
 /*! Create recursive plugin commit dependency and register callback
  *
  * Create recursive config dependency and register a callback with argument. 
