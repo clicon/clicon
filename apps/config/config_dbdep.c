@@ -215,10 +215,10 @@ catch:
  * @param  prio  Priority. The lower the number, the earlier the callback is called.
  * @param  cb    Function to call
  * @param  arg   Arg to send as parameter to callback
- * @param  key   A database key or key pattern. Format: "<db-key>[:<variable>]"
+ * @param  key   A database key or key pattern.
  *
  * @retval NULL  Error
- * @retval dp    Dependency handle. Must be freed XXX?
+ * @retval dp    Dependency handle.
  * @code
  * dbdep_tree(h, 0, mycommit, NULL, "a[].b*");
  * @endcode
@@ -237,7 +237,7 @@ dbdep_tree_validate(clicon_handle h, /* Config handle */
     if ((dp = dbdep_create()) == NULL)
 	return NULL;
     dp->dp_row = prio;
-    dp->dp_deptype = DBDEP_KEY;
+    dp->dp_deptype = DBDEP_TREE;
     dp->dp_callback = cb;
     dp->dp_arg  = arg;
     dp->dp_type = TRANS_CB_VALIDATE;
