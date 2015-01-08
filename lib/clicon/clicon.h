@@ -40,9 +40,6 @@
 #include <clicon/clicon_handle.h>
 #include <clicon/clicon_db.h>
 #include <clicon/clicon_dbspec_key.h>
-/* Backward compatinility: */
-//#define db_spec dbspec_key
-
 #include <clicon/clicon_yang.h>
 #include <clicon/clicon_yang_type.h>
 #include <clicon/clicon_yang2key.h>

@@ -50,12 +50,6 @@ int load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname);
 int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);
 int xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys) ;
-
-/* backward compatible */
-static inline cxobj *db2xml(char *dbname, dbspec_key *dbspec, char *toptag){
-    return db2xml_key(dbname, dbspec, NULL, toptag);
-}
-
-
+int xml2json(FILE *f, cxobj *x, int level);
 
 #endif  /* _CLICON_XML_MAP_H_ */

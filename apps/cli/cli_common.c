@@ -1845,10 +1845,45 @@ show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
     return show_conf_as_command(h, vars, arg, NULL); /* XXX: how to set prepend? */
 }
 
+/*! Enumeration used in logs for which format to use
+ * This code can be extended by applications to make other formats or 
+ * transformations
+ */
 enum showas{
-    SHOWAS_XML = 0,
-    SHOWAS_TEXT
+    SHOWAS_ERR = 0,
+    SHOWAS_TXT,
+    SHOWAS_XML,
+    SHOWAS_XML2TXT,
+    SHOWAS_XML2JSON
 };
+
+/* show-as data structures so that you can use a string in the clispec and
+   use an integer in the C-code */
+struct map_str2int{
+    char         *ms_str; 
+    int           ms_int;
+};
+
+/* Mapping between showas keyword string <--> constants */
+static const struct map_str2int samap[] = {
+    {"txt",           SHOWAS_TXT}, /* print event string as-is */
+    {"xml",           SHOWAS_XML}, /* print event as xml */
+    {"xml2txt",       SHOWAS_XML2TXT}, /* parse xml and transform to txt */
+    {"xml2json",      SHOWAS_XML2JSON}, 
+    {NULL,            -1}
+};
+
+static int
+showas_str2key(char *str)
+{
+    const struct map_str2int *ms;
+
+    for (ms = &samap[0]; ms->ms_str; ms++)
+	if (strcmp(ms->ms_str, str) == 0)
+	    return ms->ms_int;
+    return SHOWAS_ERR;
+}
+
 
 /*! This is the callback used by cli_setlog to print log message in CLI
  * param[in]  s    UNIX socket from backend  where message should be read
@@ -1863,6 +1898,7 @@ cli_notification_cb(int s, void *arg)
     char              *eventstr = NULL;
     int                level;
     cxobj             *xt = NULL;
+    cxobj             *xn;
     enum showas        format = (enum showas)arg;
 
     /* get msg (this is the reason this function is called) */
@@ -1880,18 +1916,35 @@ cli_notification_cb(int s, void *arg)
 	if (clicon_msg_notify_decode(reply, &level, &eventstr, __FUNCTION__) < 0) 
 	    goto done;
 	switch(format){
-	case SHOWAS_XML: 
+	case SHOWAS_TXT: 
 	    fprintf(stdout, "%s", eventstr);
 	    break;
-	case SHOWAS_TEXT: 
+	case SHOWAS_XML:
 	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
 		goto done;
-	    if (xml_child_nr(xt) && xml2txt(stdout, xml_child_i(xt, 0), 0) < 0)
+	    if ((xn = xml_child_i(xt, 0)) != NULL)
+		if (clicon_xml2file(stdout, xn, 0, 1) < 0)
+		    goto done;
+	    break;
+	case SHOWAS_XML2TXT: 
+	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
 		goto done;
+	    if ((xn = xml_child_i(xt, 0)) != NULL)
+		if (xml2txt(stdout, xn, 0) < 0)
+		    goto done;
+	    break;
+	case SHOWAS_XML2JSON:
+	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
+		goto done;
+	    if ((xn = xml_child_i(xt, 0)) != NULL){
+		if (xml2json(stdout, xn, 0) < 0)
+		    goto done;
+	    }
 	    break;
 	default:
 	    break;
 	}
+
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
@@ -1990,7 +2043,7 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     int              nvec;
     char            *str;
     int              status;
-    enum showas      format = 0;
+    enum showas      format = SHOWAS_TXT;
 
     if (arg==NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -2007,7 +2060,11 @@ cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
     stream = vec[0];
     status = atoi(vec[1]);
     if (nvec > 2)
-	format = atoi(vec[2]);
+	format = showas_str2key(vec[2]);
+    if (format == SHOWAS_ERR){
+	clicon_err(OE_PLUGIN, 0, "No such format: %s", vec[2]);
+	goto done;
+    }
     if (cli_notification_register(h, stream, status, cli_notification_cb, (void*)format) < 0)
 	goto done;
 

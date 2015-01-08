@@ -609,11 +609,7 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 
     switch(xml_type(cx)){
     case CX_BODY:
-	if (prettyprint)
-	    cprintf(cb, "%*s", level*XML_INDENT, "");
 	cprintf(cb, "%s", xml_value(cx));
-	if (prettyprint)
-	    cprintf(cb, "\n");
 	break;
     case CX_ATTR:
 	cprintf(cb, " ");
@@ -633,7 +629,7 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 	    clicon_xml2cbuf(cb, xc, level+1, prettyprint);
 	}
 	cprintf(cb, ">");
-	if (prettyprint)
+	if (prettyprint && xml_body(cx)==NULL)
 	    cprintf(cb, "\n");
 	xc = NULL;
 	while ((xc = xml_child_each(cx, xc, -1)) != NULL) {
@@ -642,7 +638,7 @@ clicon_xml2cbuf(cbuf *cb, cxobj *cx, int level, int prettyprint)
 	    else
 		clicon_xml2cbuf(cb, xc, level+1, prettyprint);
 	}
-	if (prettyprint)
+	if (prettyprint && xml_body(cx)==NULL)
 	    cprintf(cb, "%*s", level*XML_INDENT, "");
 	cprintf(cb, "</%s>", xml_name(cx));
 	if (prettyprint)

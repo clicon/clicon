@@ -54,6 +54,19 @@ datamodel_commit(clicon_handle h,
 }
 
 
+int
+datamodel_validate(clicon_handle h, 
+		 char *db,
+		 lv_op_t op,
+		 char *key,
+		 void *arg)
+{
+    if (op == LV_SET)
+	fprintf(stderr, "%s key:%s\n", __FUNCTION__, key);    
+    return 0;
+}
+
+
 /*
  * Plugin initialization
  */
@@ -63,6 +76,11 @@ plugin_init(clicon_handle h)
     int retval = -1;
 
     if (dbdep_tree(h, 0, datamodel_commit, 
+			 (void *)NULL, "a[]*") == NULL) {
+	clicon_debug(1, "Failed to create dependency");
+	goto done;
+    }
+    if (dbdep_tree_validate(h, 0, datamodel_validate, 
 			 (void *)NULL, "a[]*") == NULL) {
 	clicon_debug(1, "Failed to create dependency");
 	goto done;

@@ -880,7 +880,7 @@ load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname)
 }
 
 
-/* x is element and has eactly one child which in turn has none */
+/*! x is element and has eactly one child which in turn has none */
 static int
 tleaf(cxobj *x)
 {
@@ -893,7 +893,6 @@ tleaf(cxobj *x)
     c = xml_child_i(x, 0);
     return (xml_child_nr(c) == 0);
 }
-
 
 /*! Translate XML -> TEXT
  * @param[in]  level  print 4 spaces per level in front of each line
@@ -1033,8 +1032,103 @@ xml2cli(FILE              *f,
     retval = 0;
   done:
     return retval;
-
 }
+
+/*! Translate from xml tree to JSON 
+ * XXX ugly code could be cleaned up
+ */
+int 
+xml2json1(FILE *f, cxobj *x, int level, int eq)
+{
+    cxobj           *xe = NULL;
+    cxobj           *x1;
+    int              retval = -1;
+    int              level1 = level+1;
+    int              level2 = level+2;
+    int              i;
+    int              n;
+    int              eq1;
+
+    switch(xml_type(x)){
+    case CX_BODY:
+	fprintf(f, "\"%s\"", xml_value(x));
+	break;
+    case CX_ELMNT:
+	if (eq == 2)
+	    fprintf(f, "%*s", 2*level2, "");
+	else{
+	    fprintf(f, "%*s", 2*level1, "");
+	    fprintf(f, "\"%s\": ", xml_name(x));
+	}
+	if (xml_body(x)!=NULL){
+	    if (eq==1){
+		fprintf(f, "[\n");
+		fprintf(f, "%*s", 2*level2, "");
+	    }
+	}
+	else {
+	    fprintf(f, "{\n");
+	}
+	xe = NULL;     
+	n = xml_child_nr(x);
+	eq1 = 0;
+	for (i=0; i<n; i++){
+	    xe = xml_child_i(x, i);
+	    if (xml_body(xe)!=NULL){
+		if ((x1 = xml_child_i(x, i+1)) != NULL){
+		    if (xml_body(x1) && strcmp(xml_name(xe), xml_name(x1)) == 0){
+			if (!eq1)
+			    eq1 = 1;
+		    }
+		    else
+			if (eq1)
+			    eq1 = 2; /* last */
+		}
+	    }
+	    if (xml2json1(f, xe, level1, eq1) < 0)
+		goto done;
+	    if (xml_body(xe)!=NULL){
+		if (eq1 == 2){
+		    fprintf(f, "\n");
+		    fprintf(f, "%*s", 2*level2, "");
+		    fprintf(f, "]");
+		}
+		if (i+1<n)
+		    fprintf(f, ",");
+		fprintf(f, "\n");
+	    }
+	    if (eq1==2)
+		eq1 = 0;
+	}
+	if (tleaf(x)){
+	}
+	else{
+	    fprintf(f, "%*s}\n", 2*level1, "");
+	}
+	break;
+    default:
+	break;
+    }
+    //    fprintf(f, "%*s", 2*level, "");
+    retval = 0;
+ done:
+    return retval;
+}
+
+int 
+xml2json(FILE *f, cxobj *x, int level)
+{
+    int retval = 1;
+
+    fprintf(f, "{\n");
+    if (xml2json1(f, x, level, 0) < 0)
+	goto done;
+    fprintf(f, "}\n");
+    retval = 0;
+ done:
+    return retval;
+}
+
 
 /*! Validate an XML tree with yang specification
  * @retval 
