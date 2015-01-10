@@ -247,12 +247,12 @@ send_hello(int s)
     return retval;
 }
 
-/* from init_candidate_db() and cli_proto_copy() */
+/* from init_candidate_db() and clicon_proto_copy() */
 static int
 init_candidate_db(clicon_handle h, char *running_db, char *candidate_db)
 {
     struct stat      sb;
-    struct clicon_msg *msg;     /* inline from cli_proto_copy */
+    struct clicon_msg *msg;     /* inline from clicon_proto_copy */
     int                retval = -1;
     char              *s;
 

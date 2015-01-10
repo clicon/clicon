@@ -24,7 +24,7 @@
 #ifndef _CLI_COMMON_H_
 #define _CLI_COMMON_H_
 
-void cli_signal_block(void);
-void cli_signal_unblock(void);
+void cli_signal_block(clicon_handle h);
+void cli_signal_unblock(clicon_handle h);
 
 #endif /* _CLI_COMMON_H_ */

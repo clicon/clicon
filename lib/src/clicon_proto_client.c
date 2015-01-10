@@ -20,9 +20,8 @@
 
  * 
  * Client-side functions for clicon_proto protocol
- * Not actually a part of the clicon_proto lib, could be in the front-end lib
- * nectconf makes its own rpc code.
- * Therefore this file should probably be removed or moved to the frontend lib
+ * Historically this code was part of the clicon_cli application. But
+ * it should (is?) be general enough to be used by other applications.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -54,12 +53,12 @@
 #include "clicon_proto_client.h"
 
 /*
- * cli_proto_copy
+ * clicon_proto_copy
  * Let configure daemon copy a file from one location in a local 
  * filesystem (filename1) to another (filename2)
  */
 int
-cli_proto_copy(char *spath, char *filename1, char *filename2)
+clicon_proto_copy(char *spath, char *filename1, char *filename2)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -84,10 +83,10 @@ cli_proto_copy(char *spath, char *filename1, char *filename2)
 }
 
 /*
- * See also cli_proto_change_cvec
+ * See also clicon_proto_change_cvec
  */
 int
-cli_proto_change(char *spath, char *db, lv_op_t op,
+clicon_proto_change(char *spath, char *db, lv_op_t op,
 		 char *key, char *lvec, int lvec_len)
 {
     struct clicon_msg *msg;
@@ -121,7 +120,7 @@ cli_proto_change(char *spath, char *db, lv_op_t op,
  * If startup_config set, also save as startup_config
  */
 int
-cli_proto_commit(char *spath, char *running_db, char *db, int snapshot, int startup)
+clicon_proto_commit(char *spath, char *running_db, char *db, int snapshot, int startup)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -149,7 +148,7 @@ cli_proto_commit(char *spath, char *running_db, char *db, int snapshot, int star
  * Error handling like a clicon_lib function.
  */
 int
-cli_proto_validate(char *spath, char *db)
+clicon_proto_validate(char *spath, char *db)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -172,13 +171,13 @@ cli_proto_validate(char *spath, char *db)
 }
 
 /*
- * cli_proto_save
+ * clicon_proto_save
  * Send a save_current request to the config_daemon
  * Either save snapshot or to a file.
  * Error handling like a clicon_lib function.
  */
 int
-cli_proto_save(char *spath, char *dbname, int snapshot, char *filename)
+clicon_proto_save(char *spath, char *dbname, int snapshot, char *filename)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -202,11 +201,11 @@ cli_proto_save(char *spath, char *dbname, int snapshot, char *filename)
 }
 
 /*
- * cli_proto_load
+ * clicon_proto_load
  * Send a load file request to the config_daemon
  */
 int
-cli_proto_load(char *spath, int replace, char *db, char *filename)
+clicon_proto_load(char *spath, int replace, char *db, char *filename)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -230,11 +229,11 @@ cli_proto_load(char *spath, int replace, char *db, char *filename)
 }
 
 /*
- * cli_proto_initdb
+ * clicon_proto_initdb
  * Let configure daemon initialize database
  */
 int
-cli_proto_initdb(char *spath, char *filename)
+clicon_proto_initdb(char *spath, char *filename)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -258,11 +257,11 @@ cli_proto_initdb(char *spath, char *filename)
 
 
 /*
- * cli_proto_rm
+ * clicon_proto_rm
  * Let configure daemon remove a file 
  */
 int
-cli_proto_rm(char *spath, char *filename)
+clicon_proto_rm(char *spath, char *filename)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -285,11 +284,11 @@ cli_proto_rm(char *spath, char *filename)
 }
 
 /*
- * cli_proto_lock
+ * clicon_proto_lock
  * Lock a database
  */
 int
-cli_proto_lock(char *spath, char *db)
+clicon_proto_lock(char *spath, char *db)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -312,11 +311,11 @@ cli_proto_lock(char *spath, char *db)
 }
 
 /*
- * cli_proto_unlock
+ * clicon_proto_unlock
  * Unlock a database
  */
 int
-cli_proto_unlock(char *spath, char *db)
+clicon_proto_unlock(char *spath, char *db)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -340,11 +339,11 @@ cli_proto_unlock(char *spath, char *db)
 
 
 /*
- * cli_proto_kill
+ * clicon_proto_kill
  * Kill another session
  */
 int
-cli_proto_kill(char *spath, int session_id)
+clicon_proto_kill(char *spath, int session_id)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -368,11 +367,11 @@ cli_proto_kill(char *spath, int session_id)
 }
 
 /*
- * cli_proto_debug
+ * clicon_proto_debug
  * Set debug level on config daemon
  */
 int
-cli_proto_debug(char *spath, int level)
+clicon_proto_debug(char *spath, int level)
 {
     struct clicon_msg *msg;
     int                retval = -1;
@@ -394,11 +393,14 @@ cli_proto_debug(char *spath, int level)
     return retval;
 }
 
-/* Create a new notification subscription
- * return socket
+/*! Create a new notification subscription
+ * @param[in]   sockpath unix domain socket path 
+ * @param[in]   status   0: stop existing notification stream 1: start new stream.
+ * @param{in]   stream   name of notificatio/log stream (CLICON is predefined)
+ * @param[out]  s0       socket returned where notification mesages will appear
  */
 int
-cli_proto_subscription(char *sockpath, int status, char *stream, int *s0)
+clicon_proto_subscription(char *sockpath, int status, char *stream, int *s0)
 {
     struct clicon_msg *msg;
     int                retval = -1;

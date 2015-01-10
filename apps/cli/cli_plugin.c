@@ -787,12 +787,14 @@ clicon_cliread(clicon_handle h)
 
     if (stx->stx_prompt_hook)
 	pfmt = stx->stx_prompt_hook(h, mode->csm_name);
-    cli_prompt_set(h, cli_prompt(pfmt ? pfmt : mode->csm_prompt));
+    if (clicon_quiet_mode(h))
+	cli_prompt_set(h, "");
+    else
+	cli_prompt_set(h, cli_prompt(pfmt ? pfmt : mode->csm_prompt));
     cli_tree_active_set(h, mode->csm_name);
     ret = cliread(cli_cligen(h));
     if (pfmt)
 	free(pfmt);
-
     return ret;
 }
 

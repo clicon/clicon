@@ -1,50 +1,27 @@
-$Id: CHANGELOG,v 1.6 2013/09/19 16:03:40 olof Exp $
-     
-R2.3.0 
-=================
-Two new documents have been written and resides in the docs document:
-clicon-datamodel.pdf and clicon_db2txt.pdf. Together with an updated
-clicon_tutorial.pdf should give a good overview of the clicon system.
+# Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
+#
+# This file is part of CLICON.
+#
+# CLICON is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# CLICON is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CLICON; see the file COPYING.  If not, see
+# <http://www.gnu.org/licenses/>.
 
-The clicon data model has been better defined, extended and generates
-validation and CLI code more complete. Please see the datamodel
-description.
-
-make install and make install-include replaces make runtime/sdk. This
-is more inline with what you "would expect". You install files under
-/usr/local, but can change this with --prefix=<somethingelse>. Files
-are installed under lib, bin, etc, sbin, and share. See "Installation
-appendix" in clicon tutorial for more info.
-
-A default hello application residing in share is installed in
-/usr/local/share/clicon by default. This is a runnable "hello"
-application. 
-
-The order in which applications find the installation has been
-changed. An applications looks for APPDIR first (instead of
-CONFIGFILE). APPDIR is assumed to be in /usr/local/share/clicon,
-unless (in order of priority):
-   (1) The application has the -a option set
-   (2) The environment-variable CLICON_APPDIR is set
-   (3) The --with-appdir configure option; 
-The config-file is assumed to be $APPDIR/clicon-conf, unless overridden
-by the -f option.  This behaviour differs from the previous, when
-configuration file was looked for in a separate directory and APPDIR
-was defined within the configuration-file.
-
-R2.2.0 April 2013
-=================
-Optimized database access and commit for large (up to 10K) lists. 
-
-Datatype change: Changed all var and vh structures to cligen
-variables (cv:s) and cvec:s.
-
-New cli_set syntax.
-
-Enhanced commit semantics with transaction start, validate, and transaction end.
-
-Added Netconf xpath-capability (RFC 6241 Sec 8.9).
-
-Plugin 'downcall' support for direct function call from cli frontend to backend.
-
-Removed curl and procfs support and moved to application (osr)
+R3.0.0 January 2015
+===================
+This is a new major CLICON release. 
+The changes from previous versions are too numerous to document.
+Major recent additions are:
+- Added python API
+- YANG modeling support
+- Asynchronous notification
+- db2txt

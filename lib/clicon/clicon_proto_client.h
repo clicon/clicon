@@ -20,28 +20,46 @@
 
  *
  * Client-side functions for clicon_proto protocol
- * Not actually a part of the clicon_proto lib, could be in the front-end lib
- * nectconf makes its own rpc code.
- * Therefore this file should probably be removed or moved to the frontend lib
+ * Historically this code was part of the clicon_cli application. But
+ * it should (is?) be general enough to be used by other applications.
  */
 
 #ifndef _CLICON_PROTO_CLIENT_H_
 #define _CLICON_PROTO_CLIENT_H_
 
-int cli_proto_copy(char *spath, char *filename1, char *filename2);
-int cli_proto_change(char *spath, char *db, lv_op_t op,
+int clicon_proto_copy(char *spath, char *filename1, char *filename2);
+int clicon_proto_change(char *spath, char *db, lv_op_t op,
 		     char *key, char *lvec, int lvec_len);
-int cli_proto_commit(char *spath, char *running_db, char *db, 
+int clicon_proto_commit(char *spath, char *running_db, char *db, 
 		     int snapshot, int startup);
-int cli_proto_validate(char *spath, char *db);
-int cli_proto_save(char *spath, char *dbname, int snapshot, char *filename);
-int cli_proto_load(char *spath, int replace, char *db, char *filename);
-int cli_proto_initdb(char *spath, char *filename);
-int cli_proto_rm(char *spath, char *filename);
-int cli_proto_lock(char *spath, char *dbname);
-int cli_proto_unlock(char *spath, char *dbname);
-int cli_proto_kill(char *spath, int session_id);
-int cli_proto_subscription(char *spath, int status, char *stream, int *s);
-int cli_proto_debug(char *spath, int level);
+int clicon_proto_validate(char *spath, char *db);
+int clicon_proto_save(char *spath, char *dbname, int snapshot, char *filename);
+int clicon_proto_load(char *spath, int replace, char *db, char *filename);
+int clicon_proto_initdb(char *spath, char *filename);
+int clicon_proto_rm(char *spath, char *filename);
+int clicon_proto_lock(char *spath, char *dbname);
+int clicon_proto_unlock(char *spath, char *dbname);
+int clicon_proto_kill(char *spath, int session_id);
+int clicon_proto_subscription(char *spath, int status, char *stream, int *s);
+int clicon_proto_debug(char *spath, int level);
+
+/*
+ * Backward compatible functions
+ */
+#if 0
+#define cli_proto_copy     clicon_proto_copy
+#define cli_proto_change   clicon_proto_change
+#define cli_proto_commit   clicon_proto_commit
+#define cli_proto_validate clicon_proto_validate
+#define cli_proto_save     clicon_proto_save
+#define cli_proto_load     clicon_proto_load
+#define cli_proto_initdb   clicon_proto_initdb
+#define cli_proto_rm       clicon_proto_rm
+#define cli_proto_lock     clicon_proto_lock
+#define cli_proto_unlock   clicon_proto_unlock
+#define cli_proto_kill     clicon_proto_kill
+#define cli_proto_subscription clicon_proto_subscription
+#define cli_proto_debug    clicon_proto_debug
+#endif
 
 #endif  /* _CLICON_PROTO_CLIENT_H_ */

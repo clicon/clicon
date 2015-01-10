@@ -110,7 +110,7 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
 		clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 		goto err;
 	    }
-	    cli_proto_copy(s, running_db, candidate_db);
+	    clicon_proto_copy(s, running_db, candidate_db);
 	}
 	break;
     case CANDIDATE_DB_CURRENT:
@@ -432,7 +432,7 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
     /* config daemon */
     if ((s = clicon_sock(h)) == NULL)
 	goto done;
-    if (cli_proto_debug(s, level) < 0)
+    if (clicon_proto_debug(s, level) < 0)
 	goto done;
   done:
     return 0;
@@ -440,16 +440,17 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
 
 
 void
-cli_signal_block(void)
+cli_signal_block(clicon_handle h)
 {
 	clicon_signal_block (SIGTSTP);
 	clicon_signal_block (SIGQUIT);
 	clicon_signal_block (SIGCHLD);
-	clicon_signal_block (SIGINT);
+	if (!clicon_quiet_mode(h))
+	    clicon_signal_block (SIGINT);
 }
 
 void
-cli_signal_unblock(void)
+cli_signal_unblock(clicon_handle h)
 {
 	clicon_signal_unblock (SIGTSTP);
 	clicon_signal_unblock (SIGQUIT);
@@ -461,7 +462,7 @@ cli_signal_unblock(void)
  * Flush pending signals for a given signal type
  */
 void
-cli_signal_flush()
+cli_signal_flush(clicon_handle h)
 {
     /* XXX A bit rough. Use sigpending() and more clever logic ?? */
 
@@ -472,14 +473,14 @@ cli_signal_flush()
     set_signal (SIGCHLD, SIG_IGN, &h3);
     set_signal (SIGINT, SIG_IGN, &h4);
 
-    cli_signal_unblock ();
+    cli_signal_unblock (h);
 
     set_signal (SIGTSTP, h1, NULL);
     set_signal (SIGQUIT, h2, NULL);
     set_signal (SIGCHLD, h3, NULL);
     set_signal (SIGINT, h4, NULL);
 
-    cli_signal_block ();
+    cli_signal_block (h);
 }
 
 
@@ -576,12 +577,12 @@ cli_start_shell(clicon_handle h, cvec *vars, cg_var *arg)
 	return -1;
     }
     endpwent();
-    cli_signal_flush();
-    cli_signal_unblock();
+    cli_signal_flush(h);
+    cli_signal_unblock(h);
     if (cmd){
 	snprintf(bcmd, 128, "bash -l -c \"%s\"", cmd);
 	if ((retval = system(bcmd)) < 0){
-	    cli_signal_block();
+	    cli_signal_block(h);
 	    fprintf(stderr, "%s: system(bash -c): %s\n", 
 		    __FUNCTION__, strerror(errno));
 	    return -1;
@@ -589,12 +590,12 @@ cli_start_shell(clicon_handle h, cvec *vars, cg_var *arg)
     }
     else
 	if ((retval = system("bash -l")) < 0){
-	    cli_signal_block();
+	    cli_signal_block(h);
 	    fprintf(stderr, "%s: system(bash): %s\n", 
 		    __FUNCTION__, strerror(errno));
 	    return -1;
 	}
-    cli_signal_block();
+    cli_signal_block(h);
 #if 0 /* Allow errcodes from bash */
     if (retval != 0){
 	fprintf(stderr, "%s: system(%s) code=%d\n", __FUNCTION__, cmd, retval);
@@ -640,7 +641,7 @@ cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
     }
-    if ((retval = cli_proto_commit(s, 
+    if ((retval = clicon_proto_commit(s, 
 				   running, 
 				   candidate, 
 				   snapshot, /* snapshot */
@@ -671,7 +672,7 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	return -1;
     }
-    if ((retval = cli_proto_validate(s, candidate_db)) < 0)
+    if ((retval = clicon_proto_validate(s, candidate_db)) < 0)
 	cli_output(stderr, "Validate failed. Edit and try again or discard changes\n");
     return retval;
 }
@@ -1383,7 +1384,7 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	goto quit;
 
     if (cli_usedaemon(h)) {
-	if (cli_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
+	if (clicon_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
 	    goto quit;
     } else {
 	if (db_lv_op_exec(spec, candidate, dbv->dbv_key, op, dbv->dbv_vec) < 0)
@@ -1391,8 +1392,8 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     }
 
     if (cli_usedaemon(h) && clicon_autocommit(h)) {
-        if (cli_proto_commit(s, running, candidate, 0, 0) < 0) {
-	    if (cli_proto_copy(s, running, candidate) < 0)
+        if (clicon_proto_commit(s, running, candidate, 0, 0) < 0) {
+	    if (clicon_proto_copy(s, running, candidate) < 0)
 	        fprintf(stderr, "Failed to restore candidate: %s\n", 
 			strerror(errno));
 	    goto quit;
@@ -1498,7 +1499,7 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
     }
-    if (cli_proto_load(s, replace, dbname, filename) < 0)
+    if (clicon_proto_load(s, replace, dbname, filename) < 0)
 	goto done;
 
     ret = 0;
@@ -1571,7 +1572,7 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
     }
-    if (cli_proto_save(s, dbname, 0, filename) < 0) /*  */
+    if (clicon_proto_save(s, dbname, 0, filename) < 0) /*  */
 	goto done;
     retval = 0;
     /* Fall through */
@@ -1609,8 +1610,8 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
     }
-    cli_proto_rm(s, dbname);
-    cli_proto_initdb(s, dbname);
+    clicon_proto_rm(s, dbname);
+    clicon_proto_initdb(s, dbname);
     retval = 0;
   done:
     return retval;
@@ -1636,7 +1637,7 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "running db not set");
 	goto done;
     }
-    cli_proto_copy(s, running_db, candidate_db);
+    clicon_proto_copy(s, running_db, candidate_db);
     retval = 0;
   done:
     return retval;
@@ -1845,49 +1846,15 @@ show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
     return show_conf_as_command(h, vars, arg, NULL); /* XXX: how to set prepend? */
 }
 
-/*! Enumeration used in logs for which format to use
- * This code can be extended by applications to make other formats or 
- * transformations
- */
-enum showas{
-    SHOWAS_ERR = 0,
-    SHOWAS_TXT,
-    SHOWAS_XML,
-    SHOWAS_XML2TXT,
-    SHOWAS_XML2JSON
-};
-
-/* show-as data structures so that you can use a string in the clispec and
-   use an integer in the C-code */
-struct map_str2int{
-    char         *ms_str; 
-    int           ms_int;
-};
-
-/* Mapping between showas keyword string <--> constants */
-static const struct map_str2int samap[] = {
-    {"txt",           SHOWAS_TXT}, /* print event string as-is */
-    {"xml",           SHOWAS_XML}, /* print event as xml */
-    {"xml2txt",       SHOWAS_XML2TXT}, /* parse xml and transform to txt */
-    {"xml2json",      SHOWAS_XML2JSON}, 
-    {NULL,            -1}
-};
-
-static int
-showas_str2key(char *str)
-{
-    const struct map_str2int *ms;
-
-    for (ms = &samap[0]; ms->ms_str; ms++)
-	if (strcmp(ms->ms_str, str) == 0)
-	    return ms->ms_int;
-    return SHOWAS_ERR;
-}
-
+/* These are strings that can be used as 3rd argument to cli_setlog */
+static const char *SHOWAS_TXT     = "txt";
+static const char *SHOWAS_XML     = "xml";
+static const char *SHOWAS_XML2TXT = "xml2txt";
+static const char *SHOWAS_XML2JSON = "xml2json";
 
 /*! This is the callback used by cli_setlog to print log message in CLI
  * param[in]  s    UNIX socket from backend  where message should be read
- * param[in]  arg  format int:  0 (xml), 1 csv, 2 (
+ * param[in]  arg  format: txt, xml, xml2txt, xml2json
  */
 static int
 cli_notification_cb(int s, void *arg)
@@ -1899,7 +1866,7 @@ cli_notification_cb(int s, void *arg)
     int                level;
     cxobj             *xt = NULL;
     cxobj             *xn;
-    enum showas        format = (enum showas)arg;
+    char              *format = (char*)arg;
 
     /* get msg (this is the reason this function is called) */
     if (clicon_msg_rcv(s, &reply, &eof, __FUNCTION__) < 0)
@@ -1911,40 +1878,40 @@ cli_notification_cb(int s, void *arg)
 	event_unreg_fd(s, cli_notification_cb);
 	goto done;
     }
+    if (format == NULL)
+	goto done;
     switch (reply->op_type){
     case CLICON_MSG_NOTIFY:
 	if (clicon_msg_notify_decode(reply, &level, &eventstr, __FUNCTION__) < 0) 
 	    goto done;
-	switch(format){
-	case SHOWAS_TXT: 
+	if (strcmp(format, SHOWAS_TXT) == 0){
 	    fprintf(stdout, "%s", eventstr);
-	    break;
-	case SHOWAS_XML:
+	}
+	else
+	if (strcmp(format, SHOWAS_XML) == 0){
 	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
 		goto done;
 	    if ((xn = xml_child_i(xt, 0)) != NULL)
 		if (clicon_xml2file(stdout, xn, 0, 1) < 0)
 		    goto done;
-	    break;
-	case SHOWAS_XML2TXT: 
+	}
+	else
+	if (strcmp(format, SHOWAS_XML2TXT) == 0){
 	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
 		goto done;
 	    if ((xn = xml_child_i(xt, 0)) != NULL)
 		if (xml2txt(stdout, xn, 0) < 0)
 		    goto done;
-	    break;
-	case SHOWAS_XML2JSON:
+	}
+	else
+        if (strcmp(format, SHOWAS_XML2JSON) == 0){
 	    if (clicon_xml_parse_string(&eventstr, &xt) < 0)
 		goto done;
 	    if ((xn = xml_child_i(xt, 0)) != NULL){
 		if (xml2json(stdout, xn, 0) < 0)
 		    goto done;
 	    }
-	    break;
-	default:
-	    break;
 	}
-
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
@@ -1961,6 +1928,59 @@ cli_notification_cb(int s, void *arg)
 
 }
 
+
+/*! Make a notify subscription to backend and un/register callback for return messages.
+ * 
+ * @param[in] h      Clicon handle
+ * @param[in] vars   Not used
+ * @param[in] arg    A string with <log stream name> <stream status> [<format>]
+ * where <status> is "0" or "1"
+ * and   <format> is XXX
+ * Example code: Start logging of mystream and show logs as xml
+ * @code
+ * cmd("comment"), cli_setlog("mystream 1 xml"); 
+ * @endcode
+ * XXX: format is a memory leak
+ */
+int
+cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
+{
+    char            *stream = NULL;
+    int              retval = -1;
+    char           **vec = NULL;
+    int              nvec;
+    char            *str;
+    int              status;
+    char            *format;
+
+    if (arg==NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
+	goto done;
+    }
+    if (nvec < 2){
+	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <stream> <status>", str);	
+	goto done;
+    }
+    stream = vec[0];
+    status = atoi(vec[1]);
+    if (nvec > 2)
+	format = strdup(vec[2]); /* memory leak */
+    if (cli_notification_register(h, 
+				  stream, status, 
+				  cli_notification_cb, 
+				  (void*)format) < 0)
+	goto done;
+
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
 /*! Register log notification stream
  * @param[in] h       Clicon handle
  * @param[in] stream  Event stream CLICON is predefined, others are application-defined
@@ -1975,7 +1995,7 @@ cli_notification_register(clicon_handle h,
 			  int         (*fn)(int, void*),
 			  void         *arg)
 {
-    int retval = -1;
+    int              retval = -1;
     char            *sockpath;
     char            *logname;
     void            *p;
@@ -2000,7 +2020,7 @@ cli_notification_register(clicon_handle h,
 	    clicon_err(OE_PLUGIN, 0, "%s: result log socket already exists", __FUNCTION__);
 	    goto done;
 	}
-	if (cli_proto_subscription(sockpath, status, stream, &s) < 0)
+	if (clicon_proto_subscription(sockpath, status, stream, &s) < 0)
 	    goto done;
 	if (cligen_regfd(s, fn, arg) < 0)
 	    goto done;
@@ -2012,7 +2032,7 @@ cli_notification_register(clicon_handle h,
 	    cligen_unregfd(s_exist);
 	}
 	hash_del(cdat, logname);
-	if (cli_proto_subscription(sockpath, status, stream, NULL) < 0)
+	if (clicon_proto_subscription(sockpath, status, stream, NULL) < 0)
 	    goto done;
 
     }
@@ -2022,57 +2042,6 @@ cli_notification_register(clicon_handle h,
     return retval;
 }
 
-/*! Make a notify subscription to backend and un/register callback for return messages.
- * 
- * @param[in] h      Clicon handle
- * @param[in] vars   Not used
- * @param[in] arg    A string with <log stream name> <stream status> [<format>]
- * where <status> is 0 or 1
- * and   <format> is of type enum showas (default XML)
- * @code
- * # Start logging of mystream and show logs as xml
- * cmd("comment"), cli_setlog("mystream 1 0"); 
- * @endcode
- */
-int
-cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
-{
-    char            *stream = NULL;
-    int              retval = -1;
-    char           **vec = NULL;
-    int              nvec;
-    char            *str;
-    int              status;
-    enum showas      format = SHOWAS_TXT;
-
-    if (arg==NULL || (str = cv_string_get(arg)) == NULL){
-	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
-	goto done;
-    }
-    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
-	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
-	goto done;
-    }
-    if (nvec < 2){
-	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <stream> <status>", str);	
-	goto done;
-    }
-    stream = vec[0];
-    status = atoi(vec[1]);
-    if (nvec > 2)
-	format = showas_str2key(vec[2]);
-    if (format == SHOWAS_ERR){
-	clicon_err(OE_PLUGIN, 0, "No such format: %s", vec[2]);
-	goto done;
-    }
-    if (cli_notification_register(h, stream, status, cli_notification_cb, (void*)format) < 0)
-	goto done;
-
-    retval = 0;
-  done:
-    unchunk_group(__FUNCTION__);
-    return retval;
-}
 
 #ifdef notused
 /*! XML to CSV raw variant 

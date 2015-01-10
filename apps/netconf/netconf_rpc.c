@@ -495,7 +495,7 @@ netconf_copy_config(clicon_handle h,
 		    cxobj *xt)
 {
     char              *source, *target; /* filenames */
-    struct clicon_msg *msg;     /* inline from cli_proto_copy */
+    struct clicon_msg *msg;     /* inline from clicon_proto_copy */
     int                retval = -1;
     char              *s;
 
@@ -530,7 +530,7 @@ netconf_copy_config(clicon_handle h,
 	goto done;
     }
 #endif
-    /* inline from cli_proto_copy */
+    /* inline from clicon_proto_copy */
     if ((msg=clicon_msg_copy_encode(source, target,
 				   __FUNCTION__)) == NULL)
 	goto done;
@@ -567,7 +567,7 @@ netconf_delete_config(clicon_handle h,
 		      cxobj *xt)
 {
     char              *target; /* filenames */
-    struct clicon_msg *msg;     /* inline from cli_proto_copy */
+    struct clicon_msg *msg;     /* inline from clicon_proto_copy */
     int                retval = -1;
     char              *s;
     char              *candidate_db;
@@ -823,7 +823,7 @@ netconf_commit(clicon_handle h,
 	       cbuf *cb, cbuf *cb_err, 
 	       cxobj *xt)
 {
-    struct clicon_msg *msg;     /* inline from cli_proto_commit */
+    struct clicon_msg *msg;     /* inline from clicon_proto_commit */
     int                retval = -1;
     char              *s;
     char              *candidate_db;
@@ -886,7 +886,7 @@ netconf_discard_changes(clicon_handle h,
 			cxobj *xn, cbuf *cb, cbuf *cb_err, 
 			cxobj *xt)
 {
-    struct clicon_msg *msg;     /* inline from cli_proto_copy */
+    struct clicon_msg *msg;     /* inline from clicon_proto_copy */
     int                retval = -1;
     char              *s;
     char              *running_db;
@@ -1120,7 +1120,7 @@ netconf_create_subscription(clicon_handle h,
 				 NULL, "Internal error"); 
 	goto done;
     }
-    if (cli_proto_subscription(sockpath, 1, stream, &s) < 0){
+    if (clicon_proto_subscription(sockpath, 1, stream, &s) < 0){
 	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 

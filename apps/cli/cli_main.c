@@ -56,7 +56,7 @@
 #include "cli_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define CLI_OPTS "hD:f:F:1a:s:u:d:og:m:bcP:qpGLl:t"
+#define CLI_OPTS "hD:f:F:1a:s:u:d:m:cP:qptGLl:"
 
 static int
 cli_terminate(clicon_handle h)
@@ -90,9 +90,9 @@ cli_sig_term(int arg)
  * Setup signal handlers
  */
 static void
-cli_signal_init (void)
+cli_signal_init (clicon_handle h)
 {
-	cli_signal_block();
+	cli_signal_block(h);
 	set_signal(SIGTERM, cli_sig_term, NULL);
 }
 
@@ -165,22 +165,22 @@ usage(char *argv0, clicon_handle h)
 	    "where options are\n"
             "\t-h \t\tHelp\n"
     	    "\t-D \t\tDebug\n"
-    	    "\t-a <dir>\tApplication dir (default: %s)\n"
-    	    "\t-f <file> \tConfig-file (default: %s)\n"
+	    "\t-f <file> \tConfig-file (default: %s)\n"
     	    "\t-F <file> \tRead commands from file (default stdin)\n"
 	    "\t-1\t\tDont enter interactive mode\n"
+	    "\t-a <dir>\tApplication dir (default: %s)\n"
 	    "\t-s <file>\tDatabase spec file\n"
     	    "\t-u <sockpath>\tconfig UNIX domain path (default: %s)\n"
 	    "\t-d <dir>\tSpecify plugin directory (default: %s)\n"
             "\t-m <mode>\tSpecify plugin syntax mode\n"
     	    "\t-c \t\tWrite to candidate directly, not via config engine\n"
     	    "\t-P <dbname> \tWrite to private database\n"
-	    "\t-q \t\tQuiet mode, dont print greetings\n"
+	    "\t-q \t\tQuiet mode, dont print greetings or prompt, terminate on ctrl-C\n"
 	    "\t-p \t\tPrint database specification (YANG or KEY depending on CLICON_DBSPEC_TYPE)\n"
 	    "\t-t \t\tPrint alternate spec translation (eg if YANG print KEY, if KEY print YANG)\n"
 	    "\t-G \t\tPrint CLI syntax generated from dbspec (if CLICON_CLI_GENMODEL enabled)\n"
-	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n"
-	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n",
+	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
+	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n",
 	    argv0,
 	    appdir ? appdir : "none",
 	    conffile ? conffile : "none",
@@ -356,7 +356,7 @@ main(int argc, char **argv)
 	usage(argv[0], h);
 
     /* Setup signal handlers */
-    cli_signal_init();
+    cli_signal_init(h);
 
     /* Backward compatible mode, do not include keys in cgv-arrays in callbacks.
        Should be 0 but default is 1 since all legacy apps use 1

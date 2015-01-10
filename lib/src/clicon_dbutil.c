@@ -669,12 +669,12 @@ dbspec_last_unique_str(dbspec_key *ds, cvec *setvars)
 
 
 /*
- * Same as cli_proto_change just with a cvec instead of lvec, and get the sock
+ * Same as clicon_proto_change just with a cvec instead of lvec, and get the sock
  * from handle.
  * Utility function. COnsider moving to clicon_proto_client.c
  */
 int
-cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
+clicon_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
 		      char *key, cvec *cvv)
 {
     char            *lvec = NULL;
@@ -688,7 +688,7 @@ cli_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
     }
     if ((lvec = cvec2lvec(cvv, &lvec_len)) == NULL)
 	goto done;
-    retval = cli_proto_change(spath, db, op, key, lvec, lvec_len);
+    retval = clicon_proto_change(spath, db, op, key, lvec, lvec_len);
   done:
     if (lvec)
 	free(lvec);
