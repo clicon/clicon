@@ -1938,12 +1938,12 @@ cli_notification_cb(int s, void *arg)
  * and   <format> is XXX
  * Example code: Start logging of mystream and show logs as xml
  * @code
- * cmd("comment"), cli_setlog("mystream 1 xml"); 
+ * cmd("comment"), cli_notify("mystream 1 xml"); 
  * @endcode
  * XXX: format is a memory leak
  */
 int
-cli_setlog(clicon_handle h, cvec *vars, cg_var *arg)
+cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char            *stream = NULL;
     int              retval = -1;
