@@ -1951,7 +1951,7 @@ cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
     int              nvec;
     char            *str;
     int              status;
-    char            *format;
+    char            *format = NULL;
 
     if (arg==NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
