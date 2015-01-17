@@ -40,7 +40,8 @@ int clicon_proto_rm(char *spath, char *filename);
 int clicon_proto_lock(char *spath, char *dbname);
 int clicon_proto_unlock(char *spath, char *dbname);
 int clicon_proto_kill(char *spath, int session_id);
-int clicon_proto_subscription(char *spath, int status, char *stream, int *s);
+int clicon_proto_subscription(char *spath, int status, char *stream, 
+			      enum format_enum format, char *filter, int *s);
 int clicon_proto_debug(char *spath, int level);
 
 /*

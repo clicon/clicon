@@ -1120,7 +1120,7 @@ netconf_create_subscription(clicon_handle h,
 				 NULL, "Internal error"); 
 	goto done;
     }
-    if (clicon_proto_subscription(sockpath, 1, stream, &s) < 0){
+    if (clicon_proto_subscription(sockpath, 1, stream, MSG_NOTIFY_XML, "", &s) < 0){
 	netconf_create_rpc_error(cb_err, xt, 
 				 "operation-failed", 
 				 "application", 

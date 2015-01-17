@@ -397,16 +397,23 @@ clicon_proto_debug(char *spath, int level)
  * @param[in]   sockpath unix domain socket path 
  * @param[in]   status   0: stop existing notification stream 1: start new stream.
  * @param{in]   stream   name of notificatio/log stream (CLICON is predefined)
+ * @param{in]   filter   message filter, eg xpath for xml notifications
  * @param[out]  s0       socket returned where notification mesages will appear
  */
 int
-clicon_proto_subscription(char *sockpath, int status, char *stream, int *s0)
+clicon_proto_subscription(char *sockpath, 
+			  int status, 
+			  char *stream, 
+			  enum format_enum format,
+			  char *filter, 
+			  int *s0)
 {
     struct clicon_msg *msg;
     int                retval = -1;
     int                s = -1;
     struct stat        sb;
 
+    assert(filter);
     /* special error handling to get understandable messages (otherwise ENOENT) */
     if (stat(sockpath, &sb) < 0){
 	clicon_err(OE_PROTO, errno, "%s: config daemon not running?", sockpath);
@@ -418,7 +425,8 @@ clicon_proto_subscription(char *sockpath, int status, char *stream, int *s0)
     }
     if ((s = clicon_connect_unix(sockpath)) < 0)
 	goto done;
-    if ((msg=clicon_msg_subscription_encode(status, stream, __FUNCTION__)) == NULL)
+    if ((msg=clicon_msg_subscription_encode(status, stream, format, filter, 
+					    __FUNCTION__)) == NULL)
 	return -1;
     if (clicon_rpc(s, msg, NULL, 0, __FUNCTION__) < 0){
 #if 0

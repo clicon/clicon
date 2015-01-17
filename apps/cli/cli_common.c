@@ -1951,7 +1951,8 @@ cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
     int              nvec;
     char            *str;
     int              status;
-    char            *format = NULL;
+    char            *formatstr = NULL;
+    enum format_enum format = MSG_NOTIFY_TXT;
 
     if (arg==NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1967,12 +1968,18 @@ cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
     }
     stream = vec[0];
     status = atoi(vec[1]);
-    if (nvec > 2)
-	format = strdup(vec[2]); /* memory leak */
+    if (nvec > 2){
+	formatstr = strdup(vec[2]); /* memory leak */
+	if (strcmp(formatstr, "SHOWAS_TXT") != 0)
+	    format = MSG_NOTIFY_XML;
+    }
     if (cli_notification_register(h, 
-				  stream, status, 
+				  stream, 
+				  format,
+				  "", 
+				  status, 
 				  cli_notification_cb, 
-				  (void*)format) < 0)
+				  (void*)formatstr) < 0)
 	goto done;
 
     retval = 0;
@@ -1983,7 +1990,8 @@ cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
 
 /*! Register log notification stream
  * @param[in] h       Clicon handle
- * @param[in] stream  Event stream CLICON is predefined, others are application-defined
+ * @param[in] stream  Event stream. CLICON is predefined, others are application-defined
+ * @param[in] filter  Filter. For xml notification eg xpath
  * @param[in] status  0 for stop, 1 to start
  * @param[in] fn      Callback function called when notification occurs
  * @param[in] arg     Argumnent to function
@@ -1991,6 +1999,8 @@ cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
 int
 cli_notification_register(clicon_handle h, 
 			  char         *stream, 
+			  enum format_enum format,
+			  char         *filter, 
 			  int           status, 
 			  int         (*fn)(int, void*),
 			  void         *arg)
@@ -2020,7 +2030,7 @@ cli_notification_register(clicon_handle h,
 	    clicon_err(OE_PLUGIN, 0, "%s: result log socket already exists", __FUNCTION__);
 	    goto done;
 	}
-	if (clicon_proto_subscription(sockpath, status, stream, &s) < 0)
+	if (clicon_proto_subscription(sockpath, status, stream, format, filter, &s) < 0)
 	    goto done;
 	if (cligen_regfd(s, fn, arg) < 0)
 	    goto done;
@@ -2032,7 +2042,7 @@ cli_notification_register(clicon_handle h,
 	    cligen_unregfd(s_exist);
 	}
 	hash_del(cdat, logname);
-	if (clicon_proto_subscription(sockpath, status, stream, NULL) < 0)
+	if (clicon_proto_subscription(sockpath, status, stream, format, filter, NULL) < 0)
 	    goto done;
 
     }

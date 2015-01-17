@@ -57,6 +57,7 @@
 #include "clicon_lvalue.h"
 #include "clicon_yang.h"
 #include "clicon_options.h"
+#include "clicon_proto.h"
 #include "clicon_proto_client.h"
 #include "clicon_dbmatch.h"
 #include "clicon_dbutil.h"

@@ -64,7 +64,10 @@
  * See also backend_notify
  */
 static struct subscription *
-subscription_add(struct client_entry *ce, char *stream)
+subscription_add(struct client_entry *ce, 
+		 char *stream, 
+		 enum format_enum format,
+		 char *filter)
 {
     struct subscription *su = NULL;
 
@@ -74,7 +77,9 @@ subscription_add(struct client_entry *ce, char *stream)
     }
     memset(su, 0, sizeof(*su));
     su->su_stream = strdup(stream);
-    su->su_next = ce->ce_subscription;
+    su->su_format = format;
+    su->su_filter = strdup(filter);
+    su->su_next   = ce->ce_subscription;
     ce->ce_subscription = su;
   done:
     return su;
@@ -102,6 +107,8 @@ subscription_delete(struct client_entry *ce, struct subscription *su0)
 	if (su == su0){
 	    *su_prev = su->su_next;
 	    free(su->su_stream);
+	    if (su->su_filter)
+		free(su->su_filter);
 	    free(su);
 	    break;
 	}
@@ -684,7 +691,9 @@ from_client_subscription(clicon_handle h,
 			 const char *label)
 {
     int                  status;
+    enum format_enum     format;
     char                *stream;
+    char                *filter;
     int                  retval = -1;
     struct subscription *su;
     clicon_log_notify_t *old;
@@ -692,6 +701,8 @@ from_client_subscription(clicon_handle h,
     if (clicon_msg_subscription_decode(msg, 
 				       &status,
 				       &stream,
+				       &format,
+				       &filter,
 				       label) < 0){
 	send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
 		     clicon_err_reason);
@@ -699,7 +710,7 @@ from_client_subscription(clicon_handle h,
     }
 
     if (status){
-	if ((su = subscription_add(ce, stream)) == NULL){
+	if ((su = subscription_add(ce, stream, format, filter)) == NULL){
 	    send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
 			 clicon_err_reason);
 	    goto done;
