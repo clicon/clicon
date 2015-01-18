@@ -293,6 +293,7 @@ yn_each(yang_node *yn, yang_stmt *ys)
  * If key is 0 match any keyword
  * This however means that if you actually want to match only a yang-stmt with 
  * argument==NULL you cannot, but I have not seen any such examples.
+ * @see yang_find_specnode
  */
 yang_stmt *
 yang_find(yang_node *yn, int keyword, char *argument)
@@ -322,6 +323,7 @@ yang_find(yang_node *yn, int keyword, char *argument)
  * See also yang_find() but this looks only for the yang specification nodes with
  * the following keyword: container, leaf, list, leaf-list
  * That is, basic syntax nodes.
+ * @see yang_find
  */
 yang_stmt *
 yang_find_specnode(yang_node *yn, char *argument)
@@ -338,6 +340,37 @@ yang_find_specnode(yang_node *yn, char *argument)
 		match++;
 	    else
 		if (ys->ys_argument && strcmp(argument, ys->ys_argument) == 0)
+		    match++;
+	    if (match)
+		break;
+	    }
+    }
+    return match ? ys : NULL;
+}
+
+/*! Find a child spec-node yang_stmt with matching argument for xpath
+ *
+ * See also yang_find() but this looks only for the yang specification nodes with
+ * the following keyword: container, leaf, list, leaf-list
+ * That is, basic syntax nodes.
+ * @see yang_find_specnode # Maybe this is the same as specnode?
+ */
+static yang_node *
+yang_find_xpath(yang_node *yn, char *argument)
+{
+    yang_node *ys = NULL;
+    int i;
+    int match = 0;
+
+    for (i=0; i<yn->yn_len; i++){
+	ys = (yang_node*)yn->yn_stmt[i];
+	if (ys->yn_keyword == Y_CONTAINER || ys->yn_keyword == Y_LEAF || 
+	    ys->yn_keyword == Y_LIST || ys->yn_keyword == Y_LEAF_LIST ||
+	    ys->yn_keyword == Y_MODULE || ys->yn_keyword == Y_SUBMODULE){
+	    if (argument == NULL)
+		match++;
+	    else
+		if (ys->yn_argument && strcmp(argument, ys->yn_argument) == 0)
 		    match++;
 	    if (match)
 		break;
@@ -824,7 +857,11 @@ yang_parse1(clicon_handle h, const char *yang_dir, const char *module, const cha
  * Find a yang module file, and then recursively parse all its imported modules.
  */
 int
-yang_parse(clicon_handle h, const char *yang_dir, const char *module, const char *revision, yang_spec *ysp)
+yang_parse(clicon_handle h, 
+	   const char *yang_dir, 
+	   const char *module, 
+	   const char *revision, 
+	   yang_spec *ysp)
 {
     int         retval = -1;
     yang_stmt  *ys;
@@ -960,33 +997,56 @@ dbkey2yang(yang_node *yn, char *dbkey)
     return ys;
 }
 
-
-static yang_stmt *
+/*! All the work for yang_xpath */
+static yang_node *
 yang_xpath_vec(yang_node *yn, char **vec, int nvec)
 {
-    char            *key;
-    yang_stmt       *ys;
+    char            *arg;
+    yang_node       *ys;
+    yang_node       *yret = NULL;
 
     if (nvec <= 0)
-	return NULL;
-    key = vec[0];
-    if ((ys = yang_find_specnode(yn, key)) == NULL)
 	goto done;
-    if (nvec == 1)
-	return ys;
-    return yang_xpath_vec((yang_node*)ys, vec+1, nvec-1);
-  done:
-    return NULL;
+    arg = vec[0];
+    clicon_debug(1, "%s: key=%s arg=%s match=%s len=%d",
+	    __FUNCTION__, yang_key2str(yn->yn_keyword), yn->yn_argument, 
+	    arg, yn->yn_len);
+    if (strcmp(arg, "..") == 0){
+	yret = yn->yn_parent;
+	goto done;
+    }
+    if ((ys = yang_find_xpath(yn, arg)) == NULL){
+	yret = (yang_node*)ys;
+	goto done;
+    }
+    if (nvec == 1){
+	yret = (yang_node*)ys;
+	goto done;
+    }
+    yret = yang_xpath_vec((yang_node*)ys, vec+1, nvec-1);
+ done:
+    return yret;
 }
 
 /*! Given an xpath (eg /a/b/c) find matching yang specification
+ * @param[in]  yn     Yang node tree
+ * @param[in]  xpath  A limited xpath expression on the type a/b/c
+ * @retval     NULL   Error, with clicon_err called
+ * @retval     ys     First yang node matching xpath
+ * Note: the identifiers in the xpath (eg a, b in a/b) can match the nodes defined in
+ * yang_find_xpath: container, leaf,list,leaf-list, modules, sub-modules
+ * Note: Absolute paths are not supported.
+ * Note: prefix not supported.
+ * Example:
+ * yn : module m { prefix b; container b { list c { key d; leaf d; }} }
+ * xpath = m/b/c, returns the list 'c'.
  */
-yang_stmt *
+yang_node *
 yang_xpath(yang_node *yn, char *xpath)
 {
     char           **vec;
     int              nvec;
-    yang_stmt       *ys;
+    yang_node       *ys;
 
     if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
