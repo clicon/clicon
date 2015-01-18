@@ -1162,7 +1162,7 @@ xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
          --> b:23, c:88
  */
 int
-xml2cvv(cxobj *xt, yang_stmt *yt, cvec **cvv0)
+xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 {
     int               retval = -1;
     cvec             *cvv = NULL;

@@ -50,6 +50,8 @@ int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);
 int xml2json(FILE *f, cxobj *x, int level);
 int xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys) ;
-int xml2cvv(cxobj *xt, yang_stmt *ys, cvec **cvv0);
+int xml2cvec(cxobj *xt, yang_stmt *ys, cvec **cvv0);
+/* XXX temp backward */
+#define xml2cvv xml2cvec
 
 #endif  /* _CLICON_XML_MAP_H_ */
