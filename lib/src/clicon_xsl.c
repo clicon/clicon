@@ -455,9 +455,15 @@ xpath_internal(cxobj *cxtop, char *xpath0, int *vec_len00)
  * @param[in]  xpath   string with XPATH syntax
  * @retval     xml-tree of first match, or NULL on error. 
  *
+ * @code
+ *   cxobj *x;
+ *   if ((x = xpath_vec(xtop, "//symbol/foo")) != NULL) {
+ *         ...
+ *   }
+ * @endcode
  * Note that the returned pointer points into the original tree so should not be freed
  * after use.
- * See also xpath_each, xpath_vec.
+ * @see also xpath_vec.
  */
 cxobj *
 xpath_first(cxobj *cxtop, char *xpath)
@@ -479,23 +485,24 @@ xpath_first(cxobj *cxtop, char *xpath)
 
 }
 
-/*! A restricted xpath iterator that loops over all matching entries
+/*! A restricted xpath iterator that loops over all matching entries. Dont use.
  *
  * See xpath1() on details for subset.
+ * @param[in]  cxtop  xml-tree where to search
+ * @param[in]  xpath   string with XPATH syntax
+ * @param[in]  xprev   iterator/result should be initiated to NULL
+ * @retval     xml-tree of n:th match, or NULL on error. 
+ *
  * @code
  *   cxobj *x = NULL;
  *   while ((x = xpath_each(cxtop, "//symbol/foo", x)) != NULL) {
  *     ...
  *   }
  * @endcode
- * @param[in]  cxtop  xml-tree where to search
- * @param[in]  xpath   string with XPATH syntax
- * @param[in]  xprev   iterator/result should be initiated to NULL
- * @retval     xml-tree of n:th match, or NULL on error. 
  *
  * Note that the returned pointer points into the original tree so should not be freed
  * after use.
- * See also xpath, xpath_vec.
+ * @see also xpath, xpath_vec.
  * NOTE: uses a static variable: consider replacing with xpath_vec() instead
  */
 cxobj *
@@ -535,6 +542,11 @@ xpath_each(cxobj *cxtop, char *xpath, cxobj *xprev)
 /*! A restricted xpath that returns a vector of macthes
  *
  * See xpath1() on details for subset.
+ * @param[in]  cxtop  xml-tree where to search
+ * @param[in]  xpath   string with XPATH syntax
+ * @param[out] xv_len  returns length of vector in return value
+ * @retval   vector of xml-trees, or NULL on error. Vector must be free():d after use
+ *
  * @code
  *   cxobj **xv;
  *   int               xlen;
@@ -546,14 +558,9 @@ xpath_each(cxobj *cxtop, char *xpath, cxobj *xprev)
  *      free(xv);
  *   }
  * @endcode
- * @param[in]  cxtop  xml-tree where to search
- * @param[in]  xpath   string with XPATH syntax
- * @param[out] xv_len  returns length of vector in return value
- * @retval   vector of xml-trees, or NULL on error. Vector must be freed after use
- *
  * Note that although the returned vector must be freed after use, the returned xml
  * trees need not be.
- * See also xpath, xpath_each.
+ * @see also xpath_first, xpath_each.
  */
 cxobj **
 xpath_vec(cxobj *cxtop, char *xpath, int *xv_len)

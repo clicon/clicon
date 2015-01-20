@@ -695,7 +695,7 @@ xml2db_1(cxobj          *xn,
     /* actual key */
     if (key0){
 	len = strlen(key0) + 1 + strlen(xml_name(xn));
-	if ((key = malloc(len+1)) == NULL)
+	if ((key = malloc(align4(len+1))) == NULL) /* XXX: align4 */
 	    goto catch;
 	snprintf(key, len+1, "%s.%s", key0, xml_name(xn));
     }
@@ -1198,8 +1198,8 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 	    }
 	}
     }
-    if (debug){
-	clicon_debug(1, "%s cvv:\n", __FUNCTION__);
+    if (debug > 1){
+	clicon_debug(2, "%s cvv:\n", __FUNCTION__);
 	cvec_print(stderr, cvv);
     }
     *cvv0 = cvv;

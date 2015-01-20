@@ -1008,7 +1008,7 @@ yang_xpath_vec(yang_node *yn, char **vec, int nvec)
     if (nvec <= 0)
 	goto done;
     arg = vec[0];
-    clicon_debug(1, "%s: key=%s arg=%s match=%s len=%d",
+    clicon_debug(2, "%s: key=%s arg=%s match=%s len=%d",
 	    __FUNCTION__, yang_key2str(yn->yn_keyword), yn->yn_argument, 
 	    arg, yn->yn_len);
     if (strcmp(arg, "..") == 0){

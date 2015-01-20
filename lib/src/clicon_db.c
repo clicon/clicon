@@ -136,16 +136,21 @@ clicon_dbexists(char *db, char *key)
 int
 clicon_dbput(char *db, char *key, cvec *vec)
 {
+    int              retval = -1;
     char            *lvec = NULL;
     size_t           lvlen;
     
     /* Transform variable list to contiguous char vector */
     if ((lvec = cvec2lvec(vec, &lvlen)) == NULL)
-	return -1;
+	goto done;
     /* Write to database, key and a vector of variables */
     if (db_set(db, key, lvec, lvlen) < 0)
-	return -1;
-    return 0;
+	goto done;
+    retval = 0;
+ done:
+    if (lvec)
+	free(lvec);
+    return retval;
 }
 
 /*! Set variable in database key
