@@ -622,8 +622,10 @@ key2spec(char            *name,
     else{
 	*key = strdup(name);
     }
-    if ((vkey = chunk_sprintf(__FUNCTION__, "%s[]", *key)) == NULL)
+    if ((vkey = chunk_sprintf(__FUNCTION__, "%s[]", *key)) == NULL){
+	clicon_err(OE_UNIX, errno, "%s: chnunk_sprintf", __FUNCTION__);
 	goto done;
+    }
 
     /* Try match key or key[] with spec */ 
     for (ds=db_spec; ds; ds=ds->ds_next){
@@ -695,13 +697,17 @@ xml2db_1(cxobj          *xn,
     /* actual key */
     if (key0){
 	len = strlen(key0) + 1 + strlen(xml_name(xn));
-	if ((key = malloc(align4(len+1))) == NULL) /* XXX: align4 */
+	if ((key = malloc(align4(len+1))) == NULL){ /* XXX: align4 */
+	    clicon_err(OE_UNIX, errno, "malloc");
 	    goto catch;
+	}
 	snprintf(key, len+1, "%s.%s", key0, xml_name(xn));
     }
     else
-	if ((key = strdup4(xml_name(xn))) == NULL)
+	if ((key = strdup4(xml_name(xn))) == NULL){
+	    clicon_err(OE_UNIX, errno, "strdup");
 	    goto catch;
+	}
 
     if (spec == NULL){
 	if (partial)
@@ -800,8 +806,10 @@ xml2db(cxobj *xt, dbspec_key *dbspec, char *dbname)
     cvec *uv;
 
     /* skip top level (which is 'clicon' or something */
-    if ((uv = cvec_new(0)) == NULL) 
+    if ((uv = cvec_new(0)) == NULL) {
+	clicon_err(OE_UNIX, errno, "%s: cvec_new", __FUNCTION__);
 	goto catch;
+    }
     while ((x = xml_child_each(xt, x, CX_ELMNT)) != NULL)
 	if (xml2db_1(x, dbspec, dbname, uv, NULL, NULL) < 0)
 	    goto catch;
