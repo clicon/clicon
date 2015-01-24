@@ -71,6 +71,7 @@ dbdep_handle_t dbdep_tree_validate(clicon_handle h, uint16_t row, trans_cb, void
 /*
  * Log for netconf notify function (config_client.c)
  */
-int backend_notify(clicon_handle h, char *stream, int level, char *format, ...);
+int backend_notify(clicon_handle h, char *stream, int level, char *txt);
+int backend_notify_xml(clicon_handle h, char *stream, int level, cxobj *x);
 
 #endif /* _CLICON_BACKEND_API_H_ */

@@ -29,6 +29,10 @@
 /*
  * Types
  */
+enum format_enum{
+    MSG_NOTIFY_TXT, /* means filter works on strings */
+    MSG_NOTIFY_XML, /* means filter works on xml */
+};
 
 /* See also map_type2str in clicon_proto.c */
 enum clicon_msg_type{
@@ -94,7 +98,9 @@ enum clicon_msg_type{
     CLICON_MSG_SUBSCRIPTION, /* Create a new notification subscription. 
 			        Body is:
 			        1. int: status off/on
-			        2. string: name of stream */
+			        1. int: format (enum notify_format)
+			        2. string: name of stream 
+			        3. string: filter */
     CLICON_MSG_OK,       /* server->client reply */
     CLICON_MSG_NOTIFY,   /* Notification. Body is:
 			    1. int: loglevel

@@ -72,6 +72,7 @@ config_terminate(clicon_handle h)
     char           *pidfile = clicon_backend_pidfile(h);
     char           *sockpath = clicon_sock(h);
 
+    clicon_debug(1, "%s", __FUNCTION__);
     if ((dbspec = clicon_dbspec_key(h)) != NULL)
 	db_spec_free(dbspec);
     if ((yspec = clicon_dbspec_yang(h)) != NULL)
@@ -81,9 +82,8 @@ config_terminate(clicon_handle h)
 	unlink(pidfile);   
     if (sockpath)
 	unlink(sockpath);   
-
     backend_handle_exit(h);
-
+    clicon_debug(1, "%s done", __FUNCTION__);
     return 0;
 }
 
@@ -647,7 +647,7 @@ main(int argc, char **argv)
     if (event_loop() < 0)
 	goto done;
   done:
-    clicon_log(LOG_NOTICE, "%s: %u Terminated\n", __PROGRAM__, getpid());
+    clicon_log(LOG_NOTICE, "%s: %u Terminated", __PROGRAM__, getpid());
     config_terminate(h); /* Cannot use h after this */
 
     return 0;

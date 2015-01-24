@@ -18,35 +18,38 @@
   along with CLICON; see the file COPYING.  If not, see
   <http://www.gnu.org/licenses/>.
 
- * XML XPATH and XSLT functions.
+ * Limited XML XPATH and XSLT functions.
+ * Note that there is a main function at the end of this file where you can test out
+ * different xpath expressions.
  */
 /*
 Implementation of a limited xslt xpath syntax. Some examples. Given the following
 xml tree:
 <aaa>
-  <bbb><ccc>42</ccc></bbb>
-  <bbb><ccc>99</ccc></bbb>
+  <bbb x="hello"><ccc>42</ccc></bbb>
+  <bbb x="bye"><ccc>99</ccc></bbb>
   <ddd><ccc>22</ccc></ddd>
 </aaa>
 
-With the follwoing xpath examples. There are some diffs and many limitations compared
+With the following xpath examples. There are some diffs and many limitations compared
 to the xml standards:
-	/	      # whole tree <aaa>...</aaa>
-	/bbb          # All bbb's under aaa: <bbb>...</bbb><bbb>...</bbb>
-	//bbb	      # All bbb's under aaa, 
-	//b?b	      # All bbb's under aaa, 
-	//b*	      # All bbb's under aaa, 
-	//b*\/ccc      # All ccc's under all bbb:s, 
-	//\*\/ccc       # All ccc's (both under bbb and ddd)
-	//bbb@x       # x="hello"
-	//bbb[@x]     # <bbb x="bye"><ccc>99</ccc></bbb>
-	//bbb[@x=bye] # <bbb x="bye"><ccc>99</ccc></bbb>
-	//bbb[0]      # <bbb><ccc>42</ccc></bbb>
-	//bbb[ccc=99] # <bbb x="bye"><ccc>99</ccc></bbb>
-        //\*\/[ccc=22]  # <ddd x="hello"><ccc>22</ccc></ddd>
-	//bbb | //ddd   # ALl <bbb> and <ddd>. Note spaces around |
+	/	        whole tree <aaa>...</aaa>
+	/bbb            <bbb><ccc>42</ccc></bbb><bbb x="hello"><ccc>99</ccc></bbb>
+	//bbb	        as above
+	//b?b	        as above
+	//b\*	        as above
+	//b\*\/ccc      <ccc>42</ccc><ccc>99</ccc>
+	//\*\/ccc       <ccc>42</ccc><ccc>99</ccc><ccc>22</ccc>
+	//bbb@x         x="hello"
+	//bbb[@x]       <bbb x="hello"><ccc>99</ccc></bbb>
+	//bbb[@x=hello] as above
+	//bbb[@x="hello"] as above
+	//bbb[0]        <bbb><ccc>42</ccc></bbb>
+	//bbb[ccc=99]   <bbb x="hello"><ccc>99</ccc></bbb>
+        //\*\/[ccc=99]  same as above
+	'//bbb | //ddd' <bbb><ccc>42</ccc></bbb><bbb x="hello"><ccc>99</ccc></bbb>
+		        <ddd><ccc>22</ccc></ddd> (NB spaces)
 	etc
-
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -452,9 +455,15 @@ xpath_internal(cxobj *cxtop, char *xpath0, int *vec_len00)
  * @param[in]  xpath   string with XPATH syntax
  * @retval     xml-tree of first match, or NULL on error. 
  *
+ * @code
+ *   cxobj *x;
+ *   if ((x = xpath_vec(xtop, "//symbol/foo")) != NULL) {
+ *         ...
+ *   }
+ * @endcode
  * Note that the returned pointer points into the original tree so should not be freed
  * after use.
- * See also xpath_each, xpath_vec.
+ * @see also xpath_vec.
  */
 cxobj *
 xpath_first(cxobj *cxtop, char *xpath)
@@ -476,23 +485,24 @@ xpath_first(cxobj *cxtop, char *xpath)
 
 }
 
-/*! A restricted xpath iterator that loops over all matching entries
+/*! A restricted xpath iterator that loops over all matching entries. Dont use.
  *
  * See xpath1() on details for subset.
+ * @param[in]  cxtop  xml-tree where to search
+ * @param[in]  xpath   string with XPATH syntax
+ * @param[in]  xprev   iterator/result should be initiated to NULL
+ * @retval     xml-tree of n:th match, or NULL on error. 
+ *
  * @code
  *   cxobj *x = NULL;
  *   while ((x = xpath_each(cxtop, "//symbol/foo", x)) != NULL) {
  *     ...
  *   }
  * @endcode
- * @param[in]  cxtop  xml-tree where to search
- * @param[in]  xpath   string with XPATH syntax
- * @param[in]  xprev   iterator/result should be initiated to NULL
- * @retval     xml-tree of n:th match, or NULL on error. 
  *
  * Note that the returned pointer points into the original tree so should not be freed
  * after use.
- * See also xpath, xpath_vec.
+ * @see also xpath, xpath_vec.
  * NOTE: uses a static variable: consider replacing with xpath_vec() instead
  */
 cxobj *
@@ -532,6 +542,11 @@ xpath_each(cxobj *cxtop, char *xpath, cxobj *xprev)
 /*! A restricted xpath that returns a vector of macthes
  *
  * See xpath1() on details for subset.
+ * @param[in]  cxtop  xml-tree where to search
+ * @param[in]  xpath   string with XPATH syntax
+ * @param[out] xv_len  returns length of vector in return value
+ * @retval   vector of xml-trees, or NULL on error. Vector must be free():d after use
+ *
  * @code
  *   cxobj **xv;
  *   int               xlen;
@@ -543,17 +558,114 @@ xpath_each(cxobj *cxtop, char *xpath, cxobj *xprev)
  *      free(xv);
  *   }
  * @endcode
- * @param[in]  cxtop  xml-tree where to search
- * @param[in]  xpath   string with XPATH syntax
- * @param[out] xv_len  returns length of vector in return value
- * @retval   vector of xml-trees, or NULL on error. Vector must be freed after use
- *
  * Note that although the returned vector must be freed after use, the returned xml
  * trees need not be.
- * See also xpath, xpath_each.
+ * @see also xpath_first, xpath_each.
  */
 cxobj **
 xpath_vec(cxobj *cxtop, char *xpath, int *xv_len)
 {
     return xpath_internal(cxtop, xpath, xv_len);
 }
+
+/*
+ * Turn this on to get an xpath test program 
+ * Usage: clicon_xpath [<xpath>] 
+ * read xml from input
+ * Example compile:
+ gcc -I.  -I../../lib/clicon -I../../include -I../.. -I/usr/local/include -DHAVE_CONFIG_H  -fPIC -g -Wall clicon_xsl.c -o clicon_xpath ./libclicon.so.2.3 -lcligen
+*/
+#if 0 /* Test program: enable this to try xpath expresions */
+#include <syslog.h>
+#include "clicon_log.h"
+
+static int
+read_buf(int fd, cbuf *xf)
+{
+    unsigned char buf[BUFSIZ];
+    int           len;
+    int           i;
+    int           retval = -1;
+
+    while (1){
+	memset(buf, 0, sizeof(buf));
+	if ((len = read(fd, buf, sizeof(buf))) < 0){
+	    if (errno == ECONNRESET)
+		len = 0; /* emulate EOF */
+	    else{
+		clicon_log(LOG_ERR, "%s: read: %s", __FUNCTION__, strerror(errno));
+		goto done;
+	    }
+	} /* read */
+	if (len == 0){ 	/* EOF */
+	    retval = 0;
+	    goto packet;
+	}
+	for (i=0; i<len; i++){
+	    if (buf[i] == 0)
+		continue; /* Skip NULL chars (eg from terminals) */
+	    cprintf(xf, "%c", buf[i]);
+	}
+    } /* while */
+  packet:
+    retval = 0;
+  done:
+    return retval;
+}
+
+/*
+ * Usage: clicon_xpath [<xpath>] 
+ * read xml from input
+ */
+int
+main(int argc, char *argv[]) 
+{
+    cbuf            *cb = NULL;
+    int              retval = -1;
+    cxobj           *xt0 = NULL;
+    cxobj           *xt;
+    char            *buf;
+    char            *xpath;
+    cxobj          **xv;
+    cxobj           *x;
+    int              i;
+    int              xlen;
+
+    if (argc != 1 && argc != 2){
+	fprintf(stderr, "Usage: %s [<xpath>]\n", argv[0]);
+	exit(1);
+    }
+    if (argc > 1)
+	xpath = argv[1];
+    else
+	xpath = "/";
+    debug = 0;
+    if ((cb = cbuf_new()) == NULL)
+	goto done;
+    if (read_buf(0, cb) < 0)
+	goto done;
+    buf = cbuf_get(cb);
+    if (clicon_xml_parse_string(&buf, &xt0) < 0)
+	goto done;
+    xt = NULL;
+    if (xt0 && xml_child_nr(xt0))
+	xt = xml_child_i(xt0, 0); 
+    if (xt == NULL)
+	goto done;
+    if ((xv = xpath_vec(xt, xpath, &xlen)) != NULL) {
+	for (i=0; i<xlen; i++){
+	    x = xv[i];
+	    clicon_xml2file(stdout, x, 0, 1);
+	}
+	free(xv);
+    }
+    retval = 0;
+  done:
+    if (cb)
+	cbuf_free(cb);
+    if (xt0)
+	xml_free(xt0);
+    return retval;
+}
+
+#endif /* Test program */

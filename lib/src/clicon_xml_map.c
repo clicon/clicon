@@ -516,9 +516,8 @@ xml2db_transform_key(cxobj       *xn,
     cxobj  *xb;          /* xml body (text) */
     cvec             *vhds;          /* spec variable list */
     cg_var           *v;           /* single variable */
-//    cg_var           *v1;           /* single variable */
     int               retval = -1; 
-    cvec             *vh1 = NULL;
+    cvec             *vh1 = NULL;           
     cg_var           *cv;
     int               index;
     int               len;
@@ -526,8 +525,10 @@ xml2db_transform_key(cxobj       *xn,
     int               matched = 0;
 
     /* vh1 is list of variables, first unique, then rest */
-    if ((vh1 = cvec_new(0)) == NULL) 
+    if ((vh1 = cvec_new(0)) == NULL) {
+	clicon_err(OE_UNIX, errno, "cvec_new");
 	goto catch;
+    }
     /* 
      * First add unique variables
      */
@@ -621,8 +622,10 @@ key2spec(char            *name,
     else{
 	*key = strdup(name);
     }
-    if ((vkey = chunk_sprintf(__FUNCTION__, "%s[]", *key)) == NULL)
+    if ((vkey = chunk_sprintf(__FUNCTION__, "%s[]", *key)) == NULL){
+	clicon_err(OE_UNIX, errno, "%s: chnunk_sprintf", __FUNCTION__);
 	goto done;
+    }
 
     /* Try match key or key[] with spec */ 
     for (ds=db_spec; ds; ds=ds->ds_next){
@@ -694,13 +697,17 @@ xml2db_1(cxobj          *xn,
     /* actual key */
     if (key0){
 	len = strlen(key0) + 1 + strlen(xml_name(xn));
-	if ((key = malloc(len+1)) == NULL)
+	if ((key = malloc(align4(len+1))) == NULL){ /* XXX: align4 */
+	    clicon_err(OE_UNIX, errno, "malloc");
 	    goto catch;
+	}
 	snprintf(key, len+1, "%s.%s", key0, xml_name(xn));
     }
     else
-	if ((key = strdup4(xml_name(xn))) == NULL)
+	if ((key = strdup4(xml_name(xn))) == NULL){
+	    clicon_err(OE_UNIX, errno, "strdup");
 	    goto catch;
+	}
 
     if (spec == NULL){
 	if (partial)
@@ -799,8 +806,10 @@ xml2db(cxobj *xt, dbspec_key *dbspec, char *dbname)
     cvec *uv;
 
     /* skip top level (which is 'clicon' or something */
-    if ((uv = cvec_new(0)) == NULL) 
+    if ((uv = cvec_new(0)) == NULL) {
+	clicon_err(OE_UNIX, errno, "%s: cvec_new", __FUNCTION__);
 	goto catch;
+    }
     while ((x = xml_child_each(xt, x, CX_ELMNT)) != NULL)
 	if (xml2db_1(x, dbspec, dbname, uv, NULL, NULL) < 0)
 	    goto catch;
@@ -1140,5 +1149,71 @@ xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
 
     retval = 0;
     // done:
+    return retval;
+}
+
+/*! Translate a single xml node to a cligen variable vector. Note not recursive 
+ * @param[in]  xt   XML tree containing one top node
+ * @param[in]  ys   Yang spec containing type specification of top-node of xt
+ * @param[out] cvv  CLIgen variable vector. Should be freed by cvec_free()
+ * @retval     0    Everything OK, cvv allocated and set
+ * @retval    -1    Something wrong, clicon_err() called to set error. No cvv returned
+ * Not recursive means that only one level of XML bodies is translated to cvec:s.
+ * Example: 
+    <a>
+      <b>23</b>
+      <c>88</c>
+      <d>      
+        <e>99</e>
+      </d>
+    </a> 
+         --> b:23, c:88
+ */
+int
+xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
+{
+    int               retval = -1;
+    cvec             *cvv = NULL;
+    cxobj            *xc;         /* xml iteration variable */
+    yang_stmt        *ys;         /* yang spec */
+    cg_var           *cv;
+    cg_var           *ycv;
+    char             *body;
+    char             *reason = NULL;
+
+    if ((cvv = cvec_new(0)) == NULL){
+	clicon_err(OE_UNIX, errno, "cvec_new");
+	goto err;
+    }
+    xc = NULL;
+    /* Go through all children of the xml tree */
+    while ((xc = xml_child_each(xt, xc, CX_ELMNT)) != NULL){
+	if ((ys = yang_find_specnode((yang_node*)yt, xml_name(xc))) == NULL){
+	    clicon_debug(1, "%s: %s not found under %s",
+			 __FUNCTION__, xml_name(xc), yt->ys_argument);
+	    continue;
+	}
+	if ((ycv = ys->ys_cv) != NULL){
+	    if ((body = xml_body(xc)) != NULL){
+		if ((cv = cvec_add_cv(cvv, ycv)) == NULL){
+		    clicon_err(OE_PLUGIN, errno, "cvec_add");
+		    goto err;
+		}
+		if (cv_parse1(body, cv, &reason) < 0){
+		    clicon_err(OE_PLUGIN, errno, "cv_parse: %s", reason);
+		    goto err;
+		}
+	    }
+	}
+    }
+    if (debug > 1){
+	clicon_debug(2, "%s cvv:\n", __FUNCTION__);
+	cvec_print(stderr, cvv);
+    }
+    *cvv0 = cvv;
+    return 0;
+ err:
+    if (cvv)
+	cvec_free(cvv);
     return retval;
 }

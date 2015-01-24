@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <assert.h>
+#include <fnmatch.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <regex.h>
@@ -122,47 +123,78 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
  * @param[in]  h       Clicon handle
  * @param[in]  stream  Name of event stream. CLICON is predefined as LOG stream
  * @param[in]  level   Event level (not used yet)
- * @param[in]  format  Format string as printf
+ * @param[in]  event   Actual message as text format
  *
  * Stream is a string used to qualify the event-stream. Distribute the
  * event to all clients registered to this backend.  
  * XXX: event-log NYI.  
- * See also clicon_log(). 
- * See also subscription_add()
+ * @see also subscription_add()
+ * @see also backend_notify_xml()
  */
 int
-backend_notify(clicon_handle h, char *stream, int level, char *format, ...)
+backend_notify(clicon_handle h, char *stream, int level, char *event)
 {
-    va_list              args;
-    int                  len;
-    char                *event = NULL;
     struct client_entry *ce;
     struct subscription *su;
     int                  retval = -1;
 
-    va_start(args, format);
-    len = vsnprintf(NULL, 0, format, args);
-    va_end(args);
-    /* Allocate event. */
-    if ((event = malloc(len+1)) == NULL){
-	clicon_err(OE_PLUGIN, errno, "malloc");
-	goto done;
-    }
-    va_start(args, format);
-    vsnprintf(event, len+1, format, args);
-    va_end(args);
+    /* Now go thru all clients(sessions), and all subscriptions and find matches */
+    for (ce = backend_client_list(h); ce; ce = ce->ce_next)
+	for (su = ce->ce_subscription; su; su = su->su_next)
+	    if (strcmp(su->su_stream, stream) == 0){
+		if (fnmatch(su->su_filter, event, 0) == 0)
+		    if (send_msg_notify(ce->ce_s, level, event) < 0)
+			goto done;
+	    }
+    retval = 0;
+  done:
+    return retval;
+}
+
+/*! Notify event and distribute to all registered clients
+ * 
+ * @param[in]  h       Clicon handle
+ * @param[in]  stream  Name of event stream. CLICON is predefined as LOG stream
+ * @param[in]  level   Event level (not used yet)
+ * @param[in]  event   Actual message as xml tree
+ *
+ * Stream is a string used to qualify the event-stream. Distribute the
+ * event to all clients registered to this backend.  
+ * XXX: event-log NYI.  
+ * @see also subscription_add()
+ * @see also backend_notify()
+ */
+int
+backend_notify_xml(clicon_handle h, char *stream, int level, cxobj *x)
+{
+    struct client_entry *ce;
+    struct subscription *su;
+    int                  retval = -1;
+    cbuf                *cb = NULL;
 
     /* Now go thru all clients(sessions), and all subscriptions and find matches */
     for (ce = backend_client_list(h); ce; ce = ce->ce_next)
 	for (su = ce->ce_subscription; su; su = su->su_next)
-	    if (strcmp(su->su_stream, stream) == 0)
-		if (send_msg_notify(ce->ce_s, level, event) < 0)
-		    goto done;
+	    if (strcmp(su->su_stream, stream) == 0){
+		if (strlen(su->su_filter)==0 || xpath_first(x, su->su_filter) != NULL){
+		    if (cb==NULL){
+			if ((cb = cbuf_new()) == NULL){
+			    clicon_err(OE_PLUGIN, errno, "cbuf_new");
+			    goto done;
+			}
+			if (clicon_xml2cbuf(cb, x, 0, 0) < 0)
+			    goto done;
+		    }
+		    if (send_msg_notify(ce->ce_s, level, cbuf_get(cb)) < 0)
+			goto done;
+		}
+	    }
     retval = 0;
   done:
-    if (event)
-	free(event);
+    if (cb)
+	cbuf_free(cb);
     return retval;
+
 }
 
 struct client_entry *

@@ -165,7 +165,7 @@ char      *yang_dbkey_get(yang_stmt *ys);
 int        yang_dbkey_set(yang_stmt *ys, char *val);
 int        yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg);
 yang_stmt *dbkey2yang(yang_node *yn, char *dbkey);
-yang_stmt *yang_xpath(yang_node *yn, char *xpath);
+yang_node *yang_xpath(yang_node *yn, char *xpath);
 cg_var    *ys_parse(yang_stmt *ys, enum cv_type cvtype);
 int        ys_parse_sub(yang_stmt *ys);
 int        yang_mandatory(yang_stmt *ys);

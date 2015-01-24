@@ -212,7 +212,13 @@ event_loop(void)
 	    if (errno == EINTR)
 		continue;
 #endif
-	    clicon_err(OE_EVENTS, errno, "select");
+	    if (errno == EINTR){
+		clicon_debug(1, "%s select: %s", __FUNCTION__, strerror(errno));
+		retval = 0;
+		goto err;
+	    }
+	    else
+		clicon_err(OE_EVENTS, errno, "%s select", __FUNCTION__);
 	    goto err;
 	}
 	if (n==0){ /* Timeout */
@@ -239,6 +245,7 @@ event_loop(void)
       err:
 	break;
     }
+    clicon_debug(1, "%s done:", __FUNCTION__);
     return retval;
 }
 

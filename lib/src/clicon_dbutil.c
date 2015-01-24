@@ -88,6 +88,7 @@
 #include "clicon_lvalue.h"
 #include "clicon_yang.h"
 #include "clicon_options.h"
+#include "clicon_proto.h"
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
 #include "clicon_sha1.h"
@@ -273,22 +274,27 @@ catch:
 int 
 cvec2dbkey(char *dbname, char *key, cvec *cvec)
 {
+    int              retval = -1;
     char            *lvec = NULL;
     size_t           lvlen;
 
     /* Transform variable list to contiguous char vector */
     if ((lvec = cvec2lvec(cvec, &lvlen)) == NULL)
-	return -1;
+	goto done;
     /* Write to database, key and a vector of variables */
     if (db_set(dbname, key, lvec, lvlen) < 0)
-	return -1;
-    return 0;
+	goto done;
+    retval = 0;
+ done:
+    if (lvec)
+	free(lvec);
+    return retval;
 }
 
-/*
- * lvec2cvec
- * Translate from lvec to cgv cvec
- * The cvec needs to be freed by cvec_free by the caller.
+/*! Translate from lvec to CLIgen vector
+ * @param[in] lvec  Lvec
+ * @param[in] len   Length of lvec
+ * @retval    cvec  The cvec needs to be freed by cvec_free() by caller.
  * Note, the special vector entry of type "A.n key:number" 
  * is a meta entry for vectors. The caller needs to ensure that these are not called.
  */
@@ -394,10 +400,12 @@ cvval2lv(cg_var *cv, struct lvalue *lv)
     return 0;
 }
 
-/*
- * cvec2lvec
- * return new lvec as malloced data
- * Note that a lvec is a vector of lvalue pairs.
+/*! Translate a cvec to lvec as malloced data
+ * @param[in]  cvv     CLIgen vector
+ * @param[out] lveclen Returned length of lvec
+ * @retval     NULL    Error with cligen_err set
+ * @retval     lvec    Note must bee free():d after use
+ * An lvec is a vector of lvalue pairs.
  */
 char *
 cvec2lvec(cvec *vr, size_t *lveclen)

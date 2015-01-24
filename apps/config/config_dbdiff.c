@@ -202,7 +202,7 @@ dbdiff_vector(char *db1, char *db2,
     for (i1 = 0; i1 < npairs1; i1++) 
 	if ((v1[i1].vars = lvec2cvec (pairs1[i1].dp_val, pairs1[i1].dp_vlen)) == NULL)
 	    goto quit;
-    for (i2 = 0; i2 < npairs2; i2++) 
+    for (i2 = 0; i2 < npairs2; i2++)
 	if ((v2[i2].vars = lvec2cvec (pairs2[i2].dp_val, pairs2[i2].dp_vlen)) == NULL)
 	    goto quit;
     /* Loop through db1 pairs and check with db2 for adds or modifications */
@@ -248,13 +248,13 @@ dbdiff_vector(char *db1, char *db2,
     if (v1){
 	for (i1 = 0; i1 < npairs1; i1++) 
 	    if (v1[i1].vars)
-		free (v1[i1].vars);
+		cvec_free(v1[i1].vars);
 	free(v1);
     }
     if (v2){
 	for (i2 = 0; i2 < npairs2; i2++) 
 	    if (v2[i2].vars)
-		free (v2[i2].vars);
+		cvec_free(v2[i2].vars);
 	free(v2);
     }
     unchunk_group(__FUNCTION__);

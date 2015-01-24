@@ -45,7 +45,9 @@ struct client_entry{
 struct subscription{
     struct subscription *su_next;
     int                  su_s; /* stream socket */
+    enum format_enum     su_format; /* format of notification stream */
     char                *su_stream;
+    char                *su_filter;
 };
 
 /*

@@ -57,6 +57,7 @@
 #include "clicon_lvalue.h"
 #include "clicon_yang.h"
 #include "clicon_options.h"
+#include "clicon_proto.h"
 #include "clicon_proto_client.h"
 #include "clicon_dbmatch.h"
 #include "clicon_dbutil.h"
@@ -288,7 +289,9 @@ dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
  * Key.0 $!a=442 $b=3 $uuid=u0
  * Key.1 $!a=443 $b=7 $uuid=u1
  * Key.1 $!a=53  $b=3 $uuid=u2
+ * @code
  *  dbmatch_one(dbname, key="^Key.*$", attr="a", pattern="44*", &key, &cvec)
+ * @endcode
  * will result in the return of the cvec of Key.0
  * This is a special case of dbmatch_fn()
  * NOTE: deallocate return values cvecp and keyp:

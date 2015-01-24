@@ -457,7 +457,7 @@ dbdep_match_key(char *key, char *skey, char **matched)
 
  ok:
     if (matched) {
-        if ((*matched = strdup(key)) != NULL)
+        if ((*matched = strdup4(key)) != NULL)
 	  (*matched)[i] = '\0';
     }
     return 1;
