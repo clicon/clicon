@@ -59,7 +59,7 @@ INCLUDES	= -I. -I../lib -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcd
 
 SRC             =  py_cli.c
 OBJS            = $(SRC:.c=.o)
-SO_MODULE       = _cliconcli.so
+SO_MODULE       = _pyCliconCli.so
 PY_MODULE       =  cliconcli.py
 
 all:	 $(SO_MODULE)
