@@ -63,7 +63,7 @@ INCLUDES	= -I. -I../lib -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcd
 
 SRC             =  py_backend.c 
 OBJS            = $(SRC:.c=.o)
-SO_MODULE       = _cliconbackend.so
+SO_MODULE       = _PyCliconBackend.so
 PY_MODULE       =  cliconbackend.py
 
 all:	$(SO_MODULE)
