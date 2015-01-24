@@ -22,6 +22,13 @@
 
 #include <Python.h>
 
+/* Avoid 'dereferencing type-punned pointer will break strict-aliasing rules'
+ * warnings from Py_RETURN_TRUE and Py_RETURN_FALSE.
+ */
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2))
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+
 /* clicon */
 #include <cligen/cligen.h>
 #include <clicon/clicon.h>
@@ -79,7 +86,7 @@ _db_init(CliconDB *self)
     
 
 static PyObject *
-_dbvar2cv(CliconDB *self, PyObject *args)
+_db_getvar(CliconDB *self, PyObject *args)
 {
     char *key;
     char *var;
@@ -90,7 +97,7 @@ _dbvar2cv(CliconDB *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "ss", &key, &var))
         return NULL;
 
-    if ((cv = dbvar2cv(self->filename, key, var)) == NULL)
+    if ((cv = clicon_dbgetvar(self->filename, key, var)) == NULL)
 	Py_RETURN_NONE;
 
     if ((valstr = cv2str_dup(cv)) == NULL) {
@@ -107,7 +114,7 @@ _dbvar2cv(CliconDB *self, PyObject *args)
 }
 
 static PyObject *
-_dbkey2cvec(CliconDB *self, PyObject *args)
+_db_get(CliconDB *self, PyObject *args)
 {
     char *key;
     char *valstr;
@@ -121,7 +128,7 @@ _dbkey2cvec(CliconDB *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &key))
         return NULL;
 
-    if ((vr = dbkey2cvec(self->filename, key)) == NULL || cvec_len(vr) == 0)
+    if ((vr = clicon_dbget(self->filename, key)) == NULL || cvec_len(vr) == 0)
 	Py_RETURN_NONE;
 
     if ((Cvec = PyObject_CallMethod(__cligen_module(), "Cvec", NULL)) == NULL)
@@ -155,7 +162,7 @@ done:
 }
 
 static PyObject *
-_cvec2db(CliconDB *self, PyObject *args)
+_db_put(CliconDB *self, PyObject *args)
 {
     char *key;
     cg_var *cv;
@@ -195,8 +202,9 @@ _cvec2db(CliconDB *self, PyObject *args)
     }
     Py_DECREF(Iterator);
 
-    if (cvec2dbkey(self->filename, key, vr) < 0) {
-	PyErr_Format(PyExc_RuntimeError, /* XXX Need CLICON exceptoions */
+    
+    if (clicon_dbput(self->filename, key, vr) < 0) {
+	PyErr_Format(PyExc_RuntimeError, /* XXX Need CLICON exceptions */
 		     "Failed to write data to database '%s'",
 		     self->filename);
 	goto quit;
@@ -375,11 +383,11 @@ static PyMethodDef CliconDB_methods[] = {
 
     {"_init", (PyCFunction)_db_init, METH_NOARGS,
      "Initialize database file"},
-    {"_dbvar2cv", (PyCFunction)_dbvar2cv, METH_VARARGS,
+    {"_db_getvar", (PyCFunction)_db_getvar, METH_VARARGS,
      "Get variable value from database"},
-    {"_dbkey2cvec", (PyCFunction)_dbkey2cvec, METH_VARARGS,
+    {"_db_get", (PyCFunction)_db_get, METH_VARARGS,
      "Get variable vector for a key from database"},
-    {"_cvec2db", (PyCFunction)_cvec2db, METH_VARARGS,
+    {"_db_put", (PyCFunction)_db_put, METH_VARARGS,
      "Write an Cvec to db"},
     {"_db_del", (PyCFunction)_db_del, METH_VARARGS,
      "Delete a key from the database"},
