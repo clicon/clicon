@@ -60,7 +60,7 @@ init__cli(void)
  * plugin call
  */
 static int
-plugin_call(clicon_handle h, const char *func)
+plugin_call(clicon_handle h, char *func)
 {
     int retval = -1;
     PyObject *handle = NULL;
