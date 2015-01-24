@@ -43,10 +43,9 @@ StringAsString(PyObject *obj)
 {
     char *str;
     char *retval = NULL;
-    PyObject *strobj = NULL;
-    
-
 #if  PY_MAJOR_VERSION >= 3
+    PyObject *strobj = NULL;
+
     strobj = PyUnicode_AsUTF8String(obj);
     if (strobj == NULL)
 	goto done; 
