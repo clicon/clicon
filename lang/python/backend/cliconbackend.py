@@ -72,9 +72,8 @@ class DBdep:
         self._plugin = plugin
 
 
-def dbdep(handle, cbtype, cb, arg, key):
+def dbdep(handle, prio, cb, arg, key):
     
-    _cliconbackend._dbdep(handle, cbtype, cb, arg, key)
     (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
     for name, p in __plugins__.items():
         if p._name == os.path.basename(fn)[0:-3]:
@@ -83,7 +82,50 @@ def dbdep(handle, cbtype, cb, arg, key):
     if not 'plugin' in locals():
         raise LookupError("calling plugin not found")
 
-    d = DBdep(plugin, cbtype, cb, arg, key)
+    _cliconbackend._dbdep(handle, prio, cb, arg, key)
+    d = DBdep(plugin, prio, cb, arg, key)
+    __dbdeps__[plugin] = d
+    
+def dbdep_tree(handle, prio, cb, arg, key):
+    
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    for name, p in __plugins__.items():
+        if p._name == os.path.basename(fn)[0:-3]:
+            plugin = p
+            break
+    if not 'plugin' in locals():
+        raise LookupError("calling plugin not found")
+
+    _cliconbackend._dbdep_tree(handle, prio, cb, arg, key)
+    d = DBdep(plugin, prio, cb, arg, key)
+    __dbdeps__[plugin] = d
+    
+def dbdep_validate(handle, prio, cb, arg, key):
+    
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    for name, p in __plugins__.items():
+        if p._name == os.path.basename(fn)[0:-3]:
+            plugin = p
+            break
+    if not 'plugin' in locals():
+        raise LookupError("calling plugin not found")
+
+    _cliconbackend._dbdep_validate(handle, prio, cb, arg, key)
+    d = DBdep(plugin, prio, cb, arg, key)
+    __dbdeps__[plugin] = d
+    
+def dbdep_tree_validate(handle, prio, cb, arg, key):
+    
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    for name, p in __plugins__.items():
+        if p._name == os.path.basename(fn)[0:-3]:
+            plugin = p
+            break
+    if not 'plugin' in locals():
+        raise LookupError("calling plugin not found")
+
+    _cliconbackend._dbdep_tree_validate(handle, prio, cb, arg, key)
+    d = DBdep(plugin, prio, cb, arg, key)
     __dbdeps__[plugin] = d
     
 
@@ -118,9 +160,9 @@ def _find_method(ob, name):
         return None
 
 
-def _plugin_commit(handle, func, db, tt, op, key, arg):
+def _plugin_commit(handle, func, db, op, key, arg):
     clicon_debug(1, "Calling {:s}\n".format(str(func)))
-    return func(handle, CliconDB(db), tt, op, key, arg)
+    return func(handle, CliconDB(db), op, key, arg)
 
 
 def _plugin_init(handle):
