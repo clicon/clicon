@@ -53,7 +53,6 @@ typedef struct {
 static int
 backend_commit(clicon_handle h,
 	       char *db,
-	       trans_cb_type tt, 
 	       lv_op_t op,
 	       char *key,
 	       void *arg)
@@ -72,8 +71,8 @@ backend_commit(clicon_handle h,
 	goto quit;
     
     
-    if ((val = PyObject_CallMethod(backend, "_plugin_commit", "OOsiisO",
-		handle, cap->commit_func, db, tt, op, key, cap->arg)) == NULL)
+    if ((val = PyObject_CallMethod(backend, "_plugin_commit", "OOsisO",
+		handle, cap->commit_func, db, op, key, cap->arg)) == NULL)
 	goto quit;
     
     retval = IntAsLong(val);
@@ -90,10 +89,12 @@ quit:
 }
 
 
+typedef dbdep_handle_t (*dbdep_func_t)(clicon_handle, uint16_t, trans_cb, void *, char *);
+
 static PyObject *
-_backend_dbdep(PyObject *self, PyObject *args)
+_backend_dbdep_func(PyObject *self, PyObject *args, dbdep_func_t func)
 {
-    int cbtype;
+    int prio;
     char *key;
     clicon_handle h;
     PyObject *handle;
@@ -101,7 +102,7 @@ _backend_dbdep(PyObject *self, PyObject *args)
     PyObject *arg;
     dep_capsule *cap;
 
-    if (!PyArg_ParseTuple(args, "OiOOs", &handle, &cbtype, &cb, &arg, &key))
+    if (!PyArg_ParseTuple(args, "OiOOs", &handle, &prio, &cb, &arg, &key))
         return NULL;
 
     if ((cap = malloc(sizeof(*cap))) == NULL) {
@@ -114,7 +115,7 @@ _backend_dbdep(PyObject *self, PyObject *args)
     Py_INCREF(cb);
 
     h = PyCapsule_GetPointer(handle, NULL);
-    if (dbdep(h, cbtype, backend_commit, (void *)cap, 1, key) == NULL) {
+    if (func(h, prio,  backend_commit, (void *)cap, key) == NULL) {
 	free(cap);
 	PyErr_SetString(PyExc_RuntimeError, "dbdep failed");
 	return NULL;
@@ -123,9 +124,43 @@ _backend_dbdep(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+static PyObject *
+_backend_dbdep(PyObject *self, PyObject *args)
+{
+    return _backend_dbdep_func(self, args, dbdep);
+}
+
+static PyObject *
+_backend_dbdep_tree(PyObject *self, PyObject *args)
+{
+    return _backend_dbdep_func(self, args, dbdep_tree);
+}
+
+static PyObject *
+_backend_dbdep_validate(PyObject *self, PyObject *args)
+{
+    return _backend_dbdep_func(self, args, dbdep_validate);
+}
+
+static PyObject *
+_backend_dbdep_tree_validate(PyObject *self, PyObject *args)
+{
+    return _backend_dbdep_func(self, args, dbdep_tree_validate);
+}
+
+
 
 static PyMethodDef backend_module_methods[] = {
     {"_dbdep", (PyCFunction)_backend_dbdep, METH_VARARGS,
+     "Register database dependency"
+    },
+    {"_dbdep_tree", (PyCFunction)_backend_dbdep_tree, METH_VARARGS,
+     "Register database dependency"
+    },
+    {"_dbdep_validate", (PyCFunction)_backend_dbdep_validate, METH_VARARGS,
+     "Register database dependency"
+    },
+    {"_dbdep_tree_validate", (PyCFunction)_backend_dbdep_tree_validate, METH_VARARGS,
      "Register database dependency"
     },
 
@@ -157,7 +192,7 @@ init__backend(void)
  * plugin call
  */
 static int
-plugin_call(clicon_handle h, const char *func)
+plugin_call(clicon_handle h, char *func)
 {
     int retval = -1;
     PyObject *handle = NULL;
