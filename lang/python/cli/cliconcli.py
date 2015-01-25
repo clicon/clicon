@@ -36,11 +36,12 @@ from __future__ import unicode_literals, absolute_import, print_function
 __version__ = '0.1'
 
 #import sys
+import os
 import glob
 import importlib
 import cligen 
 from clicon import *
-from _cliconbackend import *
+from _cliconcli import *
 
 # Constants
 PLUGIN_INIT      = 'plugin_init'
@@ -62,32 +63,6 @@ class Handle(BaseHandle):
     pass
 
 
-class DBdep:
-
-    def __init__(self, plugin, cbtype, func, arg, key):
-        global __plugins__
-
-        self._cbtype = cbtype
-        self._func = func
-        self._arg = arg
-        self._key = key
-        self._plugin = plugin
-
-
-def dbdep(handle, cbtype, cb, arg, key):
-    
-    _dbdep(handle, cbtype, cb, arg, key)
-    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
-    for p in __plugins__:
-        if p._name == os.path.basename(fn).s[0:len(s)-2]:
-            plugin = p
-            break
-    if not 'plugin' in locals():
-        raise LookupError("calling plugin not found")
-
-    d = DBdep(plugin, cbtype, func, arg, key)
-    __dbdeps__[plugin] = d
-    
 
 class Plugin:
     
@@ -97,11 +72,6 @@ class Plugin:
         self._init     = _find_method(self._plugin, PLUGIN_INIT)
         self._start    = _find_method(self._plugin, PLUGIN_START)
         self._exit     = _find_method(self._plugin, PLUGIN_EXIT)
-        self._reset    = _find_method(self._plugin, PLUGIN_RESET)
-        self._begin    = _find_method(self._plugin, PLUGIN_BEGIN)
-        self._complete = _find_method(self._plugin, PLUGIN_COMPLETE)
-        self._end      = _find_method(self._plugin, PLUGIN_END)
-        self._abort    = _find_method(self._plugin, PLUGIN_ABORT)
 
     def __str__(self):
         return self._name
@@ -109,8 +79,6 @@ class Plugin:
     def __repr__(self):
         return self._name
 
-    def plugin_init(handle):
-        return self._init(handle)
 
 
 
@@ -121,10 +89,11 @@ def _find_method(ob, name):
         return None
 
 
-def _plugin_init(handle):
+def _plugin_init(h):
     global __plugins__
 
-    for path in glob.glob(clicon_option(handle,"CLICON_CLI_DIR")+"/*.py"):
+    handle = Handle(h)
+    for path in glob.glob(handle.cli_dir()+"/*.py"):
         name = os.path.basename(path)[0:-3]
         try:
             __plugins__[name] = Plugin(handle, name)
@@ -139,8 +108,10 @@ def _plugin_init(handle):
 
     return len(__plugins__)
 
-def _plugin_start(handle, argc, argv):
+def _plugin_start(h, argc, argv):
     global __plugins__
+
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._start is not None:
             clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
@@ -151,8 +122,10 @@ def _plugin_start(handle, argc, argv):
             
     return 0
 
-def _plugin_exit(handle):
+def _plugin_exit(h):
     global __plugins__
+
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._exit is not None:
             clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
