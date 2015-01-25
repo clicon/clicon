@@ -24,6 +24,10 @@
 
 PyObject *Clicon_options(PyObject *self, PyObject *args);
 PyObject *Clicon_option(PyObject *self, PyObject *args);
+PyObject *Clicon_option_set(PyObject *self, PyObject *args);
+PyObject *Clicon_option_del(PyObject *self, PyObject *args);
+PyObject *Clicon_option_exists(PyObject *self, PyObject *args);
+
 
 
 #endif /* __PY_CLICON_OPTIONS_H__  */
