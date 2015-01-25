@@ -24,5 +24,6 @@
 PyObject *Clicon_err(PyObject *self, PyObject *args);
 PyObject *Clicon_strerror(PyObject *self, PyObject *args);
 PyObject *Clicon_err_reset(PyObject *m);
+int Clicon_err_init(PyObject *m);
 
 #endif /* __PY_CLICON_ERR_H__  */
