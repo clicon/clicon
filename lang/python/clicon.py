@@ -43,20 +43,6 @@ from _clicon import *
 
 
 
-
-def clicon_options(handle):
-    return _clicon._clicon_options(handle)
-
-
-def clicon_candidate_db(handle):
-    return clicon_option(handle, "CLICON_CANDIDATE_DB")
-
-def clicon_running_db(handle):
-    return clicon_option(handle, "CLICON_RUNNING_DB")
-
-def clicon_option(handle, name):
-    return _clicon._clicon_option(handle, name)
-
 def clicon_log(level, msg):
     return _clicon._clicon_log(level, msg)
 
@@ -73,6 +59,99 @@ def clicon_strerror(err):
 
 def clicon_err_reset():
     return _clicon._clicon_err_reset()
+
+class Options:
+    'Clicon options object'
+
+    def __init__(self, h):
+        self._h = h
+    
+    def __getitem__(self, key):
+        return _clicon._clicon_option(self._h, key)
+
+    def __setitem__(self, key, val):
+        return _clicon._clicon_option_set(self._h, key, str(val))
+
+    def __delitem__(self, key):
+        return _clicon._clicon_option_del(self._h, key)
+
+    def __contains__(self, key):
+        return _clicon._clicon_option_exists(self._h, key)
+
+    def __iter__(self):
+        for key in self.keys():
+            yield key
+
+    def keys(self):
+        return _clicon._clicon_options(self._h)
+
+    def items(self):
+        itm = dict()
+        for key in self:
+            itm[key] = self[key]
+        return itm
+        
+class BaseHandle:
+    'A base handle object'
+
+    def __init__(self, h):
+        self._h = h
+        self.options = Options(self._h)
+
+
+    def candidate_db(self):
+        return self.options['CLICON_CANDIDATE_DB']
+
+    def running_db(self):
+        return self.options['CLICON_RUNNING_DB']
+
+    def appdir(self):
+        return self.options['CLICON_APPDIR']
+
+    def config_file(self):
+        return self.options['CLICON_CONFIGFILE']
+
+    def dbspec_type(self):
+        return self.options['CLICON_DBSPEC_TYPE']
+
+    def yang_dir(self):
+        return self.options['CLICON_YANG_DIR']
+
+    def yang_module_main(self):
+        return self.options['CLICON_YANG_MODULE_MAIN']
+
+    def backend_dir(self):
+        return self.options['CLICON_BACKEND_DIR']
+
+    def cli_dir(self):
+        return self.options['CLICON_CLI_DIR']
+
+    def clispec_dir(self):
+        return self.options['CLICON_CLISPEC_DIR']
+
+    def netconf_dir(self):
+        return self.options['CLICON_NETCONF_DIR']
+
+    def archive_dir(self):
+        return self.options['CLICON_ARCHIVE_DIR']
+
+    def startup_config(self):
+        return self.options['CLICON_STARTUP_CONFIG']
+
+    def sock(self):
+        return self.options['CLICON_SOCK']
+
+    def backend_pidfile(self):
+        return self.options['CLICON_BACKEND_PIDFILE']
+
+    def sock_group(self):
+        return self.options['CLICON_SOCK_GROUP']
+
+    def master_plugin(self):
+        return self.options['CLICON_MASTER_PLUGIN']
+
+    def cli_mode(self):
+        return self.options['CLICON_CLI_MODE']
 
 
 class CliconDB(_clicon.CliconDB):
