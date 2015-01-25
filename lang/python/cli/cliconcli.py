@@ -58,6 +58,10 @@ __plugins__ = {}
 __dbdeps__ = {}
 
 
+class Handle(BaseHandle):
+    pass
+
+
 class DBdep:
 
     def __init__(self, plugin, cbtype, func, arg, key):
@@ -89,7 +93,6 @@ class Plugin:
     
     def __init__(self, handle, name):
         self._name = name
-        self._handle = handle
         self._plugin = importlib.import_module(name)
         self._init     = _find_method(self._plugin, PLUGIN_INIT)
         self._start    = _find_method(self._plugin, PLUGIN_START)
@@ -118,19 +121,27 @@ def _find_method(ob, name):
         return None
 
 
-def plugin_init(handle):
+def _plugin_init(handle):
     global __plugins__
 
-    for path in glob.glob(clicon_option(handle, "CLICON_BACKEND_DIR")+"/*.py"):
-        name = os.path.basename(path).s[0:len(s)-2]
-        __plugins__[name] = Plugin(handle, name)
+    for path in glob.glob(clicon_option(handle,"CLICON_CLI_DIR")+"/*.py"):
+        name = os.path.basename(path)[0:-3]
+        try:
+            __plugins__[name] = Plugin(handle, name)
+            if (__plugins__[name]._init(handle) < 0):
+                return -1;
 
+        except Exception as e:
+            print("Python plugin '{:s}' failed to load: {:s}\n".format(name, str(e)))
+            clicon_err(OE_FATAL, 0,
+                       "Python plugin '{:s}' failed to load: {:s}\n".format(name, str(e)))
+            return -1
 
+    return len(__plugins__)
 
-def plugin_start(handle, argc, argv):
+def _plugin_start(handle, argc, argv):
     global __plugins__
-
-    for name, p in enumerate(__plugins__):
+    for name, p in __plugins__.items():
         if p._start is not None:
             clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
             if (p._start(handle, argc, argv) < 0):
@@ -139,67 +150,13 @@ def plugin_start(handle, argc, argv):
                 return -1
             
     return 0
+
+def _plugin_exit(handle):
+    global __plugins__
+    for name, p in __plugins__.items():
+        if p._exit is not None:
+            clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
+            p._start(handle, argc, argv)
+            
+    return 0
         
-
-def plugin_reset(handle):
-    global __plugins__
-
-    for name, p in enumerate(__plugins__):
-        if p._reset is not None:
-            clicon_debug(1, "Calling {:s}.plugin_reset()\n".format(name))
-            if (p._reset(handle) < 0):
-                clicon_err(OE_FATAL, 0,
-                           "{:s}.plugin_reset() failed\n".format(name))
-                return -1
-            
-    return 0
-
-def transaction_begin(handle, candidate):
-    global __plugins__
-
-    for name, p in enumerate(__plugins__):
-        if p._begin is not None:
-            clicon_debug(1, "Calling {:s}.transaction_begin()\n".format(name))
-            if (p._begin(handle, candidate) < 0):
-#                clicon_err(OE_FATAL, 0,
-#                           "{:s}.transaction_begin() failed\n".format(name))
-                return -1
-            
-    return 0
-
-def transaction_complete(handle, db):
-    global __plugins__
-
-    for name, p in enumerate(__plugins__):
-        if p._complete is not None:
-            clicon_debug(1, "Calling {:s}.transaction_complete()\n".format(name))
-            if (p._complete(handle, db) < 0):
-#                clicon_err(OE_FATAL, 0,
-#                           "{:s}.transaction_complete() failed\n".format(name))
-                return -1
-            
-    return 0
-
-def transaction_end(handle, candidate):
-    global __plugins__
-
-    for name, p in enumerate(__plugins__):
-        if p._end is not None:
-            clicon_debug(1, "Calling {:s}.transaction_end()\n".format(name))
-            if (p._end(handle, candidate) < 0):
-#                clicon_err(OE_FATAL, 0,
-#                           "{:s}.transaction_end() failed\n".format(name))
-                return -1
-            
-    return 0
-
-
-def transaction_abort(handle, candidate):
-    global __plugins__
-
-    for name, p in enumerate(__plugins__):
-        if p._abort is not None:
-            clicon_debug(1, "Calling {:s}.transaction_abort()\n".format(name))
-            p._abort(handle, candidate)  # Ignore errors
-            
-    return 0
