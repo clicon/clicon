@@ -425,6 +425,88 @@ done:
     return retval;
 }
 
+/*
+ * Load plugins within a directory
+ */
+static int
+plugin_load_dir(clicon_handle h, char *dir, cli_syntax_t *stx)
+{
+    int                i;
+    int	               ndp;
+    struct dirent     *dp;
+    char              *file;
+    char              *master_plugin;
+    char              *master;
+    struct cli_plugin *cp;
+    struct stat        st;
+    int                retval = -1;
+
+
+    /* Format master plugin path */
+    if ((master_plugin = clicon_master_plugin(h)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "clicon_master_plugin option not set");
+	goto quit;
+    }
+    if ((master = chunk_sprintf(__FUNCTION__, "%s.so", master_plugin)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "chunk_sprintf master plugin");
+	goto quit;
+    }
+    /* Get plugin objects names from plugin directory */
+    ndp = clicon_file_dirent(dir, &dp, "(.so)$", S_IFREG, __FUNCTION__);
+    if (ndp < 0)
+        goto quit;
+
+    /* Load master plugin first */
+    file = chunk_sprintf(__FUNCTION__, "%s/%s", dir, master);
+    if (file == NULL) {
+	clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
+	goto quit;
+    }
+    if (stat(file, &st) == 0) {
+	clicon_debug(1, "DEBUG: Loading master plugin '%s'", master);
+	cp = cli_plugin_load(h, file, RTLD_NOW|RTLD_GLOBAL, stx->stx_cnklbl);
+	if (cp == NULL)
+	    goto quit;
+	/* Look up certain call-backs in master plugin */
+	stx->stx_prompt_hook = 
+	    dlsym(cp->cp_handle, "plugin_prompt_hook");
+	stx->stx_parse_hook =
+	    dlsym(cp->cp_handle, "plugin_parse_hook");
+	stx->stx_susp_hook =
+	    dlsym(cp->cp_handle, "plugin_susp_hook");
+	INSQ(cp, stx->stx_plugins);
+	stx->stx_nplugins++;
+    }
+    unchunk (file);
+
+    /* Load the rest */
+    for (i = 0; i < ndp; i++) {
+	if (strcmp (dp[i].d_name, master) == 0)
+	    continue; /* Skip master now */
+	file = chunk_sprintf(__FUNCTION__, "%s/%s", dir, dp[i].d_name);
+	if (file == NULL) {
+	    clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
+	    goto quit;
+	}
+	clicon_debug(1, "DEBUG: Loading plugin '%s'", dp[i].d_name);
+
+	if ((cp = cli_plugin_load (h, file, RTLD_NOW, stx->stx_cnklbl)) == NULL)
+	    goto quit;
+	INSQ(cp, stx->stx_plugins);
+	stx->stx_nplugins++;
+	unchunk (file);
+    }
+    if (dp)
+	unchunk(dp);
+
+    retval = 0;
+
+ quit:
+    unchunk_group(__FUNCTION__);
+
+    return retval;
+}
+
 
 /*
  * Load a syntax group.
@@ -435,15 +517,10 @@ cli_syntax_load (clicon_handle h)
     int                retval = -1;
     char              *plugin_dir = NULL;
     char              *clispec_dir = NULL;
-    char              *master;
-    char              *master_plugin;
-    struct stat        st;
     int                ndp;
     int                i;
-    char              *filename;
     char              *cnklbl = "__CLICON_CLI_SYNTAX_CNK_LABEL__";
     struct dirent     *dp;
-    struct cli_plugin *cp;
     cli_syntax_t      *stx;
     cli_syntaxmode_t  *m;
 
@@ -461,72 +538,25 @@ cli_syntax_load (clicon_handle h)
 	goto quit;
     }
 
-    /* Format master plugin path */
-    if ((master_plugin = clicon_master_plugin(h)) == NULL){
-	clicon_err(OE_PLUGIN, 0, "clicon_master_plugin option not set");
-	goto quit;
-    }
-    if ((master = chunk_sprintf(__FUNCTION__, "%s.so", master_plugin)) == NULL){
-	clicon_err(OE_PLUGIN, errno, "chunk_sprintf master plugin");
-	goto quit;
-    }
     /* Allocate plugin group object */
     if ((stx = chunk(sizeof(*stx), cnklbl)) == NULL) {
 	clicon_err(OE_UNIX, errno, "chunk");
 	goto quit;
     }
-    cli_syntax_set(h, stx);
-
     memset (stx, 0, sizeof (*stx));	/* Zero out all */
-    
     /* populate name and chunk label */
     strncpy (stx->stx_cnklbl, cnklbl, sizeof(stx->stx_cnklbl)-1);
 
-    /* Get plugin objects names from plugin directory */
-    if ((ndp = clicon_file_dirent(plugin_dir, &dp, "(.so)$", S_IFREG, __FUNCTION__)) < 0)
-	goto quit;
+    cli_syntax_set(h, stx);
 
-    /* Load master plugin first */
-    filename = chunk_sprintf(__FUNCTION__, "%s/%s", plugin_dir, master);
-    if (filename == NULL) {
-	clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
-	goto quit;
-    }
-    if (stat(filename, &st) == 0) {
-	clicon_debug(1, "DEBUG: Loading master plugin '%s'", master);
-	if ((cp = cli_plugin_load (h, filename, RTLD_NOW|RTLD_GLOBAL, cnklbl)) == NULL)
-	    goto quit;
-	/* Look up certain call-backs in master plugin */
-	stx->stx_prompt_hook = 
-	    dlsym(cp->cp_handle, "plugin_prompt_hook");
-	stx->stx_parse_hook =
-	    dlsym(cp->cp_handle, "plugin_parse_hook");
-	stx->stx_susp_hook =
-	    dlsym(cp->cp_handle, "plugin_susp_hook");
-	INSQ(cp, stx->stx_plugins);
-	stx->stx_nplugins++;
-    }
-
-    unchunk (filename);
-    /* Load the rest */
-    for (i = 0; i < ndp; i++) {
-	if (strcmp (dp[i].d_name, master) == 0)
-	    continue; /* Skip master now */
-	filename = chunk_sprintf(__FUNCTION__, "%s/%s", plugin_dir, dp[i].d_name);
-	if (filename == NULL) {
-	    clicon_err(OE_UNIX, errno, "chunk_sprintf dir");
-	    goto quit;
-	}
-	clicon_debug(1, "DEBUG: Loading plugin '%s'", dp[i].d_name);
-
-	if ((cp = cli_plugin_load (h, filename, RTLD_NOW, cnklbl)) == NULL)
-	    goto quit;
-	INSQ(cp, stx->stx_plugins);
-	stx->stx_nplugins++;
-	unchunk (filename);
-    }
-    if (dp)
-	unchunk(dp);
+    /* First load CLICON system plugins */
+    if (plugin_load_dir(h, CLICON_CLI_SYSDIR, stx) < 0)
+        goto quit;
+    
+    /* Then load application plugins */
+    if (plugin_load_dir(h, plugin_dir, stx) < 0)
+        goto quit;
+    
 
     /* load syntaxfiles */
     if ((ndp = clicon_file_dirent(clispec_dir, &dp, "(.cli)$", S_IFREG, __FUNCTION__)) < 0)

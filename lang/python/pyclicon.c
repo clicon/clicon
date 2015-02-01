@@ -51,90 +51,21 @@ __cligen_module()
 }
 
 
-#if 0
-static void
-Clicon_dealloc(clicon *self)
-{
-    Py_TYPE(self)->tp_free((PyObject*)self);
-}
-n
-static PyObject *
-Clicon_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    return (PyObject *)type->tp_alloc(type, 0);
-}
-
-static int
-Clicon_init(clicon *self, PyObject *args, PyObject *kwds)
-{
-    return 0;
-}
-#endif
-
-#if 0
-/*
- * Load clicon python api
- */
-static PyMethodDef Clicon_methods[] = {
-
-    {"dbdep", py_dbdep, METH_VARARGS,
-     "Register configuration dependencies."},
-    {"dbdep_ent", py_dbdep_ent, METH_VARARGS,
-     "Register configuration dependency entry for existing dependency."},
-
-    {NULL, NULL, 0, NULL}
-};
-
-PyTypeObject Clicon_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "_clicon.clicon",          /* tp_name */
-    sizeof(clicon),            /* tp_basicsize */
-    0,                         /* tp_itemsize */
-    (destructor)Clicon_dealloc, /* tp_dealloc */
-    0,                         /* tp_print */
-    0,                         /* tp_getattr */
-    0,                         /* tp_setattr */
-    0,                         /* tp_reserved */
-    0,                         /* tp_repr */
-    0,                         /* tp_as_number */
-    0,                         /* tp_as_sequence */
-    0,                         /* tp_as_mapping */
-    0,                         /* tp_hash  */
-    0,                         /* tp_call */
-    0,                         /* tp_str */
-    0,                         /* tp_getattro */
-    0,                         /* tp_setattro */
-    0,                         /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT |
-        Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "CLICON object",           /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,                         /* tp_richcompare */
-    0,                         /* tp_weaklistoffset */
-    0,                         /* tp_iter */
-    0,                         /* tp_iternext */
-    Clicon_methods,            /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    0,                         /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    (initproc)Clicon_init,     /* tp_init */
-    0,                         /* tp_alloc */
-    Clicon_new,                /* tp_new */
-};
-#endif
-
-
 static PyMethodDef Clicon_module_methods[] = {
     {"_clicon_options", (PyCFunction)Clicon_options, METH_VARARGS,
      "Get CLICON options dictionary"
     },
     {"_clicon_option", (PyCFunction)Clicon_option, METH_VARARGS,
      "Get CLICON option"
+    },
+    {"_clicon_option_set", (PyCFunction)Clicon_option_set, METH_VARARGS,
+     "Set CLICON option"
+    },
+    {"_clicon_option_del", (PyCFunction)Clicon_option_del, METH_VARARGS,
+     "Delete CLICON option"
+    },
+    {"_clicon_option_exists", (PyCFunction)Clicon_option_exists, METH_VARARGS,
+     "Check if a CLICON option is set"
     },
     
     {"_clicon_log", (PyCFunction)Clicon_log, METH_VARARGS,
@@ -177,17 +108,11 @@ MOD_INIT(_clicon)
     if (__cligen_module() == NULL)
         return MOD_ERROR_VAL;
 
-#if 0
-    if (PyType_Ready(&Clicon_Type) < 0)
-        return MOD_ERROR_VAL;
-
-    Py_INCREF(&Clicon_Type);
-    PyModule_AddObject(m, "clicon", (PyObject *)&Clicon_Type);
-#endif
-
     if (CliconDB_init_object(m) < 0)
         return MOD_ERROR_VAL;
     if (Clicon_log_init(m) < 0)
+        return MOD_ERROR_VAL;
+    if (Clicon_err_init(m) < 0)
         return MOD_ERROR_VAL;
 
     return MOD_SUCCESS_VAL(m);

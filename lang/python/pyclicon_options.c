@@ -43,9 +43,9 @@ Clicon_options(PyObject *self, PyObject *args)
     if ((keys = hash_keys(copt, &klen)) == NULL)
 	return PyErr_NoMemory();
     if ((options = PyTuple_New(klen)) == NULL)
-	goto quit;
+        goto quit;
     for (i = 0; i < klen; i++) {
-	if ((key = StringFromString(keys[i])) == NULL)
+        if ((key = StringFromString(keys[i])) == NULL)
 	    goto quit;
 	PyTuple_SET_ITEM(options, i, key);
     }
@@ -80,3 +80,50 @@ Clicon_option(PyObject *self, PyObject *args)
     return str;
 }
 
+PyObject *
+Clicon_option_set(PyObject *self, PyObject *args)
+{
+    char *key;
+    char *val;
+    clicon_handle h;
+
+    if (!PyArg_ParseTuple(args, "O&ss", Clicon_unpack_handle, &h, &key, &val))
+	return NULL;
+
+    if (clicon_option_str_set(h, key, val) < 0)
+	return PyErr_NoMemory();
+
+    Py_RETURN_NONE;
+}
+
+PyObject *
+Clicon_option_del(PyObject *self, PyObject *args)
+{
+    char *key;
+    clicon_handle h;
+
+    if (!PyArg_ParseTuple(args, "O&s", Clicon_unpack_handle, &h, &key))
+	return NULL;
+
+    if (clicon_option_del(h, key) < 0) {
+        PyErr_Format(PyExc_LookupError, "option '%s' does not exist ", key);
+	return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyObject *
+Clicon_option_exists(PyObject *self, PyObject *args)
+{
+    char *key;
+    clicon_handle h;
+
+    if (!PyArg_ParseTuple(args, "O&s", Clicon_unpack_handle, &h, &key))
+	return NULL;
+  
+    if (clicon_option_exists(h, key))
+      Py_RETURN_TRUE;
+    else
+      Py_RETURN_FALSE;
+}

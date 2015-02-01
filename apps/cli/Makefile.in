@@ -45,6 +45,8 @@ CLICON_MINOR    = @CLICON_VERSION_MINOR@
 
 # Use this clicon lib for linking
 CLICON_LIB	= libclicon.so.$(CLICON_MAJOR).$(CLICON_MINOR)
+# Location of system plugins
+CLICON_CLI_SYSDIR = $(libdir)/clicon/plugins/cli
 
 # For dependency. A little strange that we rely on it being built in the src dir
 # even though it may exist in $(libdir). But the new version may not have been installed yet.
@@ -102,7 +104,7 @@ uninstall:
 .SUFFIXES: .c .o
 
 .c.o:
-	$(CC) $(INCLUDES) $(CPPFLAGS) -D__PROGRAM__=\"$(APPL)\" $(CFLAGS) -c $<
+	$(CC) $(INCLUDES) $(CPPFLAGS) -D__PROGRAM__=\"$(APPL)\" -DCLICON_CLI_SYSDIR=\"$(CLICON_CLI_SYSDIR)\" $(CFLAGS) -c $<
 
 # Just link test programs
 test.c	:

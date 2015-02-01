@@ -41,6 +41,7 @@ import glob
 import importlib
 import cligen 
 from clicon import *
+from _clicon import *
 import _cliconbackend
 from _cliconbackend import *
 
@@ -59,6 +60,8 @@ __plugins__ = {}
 # A global dict of dependencies
 __dbdeps__ = {}
 
+class Handle(BaseHandle):
+    pass
 
 class DBdep:
 
@@ -74,7 +77,7 @@ class DBdep:
 
 def dbdep(handle, prio, cb, arg, key):
     
-    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]  # Hack! Need to be cleaned up
     for name, p in __plugins__.items():
         if p._name == os.path.basename(fn)[0:-3]:
             plugin = p
@@ -82,13 +85,13 @@ def dbdep(handle, prio, cb, arg, key):
     if not 'plugin' in locals():
         raise LookupError("calling plugin not found")
 
-    _cliconbackend._dbdep(handle, prio, cb, arg, key)
+    _cliconbackend._dbdep(handle._h, prio, cb, arg, key)
     d = DBdep(plugin, prio, cb, arg, key)
     __dbdeps__[plugin] = d
     
 def dbdep_tree(handle, prio, cb, arg, key):
     
-    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1] # Hack! Need to be cleaned up
     for name, p in __plugins__.items():
         if p._name == os.path.basename(fn)[0:-3]:
             plugin = p
@@ -96,13 +99,13 @@ def dbdep_tree(handle, prio, cb, arg, key):
     if not 'plugin' in locals():
         raise LookupError("calling plugin not found")
 
-    _cliconbackend._dbdep_tree(handle, prio, cb, arg, key)
+    _cliconbackend._dbdep_tree(handle._h, prio, cb, arg, key)
     d = DBdep(plugin, prio, cb, arg, key)
     __dbdeps__[plugin] = d
     
 def dbdep_validate(handle, prio, cb, arg, key):
     
-    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1] # Hack! Need to be cleaned up
     for name, p in __plugins__.items():
         if p._name == os.path.basename(fn)[0:-3]:
             plugin = p
@@ -110,13 +113,13 @@ def dbdep_validate(handle, prio, cb, arg, key):
     if not 'plugin' in locals():
         raise LookupError("calling plugin not found")
 
-    _cliconbackend._dbdep_validate(handle, prio, cb, arg, key)
+    _cliconbackend._dbdep_validate(handle._h, prio, cb, arg, key)
     d = DBdep(plugin, prio, cb, arg, key)
     __dbdeps__[plugin] = d
     
 def dbdep_tree_validate(handle, prio, cb, arg, key):
     
-    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1]
+    (frm, fn, ln, fun, lns, idx) = inspect.stack()[1] # Hack! Need to be cleaned up
     for name, p in __plugins__.items():
         if p._name == os.path.basename(fn)[0:-3]:
             plugin = p
@@ -124,7 +127,7 @@ def dbdep_tree_validate(handle, prio, cb, arg, key):
     if not 'plugin' in locals():
         raise LookupError("calling plugin not found")
 
-    _cliconbackend._dbdep_tree_validate(handle, prio, cb, arg, key)
+    _cliconbackend._dbdep_tree_validate(handle._h, prio, cb, arg, key)
     d = DBdep(plugin, prio, cb, arg, key)
     __dbdeps__[plugin] = d
     
@@ -134,7 +137,6 @@ class Plugin:
     def __init__(self, handle, name):
         clicon_debug(1, "Loading plugin "+name+".py")
         self._name = name
-        self._handle = handle
         self._plugin = importlib.import_module(name)
         self._init     = _find_method(self._plugin, PLUGIN_INIT)
         self._start    = _find_method(self._plugin, PLUGIN_START)
@@ -160,15 +162,16 @@ def _find_method(ob, name):
         return None
 
 
-def _plugin_commit(handle, func, db, op, key, arg):
+def _plugin_commit(h, func, db, op, key, arg):
     clicon_debug(1, "Calling {:s}\n".format(str(func)))
-    return func(handle, CliconDB(db), op, key, arg)
+    return func(Handle(h), CliconDB(db), op, key, arg)
 
 
-def _plugin_init(handle):
+def _plugin_init(h):
     global __plugins__
 
-    for path in glob.glob(clicon_option(handle,"CLICON_BACKEND_DIR")+"/*.py"):
+    handle = Handle(h)
+    for path in glob.glob(handle.backend_dir()+"/*.py"):
         name = os.path.basename(path)[0:-3]
         try:
             __plugins__[name] = Plugin(handle, name)
@@ -183,8 +186,10 @@ def _plugin_init(handle):
 
     return len(__plugins__)
 
-def _plugin_start(handle, argc, argv):
+def _plugin_start(h, argc, argv):
     global __plugins__
+
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._start is not None:
             clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
@@ -195,8 +200,10 @@ def _plugin_start(handle, argc, argv):
             
     return 0
 
-def _plugin_exit(handle):
+def _plugin_exit(h):
     global __plugins__
+
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._exit is not None:
             clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
@@ -205,9 +212,10 @@ def _plugin_exit(handle):
     return 0
         
 
-def _plugin_reset(handle):
+def _plugin_reset(h):
     global __plugins__
 
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._reset is not None:
             clicon_debug(1, "Calling {:s}.plugin_reset()\n".format(name))
@@ -218,9 +226,10 @@ def _plugin_reset(handle):
             
     return 0
 
-def _transaction_begin(handle):
+def _transaction_begin(h):
     global __plugins__
 
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._begin is not None:
             clicon_debug(1, "Calling {:s}.transaction_begin()\n".format(name))
@@ -230,9 +239,10 @@ def _transaction_begin(handle):
                 return -1
     return 0
 
-def _transaction_complete(handle):
+def _transaction_complete(h):
     global __plugins__
 
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._complete is not None:
             clicon_debug(1, "Calling {:s}.transaction_complete()\n".format(name))
@@ -243,9 +253,10 @@ def _transaction_complete(handle):
             
     return 0
 
-def _transaction_end(handle):
+def _transaction_end(h):
     global __plugins__
 
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._end is not None:
             clicon_debug(1, "Calling {:s}.transaction_end()\n".format(name))
@@ -257,9 +268,10 @@ def _transaction_end(handle):
     return 0
 
 
-def _transaction_abort(handle):
+def _transaction_abort(h):
     global __plugins__
 
+    handle = Handle(h)
     for name, p in __plugins__.items():
         if p._abort is not None:
             clicon_debug(1, "Calling {:s}.transaction_abort()\n".format(name))
