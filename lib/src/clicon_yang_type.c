@@ -657,6 +657,8 @@ yang_type_resolve(yang_stmt   *ys,
     prefix    = ytype_prefix(ytype); /* And this its prefix */
 
     yrange    = yang_find((yang_node*)ytype, Y_RANGE, NULL);
+    /* XXX BUG: gcv gets char* type should be uint64 or something
+	yrange    = yang_find((yang_node*)ytype, Y_LENGTH, NULL); */
     ypattern  = yang_find((yang_node*)ytype, Y_PATTERN, NULL);
     yfraction = yang_find((yang_node*)ytype, Y_FRACTION_DIGITS, NULL);
     /* Check if type is basic type. If so, return that */

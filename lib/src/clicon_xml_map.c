@@ -965,8 +965,7 @@ xml2txt(FILE *f, cxobj *x, int level)
     return retval;
 }
 
-/*
- * xml2cli. Translate XML -> CLI commands
+/*! Translate from XML to CLI commands
  * Howto: join strings and pass them down. 
  * Identify unique/index keywords for correct set syntax.
  * Args:
@@ -1217,3 +1216,4 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 	cvec_free(cvv);
     return retval;
 }
+
