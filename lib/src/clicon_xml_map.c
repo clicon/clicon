@@ -1188,7 +1188,7 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
     /* Go through all children of the xml tree */
     while ((xc = xml_child_each(xt, xc, CX_ELMNT)) != NULL){
 	if ((ys = yang_find_specnode((yang_node*)yt, xml_name(xc))) == NULL){
-	    clicon_debug(1, "%s: %s not found under %s",
+	    clicon_debug(1, "%s: yang sanity problem: %s in xml but not present in yang under %s",
 			 __FUNCTION__, xml_name(xc), yt->ys_argument);
 	    continue;
 	}
