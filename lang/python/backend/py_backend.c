@@ -167,8 +167,7 @@ static PyMethodDef backend_module_methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC
-init__backend(void)
+MOD_INIT(_backend)
 {
     PyObject* m;
 
@@ -235,7 +234,7 @@ plugin_init(clicon_handle h)
     char *dir;
     int retval = -1;
 
-    PyImport_AppendInittab("_cliconbackend", init__backend);
+    PyImport_AppendInittab("_cliconbackend", MOD_INITFUNC(_backend));
     Py_InitializeEx(0);
 
     /* Append application plugin directory */

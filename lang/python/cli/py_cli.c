@@ -33,19 +33,147 @@
 /* libpyclicon */
 #include "libpyclicon.h"
 
+static PyObject *
+_cli_syntax_mode(PyObject *args)
+{
+    char *mode;
+    clicon_handle h;
+    PyObject *handle;
+    
+    if (!PyArg_ParseTuple(args, "O", &handle))
+        return NULL;
+    h = PyCapsule_GetPointer(handle, NULL);
+  
+    if ((mode = cli_syntax_mode(h)) == NULL)
+        Py_RETURN_NONE;
+
+    return StringFromString(mode);
+}
+
+static PyObject *
+_cli_set_syntax_mode(PyObject *args)
+{
+    char *mode;
+    clicon_handle h;
+    PyObject *handle;
+    
+    if (!PyArg_ParseTuple(args, "Os", &handle, &mode))
+        return NULL;
+    h = PyCapsule_GetPointer(handle, NULL);
+  
+    if (cli_set_syntax_mode(h, mode) == 0)
+        Py_RETURN_FALSE;
+    Py_RETURN_TRUE;
+}
+
+static PyObject *
+_cli_set_prompt(PyObject *args)
+{
+    char *mode;
+    char *prompt;
+    clicon_handle h;
+    PyObject *handle;
+    
+    if (!PyArg_ParseTuple(args, "Oss", &handle, &mode, &prompt))
+        return NULL;
+    h = PyCapsule_GetPointer(handle, NULL);
+  
+    if (cli_set_prompt(h, mode, prompt) == 0)
+        Py_RETURN_FALSE;
+    Py_RETURN_TRUE;
+}
+
+static PyObject *
+_cli_comment(PyObject *args)
+{
+    clicon_handle h;
+    PyObject *handle;
+    char comment[2] = {'\0','\0'};
+
+    if (!PyArg_ParseTuple(args, "O", &handle))
+        return NULL;
+    h = PyCapsule_GetPointer(handle, NULL);
+  
+    comment[0] = cli_comment(h);
+    return StringFromString(comment);
+}
+
+static PyObject *
+_cli_set_comment(PyObject *args)
+{
+    clicon_handle h;
+    PyObject *handle;
+    char *comment;
+    
+    if (!PyArg_ParseTuple(args, "Os", &handle, &comment))
+        return NULL;
+    h = PyCapsule_GetPointer(handle, NULL);
+  
+    cli_set_comment(h, comment[0]);
+    return _cli_comment(args);
+}
+
+static PyObject *
+_cli_set(PyObject *args)
+{
+    PyObject *handle;
+    PyObject *vars;
+    PyObject *arg;
+    PyObject *Cv;
+    PyObject *Vr;
+    cg_var *cv;
+    cvec *vr = NULL;
+    int retval = -1;
+    clicon_handle h;
+
+    if (!PyArg_ParseTuple(args, "OOO", &handle, &vars, &arg))
+        return NULL;
+    
+    h = PyCapsule_GetPointer(handle, NULL);
+
+    if ((Vr = PyObject_CallMethod(vars, "__cvec_from_Cvec", NULL)) == NULL)
+      return NULL;
+    vr = PyCapsule_GetPointer(Vr, NULL);
+    Py_XDECREF(Vr);
+
+    if ((Cv = PyObject_CallMethod(arg, "__cv", NULL)) == NULL)
+      return NULL;
+    cv = PyCapsule_GetPointer(Cv, NULL);
+    Py_XDECREF(Cv);
+
+    retval = cli_set(h, vr, cv);
+    cvec_free(vr);
+
+    return PyLong_FromLong(retval);
+}
+
+
 static PyMethodDef cli_module_methods[] = {
-#if 0
-    {"_dbdep", (PyCFunction)_backend_dbdep, METH_VARARGS,
-     "Register database dependency"
+    {"_cli_syntax_mode", (PyCFunction)_cli_syntax_mode, METH_VARARGS,
+     "Get CLI syntax mode"
     },
-#endif
+    {"_cli_set_syntax_mode", (PyCFunction)_cli_set_syntax_mode, METH_VARARGS,
+     "Set CLI syntax mode"
+    },
+    {"_cli_set_prompt", (PyCFunction)_cli_set_prompt, METH_VARARGS,
+     "Set CLI prompt"
+    },
+    {"_cli_comment", (PyCFunction)_cli_comment, METH_VARARGS,
+     "Get CLI comment character"
+    },
+    {"_cli_set_comment", (PyCFunction)_cli_set_comment, METH_VARARGS,
+     "Set CLI comment character"
+    },
+    {"_cli_set", (PyCFunction)_cli_set, METH_VARARGS,
+     "Set database values"
+    },
 
     {NULL, NULL, 0, NULL}
 };
 
 
-PyMODINIT_FUNC
-init__cli(void)
+
+MOD_INIT(_cli)
 {
     PyObject* m;
 
@@ -53,6 +181,20 @@ init__cli(void)
     if (m == NULL)
         return MOD_ERROR_VAL;
     
+    PyModule_AddIntConstant(m, (char *) "CLI_PROMPT_LEN",  CLI_PROMPT_LEN);
+    PyModule_AddStringConstant(m, (char *) "CLI_DEFAULT_PROMPT",
+			       CLI_DEFAULT_PROMPT);
+
+    PyModule_AddIntConstant(m, (char *) "CANDIDATE_DB_NONE", 
+			    CANDIDATE_DB_NONE);
+    PyModule_AddIntConstant(m, (char *) "CANDIDATE_DB_PRIVATE",
+			    CANDIDATE_DB_PRIVATE);
+    PyModule_AddIntConstant(m, (char *) "CANDIDATE_DB_SHARED",
+			    CANDIDATE_DB_SHARED);
+    PyModule_AddIntConstant(m, (char *) "CANDIDATE_DB_CURRENT", 
+			    CANDIDATE_DB_CURRENT);
+
+
     return MOD_SUCCESS_VAL(m);
 }
 
@@ -105,7 +247,7 @@ plugin_init(clicon_handle h)
     char *dir;
     int retval = -1;
 
-    PyImport_AppendInittab("_cliconcli", init__cli);
+    PyImport_AppendInittab("_cliconcli", MOD_INITFUNC(_cli));
     Py_InitializeEx(0);
 
     /* Append application plugin directory */

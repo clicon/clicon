@@ -27,6 +27,7 @@
 #if PY_MAJOR_VERSION >= 3
   #define MOD_ERROR_VAL NULL
   #define MOD_SUCCESS_VAL(val) val
+  #define MOD_INITFUNC(name)  PyInit_##name
   #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
   #define MOD_DEF(obj, name, doc, methods) \
           static struct PyModuleDef moduledef = { \
@@ -37,6 +38,7 @@
 #else
   #define MOD_ERROR_VAL
   #define MOD_SUCCESS_VAL(val)
+  #define MOD_INITFUNC(name)  init##name
   #define MOD_INIT(name) void init##name(void)
   #define MOD_DEF(obj, name, doc, methods) \
           obj = Py_InitModule3(name, methods, doc);
