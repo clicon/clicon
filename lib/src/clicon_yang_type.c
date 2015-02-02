@@ -589,6 +589,7 @@ ytype_prefix(yang_stmt *ys)
  */
 static int
 resolve_restrictions(yang_stmt   *yrange,
+		     yang_stmt   *ylength,
 		     yang_stmt   *ypattern,
 		     yang_stmt   *yfraction,
 		     int         *options, 
@@ -601,6 +602,11 @@ resolve_restrictions(yang_stmt   *yrange,
 	*mincv = cvec_find(yrange->ys_cvec, "range_min");
 	*maxcv = cvec_find(yrange->ys_cvec, "range_max");
 	*options  |= YANG_OPTIONS_RANGE;
+    }
+    if (options && mincv && maxcv && ylength != NULL){
+	*mincv = cvec_find(ylength->ys_cvec, "range_min"); /* XXX fel typ */
+	*maxcv = cvec_find(ylength->ys_cvec, "range_max");
+	*options  |= YANG_OPTIONS_LENGTH;
     }
     if (options && pattern && ypattern != NULL){
 	*pattern   = ypattern->ys_argument;
@@ -640,6 +646,7 @@ yang_type_resolve(yang_stmt   *ys,
     yang_stmt   *rytypedef = NULL; /* Resolved typedef of ytype */
     yang_stmt   *rytype;           /* Resolved type of ytype */
     yang_stmt   *yrange;
+    yang_stmt   *ylength;
     yang_stmt   *ypattern;
     yang_stmt   *yfraction;
     yang_stmt   *yimport;
@@ -657,14 +664,13 @@ yang_type_resolve(yang_stmt   *ys,
     prefix    = ytype_prefix(ytype); /* And this its prefix */
 
     yrange    = yang_find((yang_node*)ytype, Y_RANGE, NULL);
-    /* XXX BUG: gcv gets char* type should be uint64 or something
-	yrange    = yang_find((yang_node*)ytype, Y_LENGTH, NULL); */
+    ylength   = yang_find((yang_node*)ytype, Y_LENGTH, NULL);
     ypattern  = yang_find((yang_node*)ytype, Y_PATTERN, NULL);
     yfraction = yang_find((yang_node*)ytype, Y_FRACTION_DIGITS, NULL);
     /* Check if type is basic type. If so, return that */
     if (prefix == NULL && yang_builtin(type)){
 	*yrestype = ytype; /* XXX: This is the place */
-	resolve_restrictions(yrange, ypattern, yfraction, options, 
+	resolve_restrictions(yrange, ylength, ypattern, yfraction, options, 
 			     mincv, maxcv, pattern, fraction);
 	goto ok;
     }
@@ -707,7 +713,7 @@ yang_type_resolve(yang_stmt   *ys,
 			      options, mincv, maxcv, pattern, fraction) < 0)
 	    goto done;
 	/* overwrites the resolved if any */
-	resolve_restrictions(yrange, ypattern, yfraction, 
+	resolve_restrictions(yrange, ylength, ypattern, yfraction, 
 			     options, mincv, maxcv, pattern, fraction);
     }
   ok:

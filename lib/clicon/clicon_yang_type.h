@@ -30,9 +30,9 @@
 /*! Bit-fields used in options argument in yang_type_get()
  */
 #define YANG_OPTIONS_LENGTH           0x01
-#define YANG_OPTIONS_RANGE            YANG_OPTIONS_LENGTH
-#define YANG_OPTIONS_PATTERN          0x02
-#define YANG_OPTIONS_FRACTION_DIGITS  0x04
+#define YANG_OPTIONS_RANGE            0x02
+#define YANG_OPTIONS_PATTERN          0x04
+#define YANG_OPTIONS_FRACTION_DIGITS  0x08
 
 /*
  * Types

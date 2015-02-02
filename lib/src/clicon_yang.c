@@ -552,6 +552,9 @@ ys_populate_range(yang_stmt *ys, void *arg)
     /* This handles non-resolved also */
     if (clicon_type2cv(origtype, restype, &cvtype) < 0) 
 	goto done;
+    /* special case for strings, where limit is length, not a string */
+    if (cvtype == CGV_STRING)
+	cvtype = CGV_UINT64;
     if ((minstr = strdup(ys->ys_argument)) == NULL){
 	clicon_err(OE_YANG, errno, "strdup");
 	goto done;

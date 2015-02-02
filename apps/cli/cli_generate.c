@@ -128,8 +128,8 @@ yang2cli_var_sub(clicon_handle h,
     }
     if (options & YANG_OPTIONS_FRACTION_DIGITS)
 	cprintf(cbuf, " fraction-digits:%u", fraction_digits);
-    if (options & YANG_OPTIONS_RANGE){
-	cprintf(cbuf, " range[");
+    if (options & (YANG_OPTIONS_RANGE|YANG_OPTIONS_LENGTH)){
+	cprintf(cbuf, " %s[", (options&YANG_OPTIONS_RANGE)?"range":"length");
 	if (mincv){
 	    if ((r = cv2str_dup(mincv)) == NULL){
 		clicon_err(OE_UNIX, errno, "cv2str_dup");
@@ -181,14 +181,14 @@ yang2cli_var(clicon_handle h,
     char         *type;  /* orig type */
     yang_stmt    *yrestype; /* resolved type */
     char         *restype; /* resolved type */
-    cg_var       *mincv; 
-    cg_var       *maxcv;
-    char         *pattern;
+    cg_var       *mincv = NULL; 
+    cg_var       *maxcv = NULL;
+    char         *pattern = NULL;
     yang_stmt    *yt = NULL;
     yang_stmt    *yrt;
-    uint8_t       fraction_digits;
+    uint8_t       fraction_digits = 0;
     enum cv_type  cvtype;
-    int           options;
+    int           options = 0;
     int           i;
 
     if (yang_type_get(ys, &type, &yrestype, 

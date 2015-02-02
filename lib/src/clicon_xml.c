@@ -343,14 +343,14 @@ xml_child_append(cxobj *x, cxobj *xc)
 /*! Create new xml node given a name and parent. Free it with xml_free().
  *
  * @param[in]  name      Name of new 
- * @param[in]  x_up  The parent where the new xml node should be inserted
+ * @param[in]  xp        The parent where the new xml node should be inserted
  *
  * @retval created xml object if successful
  * @retval NULL          if error and clicon_err() called
  */
 
 cxobj *
-xml_new(char *name, cxobj *x_up)
+xml_new(char *name, cxobj *xp)
 {
     cxobj *xn;
 
@@ -362,9 +362,9 @@ xml_new(char *name, cxobj *x_up)
     if ((xml_name_set(xn, name)) < 0)
 	return NULL;
 
-    xml_parent_set(xn, x_up);
-    if (x_up)
-	if (xml_child_append(x_up, xn) < 0)
+    xml_parent_set(xn, xp);
+    if (xp)
+	if (xml_child_append(xp, xn) < 0)
 	    return NULL;
     return xn;
 }
@@ -396,6 +396,7 @@ xml_find(cxobj *x_up, char *name)
  * @param[in] xc  Child xml node to insert under xp
  * @retval    0   OK
  * @retval    -1  Error
+ * @see xml_insert
  */
 int
 xml_addsub(cxobj *xp, cxobj *xc)
@@ -416,6 +417,8 @@ xml_addsub(cxobj *xp, cxobj *xc)
  * @param[in] xp  Parent xml node
  * @param[in] tag Name of new xml child
  * @retval    xc  Return the new child (xc)
+ * @see xml_addsub
+ * The name of the function is somewhat misleading
  */
 cxobj *
 xml_insert(cxobj *xp, char *tag)
@@ -498,6 +501,7 @@ xml_find_body(cxobj *xn, char *name)
  * @retval      0           OK
  * @retval      -1
  *
+ * @see xml_free
  * Differs from xml_free in two ways:
  *  1. It is removed from parent.
  *  2. If you set the freeit flag to 0, the child tree will not be freed 
@@ -528,7 +532,9 @@ xml_prune(cxobj *xparent, cxobj *xchild, int purge)
     return -1; 
 }
 
-/*! Remove a node xn from parent. And free it, recursively.
+/*! Free an xl sub-tree recursively, but do not remove it from parent
+ * @param[in]  x  the xml tree to be freed.
+ * @see xml_prune
  * Differs from xml_prune in that it is _not_ removed from parent.
  */
 int

@@ -261,14 +261,14 @@ xml_parse_attr(struct xml_parse_yacc_arg *ya, char *id, char *val)
 %%
 
 topxml      : list
-                    { clicon_debug(2, "topxml->list ACCEPT"); 
+                    { clicon_debug(3, "topxml->list ACCEPT"); 
                       YYACCEPT; }
             | dcl list
-	            { clicon_debug(2, "topxml->dcl list ACCEPT"); 
+	            { clicon_debug(3, "topxml->dcl list ACCEPT"); 
                       YYACCEPT; }
             ;
 
-dcl         : BTEXT info encode ETEXT { clicon_debug(2, "dcl->info encode"); }
+dcl         : BTEXT info encode ETEXT { clicon_debug(3, "dcl->info encode"); }
             ;
 
 info        : VER '=' '\"' CHAR '\"' 
@@ -283,39 +283,39 @@ encode      : ENC '=' '\"' CHAR '\"' {free($4);}
             ;
 
 emnt     : '<' id  attrs emnt1 
-                   { clicon_debug(2, "emnt -> < id attrs emnt1"); }
+                   { clicon_debug(3, "emnt -> < id attrs emnt1"); }
 	      ;
 
 id          : NAME            { if (xml_parse_id(_YA, $1, NULL) < 0) YYABORT; 
-                                clicon_debug(2, "id -> NAME");}
+                                clicon_debug(3, "id -> NAME");}
             | NAME ':' NAME   { if (xml_parse_id(_YA, $3, $1) < 0) YYABORT; 
-                                clicon_debug(2, "id -> NAME : NAME");}
+                                clicon_debug(3, "id -> NAME : NAME");}
             ;
 
 emnt1    :  ESLASH          {_YA->ya_xelement = NULL; 
-                               clicon_debug(2, "emnt1 -> />");} 
+                               clicon_debug(3, "emnt1 -> />");} 
             | '>'              { xml_parse_endslash_pre(_YA); }
               list             { xml_parse_endslash_mid(_YA); }
               etg             { xml_parse_endslash_post(_YA); 
-                               clicon_debug(2, "emnt1 -> > list etg");} 
+                               clicon_debug(3, "emnt1 -> > list etg");} 
             ;
 
 etg         : BSLASH NAME '>'          
                        { if (xml_parse_bslash1(_YA, $2) < 0) YYABORT; 
-                         clicon_debug(2, "etg -> < </ NAME >"); }
+                         clicon_debug(3, "etg -> < </ NAME >"); }
             | BSLASH NAME ':' NAME '>' 
                        { if (xml_parse_bslash2(_YA, $2, $4) < 0) YYABORT; 
-			 clicon_debug(2, "etg -> < </ NAME:NAME >"); }
+			 clicon_debug(3, "etg -> < </ NAME:NAME >"); }
             ;
 
-list        : list content { clicon_debug(2, "list -> list content"); }
-            | content      { clicon_debug(2, "list -> content"); }
+list        : list content { clicon_debug(3, "list -> list content"); }
+            | content      { clicon_debug(3, "list -> content"); }
             ;
 
-content     : emnt         { clicon_debug(2, "content -> emnt"); }
-            | comment      { clicon_debug(2, "content -> comment"); }
+content     : emnt         { clicon_debug(3, "content -> emnt"); }
+            | comment      { clicon_debug(3, "content -> comment"); }
             | CHAR         { if (xml_parse_content(_YA, $1) < 0) YYABORT;  
-                             clicon_debug(2, "content -> CHAR", $1); }
+                             clicon_debug(3, "content -> CHAR", $1); }
             ;
 
 comment     : BCOMMENT ECOMMENT

@@ -172,7 +172,7 @@ generic_validate_yang(clicon_handle        h,
 	    /* Validate this leaf */
 	    if ((ys_cv_validate(cv, yleaf, &reason)) != 1){ 
 		clicon_err(OE_DB, 0, 
-			   "key %s: validation of %s failed %s\n",
+			   "key %s: validation of %s failed %s",
 			   dbkey, yleaf->ys_argument, reason?reason:"");
 		if (reason)
 		    free(reason);
