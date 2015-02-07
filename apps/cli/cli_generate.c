@@ -105,12 +105,16 @@ yang2cli_var_sub(clicon_handle h,
     char         *cvtypestr;
     int           completion;
 
-    completion = clicon_cli_genmodel_completion(h);
+    /* enumeration already gives completion */
     if (cvtype == CGV_VOID){
 	retval = 0;
 	goto done;
     }
     type = ytype?ytype->ys_argument:NULL;
+    completion = clicon_cli_genmodel_completion(h) &&
+	strcmp(type, "enumeration") != 0 && 
+	strcmp(type, "bits") != 0;
+
     if (completion)
 	cprintf(cbuf, "(");
     cvtypestr = cv_type2str(cvtype);

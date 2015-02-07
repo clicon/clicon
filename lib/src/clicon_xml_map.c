@@ -1179,6 +1179,7 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
     cg_var           *ycv;
     char             *body;
     char             *reason = NULL;
+    int               ret;
 
     if ((cvv = cvec_new(0)) == NULL){
 	clicon_err(OE_UNIX, errno, "cvec_new");
@@ -1198,8 +1199,14 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 		    clicon_err(OE_PLUGIN, errno, "cvec_add");
 		    goto err;
 		}
-		if (cv_parse1(body, cv, &reason) < 0){
+		if ((ret = cv_parse1(body, cv, &reason)) < 0){
+		    clicon_err(OE_PLUGIN, errno, "cv_parse");
+		    goto err;
+		}
+		if (ret == 0){
 		    clicon_err(OE_PLUGIN, errno, "cv_parse: %s", reason);
+		    if (reason)
+			free(reason);
 		    goto err;
 		}
 	    }
