@@ -111,9 +111,12 @@ yang2cli_var_sub(clicon_handle h,
 	goto done;
     }
     type = ytype?ytype->ys_argument:NULL;
-    completion = clicon_cli_genmodel_completion(h) &&
-	strcmp(type, "enumeration") != 0 && 
-	strcmp(type, "bits") != 0;
+    if (type)
+	completion = clicon_cli_genmodel_completion(h) &&
+	    strcmp(type, "enumeration") != 0 && 
+	    strcmp(type, "bits") != 0;
+    else
+	completion = clicon_cli_genmodel_completion(h);
 
     if (completion)
 	cprintf(cbuf, "(");
