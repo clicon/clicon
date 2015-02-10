@@ -118,9 +118,28 @@ event_unreg_fd(int s, int (*fn)(int, void*))
     return found?0:-1;
 }
 
-/*
- * Sort into internal event list
- * Given an absolute timestamp, register function to call.
+/*! Call a callback function at an absolute time
+ * @param[in]  t   Absolute (not relative!) timestamp when callback is called
+ * @param[in]  fn  Function to call at time t
+ * @param[in]  arg Argument to function fn
+ * @param[in]  str Describing strin
+ * @code
+ * int fn(int d, void *arg){
+ *   struct timeval t, t1;
+ *   gettimeofday(&t, NULL);
+ *   t1.tv_sec = 1; t1.tv_usec = 0;
+ *   timeradd(&t, &t1, &t);
+ *   event_reg_timeout(t, fn, NULL, "call every second");
+ * } 
+ * @endcode 
+ * 
+ * Note that the timestamp is an absolute timestamp, not relative.
+ * Note also that the callback is not periodic, you need to make a new 
+ * registration for each period, see example above.
+ * Note also that the first argument to fn is a dummy, just to get the same
+ * signatute as for file-descriptor callbacks.
+ * @see event_reg_fd
+ * @see event_unreg_timeout
  */
 int
 event_reg_timeout(struct timeval t,  int (*fn)(int, void*), 

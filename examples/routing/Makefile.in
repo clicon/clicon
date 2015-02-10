@@ -46,12 +46,14 @@ PLUGINS = $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN)
 
 CLISPECS = routing_cli.cli
 
-SPECS	 = $(APPNAME).yang
-SPECS	+= ietf-yang-types@2013-07-15.yang
-SPECS	+= ietf-inet-types@2013-07-15.yang
-SPECS	+= ietf-routing@2014-10-26.yang
-SPECS	+= ietf-ipv4-unicast-routing@2014-10-26.yang
-SPECS	+= ietf-ipv6-unicast-routing@2014-10-26.yang
+YANGSPECS	 = $(APPNAME).yang
+YANGSPECS	+= ietf-yang-types@2013-07-15.yang
+YANGSPECS	+= ietf-inet-types@2013-07-15.yang
+YANGSPECS	+= ietf-interfaces@2014-05-08.yang
+YANGSPECS	+= ietf-ip@2014-06-16.yang
+YANGSPECS	+= ietf-routing@2014-10-26.yang
+YANGSPECS	+= ietf-ipv4-unicast-routing@2014-10-26.yang
+YANGSPECS	+= ietf-ipv6-unicast-routing@2014-10-26.yang
 
 all:	$(PLUGINS)
 
@@ -82,10 +84,10 @@ clean:
 distclean: clean
 	rm -f $(APPNAME).conf Makefile *~ .depend
 
-install: $(SPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $(APPNAME).conf
+install: $(YANGSPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $(APPNAME).conf
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
-	install $(SPECS) $(DESTDIR)$(clicon_DBSPECDIR)/yang
+	install $(YANGSPECS) $(DESTDIR)$(clicon_DBSPECDIR)/yang
 	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
 	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR)
 	install -d $(DESTDIR)$(clicon_LIBDIR)

@@ -215,7 +215,7 @@ yang2key_leaf(yang_stmt       *ys,
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
     if (ds == NULL){
-	clicon_err(OE_DB, 0, "No db key, leaf directly under root"); 
+	clicon_err(OE_DB, 0, "%s No db key, leaf directly under root", __FUNCTION__); 
 	goto done;
     }
     /* This adds the variables on the form $x:type */
@@ -324,7 +324,7 @@ yang2key_leaf_list(yang_stmt       *ys,
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
     if (ds == NULL){
-	clicon_err(OE_DB, 0, "No db key, leaf directly under root"); 
+	clicon_err(OE_DB, 0, "%s No db key, leaf directly under root", __FUNCTION__); 
 	goto done;
     }
     ds->ds_vector = 1; 
@@ -354,7 +354,7 @@ static int
 yang2key_stmt(yang_stmt       *ys, 
 	      cvec            *keys0,   /* inherited keys */
 	      cvec            *vars0,   /* inherited vars */
-	      dbspec_key **ds_list)
+	      dbspec_key     **ds_list)
 {
     yang_stmt *yc;
     int        retval = -1;
@@ -362,7 +362,7 @@ yang2key_stmt(yang_stmt       *ys,
     cvec      *keys = NULL;
     cvec      *vars = NULL;
 
-    clicon_debug(3, "%s: %s %s\n", __FUNCTION__, 
+    clicon_debug(3, "%s: %s %s", __FUNCTION__, 
 		yang_key2str(ys->ys_keyword), ys->ys_argument);
     switch (ys->ys_keyword){
     case Y_CONTAINER:
@@ -381,6 +381,9 @@ yang2key_stmt(yang_stmt       *ys,
 	if (yang2key_leaf_list(ys, keys0, vars0, ds_list) < 0)
 	    goto done;
 	break;
+    case Y_GROUPING: /* skip for key generation */
+	retval = 0;
+	goto done;
     default:
 	break;
     }

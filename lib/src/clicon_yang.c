@@ -617,6 +617,20 @@ ys_populate_range(yang_stmt *ys, void *arg)
     return retval;
 }
 
+/*! Uses statement
+ */
+static int
+ys_populate_uses(yang_stmt *ys, void *arg)
+{
+    int             retval = -1;
+
+    /* find the grouping associated with argument and expand(?) */
+    retval = 0;
+  done:
+    return retval;
+}
+
+
 /*! Sanity check yang type statement
  * XXX: Replace with generic parent/child type-check
  */
@@ -665,6 +679,10 @@ ys_populate(yang_stmt *ys, void *arg)
 	break;
     case Y_TYPE:
 	if (ys_populate_type(ys, arg) < 0)
+	    goto done;
+	break;
+    case Y_USES:
+	if (ys_populate_uses(ys, arg) < 0)
 	    goto done;
 	break;
     default:

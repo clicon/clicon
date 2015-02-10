@@ -7,18 +7,22 @@
 
      import ietf-routing {
        prefix "rt";
+       revision-date "2014-10-26";
      }
 
      import ietf-inet-types {
        prefix "inet";
+       revision-date "2013-07-15";
      }
 
      import ietf-interfaces {
        prefix "if";
+       revision-date "2013-07-15";
      }
 
      import ietf-ip {
        prefix "ip";
+       revision-date "2014-06-16";
      }
 
      organization

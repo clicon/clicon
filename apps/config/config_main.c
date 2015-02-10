@@ -527,8 +527,8 @@ main(int argc, char **argv)
 		"The config demon requires a valid group to create a server UNIX socket\n"
 		"Define a valid CLICON_SOCK_GROUP in %s or via the -g option\n"
 		"or create the group and add the user to it. On linux for example:"
-		"  sudo groupadd %s:\n" 
-		"  sudo usermod -G %s user\n", 
+		"  sudo groupadd %s\n" 
+		"  sudo usermod -a -G %s user\n", 
 		   config_group, clicon_configfile(h), config_group, config_group);
 	return -1;
     }
