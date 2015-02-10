@@ -211,6 +211,7 @@ AC_OUTPUT(Makefile
 	  examples/ntp/clicon.conf
 	  examples/datamodel/Makefile
 	  examples/datamodel/clicon.conf
+	  examples/routing/Makefile
 	  doc/Makefile 
 )
 

@@ -1,0 +1,35 @@
+# $Id: datamodel_cli.cli,v 1.2 2013/09/19 15:02:38 olof Exp $
+# Common CLI syntax for both server and PMNode operatio mode
+CLICON_MODE="routing";
+CLICON_PROMPT="%U@%H> ";
+
+# Note, when switching to PT, change datamodel to only @datamodel
+#set @datamodel:routing, cli_merge();
+set @datamodel:ietf-routing@2014-10-26, cli_merge();
+delete("Delete a configuration item") @datamodel:ietf-routing, cli_del();
+
+validate("Validate changes"), cli_validate();
+commit("Commit the changes"), cli_commit((int)0); # snapshot
+quit("Quit Hello"), cli_quit();
+delete("Delete a configuration item")  all("Delete whole candidate configuration"), delete_all("candidate");
+
+no("Negate or remove") debug("Debugging parts of the system"), cli_debug((int)0);
+debug("Debugging parts of the system"), cli_debug((int)1);{
+    level("Set debug level: 1..n") <level:int32>("Set debug level (0..n)"), cli_debug();
+}
+
+
+show("Show a particular state of the system"){
+    configuration("Show configuration"), show_conf_as_text("candidate ^.*$");{
+	    xml("Show configuration as XML"), show_conf_as_xml("candidate ^.*$");
+	    netconf("Show configuration as netconf edit-config operation"), show_conf_as_netconf("candidate ^.*$");
+	    text("Show configuration as text"), show_conf_as_text("candidate ^.*$");
+	    cli("Show configuration as cli commands"), show_conf_as_cli("candidate ^.*$");
+    }
+}
+
+save("Save candidate configuration to XML file") <filename:string>("Filename (local filename)"), save_config_file("candidate filename");
+load("Load configuration from XML file") <filename:string>("Filename (local filename)"),load_config_file("filename replace");{
+    replace("Replace candidate with file contents"), load_config_file("filename replace");
+    merge("Merge file with existent candidate"), load_config_file("filename merge");
+}

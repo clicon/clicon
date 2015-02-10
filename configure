@@ -4526,7 +4526,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile lib/Makefile lib/src/Makefile lib/clicon/Makefile apps/Makefile apps/cli/Makefile apps/config/Makefile apps/netconf/Makefile apps/dbctrl/Makefile lang/Makefile lang/python/Makefile lang/python/lib/Makefile lang/python/backend/Makefile lang/python/cli/Makefile include/Makefile etc/Makefile etc/cliconrc examples/Makefile examples/hello/Makefile examples/hello/clicon.conf examples/ntp/Makefile examples/ntp/clicon.conf examples/datamodel/Makefile examples/datamodel/clicon.conf doc/Makefile"
+ac_config_files="$ac_config_files Makefile lib/Makefile lib/src/Makefile lib/clicon/Makefile apps/Makefile apps/cli/Makefile apps/config/Makefile apps/netconf/Makefile apps/dbctrl/Makefile lang/Makefile lang/python/Makefile lang/python/lib/Makefile lang/python/backend/Makefile lang/python/cli/Makefile include/Makefile etc/Makefile etc/cliconrc examples/Makefile examples/hello/Makefile examples/hello/clicon.conf examples/ntp/Makefile examples/ntp/clicon.conf examples/datamodel/Makefile examples/datamodel/clicon.conf examples/routing/Makefile doc/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5242,6 +5242,7 @@ do
     "examples/ntp/clicon.conf") CONFIG_FILES="$CONFIG_FILES examples/ntp/clicon.conf" ;;
     "examples/datamodel/Makefile") CONFIG_FILES="$CONFIG_FILES examples/datamodel/Makefile" ;;
     "examples/datamodel/clicon.conf") CONFIG_FILES="$CONFIG_FILES examples/datamodel/clicon.conf" ;;
+    "examples/routing/Makefile") CONFIG_FILES="$CONFIG_FILES examples/routing/Makefile" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

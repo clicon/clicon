@@ -1,0 +1,16 @@
+# Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
+
+# Startup CLI mode. This should match the CLICON_MODE in your startup clispec file
+CLICON_CLI_MODE         routing
+
+# Only if CLICON_DBSPEC_TYPE is YANG
+# CLICON_YANG_MODULE_MAIN clicon
+CLICON_YANG_MODULE_MAIN ietf-routing@2014-10-26
+
+# Generate code for CLI completion of existing db symbols
+# CLICON_CLI_GENMODEL_COMPLETION 0
+CLICON_CLI_GENMODEL_COMPLETION 1
+
+# How to generate and show CLI syntax: VARS|ALL
+# CLICON_CLI_GENMODEL_TYPE VARS
+CLICON_CLI_GENMODEL_TYPE   VARS

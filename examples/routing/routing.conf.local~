@@ -1,0 +1,34 @@
+# Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
+
+# Startup CLI mode. This should match the CLICON_MODE in your startup clispec file
+CLICON_CLI_MODE         operation
+
+# Only if CLICON_DBSPEC_TYPE is YANG
+# CLICON_YANG_MODULE_MAIN clicon
+CLICON_YANG_MODULE_MAIN grideye
+
+# Group membership to access clicon_config 1 socket
+# CLICON_SOCK_GROUP clicon
+CLICON_SOCK_GROUP       grideye
+
+# Name of master plugin (both frontend and backend). Master plugin has special
+# callbacks for frontends. See clicon user manual for more info.
+# CLICON_MASTER_PLUGIN master
+CLICON_MASTER_PLUGIN    grideye-frontend-plugin
+
+# Generate code for CLI completion of existing db symbols
+# CLICON_CLI_GENMODEL_COMPLETION 0
+CLICON_CLI_GENMODEL_COMPLETION 1
+
+# How to generate and show CLI syntax: VARS|ALL
+# CLICON_CLI_GENMODEL_TYPE VARS
+CLICON_CLI_GENMODEL_TYPE   VARS
+
+# Grideye specific: location of web api pages. Not actually used, hardcoded in www/Makefile
+GRIDEYE_WEBAPIDIR /www-data/api
+
+# Grideye result directory
+GRIDEYE_RESULT_DIR /grideye_result
+
+/* Placeholders *
+# GRIDEYE_EVENT_DIR

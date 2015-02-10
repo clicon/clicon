@@ -1,0 +1,116 @@
+# 
+# Makefile 
+#
+# Copyright (C) 2009-2015 Olof Hagsand and Benny Holmgren
+#
+# This file is part of CLICON.
+#
+# CLICON is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# CLICON is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CLICON; see the file COPYING.  If not, see
+# <http://www.gnu.org/licenses/>.
+#
+#
+VPATH       	= @srcdir@
+srcdir  	= @srcdir@
+top_srcdir  	= @top_srcdir@
+prefix 		= @prefix@
+bindir 		= @bindir@
+includedir	= @includedir@
+datarootdir	= @datarootdir@
+
+APPNAME	        = routing
+CC		= @CC@
+CFLAGS  	= @CFLAGS@ -rdynamic -fPIC 
+
+INCLUDES 	= -I$(includedir) @INCLUDES@ 
+
+BE_PLUGIN       = $(APPNAME)_backend.so
+CLI_PLUGIN      = $(APPNAME)_cli.so
+NETCONF_PLUGIN  = $(APPNAME)_netconf.so
+
+PLUGINS = $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN)
+
+# Note: clicon.mk has a rule for:
+# $(APPNAME.conf)
+-include $(DESTDIR)$(datarootdir)/clicon/clicon.mk
+
+CLISPECS = routing_cli.cli
+
+SPECS	 = $(APPNAME).yang
+SPECS	+= ietf-yang-types@2013-07-15.yang
+SPECS	+= ietf-inet-types@2013-07-15.yang
+SPECS	+= ietf-routing@2014-10-26.yang
+SPECS	+= ietf-ipv4-unicast-routing@2014-10-26.yang
+SPECS	+= ietf-ipv6-unicast-routing@2014-10-26.yang
+
+all:	$(PLUGINS)
+
+# Backend plugin
+BE_SRC   = routing_backend.c
+BE_OBJ   = $(BE_SRC:%.c=%.o)
+$(BE_PLUGIN): $(BE_OBJ)
+	$(CC) -shared -o $@ -lc $<
+
+# CLI frontend plugin
+CLI_SRC  = routing_cli.c
+CLI_OBJ  = $(CLI_SRC:%.c=%.o)
+$(CLI_PLUGIN): $(CLI_OBJ)
+	$(CC) -shared -o $@ -lc $^ 
+
+# NETCONF frontend plugin
+NETCONF_SRC  = routing_netconf.c
+NETCONF_OBJ  = $(NETCONF_SRC:%.c=%.o)
+$(NETCONF_PLUGIN): $(NETCONF_OBJ)
+	$(CC) -shared -o $@ -lc $^ 
+
+SRC     = $(BE_SRC) $(CLI_SRC) $(NETCONF_SRC)
+OBJS    = $(BE_OBJ) $(CLI_OBJ) $(NETCONF_OBJ)
+
+clean:
+	rm -f $(PLUGINS) $(OBJS)
+
+distclean: clean
+	rm -f $(APPNAME).conf Makefile *~ .depend
+
+install: $(SPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $(APPNAME).conf
+	install -d $(DESTDIR)$(clicon_DBSPECDIR)
+	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
+	install $(SPECS) $(DESTDIR)$(clicon_DBSPECDIR)/yang
+	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
+	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR)
+	install -d $(DESTDIR)$(clicon_LIBDIR)
+	install -d $(DESTDIR)$(clicon_LIBDIR)/cli
+	install $(CLI_PLUGIN) $(DESTDIR)$(clicon_LIBDIR)/cli; 
+	install -d $(DESTDIR)$(clicon_LIBDIR)/backend
+	install $(BE_PLUGIN) $(DESTDIR)$(clicon_LIBDIR)/backend; 
+	install -d $(DESTDIR)$(clicon_LIBDIR)/netconf
+	install $(NETCONF_PLUGIN) $(DESTDIR)$(clicon_LIBDIR)/netconf; 
+	install -d $(DESTDIR)$(clicon_LIBDIR)/clispec
+	install $(CLISPECS) $(DESTDIR)$(clicon_LIBDIR)/clispec; 
+	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)
+
+uninstall: 
+	rm -f $(DESTDIR)$(clicon_DBSPECDIR)/yang
+	rm -f $(DESTDIR)$(clicon_LIBDIR)/netconf
+	rm -f $(DESTDIR)$(clicon_LIBDIR)/cli
+	rm -f $(DESTDIR)$(clicon_LIBDIR)/clispec
+	rm -f $(DESTDIR)$(clicon_LIBDIR)/backend
+	rm -f $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf
+
+install-include:	
+
+depend:
+	$(CC) $(DEPENDFLAGS) $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
+
+#include .depend
+

@@ -1,0 +1,12 @@
+module routing{
+  list a{
+    key "x y";
+    leaf x{
+      type string;
+    }
+    leaf y{
+      type string;
+    }
+  }
+}
+/* set log-server <addr> protocol <proto> port <port> */
