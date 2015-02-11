@@ -215,7 +215,8 @@ yang2key_leaf(yang_stmt       *ys,
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
     if (ds == NULL){
-	clicon_err(OE_DB, 0, "%s No db key, leaf directly under root", __FUNCTION__); 
+	clicon_err(OE_DB, 0, "%s No db key, leaf \"%s\" directly under root", 
+		   __FUNCTION__, ys->ys_argument); 
 	goto done;
     }
     /* This adds the variables on the form $x:type */
@@ -260,7 +261,8 @@ yang2key_list(yang_stmt       *ys,
     /* A list has a key(index) variable, mark it as CLICON list (print as x[]) */
     cv_flag_set(cv, V_UNIQUE); 	
     if ((ykey = yang_find((yang_node*)ys, Y_KEY, NULL)) == NULL){
-	clicon_err(OE_XML, errno, "List statement \"%s\" has no key", ys->ys_argument);
+	clicon_err(OE_XML, errno, "%s: List statement \"%s\" has no key", 
+		   __FUNCTION__, ys->ys_argument);
 	goto done;
     }
     if ((cvv = yang_arg2cvec(ykey, " ")) == NULL)
@@ -269,8 +271,8 @@ yang2key_list(yang_stmt       *ys,
     while ((cvi = cvec_each(cvv, cvi)) != NULL) {
 	keyname = cv_string_get(cvi);
 	if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, keyname)) == NULL){
-	    clicon_err(OE_XML, 0, "List statement \"%s\" has no key leaf \"%s\"", 
-		       ys->ys_argument, keyname);
+	    clicon_err(OE_XML, 0, "%s: List statement \"%s\" has no key leaf \"%s\"", 
+		       __FUNCTION__, ys->ys_argument, keyname);
 	    goto done;
 	}	
 	/* Call leaf directly, then ensure it is not called again in yang2key_stmt() */
@@ -364,6 +366,8 @@ yang2key_stmt(yang_stmt       *ys,
 
     clicon_debug(3, "%s: %s %s", __FUNCTION__, 
 		yang_key2str(ys->ys_keyword), ys->ys_argument);
+    if (yang_config(ys) == 0)
+	return 0;
     switch (ys->ys_keyword){
     case Y_CONTAINER:
 	if (yang2key_container(ys, keys0, vars0, ds_list) < 0)
@@ -381,6 +385,7 @@ yang2key_stmt(yang_stmt       *ys,
 	if (yang2key_leaf_list(ys, keys0, vars0, ds_list) < 0)
 	    goto done;
 	break;
+    case Y_RPC:
     case Y_GROUPING: /* skip for key generation */
 	retval = 0;
 	goto done;

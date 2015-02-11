@@ -231,7 +231,7 @@ yspec_free(yang_spec *yspec)
     return 0;
 }
 
-/*! Allocate larger yang statement vector */
+/*! Allocate larger yang statement vector adding empty field last */
 static int 
 yn_realloc(yang_node *yn)
 {
@@ -244,6 +244,76 @@ yn_realloc(yang_node *yn)
     yn->yn_stmt[yn->yn_len - 1] = NULL; /* init field */
     return 0;
 }
+
+/*! Copy yang statement recursively from old to new 
+ */
+int        
+ys_cp(yang_stmt *ynew, yang_stmt *yold)
+{
+    int        retval = -1;
+    int        i;
+    yang_stmt *ycn; /* new child */
+    yang_stmt *yco; /* old child */
+
+    memcpy(ynew, yold, sizeof(*yold)); 
+    ynew->ys_parent = NULL;
+    if (yold->ys_stmt)
+	if ((ynew->ys_stmt = calloc(yold->ys_len, sizeof(yang_stmt *))) == NULL){
+	    clicon_err(OE_YANG, errno, "%s: calloc", __FUNCTION__);
+	    goto done;
+	}
+    if (yold->ys_argument)
+	if ((ynew->ys_argument = strdup(yold->ys_argument)) == NULL){
+	    clicon_err(OE_YANG, errno, "%s: strdup", __FUNCTION__);
+	    goto done;
+	}
+    if (yold->ys_dbkey)
+	if ((ynew->ys_dbkey = strdup(yold->ys_dbkey)) == NULL){
+	    clicon_err(OE_YANG, errno, "%s: strdup", __FUNCTION__);
+	    goto done;
+	}
+    if (yold->ys_cv)
+	if ((ynew->ys_cv = cv_dup(yold->ys_cv)) == NULL){
+	    clicon_err(OE_YANG, errno, "%s: cv_dup", __FUNCTION__);
+	    goto done;
+	}
+    if (yold->ys_cvec)
+	if ((ynew->ys_cvec = cvec_dup(yold->ys_cvec)) == NULL){
+	    clicon_err(OE_YANG, errno, "%s: cvec_dup", __FUNCTION__);
+	    goto done;
+	}
+    for (i=0; i<ynew->ys_len; i++){
+	yco = yold->ys_stmt[i];
+	if ((ycn = ys_dup(yco)) == NULL)
+	    goto done;
+	ynew->ys_stmt[i] = ycn;
+	ycn->ys_parent = (yang_node*)ynew;
+    }
+    retval = 0;
+ done:
+    return retval;
+}
+
+/*! Create a new yang node and copy the contents recursively from the original. 
+ *
+ * This may involve duplicating strings, etc.
+ * The new yang tree needs to be freed by ys_free().
+ * The parent of new is NULL, it needs to be explicityl inserted somewhere
+ */
+yang_stmt *
+ys_dup(yang_stmt *old)
+{
+    yang_stmt *new;
+
+    if ((new = ys_new(old->ys_keyword)) == NULL)
+	return NULL;
+    if (ys_cp(new, old) < 0){
+	ys_free(new);
+	return NULL;
+    }
+    return new;
+}
+
 
 /*! Insert yang statement as child of a parent yang_statement, last in list 
  *
@@ -392,6 +462,92 @@ yang_key2str(int keyword)
 	    return yk->ms_str;
     return NULL;
 }
+
+/*! Find top of tree: module or sub-module */
+yang_stmt *
+ys_top(yang_stmt *ys)
+{
+    yang_node *yn;
+
+    while (ys != NULL && ys->ys_keyword != Y_MODULE && ys->ys_keyword != Y_SUBMODULE){
+	yn = ys->ys_parent;
+	/* Some extra stuff to ensure ys is a stmt */
+	if (yn && yn->yn_keyword == Y_SPEC)
+	    yn = NULL;
+	ys = (yang_stmt*)yn;
+    }
+    /* Here it is either NULL or is a typedef-kind yang-stmt */
+    return (yang_stmt*)ys;
+}
+
+/* find top of tree: specification */
+yang_spec *
+ys_spec(yang_stmt *ys)
+{
+    yang_node *yn;
+
+    while (ys != NULL && ys->ys_keyword != Y_SPEC){
+	yn = ys->ys_parent;
+	ys = (yang_stmt*)yn;
+    }
+    /* Here it is either NULL or is a typedef-kind yang-stmt */
+    return (yang_spec*)ys;
+}
+
+/* Extract id from type argument. two cases:
+ * argument is prefix:id, 
+ * argument is id,        
+ * Just return string from id
+ */
+char*
+ytype_id(yang_stmt *ys)
+{
+    char   *id;
+    
+    if ((id = strchr(ys->ys_argument, ':')) == NULL)
+	id = ys->ys_argument;
+    else
+	id++;
+    return id;
+}
+
+/* Extract prefix from type argument. two cases:
+ * argument is prefix:id, 
+ * argument is id,        
+ * return either NULL or a new prefix string that needs to be freed by caller.
+ */
+char*
+ytype_prefix(yang_stmt *ys)
+{
+    char   *id;
+    char   *prefix = NULL;
+    
+    if ((id = strchr(ys->ys_argument, ':')) != NULL){
+	prefix = strdup(ys->ys_argument);
+	prefix[id-ys->ys_argument] = '\0';
+    }
+    return prefix;
+}
+
+
+yang_stmt *
+ys_prefix2import(yang_stmt *ys, char *prefix)
+{
+    yang_stmt *ytop;
+    yang_stmt *yimport = NULL;
+    yang_stmt *yprefix;
+
+    ytop      = ys_top(ys);
+    while ((yimport = yn_each((yang_node*)ytop, yimport)) != NULL) {
+	if (yimport->ys_keyword != Y_IMPORT)
+	    continue;
+	if ((yprefix = yang_find((yang_node*)yimport, Y_PREFIX, NULL)) != NULL &&
+	    strcmp(yprefix->ys_argument, prefix) == 0)
+	    return yimport;
+    }
+    return NULL;
+}
+
 
 /*! string is quoted if it contains space or tab, needs double '' */
 static int inline
@@ -617,20 +773,6 @@ ys_populate_range(yang_stmt *ys, void *arg)
     return retval;
 }
 
-/*! Uses statement
- */
-static int
-ys_populate_uses(yang_stmt *ys, void *arg)
-{
-    int             retval = -1;
-
-    /* find the grouping associated with argument and expand(?) */
-    retval = 0;
-    //  done:
-    return retval;
-}
-
-
 /*! Sanity check yang type statement
  * XXX: Replace with generic parent/child type-check
  */
@@ -681,10 +823,6 @@ ys_populate(yang_stmt *ys, void *arg)
 	if (ys_populate_type(ys, arg) < 0)
 	    goto done;
 	break;
-    case Y_USES:
-	if (ys_populate_uses(ys, arg) < 0)
-	    goto done;
-	break;
     default:
 	break;
     }
@@ -693,6 +831,136 @@ ys_populate(yang_stmt *ys, void *arg)
     return retval;
 }
 
+
+/*! Resolve a grouping name from a point in the yang tree 
+ * @retval  0  OK, but ygrouping determines if a grouping was resolved or not
+ * @retval -1  Error, with clicon_err called
+ */
+static int
+ys_grouping_resolve(yang_stmt *ys, 
+		    char *prefix, 
+		    char *name,
+		    yang_stmt **ygrouping0)
+{
+    int             retval = -1;
+    yang_stmt      *yimport;
+    yang_spec      *yspec;
+    yang_stmt      *ymodule;
+    yang_stmt      *ygrouping = NULL;
+    yang_node      *yn;
+
+    /* find the grouping associated with argument and expand(?) */
+    if (prefix){ /* Go to top and find import that matches */
+	if ((yimport = ys_prefix2import(ys, prefix)) == NULL){
+	    clicon_err(OE_DB, 0, "Prefix %s not defined not found", prefix);
+	    goto done;
+	}
+	yspec = ys_spec(ys);
+	if ((ymodule = yang_find((yang_node*)yspec, Y_MODULE, yimport->ys_argument)) != NULL)
+	    ygrouping = yang_find((yang_node*)ymodule, Y_GROUPING, name);
+    }
+    else
+	while (1){
+	    /* Check upwards in hierarchy for matching groupings */
+	    if ((yn = ys->ys_parent) == NULL || yn->yn_keyword == Y_SPEC)
+		break;
+	    /* Here find grouping */
+	    if ((ygrouping = yang_find(yn, Y_GROUPING, name)) != NULL)
+		break;
+	    /* Proceed to next level */
+	    ys = (yang_stmt*)yn;
+	}
+    *ygrouping0 = ygrouping;
+    retval = 0;
+ done:
+    return retval;
+}
+
+/*! Macro expansion of grouping/uses done in step 2 of yang parsing 
+  NOTE
+  RFC6020 says this:
+    Identifiers appearing inside the grouping are resolved relative to the scope in which the 
+    grouping is defined, not where it is used.  Prefix mappings, type names, grouping
+    names, and extension usage are evaluated in the hierarchy where the
+    "grouping" statement appears. 
+  But it will be very difficult to generate keys etc with this semantics. So for now I
+  macro-expand them
+*/
+static int
+yang_expand(yang_node *yn)
+{
+    int        retval = -1;
+    yang_stmt *ys = NULL;
+    yang_stmt *ygrouping;
+    yang_stmt *yg;
+    int        glen;
+    int        i;
+    int        j;
+    char      *name;
+    char      *prefix;
+    size_t     size;
+
+    /* Cannot use yang_apply here since child-list is modified (is destructive) */
+    i = 0;
+    while (i<yn->yn_len){
+	ys = yn->yn_stmt[i];
+	switch(ys->ys_keyword){
+	case Y_USES:
+	    /* Split argument into prefix and name */
+	    name    = ytype_id(ys);     /* This is uses/grouping name to resolve */
+	    prefix  = ytype_prefix(ys); /* And this its prefix */
+	    if (ys_grouping_resolve(ys, prefix, name, &ygrouping) < 0)
+		goto done;
+	    if (ygrouping == NULL){
+		clicon_log(LOG_NOTICE, "Yang error: grouping \"%s\" not found", ys->ys_argument);
+		break;
+	    }
+	    /* Replace ys with ygrouping,... 
+	     * First enlarge parent vector 
+	     */
+	    glen = ygrouping->ys_len;
+	    /* XXX: glen == 0? */
+	    if (glen > 1){
+		size = (yn->yn_len - i - 1)*sizeof(struct yang_stmt *);
+		yn->yn_len += glen - 1;
+		if ((yn->yn_stmt = realloc(yn->yn_stmt, (yn->yn_len)*sizeof(yang_stmt *))) == 0){
+		    clicon_err(OE_YANG, errno, "%s: realloc", __FUNCTION__);
+		    return -1;
+		}
+		/* Then move all existing elements up from i+1 (not uses-stmt) */
+		if (size)
+		    memmove(&yn->yn_stmt[i+glen],
+			    &yn->yn_stmt[i+1],
+			    size);
+	    }
+	    /* Then copy and insert each child element */
+	    for (j=0; j<glen; j++){
+		if ((yg = ys_dup(ygrouping->ys_stmt[j])) == NULL)
+		    goto done;
+		yn->yn_stmt[i+j] = yg;
+		yg->ys_parent = yn;
+	    }
+	    for (j=0; j<yn->yn_len; j++)
+		assert(yn->yn_stmt[j]);
+	    /* XXX: refine */
+	    /* Remove 'uses' node */
+	    ys_free(ys);
+	    break; /* Note same child is re-iterated since it may be changed */
+	default:
+	    i++;
+	    break;
+	}
+    }
+    /* Second pass since length may have changed */
+    for (i=0; i<yn->yn_len; i++){
+	ys = yn->yn_stmt[i];
+	if (yang_expand((yang_node*)ys) < 0)
+	    goto done;
+    }
+    retval = 0;
+ done:
+    return retval;
+}
 
 /*! Parse a string containing a YANG spec into a parse-tree
  * 
@@ -887,11 +1155,16 @@ yang_parse(clicon_handle h,
     int         retval = -1;
     yang_stmt  *ys;
 
+    /* Step 1: parse from text to yang parse-tree. */
     if ((ys = yang_parse1(h, yang_dir, module, revision, ysp)) == NULL)
 	goto done;
     /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
-    /* Go through parse tree and populate it with cv types */
+    /* Step 2: Macro expansion of all grouping/uses pairs. */
+    if (yang_expand((yang_node*)ysp) < 0)
+	goto done;
+    //    yang_print(stderr, (yang_node*)ysp, 0);
+    /* Step 3: Go through parse tree and populate it with cv types */
     if (yang_apply((yang_node*)ysp, ys_populate, NULL) < 0)
 	goto done;
     retval = 0;
@@ -949,9 +1222,9 @@ yang_dbkey_set(yang_stmt *ys, char *val)
 int
 yang_apply(yang_node *yn, yang_applyfn_t fn, void *arg)
 {
+    int        retval = -1;
     yang_stmt *ys = NULL;
-    int     i;
-    int     retval = -1;
+    int        i;
 
     for (i=0; i<yn->yn_len; i++){
 	ys = yn->yn_stmt[i];
@@ -1081,8 +1354,8 @@ yang_xpath(yang_node *yn, char *xpath)
 /*! Parse argument as CV and save result in yang cv variable
  *
  * Note that some CV:s are parsed directly (eg fraction-digits) while others are parsed 
- * in second pass (ys_populate). The reason being that all information is not 
- * available in the first pass. Prefer ys_populate
+ * in third pass (ys_populate). The reason being that all information is not 
+ * available in the first pass. Prefer to do stuff in ys_populate
  */
 cg_var *
 ys_parse(yang_stmt *ys, enum cv_type cvtype)
@@ -1121,7 +1394,7 @@ ys_parse(yang_stmt *ys, enum cv_type cvtype)
  * The cv:s created in parse-tree as follows:
  * fraction-digits : Create cv as uint8, check limits [1:8] (must be made in 1st pass)
  *
- * See also ys_populate
+ * @see ys_populate
  */
 int
 ys_parse_sub(yang_stmt *ys)

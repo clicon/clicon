@@ -394,6 +394,9 @@ yang2cli_stmt(clicon_handle h,
 
     if (yang_config(ys)){
 	switch (ys->ys_keyword){
+	case Y_RPC:
+	    return 0;
+	    break;
 	case Y_CONTAINER:
 	    if (yang2cli_container(h, ys, cbuf, gt, level) < 0)
 		goto done;

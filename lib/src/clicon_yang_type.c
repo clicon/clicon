@@ -483,7 +483,7 @@ ys_typedef(yang_stmt *ys)
 
 /* find next ys up which can contain a typedef */
 static yang_stmt *
-ys_up(yang_stmt *ys)
+ys_typedef_up(yang_stmt *ys)
 {
     yang_node *yn;
 
@@ -498,91 +498,7 @@ ys_up(yang_stmt *ys)
     return (yang_stmt*)ys;
 }
 
-/* find top of tree: module or sub-module */
-static yang_stmt *
-ys_top(yang_stmt *ys)
-{
-    yang_node *yn;
 
-    while (ys != NULL && ys->ys_keyword != Y_MODULE && ys->ys_keyword != Y_SUBMODULE){
-	yn = ys->ys_parent;
-	/* Some extra stuff to ensure ys is a stmt */
-	if (yn && yn->yn_keyword == Y_SPEC)
-	    yn = NULL;
-	ys = (yang_stmt*)yn;
-    }
-    /* Here it is either NULL or is a typedef-kind yang-stmt */
-    return (yang_stmt*)ys;
-}
-
-/* find top of tree: specification */
-static yang_spec *
-ys_spec(yang_stmt *ys)
-{
-    yang_node *yn;
-
-    while (ys != NULL && ys->ys_keyword != Y_SPEC){
-	yn = ys->ys_parent;
-	ys = (yang_stmt*)yn;
-    }
-    /* Here it is either NULL or is a typedef-kind yang-stmt */
-    return (yang_spec*)ys;
-}
-
-static yang_stmt *
-ys_prefix2import(yang_stmt *ys, char *prefix)
-{
-    yang_stmt *ytop;
-    yang_stmt *yimport = NULL;
-    yang_stmt *yprefix;
-
-    ytop      = ys_top(ys);
-    while ((yimport = yn_each((yang_node*)ytop, yimport)) != NULL) {
-	if (yimport->ys_keyword != Y_IMPORT)
-	    continue;
-	if ((yprefix = yang_find((yang_node*)yimport, Y_PREFIX, NULL)) != NULL &&
-	    strcmp(yprefix->ys_argument, prefix) == 0)
-	    return yimport;
-    }
-    return NULL;
-}
-
-/*
- * Extract id from type argument. two cases:
- * argument is prefix:id, 
- * argument is id,        
- * Just return string from id
- */
-char*
-ytype_id(yang_stmt *ys)
-{
-    char   *id;
-    
-    if ((id = strchr(ys->ys_argument, ':')) == NULL)
-	id = ys->ys_argument;
-    else
-	id++;
-    return id;
-}
-
-/*
- * Extract prefix from type argument. two cases:
- * argument is prefix:id, 
- * argument is id,        
- * return either NULL or a new prefix string that needs to be freed by caller.
- */
-static char*
-ytype_prefix(yang_stmt *ys)
-{
-    char   *id;
-    char   *prefix = NULL;
-    
-    if ((id = strchr(ys->ys_argument, ':')) != NULL){
-	prefix = strdup(ys->ys_argument);
-	prefix[id-ys->ys_argument] = '\0';
-    }
-    return prefix;
-}
 
 
 /*
@@ -688,8 +604,8 @@ yang_type_resolve(yang_stmt   *ys,
     }
     else
 	while (1){
-	    /* Check if ys may have typedefs otherwise find one that can */
-	    if ((ys = ys_up(ys)) == NULL){ /* If reach top */
+	    /* Check upwards in hierarchy for matcing typedefs */
+	    if ((ys = ys_typedef_up(ys)) == NULL){ /* If reach top */
 		*yrestype = NULL;
 		break;
 	    }

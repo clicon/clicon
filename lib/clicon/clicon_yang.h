@@ -125,7 +125,7 @@ struct yang_spec{
     int                yp_len;
     struct yang_stmt **yp_stmt;
     struct yang_node  *yp_parent; /* backpointer to parent: always NULL. See yang_stmt */
-    int                yp_keyword; /* SHOULD BE Y_SPEC */
+    enum rfc_6020      yp_keyword; /* SHOULD BE Y_SPEC */
     char              *yp_argument;  /* XXX String / argument depending on keyword */   
 };
 typedef struct yang_spec yang_spec;
@@ -135,14 +135,12 @@ struct yang_node{
     int                yn_len;
     struct yang_stmt **yn_stmt;
     struct yang_node  *yn_parent; /* backpointer to parent: yang-stmt or yang-spec */
-    int                yn_keyword; 
+    enum rfc_6020      yn_keyword; 
     char              *yn_argument;  /* XXX String / argument depending on keyword */   
 };
 typedef struct yang_node yang_node;
 
 typedef int (yang_applyfn_t)(yang_stmt *ys, void *arg);
-
-
 
 /*
  * Prototypes
@@ -151,10 +149,16 @@ yang_spec *yspec_new(void);
 yang_stmt *ys_new(enum rfc_6020 keyw);
 int        ys_free(yang_stmt *ys);
 int        yspec_free(yang_spec *yspec);
+int        ys_cp(yang_stmt *new, yang_stmt *old);
+yang_stmt *ys_dup(yang_stmt *old);
 int        yn_insert(yang_node *yn_parent, yang_stmt *ys_child);
-
 yang_stmt *yn_each(yang_node *yn, yang_stmt *ys);
 char      *yang_key2str(int keyword);
+char      *ytype_prefix(yang_stmt *ys);
+char      *ytype_id(yang_stmt *ys);
+yang_stmt *ys_top(yang_stmt *ys);
+yang_spec *ys_spec(yang_stmt *ys);
+yang_stmt *ys_prefix2import(yang_stmt *ys, char *prefix);
 yang_stmt *yang_find(yang_node *yn, int keyword, char *argument);
 yang_stmt *yang_find_specnode(yang_node *yn, char *argument);
 
