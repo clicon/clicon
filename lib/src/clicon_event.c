@@ -67,11 +67,17 @@ struct event_data{
 static struct event_data *ee = NULL;
 static struct event_data *ee_timers = NULL;
 
-/*
- * Register a callback function when something occurs on a file descriptor.
- * When an input event occurs on file desriptor <fd>, 
- * the function <fn> shall be called  with argument <arg>.
- * <str> is a debug string for logging.
+/*! Register a callback function to be called on input on a file descriptor.
+ *
+ * @param[in]  fd  File descriptor
+ * @param[in]  fn  Function to call when input available on fd
+ * @param[in]  arg Argument to function fn
+ * @param[in]  str Describing string for logging
+ * @code
+ * int fn(int fd, void *arg){
+ * }
+ * event_reg_fd(fd, fn, (void*)42, "call fn on input on fd");
+ * @endcode 
  */
 int
 event_reg_fd(int fd, int (*fn)(int, void*), void *arg, char *str)
@@ -94,10 +100,12 @@ event_reg_fd(int fd, int (*fn)(int, void*), void *arg, char *str)
     return 0;
 }
 
-/*
- * event_unreg_fd
- * Deregister an event.
- * If the socket and function match, deregister.
+/*! Deregister a file descriptor callback
+ * @param[in]  s   File descriptor
+ * @param[in]  fn  Function to call when input available on fd
+ * Note: deregister when exactly function and socket match, not argument
+ * @see event_reg_fd
+ * @see event_unreg_timeout
  */
 int
 event_unreg_fd(int s, int (*fn)(int, void*))
@@ -122,7 +130,7 @@ event_unreg_fd(int s, int (*fn)(int, void*))
  * @param[in]  t   Absolute (not relative!) timestamp when callback is called
  * @param[in]  fn  Function to call at time t
  * @param[in]  arg Argument to function fn
- * @param[in]  str Describing strin
+ * @param[in]  str Describing string for logging
  * @code
  * int fn(int d, void *arg){
  *   struct timeval t, t1;
@@ -170,10 +178,14 @@ event_reg_timeout(struct timeval t,  int (*fn)(int, void*),
     return 0;
 }
 
-/*
- * event_unreg_timeout
- * Deregister an event.
- * If the function and argument match, deregister.
+/*! Deregister a timeout callback as previosly registered by event_reg_timeout()
+ * Note: deregister when exactly function and function arguments match, not time. So you
+ * cannot have same function and argument callback on different timeouts. This is a little
+ * different from event_unreg_fd.
+ * @param[in]  fn  Function to call at time t
+ * @param[in]  arg Argument to function fn
+ * @see event_reg_timeout
+ * @see event_unreg_fd
  */
 int
 event_unreg_timeout(int (*fn)(int, void*), void *arg)
@@ -194,10 +206,7 @@ event_unreg_timeout(int (*fn)(int, void*), void *arg)
     return found?0:-1;
 }
 
-/*
- * event_loop
- *
- * Dispatch file descriptor events (and timeouts) by invoking callbacks.
+/*! Dispatch file descriptor events (and timeouts) by invoking callbacks.
  * There is an issue with fairness that timeouts may take over all events
  * One could try to poll the file descriptors after a timeout?
  */

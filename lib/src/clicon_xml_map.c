@@ -231,6 +231,7 @@ dbkey2xml(dbspec_key *db_spec,
     cvec       *uvr = NULL; /* unique var set */
     cvec       *uvr0 = NULL; /* tmp unique var set */
     int         prevspec;
+    int         i;
 
     if (debug > 1)
 	fprintf(stderr, "%s: key:%s\n", __FUNCTION__, key);
@@ -285,10 +286,21 @@ dbkey2xml(dbspec_key *db_spec,
 		goto catch;
 	    }
 	    vs = NULL;
+	    i = -1;
 	    while ((vs = cvec_each(subvr, vs)))
 		if (cv_flag(vs, V_UNIQUE)){
+		    i++;
 		    vname = cv_name_get(vs);
-		    if (cvec_find(uvr, vname) == NULL){
+		    /* This assumes unique variables come in same order */
+		    if ((ncv=cvec_i(uvr, i)) != NULL){
+			/* sanity check */
+			if (strcmp(cv_name_get(ncv), vname) != 0){
+			    clicon_log(LOG_WARNING, "%s: key %s non- matching unique variables [%d] %s %s", 
+				       __FUNCTION__, key, i, cv_name_get(ncv), vname);
+			    continue;
+			}
+		    }
+		    else{
 			/* Add to unique vars vec */
 			if ((ncv = cvec_add(uvr0, CGV_STRING)) == NULL)
 			    goto catch;
@@ -296,10 +308,20 @@ dbkey2xml(dbspec_key *db_spec,
 			    goto catch;
 			//cv_flag_set(ncv, V_UNSET);
 			/* get key's value of v (actual data, not the vs spec) */
-			if ((v = cvec_find(vr, vname)) == NULL)
+			if ((v = cvec_i(vr, i)) == NULL){
+			    clicon_log(LOG_WARNING, "%s: key %s no matching element %d", 
+				       __FUNCTION__, key, i);
 			    continue; /* bad spec */
-			if ((str = cv2str_dup(v)) == NULL)
-			    continue; /* bad spec */
+			}
+			if (strcmp(cv_name_get(v), vname) != 0){
+			    clicon_log(LOG_WARNING, "%s: key %s no matching name %s", 
+				       __FUNCTION__, key, vname);
+			    continue;
+			}
+			if ((str = cv2str_dup(v)) == NULL){
+			    clicon_err(OE_UNIX, errno, "cv2str_dup");
+			    goto catch;
+			}
 			cv_string_set(ncv, str);
 			free(str);
 		    }
@@ -309,7 +331,7 @@ dbkey2xml(dbspec_key *db_spec,
 			   __FUNCTION__, subkey);
 		continue;
 	    }
-	    /* Copy local vnr0 to stacked vnr unique variables */
+	    /* Copy local uvr0 to stacked uvr unique variables */
 	    vs = NULL;
 	    while ((vs = cvec_each(uvr0, vs)))
 		cvec_add_cv(uvr, vs);

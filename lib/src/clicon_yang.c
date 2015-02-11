@@ -626,7 +626,7 @@ ys_populate_uses(yang_stmt *ys, void *arg)
 
     /* find the grouping associated with argument and expand(?) */
     retval = 0;
-  done:
+    //  done:
     return retval;
 }
 
@@ -1221,7 +1221,7 @@ yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
     if (printspec)
 	yang_print(f, (yang_node*)yspec, 0);
     if ((db_spec = yang2key(yspec)) == NULL) /* To dbspec */
-	goto done;
+    	goto done;
     clicon_dbspec_key_set(h, db_spec);	
     if (printalt)
 	db_spec_dump(f, db_spec);
