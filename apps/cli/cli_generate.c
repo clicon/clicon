@@ -394,7 +394,9 @@ yang2cli_stmt(clicon_handle h,
 
     if (yang_config(ys)){
 	switch (ys->ys_keyword){
+	case Y_GROUPING:
 	case Y_RPC:
+	case Y_AUGMENT:
 	    return 0;
 	    break;
 	case Y_CONTAINER:

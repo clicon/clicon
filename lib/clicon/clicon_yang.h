@@ -104,14 +104,17 @@ enum rfc_6020{
     Y_SPEC  /* XXX: NOTE NOT YANG STATEMENT, reserved for top level spec */
 };
 
+#define YANG_FLAG_MARK 0x01  /* Marker for dynamic algorithms, eg expand */
+
 /*! yang statement 
  */
 struct yang_stmt{
-    int                ys_len;
-    struct yang_stmt **ys_stmt;
-    struct yang_node  *ys_parent;    /* backpointer to parent: yang-stmt or yang-spec */
+    int                ys_len;       /* Number of children */
+    struct yang_stmt **ys_stmt;      /* Vector of children statement pointers */
+    struct yang_node  *ys_parent;    /* Backpointer to parent: yang-stmt or yang-spec */
     enum rfc_6020      ys_keyword;   /* See clicon_yang_parse.tab.h */
     char              *ys_argument;  /* String / argument depending on keyword */   
+    int                ys_flags;     /* Flags according to YANG_FLAG_* above */
     char              *ys_dbkey;     /* dbspec key corresponding to this yang node, see above */
     cg_var            *ys_cv;        /* cligen variable. The following stmts have cvs::
 				        leaf, leaf-list, mandatory, fraction-digits */
@@ -122,21 +125,23 @@ typedef struct yang_stmt yang_stmt;
 
 /*! top-level yang parse-tree */
 struct yang_spec{
-    int                yp_len;
-    struct yang_stmt **yp_stmt;
-    struct yang_node  *yp_parent; /* backpointer to parent: always NULL. See yang_stmt */
-    enum rfc_6020      yp_keyword; /* SHOULD BE Y_SPEC */
+    int                yp_len;       /* Number of children */
+    struct yang_stmt **yp_stmt;      /* Vector of children statement pointers */
+    struct yang_node  *yp_parent;    /* Backpointer to parent: always NULL. See yang_stmt */
+    enum rfc_6020      yp_keyword;   /* SHOULD BE Y_SPEC */
     char              *yp_argument;  /* XXX String / argument depending on keyword */   
+    int                yp_flags;     /* Flags according to YANG_FLAG_* above */
 };
 typedef struct yang_spec yang_spec;
 
 /*! super-class of yang_stmt and yang_spec: it must start exactly as those two classes */
 struct yang_node{
-    int                yn_len;
-    struct yang_stmt **yn_stmt;
-    struct yang_node  *yn_parent; /* backpointer to parent: yang-stmt or yang-spec */
-    enum rfc_6020      yn_keyword; 
+    int                yn_len;       /* Number of children */
+    struct yang_stmt **yn_stmt;      /* Vector of children statement pointers */
+    struct yang_node  *yn_parent;    /* Backpointer to parent: yang-stmt or yang-spec */
+    enum rfc_6020      yn_keyword;   /* See clicon_yang_parse.tab.h */
     char              *yn_argument;  /* XXX String / argument depending on keyword */   
+    int                yn_flags;     /* Flags according to YANG_FLAG_* above */
 };
 typedef struct yang_node yang_node;
 

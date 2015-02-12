@@ -385,6 +385,7 @@ yang2key_stmt(yang_stmt       *ys,
 	if (yang2key_leaf_list(ys, keys0, vars0, ds_list) < 0)
 	    goto done;
 	break;
+    case Y_AUGMENT:
     case Y_RPC:
     case Y_GROUPING: /* skip for key generation */
 	retval = 0;

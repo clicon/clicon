@@ -449,6 +449,16 @@ yang_find_xpath(yang_node *yn, char *argument)
     return match ? ys : NULL;
 }
 
+/*! Reset flag in complete tree, arg contains flag */
+static int
+ys_flag_reset(yang_stmt *ys, void *arg)
+{
+    int flags = (int)arg;
+
+    ys->ys_flags |= ~flags;
+    return 0;
+}
+
 /* RFC 6020 keywords mapping.
    linear search,...
  */
@@ -887,7 +897,7 @@ ys_grouping_resolve(yang_stmt *ys,
   macro-expand them
 */
 static int
-yang_expand(yang_node *yn)
+yang_expand(yang_node *yn, const char *module)
 {
     int        retval = -1;
     yang_stmt *ys = NULL;
@@ -912,14 +922,25 @@ yang_expand(yang_node *yn)
 	    if (ys_grouping_resolve(ys, prefix, name, &ygrouping) < 0)
 		goto done;
 	    if (ygrouping == NULL){
-		clicon_log(LOG_NOTICE, "Yang error: grouping \"%s\" not found", ys->ys_argument);
+		clicon_log(LOG_NOTICE, "%s: Yang error in %s: grouping \"%s\" not found", 
+			   __FUNCTION__, module, ys->ys_argument);
+		retval = 0;
+		goto done;
 		break;
+	    }
+	    /* Check mark flag to see if this grouping (itself) has been expanded
+	       If not, this needs to be done before we can insert it into
+	       the 'uses' place */
+	    if (ygrouping->ys_flags & YANG_FLAG_MARK == 0){ /
+		if (yang_expand((yang_node*)ygrouping, module) < 0)
+		    goto done;
+		ygrouping->ys_flags |= YANG_FLAG_MARK; /* Mark as expanded */
 	    }
 	    /* Replace ys with ygrouping,... 
 	     * First enlarge parent vector 
 	     */
 	    glen = ygrouping->ys_len;
-	    /* XXX: glen == 0? */
+	    /* Is there a case when glen == 0? */
 	    if (glen > 1){
 		size = (yn->yn_len - i - 1)*sizeof(struct yang_stmt *);
 		yn->yn_len += glen - 1;
@@ -954,7 +975,7 @@ yang_expand(yang_node *yn)
     /* Second pass since length may have changed */
     for (i=0; i<yn->yn_len; i++){
 	ys = yn->yn_stmt[i];
-	if (yang_expand((yang_node*)ys) < 0)
+	if (yang_expand((yang_node*)ys, module) < 0)
 	    goto done;
     }
     retval = 0;
@@ -967,12 +988,25 @@ yang_expand(yang_node *yn)
  * Syntax parsing. A string is input and a syntax-tree is returned (or error). 
  * A variable record is also returned containing a list of (global) variable values.
  * (cloned from cligen)
+ * @param h        CLICON handle
+ * @param str      String of yang statements
+ * @param name     Log string, typically filename
+ * @param ysp      Yang specification. Should ave been created by caller using yspec_new
+ * @retval 0       Everything OK
+ * @retval -1      Error encountered
+ * Calling order:
+ *   yang_parse             # Parse top-level yang module. Expand and populate yang tree
+ *   yang_parse1            # Parse one yang module, go through its (sub)modules and parse them 
+ *   yang_parse2            # Find file from yang (sub)module
+ *   yang_parse_file        # Read yang file into a string
+ *   yang_parse_str         # Set up yacc parser and call it given a string
+ *   clicon_yang_parseparse # Actual yang parsing using yacc
  */
 static yang_stmt *
 yang_parse_str(clicon_handle h,
-	       char *str,
-	       const char *name, /* just for errs */
-	       yang_spec *yspec)
+	       char         *str,
+	       const char   *name, /* just for errs */
+	       yang_spec    *yspec)
 {
     struct clicon_yang_yacc_arg yy = {0,};
     yang_stmt                  *ym = NULL;
@@ -1010,17 +1044,31 @@ yang_parse_str(clicon_handle h,
     return ym;
 }
 
-/*! Parse a file containing a YANG into a parse-tree
+/*! Read an opened file into a string and call yang string parsing
  *
  * Similar to clicon_yang_str(), just read a file first
  * (cloned from cligen)
+ * @param h        CLICON handle
+ * @param f        Open file handle
+ * @param name     Log string, typically filename
+ * @param ysp      Yang specification. Should ave been created by caller using yspec_new
+ * @retval 0       Everything OK
+ * @retval -1      Error encountered
+
  * The database symbols are inserted in alphabetical order.
+ * Calling order:
+ *   yang_parse             # Parse top-level yang module. Expand and populate yang tree
+ *   yang_parse1            # Parse one yang module, go through its (sub)modules and parse them 
+ *   yang_parse2            # Find file from yang (sub)module
+ *   yang_parse_file        # Read yang file into a string
+ *   yang_parse_str         # Set up yacc parser and call it given a string
+ *   clicon_yang_parseparse # Actual yang parsing using yacc
  */
 static yang_stmt *
 yang_parse_file(clicon_handle h,
-		FILE *f,
-		const char *name, /* just for errs */
-		yang_spec *ysp
+		FILE         *f,
+		const char   *name, /* just for errs */
+		yang_spec    *ysp
     )
 {
     char         *buf;
@@ -1059,11 +1107,30 @@ yang_parse_file(clicon_handle h,
     return ymodule;
 }
 
-/*
+/*! Find and open yang file and then parse it
+ * 
+ * @param h        CLICON handle
+ * @param yang_dir Directory where all YANG module files reside
+ * @param module   Name of main YANG module. More modules may be parsed if imported
+ * @param revision Optional module revision date
+ * @param ysp      Yang specification. Should ave been created by caller using yspec_new
+ * @retval 0       Everything OK
+ * @retval -1      Error encountered
  * module-or-submodule-name ['@' revision-date] ( '.yang' / '.yin' )
+ * Calling order:
+ *   yang_parse             # Parse top-level yang module. Expand and populate yang tree
+ *   yang_parse1            # Parse one yang module, go through its (sub)modules and parse them 
+ *   yang_parse2            # Find file from yang (sub)module
+ *   yang_parse_file        # Read yang file into a string
+ *   yang_parse_str         # Set up yacc parser and call it given a string
+ *   clicon_yang_parseparse # Actual yang parsing using yacc
  */
 static yang_stmt *
-yang_parse2(clicon_handle h, const char *yang_dir, const char *module, const char *revision, yang_spec *ysp)
+yang_parse2(clicon_handle h, 
+	    const char   *yang_dir, 
+	    const char   *module, 
+	    const char   *revision, 
+	    yang_spec    *ysp)
 {
     FILE       *f = NULL;
     cbuf       *b;
@@ -1098,13 +1165,30 @@ yang_parse2(clicon_handle h, const char *yang_dir, const char *module, const cha
     return ys;
 }
 
-/*! Parse dbspec using yang format
+/*! Parse one yang module then go through (sub)modules and parse them recursively
  *
- * The database symbols are inserted in alphabetical order.
+ * @param h        CLICON handle
+ * @param yang_dir Directory where all YANG module files reside
+ * @param module   Name of main YANG module. More modules may be parsed if imported
+ * @param revision Optional module revision date
+ * @param ysp      Yang specification. Should ave been created by caller using yspec_new
+ * @retval 0       Everything OK
+ * @retval -1      Error encountered
  * Find a yang module file, and then recursively parse all its imported modules.
+ * Calling order:
+ *   yang_parse             # Parse top-level yang module. Expand and populate yang tree
+ *   yang_parse1            # Parse one yang module, go through its (sub)modules and parse them 
+ *   yang_parse2            # Find file from yang (sub)module
+ *   yang_parse_file        # Read yang file into a string
+ *   yang_parse_str         # Set up yacc parser and call it given a string
+ *   clicon_yang_parseparse # Actual yang parsing using yacc
  */
 static yang_stmt *
-yang_parse1(clicon_handle h, const char *yang_dir, const char *module, const char *revision, yang_spec *ysp)
+yang_parse1(clicon_handle h, 
+	    const char   *yang_dir, 
+	    const char   *module, 
+	    const char   *revision, 
+	    yang_spec    *ysp)
 {
     yang_stmt  *yi = NULL; /* import */
     yang_stmt  *ys;
@@ -1133,24 +1217,31 @@ yang_parse1(clicon_handle h, const char *yang_dir, const char *module, const cha
     return ys;
 }
 
-
-/*! Parse dbspec using yang format
+/*! Parse top yang module including all its sub-modules. Expand and populate yang tree
  *
  * @param h        CLICON handle
  * @param yang_dir Directory where all YANG module files reside
  * @param module   Name of main YANG module. More modules may be parsed if imported
+ * @param revision Optional module revision date
  * @param ysp      Yang specification. Should ave been created by caller using yspec_new
  * @retval 0  Everything OK
  * @retval -1 Error encountered
  * The database symbols are inserted in alphabetical order.
  * Find a yang module file, and then recursively parse all its imported modules.
+ * Calling order:
+ *   yang_parse             # Parse top-level yang module. Expand and populate yang tree
+ *   yang_parse1            # Parse one yang module, go through its (sub)modules and parse them 
+ *   yang_parse2            # Find file from yang (sub)module
+ *   yang_parse_file        # Read yang file into a string
+ *   yang_parse_str         # Set up yacc parser and call it given a string
+ *   clicon_yang_parseparse # Actual yang parsing using yacc
  */
 int
 yang_parse(clicon_handle h, 
-	   const char *yang_dir, 
-	   const char *module, 
-	   const char *revision, 
-	   yang_spec *ysp)
+	   const char   *yang_dir, 
+	   const char   *module, 
+	   const char   *revision, 
+	   yang_spec    *ysp)
 {
     int         retval = -1;
     yang_stmt  *ys;
@@ -1160,10 +1251,11 @@ yang_parse(clicon_handle h,
 	goto done;
     /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
-    /* Step 2: Macro expansion of all grouping/uses pairs. */
-    if (yang_expand((yang_node*)ysp) < 0)
+    /* Step 2: Macro expansion of all grouping/uses pairs. Expansion needs marking */
+    if (yang_expand((yang_node*)ysp, module) < 0)
 	goto done;
-    //    yang_print(stderr, (yang_node*)ysp, 0);
+    yang_apply((yang_node*)ys, ys_flag_reset, (void*)YANG_FLAG_MARK);
+    //        yang_print(stderr, (yang_node*)ysp, 0);
     /* Step 3: Go through parse tree and populate it with cv types */
     if (yang_apply((yang_node*)ysp, ys_populate, NULL) < 0)
 	goto done;

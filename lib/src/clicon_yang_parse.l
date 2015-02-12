@@ -104,7 +104,7 @@ stripdup(char *s0)
  /* Common tokens */
 <KEYWORD,ARGUMENT>[ \t]            
 <KEYWORD,ARGUMENT><<EOF>> { return MY_EOF; }
-<KEYWORD,ARGUMENT,STRING1,COMMENT1>\n   { _YY->yy_linenum++; }
+<KEYWORD,ARGUMENT,COMMENT1>\n   { _YY->yy_linenum++; }
 <KEYWORD,ARGUMENT>"/*"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT1); }
 <KEYWORD,ARGUMENT>"//"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT2); }
 
@@ -190,12 +190,13 @@ stripdup(char *s0)
 
 <STRING1>\\                { _YY->yy_lex_state = STRING1; BEGIN(ESCAPE); }
 <STRING1>\"                { BEGIN(_YY->yy_lex_string_state); return DQ; }
+<STRING1>\n                { _YY->yy_linenum++; clicon_yang_parselval.string = strdup(yytext); return CHAR;}
 <STRING1>.                 { clicon_yang_parselval.string = strdup(yytext);
                             return CHAR;}
 
 <STRING2>\\                { _YY->yy_lex_state = STRING2; BEGIN(ESCAPE); }
 <STRING2>\'                { BEGIN(_YY->yy_lex_string_state); return DQ; }
-<STRING2>\n                { _YY->yy_linenum++; clicon_yang_parselval.string = strdup(yytext); }
+<STRING2>\n                { _YY->yy_linenum++; clicon_yang_parselval.string = strdup(yytext); return CHAR;}
 <STRING2>.                 { clicon_yang_parselval.string = strdup(yytext);
                              return CHAR;}
 
