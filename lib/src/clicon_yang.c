@@ -931,7 +931,7 @@ yang_expand(yang_node *yn, const char *module)
 	    /* Check mark flag to see if this grouping (itself) has been expanded
 	       If not, this needs to be done before we can insert it into
 	       the 'uses' place */
-	    if (ygrouping->ys_flags & YANG_FLAG_MARK == 0){ /
+	    if ((ygrouping->ys_flags & YANG_FLAG_MARK) == 0){ 
 		if (yang_expand((yang_node*)ygrouping, module) < 0)
 		    goto done;
 		ygrouping->ys_flags |= YANG_FLAG_MARK; /* Mark as expanded */
