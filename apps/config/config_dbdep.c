@@ -46,6 +46,7 @@
 #include "config_dbdiff.h"
 #include "config_dbdep.h"
 #include "config_handle.h"
+#include "config_commit.h"
 
 /*
  * Free database depencency
@@ -544,9 +545,9 @@ dbdep_commitvec(clicon_handle h,
 	   relate to the same spec-key and therefore the same config component
 	*/
         if (dd->df_ents[i].dfe_op & DBDIFF_OP_FIRST)
-	    key = dd->df_ents[i].dfe_key1;
+	    key = cvec_name_get(dd->df_ents[i].dfe_vec1);
 	else
-	    key = dd->df_ents[i].dfe_key2;
+	    key = cvec_name_get(dd->df_ents[i].dfe_vec2);
 
 	/* Match any config component matching the key and add to vector */
 	dp = deps;
@@ -574,28 +575,32 @@ dbdep_commitvec(clicon_handle h,
 		ddvec[nvec].dd_dep = dp;
 		ddvec[nvec].dd_dbdiff  = &dd->df_ents[i];
 	        if (dp->dp_deptype == DBDEP_TREE) { /* Get matched part of key */
-		    if (dd->df_ents[i].dfe_key1) {
-		        dbdep_match_key (dd->df_ents[i].dfe_key1, dp->dp_ent->dpe_key, &ddvec[nvec].dd_mkey1);
+		    if (dd->df_ents[i].dfe_vec1 &&
+			    cvec_name_get(dd->df_ents[i].dfe_vec1)) {
+		        dbdep_match_key (cvec_name_get(dd->df_ents[i].dfe_vec1), dp->dp_ent->dpe_key, &ddvec[nvec].dd_mkey1);
 		        if (ddvec[nvec].dd_mkey1 == NULL) {
 			    clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 			    goto err;
 			}
 		    }
-		    if (dd->df_ents[i].dfe_key2) {
-		        dbdep_match_key (dd->df_ents[i].dfe_key2, dp->dp_ent->dpe_key, &ddvec[nvec].dd_mkey2);
+		    if (dd->df_ents[i].dfe_vec2 &&
+			    cvec_name_get(dd->df_ents[i].dfe_vec2)) {
+		        dbdep_match_key (cvec_name_get(dd->df_ents[i].dfe_vec2), dp->dp_ent->dpe_key, &ddvec[nvec].dd_mkey2);
 		        if (ddvec[nvec].dd_mkey2 == NULL) {
 			    clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 			    goto err;
 			}
 		    }
 		} else {
-		    if (dd->df_ents[i].dfe_key1)
-		      if ((ddvec[nvec].dd_mkey1 = strdup(dd->df_ents[i].dfe_key1)) == NULL) {
+		    if (dd->df_ents[i].dfe_vec1 &&
+			cvec_name_get(dd->df_ents[i].dfe_vec1))
+		      if ((ddvec[nvec].dd_mkey1 = strdup(cvec_name_get(dd->df_ents[i].dfe_vec1))) == NULL) {
 			clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 			goto err;
 		      }
-		    if (dd->df_ents[i].dfe_key2)
-		      if ((ddvec[nvec].dd_mkey2 = strdup(dd->df_ents[i].dfe_key2)) == NULL) {
+		    if (dd->df_ents[i].dfe_vec2 &&
+			cvec_name_get(dd->df_ents[i].dfe_vec2))
+		      if ((ddvec[nvec].dd_mkey2 = strdup(cvec_name_get(dd->df_ents[i].dfe_vec2))) == NULL) {
 			clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 			goto err;
 		      }
@@ -635,4 +640,39 @@ dbdep_commitvec_free(dbdep_dd_t *ddvec, int nvec)
       free(ddvec[i].dd_mkey2);
     }
     free(ddvec);
+}
+
+
+
+/* 
+ * Access functions for commit-data handle in callbacks
+ * XXX Should probably be in in this file...
+ */
+char *commit_db1(commit_data d)
+{
+  return ((commit_data_t *)d)->db1;
+}
+char *commit_db2(commit_data d)
+{
+  return ((commit_data_t *)d)->db2;
+}
+char *commit_key1(commit_data d)
+{
+  return ((commit_data_t *)d)->key1;
+}
+char *commit_key2(commit_data d)
+{
+  return ((commit_data_t *)d)->key2;
+}
+cvec *commit_vec1(commit_data d)
+{
+  return ((commit_data_t *)d)->vec1;
+}
+cvec *commit_vec2(commit_data d)
+{
+  return ((commit_data_t *)d)->vec2;
+}
+void *commit_arg(commit_data d)
+{
+  return ((commit_data_t *)d)->arg;
 }

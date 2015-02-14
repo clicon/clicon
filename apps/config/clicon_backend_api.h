@@ -27,6 +27,18 @@
 #define _CLICON_BACKEND_API_H_
 
 /*
+ * Commit data accessors
+ */
+typedef void *commit_data;
+char *commit_db1(commit_data d);
+char *commit_db2(commit_data d);
+char *commit_key1(commit_data d);
+char *commit_key2(commit_data d);
+cvec *commit_vec1(commit_data d);
+cvec *commit_vec2(commit_data d);
+void *commit_arg(commit_data d);
+
+/*
  * Types
  */
 enum trans_cb_type {/* Note, this is a bitmask, BOTH is bitwise combination */
@@ -41,10 +53,8 @@ typedef enum trans_cb_type trans_cb_type;
  * when dependencies changed
  */
 typedef int (*trans_cb)(clicon_handle h,
-			char *dbname,
 			lv_op_t op,
-			char *key,
-			void *arg);
+			commit_data d);
 
 /*
  * Generic downcall registration. Enables any function to be called from (cli) frontend

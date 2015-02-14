@@ -42,27 +42,21 @@
  * db once everything is done as if will then contain the new config.
  */
 int
-datamodel_commit(clicon_handle h, 
-		 char *db,
-		 lv_op_t op,
-		 char *key,
-		 void *arg)
+datamodel_commit(clicon_handle h, lv_op_t op, commit_data d)
 {
-    if (op == LV_SET)
-	fprintf(stderr, "%s key:%s\n", __FUNCTION__, key);    
+    if (op == LV_SET) {
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
+	cvec_print(stdout, commit_vec2(d));
+    }
     return 0;
 }
 
 
 int
-datamodel_validate(clicon_handle h, 
-		 char *db,
-		 lv_op_t op,
-		 char *key,
-		 void *arg)
+datamodel_validate(clicon_handle h, lv_op_t op, commit_data d)
 {
     if (op == LV_SET)
-	fprintf(stderr, "%s key:%s\n", __FUNCTION__, key);    
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
     return 0;
 }
 
@@ -76,7 +70,7 @@ plugin_init(clicon_handle h)
     int retval = -1;
 
     if (dbdep_tree(h, 0, datamodel_commit, 
-			 (void *)NULL, "a[]*") == NULL) {
+			 (void *)NULL, "a[].b[]") == NULL) {
 	clicon_debug(1, "Failed to create dependency");
 	goto done;
     }

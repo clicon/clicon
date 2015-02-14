@@ -29,6 +29,7 @@
 #define V_SEQ		0x04	/* Sequence variable */
 #define V_UNSET		0x08	/* Variable is unset */
 #define V_DEFAULT	0x10	/* Value is default value */
+#define V_MERGED	0x20	/* cvec_merge() hack; mark already merged */
 
 /*
  * Types

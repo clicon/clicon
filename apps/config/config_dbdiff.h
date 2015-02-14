@@ -46,8 +46,8 @@ enum dbdiff_op{
  *  BOTH   - the key exists in both databases, ie changed
  */
 struct dbdiff_ent {
-    char            *dfe_key1;	/* lvmap basekey (FIRST/BOTH) */
-    char            *dfe_key2;	/* lvmap basekey (SECOND/BOTH) */
+    cvec            *dfe_vec1;	/* key vector (FIRST/BOTH) */
+    cvec            *dfe_vec2;	/* key vector (SECOND/BOTH) */
     enum dbdiff_op   dfe_op;	/* added, removed or changed */
 };
 
@@ -70,6 +70,7 @@ int db_diff(char *db1,     char *db2,
 	    dbspec_key *dbspec,
 	    struct dbdiff *df
     );
+void db_diff_free(struct dbdiff *df);
 
 
 #endif  /* _CONFIG_DBDIFF_H_ */

@@ -23,6 +23,17 @@
 #ifndef _CONFIG_COMMIT_H_
 #define _CONFIG_COMMIT_H_
 
+/* Clicon internal, presented as void* to app's callback */
+typedef struct {
+  char *db1;		/* Database 1 path */
+  char *db2;		/* Database 2 path */
+  char *key1;		/* Matched key 1 (matched part of key for tree deps */
+  char *key2;		/* Matched key 2 (matched part of key for tree deps */
+  cvec *vec1;		/* Cvec 1 */
+  cvec *vec2;		/* Cvec 2 */
+  void *arg;		/* Application specific arg */
+} commit_data_t;
+
 /*
  * Prototypes
  */ 

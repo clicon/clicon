@@ -51,24 +51,23 @@
 
 
 static int
-dbdiff_add(char *basekey1, char *basekey2, 
-	   enum dbdiff_op        dd_op, 
-	   struct dbdiff        *df, 
-	   const char *label)
+dbdiff_add(cvec            *vr1, 
+	   cvec            *vr2, 
+	   enum dbdiff_op   dd_op, 
+	   struct dbdiff   *df, 
+	   const char      *label)
 {
-    char *key1 = NULL;
-    char *key2 = NULL;
+    cvec *vec1 = NULL;
+    cvec *vec2 = NULL;
     int retval = -1;
     struct dbdiff_ent *dfe, *newents;
 
-    if (basekey1 && 
-	(key1 = chunkdup(basekey1, strlen(basekey1)+1, label)) == NULL){
-	clicon_err(OE_DB, errno, "%s: chunkdup", __FUNCTION__);
+    if (vr1 && (vec1 = cvec_dup(vr1)) == NULL) {
+	clicon_err(OE_DB, errno, "%s: cvec_dup", __FUNCTION__);
 	goto quit;
     }
-    if (basekey2 &&
-	(key2 = chunkdup(basekey2, strlen(basekey2)+1, label)) == NULL){
-	clicon_err(OE_DB, errno, "%s: chunkdup", __FUNCTION__);
+    if (vr2 && (vec2 = cvec_dup(vr2)) == NULL) {
+	clicon_err(OE_DB, errno, "%s: cvec_dup", __FUNCTION__);
 	goto quit;
     }
     df->df_nr++;
@@ -81,8 +80,8 @@ dbdiff_add(char *basekey1, char *basekey2,
     df->df_ents = newents;
     dfe = &df->df_ents[df->df_nr-1];
     memset(dfe, 0, sizeof(*dfe));
-    dfe->dfe_key1 = key1;
-    dfe->dfe_key2 = key2;
+    dfe->dfe_vec1 = vec1;
+    dfe->dfe_vec2 = vec2;
     dfe->dfe_op   = dd_op;
     retval = 0;
   quit:
@@ -107,6 +106,8 @@ dbdiff_single(char *db1, char *db2,
     size_t lvec1_len;
     char  *lvec2;
     size_t lvec2_len;
+    cvec  *vr1 = NULL;
+    cvec  *vr2 = NULL;
     int    eq;
     int    retval = -1;
 
@@ -139,17 +140,24 @@ dbdiff_single(char *db1, char *db2,
     }
 
     if (!eq){
+        if (lvec1)
+	    if((vr1 = lvec2cvec (lvec1, lvec1_len)) == NULL)
+	        goto done;
+        if (lvec2)
+	    if((vr2 = lvec2cvec (lvec2, lvec2_len)) == NULL)
+	        goto done;
+
 	if (lvec1 != NULL && lvec2 != NULL){
-	    if (dbdiff_add(key, key, DBDIFF_OP_BOTH, df, label) < 0)
+	    if (dbdiff_add(vr1, vr2, DBDIFF_OP_BOTH, df, label) < 0)
 		goto done;
 	}
 	else
 	    if (lvec1 == NULL){
-		if (dbdiff_add(NULL, key, DBDIFF_OP_SECOND, df,  label) < 0)
+		if (dbdiff_add(NULL, vr2, DBDIFF_OP_SECOND, df,  label) < 0)
 		    goto done;
 	    }
 	    else{
-		if (dbdiff_add(key, NULL, DBDIFF_OP_FIRST, df, label) < 0)
+		if (dbdiff_add(vr1, NULL, DBDIFF_OP_FIRST, df, label) < 0)
 		    goto done;
 	    }
     }
@@ -159,6 +167,10 @@ dbdiff_single(char *db1, char *db2,
 	free(lvec1);
     if (lvec2)
 	free(lvec2);
+    if (vr1)
+        cvec_free(vr1);
+    if (vr2)
+        cvec_free(vr2);
     return retval;
 }	    
 
@@ -178,86 +190,61 @@ dbdiff_vector(char *db1, char *db2,
 {
     int                   i1;
     int                   i2;
-    int                   npairs1 = 0;
-    int                   npairs2 = 0;
-    struct db_pair       *pairs1;
-    struct db_pair       *pairs2;
-    struct {cvec *vars;} *v1 = NULL; /* cache of cvecs */
-    struct {cvec *vars;} *v2 = NULL; 
+    size_t                nitems1;
+    size_t                nitems2;
+    cvec                **items1 = NULL;
+    cvec                **items2 = NULL;
     int                   retval = -1;
 
     /* List all matches from both db's */
-    if ((npairs1 = db_regexp(db1, key, __FUNCTION__, &pairs1, 0)) < 0)
+    if ((items1 = clicon_dbitems(db1, &nitems1, key)) == NULL) 
 	goto quit;
-    if ((v1 = calloc(npairs1, sizeof(cvec *))) == NULL){
-	clicon_err(OE_DB, errno, "%s: calloc", __FUNCTION__);
+    if ((items2 = clicon_dbitems(db2, &nitems2, key)) == NULL) 
 	goto quit;
-    }
-    if ((npairs2 = db_regexp(db2, key, __FUNCTION__, &pairs2, 0)) < 0)
-	goto quit;
-    if ((v2 = calloc(npairs2, sizeof(cvec *))) == NULL){
-	clicon_err(OE_DB, errno, "%s: calloc", __FUNCTION__);
-	goto quit;
-    }
-    for (i1 = 0; i1 < npairs1; i1++) 
-	if ((v1[i1].vars = lvec2cvec (pairs1[i1].dp_val, pairs1[i1].dp_vlen)) == NULL)
-	    goto quit;
-    for (i2 = 0; i2 < npairs2; i2++)
-	if ((v2[i2].vars = lvec2cvec (pairs2[i2].dp_val, pairs2[i2].dp_vlen)) == NULL)
-	    goto quit;
-    /* Loop through db1 pairs and check with db2 for adds or modifications */
-    for (i1 = 0; i1 < npairs1; i1++) {
+
+    /* Loop through db1 items and check with db2 for adds or modifications */
+    for (i1 = 0; i1 < nitems1; i1++) {
 	/* Create variable mapping */
-	for (i2 = 0; i2 < npairs2; i2++) {
+	for (i2 = 0; i2 < nitems2; i2++) {
 	    /* Create variable mapping */
-	    if (lv_matchvar (v1[i1].vars, v2[i2].vars, 0)) {
+	    if (lv_matchvar (items1[i1], items2[i2], 0)) {
 		/* We have a match. Now compare all values */
-		if (lv_matchvar (v1[i1].vars, v2[i2].vars, 1) == 0){
-		    if (dbdiff_add(pairs1[i1].dp_key, pairs2[i2].dp_key, 
+		if (lv_matchvar (items1[i1], items2[i2], 1) == 0){
+		    if (dbdiff_add(items1[i1], items2[i2],
 				   DBDIFF_OP_BOTH, df, label) < 0)
-			goto quit;
+		        goto quit;
 		}
 		break;		/* break the loop */
 	    }
 	}
     
-	if (i2 >= npairs2){	/* No match means we have added something */
-	    if (dbdiff_add(pairs1[i1].dp_key, NULL, 
-			   DBDIFF_OP_FIRST, df, label) < 0)
+	if (i2 >= nitems2){	/* No match means we have added something */
+	    if (dbdiff_add(items1[i1], NULL,  DBDIFF_OP_FIRST, df, label) < 0)
 		goto quit;
 	}
     }
-    /* Now loop through db2 pairs and check for deleted entries in db1 pairs */
-    for (i2 = 0; i2 < npairs2; i2++) {
+    /* Now loop through db2 items and check for deleted entries in db1 items */
+    for (i2 = 0; i2 < nitems2; i2++) {
 	/* Create variable mapping */
-	for (i1 = 0; i1 < npairs1; i1++) {
+	for (i1 = 0; i1 < nitems1; i1++) {
 	    /* Create variable mapping */
-	    if (lv_matchvar(v2[i2].vars, v1[i1].vars, 0)) {
+	    if (lv_matchvar(items2[i2], items1[i1], 0)) {
 		/* We have a match. This entry exist. Break the loop */
 		break;		/* break the loop */
 	    }
 	}
-	if (i1 >= npairs1){	/* No match means we have deleted something */
-	    if (dbdiff_add(NULL, pairs2[i2].dp_key, 
-			   DBDIFF_OP_SECOND, df, label) < 0)
+	if (i1 >= nitems1){	/* No match means we have deleted something */
+	    if (dbdiff_add(NULL, items2[i2], DBDIFF_OP_SECOND, df, label) < 0)
 		goto quit;
 	}
     }
     retval = 0;
   quit:
-    if (v1){
-	for (i1 = 0; i1 < npairs1; i1++) 
-	    if (v1[i1].vars)
-		cvec_free(v1[i1].vars);
-	free(v1);
-    }
-    if (v2){
-	for (i2 = 0; i2 < npairs2; i2++) 
-	    if (v2[i2].vars)
-		cvec_free(v2[i2].vars);
-	free(v2);
-    }
-    unchunk_group(__FUNCTION__);
+    if (items1)
+        clicon_dbitems_free(items1);
+    if (items2)
+        clicon_dbitems_free(items2);
+
     return retval;
 }	    
 
@@ -297,65 +284,61 @@ dbdiff_vector_1(char *db1, char *db2,
 {
     int                   i1;
     int                   i2;
-    int                   npairs1 = 0;
-    int                   npairs2 = 0;
-    struct db_pair       *pairs1;
-    struct db_pair       *pairs2;
     struct _dbvars *v1 = NULL; /* cache of cvecs */
     struct _dbvars *v2 = NULL; 
     int                   retval = -1;
     cvec                 *vars;
     cg_var               *cv;
     int                   res;
+    size_t                nitems1;
+    size_t                nitems2;
+    cvec                **items1 = NULL;
+    cvec                **items2 = NULL;
 
     /* List all matches from both db's */
-    if ((npairs1 = db_regexp(db1, key, __FUNCTION__, &pairs1, 0)) < 0)
+    if ((items1 = clicon_dbitems(db1, &nitems1, key)) == NULL) 
 	goto quit;
-    if ((v1 = calloc(npairs1, sizeof(struct _dbvars))) == NULL){
+    if ((v1 = calloc(nitems1, sizeof(struct _dbvars))) == NULL){
 	clicon_err(OE_DB, errno, "%s: calloc", __FUNCTION__);
 	goto quit;
     }
-    if ((npairs2 = db_regexp(db2, key, __FUNCTION__, &pairs2, 0)) < 0)
+    if ((items2 = clicon_dbitems(db2, &nitems2, key)) == NULL) 
 	goto quit;
-    if ((v2 = calloc(npairs2, sizeof(struct _dbvars))) == NULL){
+    if ((v2 = calloc(nitems2, sizeof(struct _dbvars))) == NULL){
 	clicon_err(OE_DB, errno, "%s: calloc", __FUNCTION__);
 	goto quit;
     }
-    for (i1 = 0; i1 < npairs1; i1++) {
-	if ((vars = lvec2cvec (pairs1[i1].dp_val, pairs1[i1].dp_vlen)) == NULL)
-	    goto quit;
-	v1[i1].vars = vars;
+    for (i1 = 0; i1 < nitems1; i1++) {
+	v1[i1].vars = vars = items1[i1];
 	if ((cv = cvec_find(vars, name)) == NULL)
 	    goto quit;
 	if ((v1[i1].cv = cv) == NULL)
 	    goto quit;
-	v1[i1].key = pairs1[i1].dp_key;
+	v1[i1].key = cvec_name_get(items1[i1]);
     }
-    qsort(v1, npairs1, sizeof(struct _dbvars), dbcmp);
+    qsort(v1, nitems1, sizeof(struct _dbvars), dbcmp);
 
-    for (i2 = 0; i2 < npairs2; i2++){
-	if ((vars = lvec2cvec (pairs2[i2].dp_val, pairs2[i2].dp_vlen)) == NULL)
-	    goto quit;
-	v2[i2].vars = vars;
+    for (i2 = 0; i2 < nitems2; i2++){
+        v2[i2].vars = vars = items2[i2];
 	if ((cv = cvec_find(vars, name)) == NULL)
 	    goto quit;
 	if ((v2[i2].cv = cv) == NULL)
 	    goto quit;
-	v2[i2].key = pairs2[i2].dp_key;
+	v2[i2].key = cvec_name_get(items2[i2]);
     }
-    qsort(v2, npairs2, sizeof(struct _dbvars), dbcmp);
+    qsort(v2, nitems2, sizeof(struct _dbvars), dbcmp);
 
     i1 = 0; i2 = 0;
-    while (i1 < npairs1 && i2 < npairs2){
+    while (i1 < nitems1 && i2 < nitems2){
 	res = cv_cmp(v1[i1].cv, v2[i2].cv);
 	if (res<0){ /* in v1 but not v2 */
-	    if (dbdiff_add(v1[i1++].key, NULL, 
+	    if (dbdiff_add(v1[i1++].vars, NULL, 
 			   DBDIFF_OP_FIRST, df, label) < 0)
 		goto quit;
 	}
 	else
 	    if (res>0){ /* in v2 but not v1 */
-		if (dbdiff_add(NULL, v2[i2++].key, 
+		if (dbdiff_add(NULL, v2[i2++].vars, 
 			       DBDIFF_OP_SECOND, df, label) < 0)
 		    goto quit;
 	    }
@@ -363,7 +346,7 @@ dbdiff_vector_1(char *db1, char *db2,
 		/* We have a match. Now compare all values */
 		if (lv_matchvar (v1[i1].vars, v2[i2].vars, 1) == 0){
 		    /* No, not equal, it has changed */
-		    if (dbdiff_add(v1[i1].key, v2[i2].key, 
+		    if (dbdiff_add(v1[i1].vars, v2[i2].vars, 
 				   DBDIFF_OP_BOTH, df, label) < 0)
 			goto quit;
 		}
@@ -371,29 +354,25 @@ dbdiff_vector_1(char *db1, char *db2,
 	    }
     }
     /* Now check if in any rests from one or the other */
-    while (i1 < npairs1) /* in v1 but not v2 */
-	if (dbdiff_add(v1[i1++].key, NULL, 
+    while (i1 < nitems1) /* in v1 but not v2 */
+	if (dbdiff_add(v1[i1++].vars, NULL, 
 		       DBDIFF_OP_FIRST, df, label) < 0)
 	    goto quit;
-    while (i2 < npairs2) /* in v2 but not v1 */
-	if (dbdiff_add(NULL, v2[i2++].key, 
+    while (i2 < nitems2) /* in v2 but not v1 */
+	if (dbdiff_add(NULL, v2[i2++].vars, 
 		       DBDIFF_OP_SECOND, df, label) < 0)
 	    goto quit;
     retval = 0;
   quit:
-    if (v1){
-	for (i1 = 0; i1 < npairs1; i1++) 
-	    if (v1[i1].vars)
-		cvec_free (v1[i1].vars);
-	free(v1);
-    }
-    if (v2){
-	for (i2 = 0; i2 < npairs2; i2++) 
-	    if (v2[i2].vars)
-		cvec_free (v2[i2].vars);
-	free(v2);
-    }
-    unchunk_group(__FUNCTION__);
+    if (items1)
+        clicon_dbitems_free(items1);
+    if (items2)
+        clicon_dbitems_free(items2);
+    if (v1)
+        free(v1);
+    if (v2)
+        free(v2);
+
     return retval;
 }	    
 
@@ -470,4 +449,20 @@ db_diff(char *db1,
 quit:
     unchunk_group(__FUNCTION__);
     return retval;
+}
+
+/*
+ * Free cvecs in dbdiff, not dbdiff itself which needs to be unchunked
+ */
+void
+db_diff_free(struct dbdiff *df)
+{
+    int i;
+
+    for (i = 0; i < df->df_nr; i++) {
+        if (df->df_ents[i].dfe_vec1)
+	    cvec_free(df->df_ents[i].dfe_vec1);
+        if (df->df_ents[i].dfe_vec2)
+	    cvec_free(df->df_ents[i].dfe_vec2);
+    }
 }
