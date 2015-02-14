@@ -438,15 +438,13 @@ clicon_dbitems(char *db, size_t *len, char *rx)
 	nkeys++;
     }
 
-    if (nkeys == 0)
-	return NULL;
-
     /* Allocate list. One extra to NULL terminate list */
     if ((items = calloc(nkeys+1, sizeof(cvec *))) == NULL) { 
 	clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
 	goto quit;
     }
-    
+    memset(items, 0, (nkeys+1) * sizeof(cvec *));
+
     n = 0;
     for (i = 0; i < npairs; i++) {
 	
@@ -488,11 +486,11 @@ quit:
  * @param   vecs     List of cvec pointers
  */
 void
-clicon_dbitems_free(cvec **vecs)
+clicon_dbitems_free(cvec **items)
 {
     int i;
 
-    for (i = 0; vecs[i]; i++)
-	cvec_free(vecs[i]);
-    free(vecs);
+    for (i = 0; items[i]; i++)
+	cvec_free(items[i]);
+    free(items);
 }
