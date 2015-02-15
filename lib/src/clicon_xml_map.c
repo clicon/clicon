@@ -329,6 +329,8 @@ dbkey2xml(dbspec_key *db_spec,
 	    if (cvec_len(uvr0) == 0){ /* bad spec */
 		clicon_log(LOG_WARNING, "%s: list has no unique variable %s", 
 			   __FUNCTION__, subkey);
+		cvec_free(uvr0);
+		uvr0 = NULL;
 		continue;
 	    }
 	    /* Copy local uvr0 to stacked uvr unique variables */
@@ -338,6 +340,8 @@ dbkey2xml(dbspec_key *db_spec,
 	    /* If node found, replace xnp and traverse one step deeper */
 	    if  ((xn = xml_xfind_vec(xnp, vec[n-1], uvr0)) != NULL){
 		xnp = xn;
+		cvec_free(uvr0);
+		uvr0 = NULL;
 		continue;
 	    }
 	    assert(n>0);
@@ -443,6 +447,7 @@ dbpairs2xml(struct db_pair *pairs,
  * dont work:
  * system.hostname (only hostname)
  * inet.address (only hostname)
+ * Note caller must free returned xml tree with xml_free()
  */
 cxobj *
 db2xml_key(char       *dbname, 

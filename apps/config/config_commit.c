@@ -259,10 +259,8 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
     return retval;
 }
 
-/*
- * validate_db
- * Make user-defined callbacks on each changed keys in order:
- * deleted keys, changed keys, added keys.
+/*! Make user-defined callbacks on each changed keys
+ * The order is: deleted keys, changed keys, added keys.
  */
 static int
 validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,

@@ -758,7 +758,9 @@ db_lv_vec_set(dbspec_key *dbspec,
     int              matched;
     int              retval = -1;
     cvec            *dbvars = NULL;
-    dbspec_key  *spec;
+    dbspec_key      *spec;
+    size_t           lvlen;
+    char            *lvec = NULL;
 
     if ((i = db_lv_vec_find(dbspec, dbname, basekey, setvars, &matched)) < 0)
 	goto quit;
@@ -771,27 +773,15 @@ db_lv_vec_set(dbspec_key *dbspec,
 
     /* Merge variables? */
     if(op == LV_MERGE) {
-#if 1 /* See if benny has better fix */
-	{
-	    size_t           lvlen;
-	    char            *lvec = NULL;
-	    if (db_get_alloc(dbname, key, (void*)&lvec, &lvlen) < 0)
-		goto quit;
-
-	    if (lvlen > 0){
-		if ((dbvars = lvec2cvec(lvec, lvlen)) == NULL)
-		    goto quit;
-		cvec_merge(setvars, dbvars);
-		cvec_free (dbvars);
-	    }
-	}
-#else
-	if ((dbvars = dbkey2cvec(dbname, key)) == NULL){
+	if (db_get_alloc(dbname, key, (void*)&lvec, &lvlen) < 0)
 	    goto quit;
+	if (lvlen > 0){
+	    if ((dbvars = lvec2cvec(lvec, lvlen)) == NULL)
+		goto quit;
+	    free(lvec);
+	    cvec_merge(setvars, dbvars); /* XXX Here is where two same variables dont work */
+	    cvec_free (dbvars);
 	}
-	cvec_merge(setvars, dbvars, 0);
-	cvec_free (dbvars);
-#endif
     }
 
     if ((spec = key2spec_key(dbspec, key)) == NULL){

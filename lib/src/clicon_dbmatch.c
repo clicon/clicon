@@ -66,6 +66,8 @@
  * dbmatch_fn()
  * Look in the database and match entries according to a matching expression,
  * Matching expression is a variable and a shell-wildcard value.
+ * @retval   -1   Error, and clicon_err set
+ * @retval    0   OK. callback called for each matching entry (possibly none)
  * Example: Database includes the following entries:
  * Key.0 $!a=442 $b=3 $uuid=u0
  * Key.1 $!a=443 $b=7 $uuid=u1
@@ -284,6 +286,9 @@ dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
 }
 
 /*! Look in the database and match first entry according to a matching expression,
+ * @retval   -1   Error, and clicon_err set
+ * @retval    0   OK. if found, first matching key/cvec set, else not set.
+ * Note that return value 0 may still not have found an entry.
  * Matching expression is a variable and a shell-wildcard value.
  * Example: Database includes the following entries:
  * Key.0 $!a=442 $b=3 $uuid=u0
@@ -329,21 +334,19 @@ dbmatch_one(void *handle,
 	/* match attribute value with corresponding variable in database */
 	if (attr){ /* attr and value given on command line */
 	    if ((cv = cvec_find_var(vr, attr)) == NULL){
-		cvec_free(vr);
+		cvec_free(vr); vr=NULL;
 		continue; /* no such variable for this key */
 	    }
 	    if ((len = cv2str(cv, NULL, 0)) < 0)
 		goto done;
 	    if (len == 0){
-		cvec_free(vr);
-		vr=NULL;
+		cvec_free(vr); vr=NULL;
 		continue; /* If attr has no value (eg "") interpret it as no match */
 	    }
 	    if ((str = cv2str_dup(cv)) == NULL)
 		goto done;
 	    if(fnmatch(pattern, str, 0) != 0) {
-		cvec_free(vr);
-		vr=NULL;
+		cvec_free(vr); vr=NULL;
 		free(str);
 		continue; /* no match */
 	    }
@@ -352,12 +355,15 @@ dbmatch_one(void *handle,
 	}
 	if (cvecp)
 	    *cvecp = vr;
+	else{
+	    cvec_free(vr); vr=NULL;
+	}
 	if (keyp)
 	    if ((*keyp = strdup4(key)) == NULL){
 		clicon_err(OE_DB, errno, "%s: strdup", __FUNCTION__);
 		goto done;
 	    }
-	break;
+	break; /* found */
     }
     retval = 0;
   done:

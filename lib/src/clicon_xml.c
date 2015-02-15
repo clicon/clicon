@@ -817,10 +817,8 @@ copy_one(cxobj *xn0, cxobj *xn1)
 	}
     }
     if (xml_name(xn0)) /* malloced string */
-	if ((xn1->x_name = strdup(xn0->x_name)) == NULL){
-	    clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
+	if ((xml_name_set(xn1, xml_name(xn0))) < 0)
 	    return -1;
-	}
     return 0;
 }
 
