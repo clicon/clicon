@@ -140,13 +140,17 @@ dbdiff_single(char *db1, char *db2,
     }
 
     if (!eq){
-        if (lvec1)
+        if (lvec1) {
 	    if((vr1 = lvec2cvec (lvec1, lvec1_len)) == NULL)
 	        goto done;
-        if (lvec2)
+	    cvec_name_set(vr1, key);
+	}
+	    
+        if (lvec2) {
 	    if((vr2 = lvec2cvec (lvec2, lvec2_len)) == NULL)
 	        goto done;
-
+	    cvec_name_set(vr2, key);
+	}
 	if (lvec1 != NULL && lvec2 != NULL){
 	    if (dbdiff_add(vr1, vr2, DBDIFF_OP_BOTH, df, label) < 0)
 		goto done;
