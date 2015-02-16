@@ -78,6 +78,13 @@ CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 # Set if all configuration changes are committed directly, commit command unnecessary
 # CLICON_AUTOCOMMIT       0
 
+# Clicon backend callback order. There are two dimensions: operation (del/add/change)
+# and priority
+# 0: all callbacks in (rising) priority order
+# 1: first delete operations in declining prio order; then add/change in prio order
+# 2: like (1) but CHANGE is replaced by (DEL;ADD)
+# CLICON_COMMIT_ORDER 0
+
 # Name of master plugin (both frontend and backend). Master plugin has special 
 # callbacks for frontends. See clicon user manual for more info.
 # CLICON_MASTER_PLUGIN    master

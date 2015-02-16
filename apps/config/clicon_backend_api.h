@@ -48,13 +48,17 @@ enum trans_cb_type {/* Note, this is a bitmask, BOTH is bitwise combination */
 };
 typedef enum trans_cb_type trans_cb_type;
 
+/* Clicon commit /validate operations */
+enum commit_op_enum {CO_ADD, CO_DELETE, CO_CHANGE};
+typedef enum commit_op_enum commit_op;
+
 /*
  * Transaction operation (commit/validate after object add/del/modify) to backend plugin 
  * when dependencies changed
  */
 typedef int (*trans_cb)(clicon_handle h,
-			lv_op_t op,
-			commit_data d);
+			commit_op     op,
+			commit_data   d);
 
 /*
  * Generic downcall registration. Enables any function to be called from (cli) frontend
@@ -70,6 +74,7 @@ typedef int (*downcall_cb)(clicon_handle h, uint16_t op, uint16_t len, void *arg
  */
 typedef void *dbdep_handle_t;
 
+char *commitop2txt(commit_op op);
 /*
  * Add DB dependency
  */

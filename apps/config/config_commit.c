@@ -78,23 +78,23 @@
  *     as a 'commit' error and does not handle it fatally.
  */
 static int
-plugin_modify_key_value(clicon_handle h,
-			lv_op_t op,
-			char *db1,
-			char *db2,
-			char *key1,
-			char *key2,
-			cvec *vec1,
-			cvec *vec2,
-			dbdep_t *dp)
+plugin_commit_callback(clicon_handle h,
+		       commit_op op,
+		       char *db1,
+		       char *db2,
+		       char *key1,
+		       char *key2,
+		       cvec *vec1,
+		       cvec *vec2,
+		       dbdep_t *dp)
 {
     int retval = -1;
 
     commit_data_t d;
 
     clicon_debug(2, "commit diff %c%s",
-		 (op==LV_SET)?'+':'-',
-		 (op==LV_SET) ? key2 : key1);
+		 (op==CO_ADD)?'+':'-',
+		 (op==CO_ADD) ? key2 : key1);
     clicon_err_reset();
 
     /* populate commit data */
@@ -112,8 +112,8 @@ plugin_modify_key_value(clicon_handle h,
 	if (!clicon_errno) 	/* sanity: log if clicon_err() is not called ! */
 	    clicon_log(LOG_NOTICE, "%s: key: %c%s: callback does not make clicon_err call on error",
 		       __FUNCTION__,
-		       (op==LV_SET)?'+':'-',
-		       (op==LV_SET) ? key2 : key1);
+		       (op==CO_ADD)?'+':'-',
+		       (op==CO_ADD) ? key2 : key1);
 	goto done;
     }
     retval = 0;
@@ -259,6 +259,45 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
     return retval;
 }
 
+/*! Translate from dbdiff op to commit op
+ * XXX maybe we can equate the two?
+ */
+static commit_op
+dbdiff2commit_op(enum dbdiff_op dop)
+{
+    commit_op cop;
+
+    switch (dop){
+    case DBDIFF_OP_FIRST:
+	cop = CO_DELETE;
+	break;
+    case DBDIFF_OP_BOTH:
+	cop = CO_CHANGE;
+	break;
+    case DBDIFF_OP_SECOND:
+	cop = CO_ADD;
+	break;
+    } 
+    return cop;
+}
+
+char *
+commitop2txt(commit_op op)
+{
+    switch (op){
+    case CO_DELETE:
+	return "DELETE";
+	break;
+    case CO_CHANGE:
+	return "CHANGE";
+	break;
+    case CO_ADD:
+	return "ADD";
+	break;
+    } 
+    return NULL;
+}
+
 /*! Make user-defined callbacks on each changed keys
  * The order is: deleted keys, changed keys, added keys.
  */
@@ -271,86 +310,44 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
     dbdep_t           *dp;
     struct dbdiff_ent *dfe;
     dbdep_dd_t        *dd;
+    commit_op op;
 
-    /* 3a. Validate callbacks: deleted keys */
-    for (i = nvec-1; i >= 0; i--){ /* Loop over vec[] */
-        dd = &ddvec[i];
-	dfe = dd->dd_dbdiff; /* key1/key2/op */
-	dp = dd->dd_dep;     /* op, callback, arg */
-	if (dp->dp_type & TRANS_CB_VALIDATE &&
-	    (dfe->dfe_op & DBDIFF_OP_FIRST) == DBDIFF_OP_FIRST &&
-	    plugin_modify_key_value(h,
-				    LV_DELETE,               /* oper */
-				    running,                 /* db1 */
-				    candidate,               /* db2 */
-				    dd->dd_mkey1,            /* key1 */
-				    dd->dd_mkey2,            /* key2 */
-				    dd->dd_dbdiff->dfe_vec1, /* vec1 */
-				    dd->dd_dbdiff->dfe_vec2, /* vec2 */
-				    dp                       /* callback */
-		) < 0){
-	    goto done;
-	}
-    }
-
-    /* 3b. Validate callbacks: changed keys */
     for (i=0; i < nvec; i++){
         dd = &ddvec[i];
-	dfe = dd->dd_dbdiff; /* key1/key2/op */
 	dp = dd->dd_dep;     /* op, callback, arg */
-	if (dp->dp_type & TRANS_CB_VALIDATE &&
-	    dfe->dfe_op == DBDIFF_OP_BOTH &&
-	    plugin_modify_key_value(h,
-				    LV_SET,                  /* oper */
-				    running,                 /* db1 */
-				    candidate,               /* db2 */
-				    dd->dd_mkey1,            /* key1 */
-				    dd->dd_mkey2,            /* key2 */
-				    dd->dd_dbdiff->dfe_vec1, /* vec1 */
-				    dd->dd_dbdiff->dfe_vec2, /* vec2 */
-				    dp                       /* callback */
-		) < 0){
+	if ((dp->dp_type & TRANS_CB_VALIDATE) == 0)
+	    continue;
+	dfe = dd->dd_dbdiff; /* key1/key2/op */
+	op = dbdiff2commit_op(dfe->dfe_op);
+	if (plugin_commit_callback(h,
+				   op,               /* oper */
+				   running,                 /* db1 */
+				   candidate,               /* db2 */
+				   dd->dd_mkey1,            /* key1 */
+				   dd->dd_mkey2,            /* key2 */
+				   dd->dd_dbdiff->dfe_vec1, /* vec1 */
+				   dd->dd_dbdiff->dfe_vec2, /* vec2 */
+				   dp                       /* callback */
+				   ) < 0)
 	    goto done;
-	}
     }
+    retval = 0;
+ done:
+    return retval;
+}
 
-    /* 3c. Validate callbacks: added keys */
-    for (i=0; i < nvec; i++){
-        dd = &ddvec[i];
-	dfe = dd->dd_dbdiff; /* key1/key2/op */
-	dp = dd->dd_dep;     /* op, callback, arg */
-	if (dp->dp_type & TRANS_CB_VALIDATE &&
-	    dfe->dfe_op == DBDIFF_OP_SECOND &&
-	    plugin_modify_key_value(h,
-				    LV_SET,                  /* oper */
-				    running,                 /* db1 */
-				    candidate,               /* db2 */
-				    dd->dd_mkey1,            /* key1 */
-				    dd->dd_mkey2,            /* key2 */
-				    dd->dd_dbdiff->dfe_vec1, /* vec1 */
-				    dd->dd_dbdiff->dfe_vec2, /* vec2 */
-				    dp                       /* callback */
-		 ) < 0){
-	     goto done;
-	 }
-     }
-     retval = 0;
-   done:
-     return retval;
- }
-
- /*
-  * candidate_commit
-  * Do a diff between candidate and running, and then call plugins to
-  * commit the changes.
-  * The code reverts changes if the commit fails. But if the revert
-  * fails, we just ignore the errors and proceed. Maybe we should
-  * do something more drastic?
-  * Arguments:
-  * running:   The current database. The state of the router corresponds
-  *            to these values. Also called db1.
-  * candidate: The candidate database. We are aiming to put the router in this
-  *            state.   Also called db2.
+/*
+ * candidate_commit
+ * Do a diff between candidate and running, and then call plugins to
+ * commit the changes.
+ * The code reverts changes if the commit fails. But if the revert
+ * fails, we just ignore the errors and proceed. Maybe we should
+ * do something more drastic?
+ * Arguments:
+ * running:   The current database. The state of the router corresponds
+ *            to these values. Also called db1.
+ * candidate: The candidate database. We are aiming to put the router in this
+ *            state.   Also called db2.
 
 		       (_dp) [op, callback] (dpe_)
 		       +---------------+    +---------------+
@@ -358,7 +355,7 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
 		       +---------------+    +---------------+
 		       ^ Database dependency description (static callback description)
  from dbdep_commit()   |
- +---------------+*    |dd_dep
+ +---------------+     |dd_dep
  |  dbdep_dd_t   |-----+
  +---------------+     |dd_dbdiff (what has changed?)
  (dd_)                 |
@@ -368,199 +365,314 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
  +---------------+     +---------------+
  (df_) from dbdiff(),   (dfe_)
 
-  */
- int
- candidate_commit(clicon_handle h, char *candidate, char *running)
- {
-     struct dbdiff      df = {0, };
-     dbdep_t           *dp;
-     struct dbdiff_ent *dfe;
-     dbdep_dd_t        *ddvec = NULL;
-     dbdep_dd_t        *dd;
-     int                nvec;
-     int                retval = -1;
-     int                i, j;
-     int                failed = 0;
-     struct stat        sb;
-     void              *firsterr = NULL;
+*/
 
-     /* Sanity checks that databases exists. */
-     if (stat(running, &sb) < 0){
-	 clicon_err(OE_DB, errno, "%s", running);
-	 goto done;
-     }
-     if (stat(candidate, &sb) < 0){
-	 clicon_err(OE_DB, errno, "%s", candidate);
-	 goto done;
-     }
-     memset(&df, 0, sizeof(df));
+int
+candidate_commit(clicon_handle h, char *candidate, char *running)
+{
+    struct dbdiff      df = {0, };
+    dbdep_t           *dp;
+    struct dbdiff_ent *dfe;
+    dbdep_dd_t        *ddvec = NULL;
+    dbdep_dd_t        *dd;
+    int                nvec;
+    int                retval = -1;
+    int                i, j;
+    int                failed = 0;
+    struct stat        sb;
+    void              *firsterr = NULL;
+    commit_op          op;
 
-     /* Find the differences between the two databases and store it in df vector. */
-     if (db_diff(running, candidate,
-		 __FUNCTION__,
-		 clicon_dbspec_key(h),
-		 &df
-	     ) < 0)
-	 goto done;
-     /* 1. Get commit processing to dbdiff vector: one entry per key that changed.
-	   changes are registered as if they exist in the 1st(candidate) or
-	   2nd(running) dbs.
-      */
-     if (dbdep_commitvec(h, &df, &nvec, &ddvec) < 0)
-	 goto done;
+    /* Sanity checks that databases exists. */
+    if (stat(running, &sb) < 0){
+	clicon_err(OE_DB, errno, "%s", running);
+	goto done;
+    }
+    if (stat(candidate, &sb) < 0){
+	clicon_err(OE_DB, errno, "%s", candidate);
+	goto done;
+    }
+    memset(&df, 0, sizeof(df));
 
-     /* 2. Call plugin pre-commit hooks */
-     if (plugin_begin_hooks(h, candidate) < 0)
-	 goto done;
+    /* Find the differences between the two databases and store it in df vector. */
+    if (db_diff(running, candidate,
+		__FUNCTION__,
+		clicon_dbspec_key(h),
+		&df
+		) < 0)
+	goto done;
+    /* 1. Get commit processing to dbdiff vector: one entry per key that changed.
+       changes are registered as if they exist in the 1st(candidate) or
+       2nd(running) dbs.
+    */
+    if (dbdep_commitvec(h, &df, &nvec, &ddvec) < 0)
+	goto done;
 
-     /* call generic cv_validate() on all new or changed keys. */
-     if (generic_validate(h, candidate, &df) < 0)
-	 goto done;
+    /* 2. Call plugin pre-commit hooks */
+    if (plugin_begin_hooks(h, candidate) < 0)
+	goto done;
 
-     /* user-defined callbacks */
-     if (validate_db(h, nvec, ddvec, running, candidate) < 0)
-	 goto done;
+    /* call generic cv_validate() on all new or changed keys. */
+    if (generic_validate(h, candidate, &df) < 0)
+	goto done;
 
-     /* Call plugin post-commit hooks */
-     if (plugin_complete_hooks(h, candidate) < 0)
-	 goto done;
+    /* user-defined callbacks */
+    if (validate_db(h, nvec, ddvec, running, candidate) < 0)
+	goto done;
 
-     /* Now follows commit rules in order.
-     * 4. For all keys that are in candidate, delete key (from running).
-     */
-     for (i = nvec-1; i >= 0; i--){
-	 dd = &ddvec[i];
-	 dfe = dd->dd_dbdiff; /* key1/key2/op */
-	 dp = dd->dd_dep;     /* op, callback, arg */
-	 if (dp->dp_type & TRANS_CB_COMMIT &&
-	     dfe->dfe_op & DBDIFF_OP_FIRST &&
-	     plugin_modify_key_value(h,
-				     LV_DELETE,               /* oper */
-				     running,                 /* db1 */
-				     candidate,               /* db2 */
-				     dd->dd_mkey1,            /* key1 */
-				     dd->dd_mkey2,            /* key2 */
-				     dd->dd_dbdiff->dfe_vec1, /* vec1 */
-				     dd->dd_dbdiff->dfe_vec2, /* vec2 */
-				     dp                       /* callback */
-		 ) < 0){
-	     firsterr = clicon_err_save(); /* save this error */
-	     break;
-	 }
-     }
-     /* 5. Failed deletion of running, add the key value back (from running) */
-     if (i >= 0){ /* failed */
-	 for (j=i+1; j<nvec; j++){ /* revert in opposite order */
-	     dd = &ddvec[j];
-	     dfe = dd->dd_dbdiff; /* key1/key2/op */
-	     dp = dd->dd_dep;     /* op, callback, arg */
-	     if (dp->dp_type & TRANS_CB_COMMIT &&
-		 dfe->dfe_op & DBDIFF_OP_FIRST &&
-		 plugin_modify_key_value(h,
-					 LV_SET,                  /* oper */
-					 candidate,               /* db1 */
-					 running,                 /* db2 */
-					 dd->dd_mkey2,            /* key1 */
-					 dd->dd_mkey1,            /* key2 */
-					 dd->dd_dbdiff->dfe_vec2, /* vec1 */
-					 dd->dd_dbdiff->dfe_vec1, /* vec2 */
-					 dp                       /* callback */
-		     ) < 0)
-		 continue; /* ignore errors or signal major setback ? */
-	 }
-	 goto done;
-     }
+    /* Call plugin post-commit hooks */
+    if (plugin_complete_hooks(h, candidate) < 0)
+	goto done;
 
-     /* 6. Set keys (from candidate) */
-     for (i=0; i < nvec; i++){
-	 dd = &ddvec[i];
-	 dfe = dd->dd_dbdiff; /* key1/key2/op */
-	 dp = dd->dd_dep;     /* op, callback, arg */
-	 if (dp->dp_type & TRANS_CB_COMMIT &&
-	     dfe->dfe_op & DBDIFF_OP_SECOND &&
-	     plugin_modify_key_value(h,
-				     LV_SET,                  /* oper */
-				     running,                 /* db1 */
-				     candidate,               /* db2 */
-				     dd->dd_mkey1,            /* key1 */
-				     dd->dd_mkey2,            /* key2 */
-				     dd->dd_dbdiff->dfe_vec1, /* vec1 */
-				     dd->dd_dbdiff->dfe_vec2, /* vec2 */
-				     dp                       /* callback */
-		 ) < 0){
-	     firsterr = clicon_err_save(); /* save this error */
-	     failed++;
-	     break;
-	 }
-     }
-     if (!failed)
-	 if (file_cp(candidate, running) < 0){
-	     clicon_err(OE_UNIX, errno, "file_cp");
-	     failed++;
-	 }
-     /* 7. Failed setting keys in running, first remove the keys set */
-     if (failed){ /* failed */
-	 for (j=i-1; j>=0; j--){ /* revert in opposite order */
-	     dd = &ddvec[j];
-	     dfe = dd->dd_dbdiff; /* key1/key2/op */
-	     dp = dd->dd_dep;     /* op, callback, arg */
-	     if (dp->dp_type & TRANS_CB_COMMIT &&
-		 dfe->dfe_op & DBDIFF_OP_SECOND &&
-		 plugin_modify_key_value(h,
-					 LV_DELETE,               /* oper */
-					 candidate,               /* db1 */
-					 running,                 /* db2 */
-					 dd->dd_mkey2,            /* key1 */
-					 dd->dd_mkey1,            /* key2 */
-					 dd->dd_dbdiff->dfe_vec2, /* vec1 */
-					 dd->dd_dbdiff->dfe_vec1, /* vec2 */
-					 dp                       /* callback */
-		     ) < 0)
-		 continue; /* ignore errors or signal major setback ? */
-	 }
-	 /* 7. Set back original running values */
-	 for (j=0; j < nvec; j++){ /* revert in opposite order */
-	     dd = &ddvec[j];
-	     dfe = dd->dd_dbdiff; /* key1/key2/op */
-	     dp = dd->dd_dep;     /* op, callback, arg */
-		     if (dp->dp_type & TRANS_CB_COMMIT &&
-		 dfe->dfe_op & DBDIFF_OP_FIRST &&
-		 plugin_modify_key_value(h,
-					 LV_SET,                  /* oper */
-					 candidate,               /* db1 */
-					 running,                 /* db2 */
-					 dd->dd_mkey2,            /* key1 */
-					 dd->dd_mkey1,            /* key2 */
-					 dd->dd_dbdiff->dfe_vec2, /* vec1 */
-					 dd->dd_dbdiff->dfe_vec1, /* vec2 */
-					 dp                       /* callback */
-		     ) < 0)
-		 continue; /* ignore errors or signal major setback ? */
-	 }
-	 goto done;
-     }
-
-
-     /* Copy running back to candidate in case end functions triggered
-	updates in running */
-     /* XXX: check for errors */
-     file_cp(running, candidate);
-
-     /* Call plugin post-commit hooks */
-     plugin_end_hooks(h, candidate);
-
-     retval = 0;
-   done:
-     if (retval < 0) /* Call plugin fail-commit hooks */
-	 plugin_abort_hooks(h, candidate);
-     if (ddvec)
-	 dbdep_commitvec_free(ddvec, nvec);
-     db_diff_free(&df);
-     unchunk_group(__FUNCTION__);
-     if (firsterr)
-	 clicon_err_restore(firsterr);
-     return retval;
- }
+    if (clicon_commit_order(h) == 0){
+	for (i=0; i < nvec; i++){ /* revert in opposite order */
+	    dd = &ddvec[i];
+	    dp = dd->dd_dep;     /* op, callback, arg */
+	    if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		continue;
+	    dfe = dd->dd_dbdiff; /* key1/key2/op */
+	    op = dbdiff2commit_op(dfe->dfe_op);
+	    if (plugin_commit_callback(h,
+				       op,                      /* oper */
+				       running,                 /* db1 */
+				       candidate,               /* db2 */
+				       dd->dd_mkey1,            /* key1 */
+				       dd->dd_mkey2,            /* key2 */
+				       dd->dd_dbdiff->dfe_vec1, /* vec1 */
+				       dd->dd_dbdiff->dfe_vec2, /* vec2 */
+				       dp                       /* callback */
+				       ) < 0){
+		firsterr = clicon_err_save(); /* save this error */
+		failed++;
+		break;
+	    }
+	}
+	if (!failed)
+	    if (file_cp(candidate, running) < 0){  /* Commit here in case cp fails */
+		clicon_err(OE_UNIX, errno, "file_cp");
+		failed++;
+	    }
+	/* Failed operation, start error handling: rollback in opposite order */
+	if (failed){
+	    for (j=i-1; j>=0; j--){ /* revert in opposite order */
+		dd = &ddvec[j];
+		dp = dd->dd_dep;     /* op, callback, arg */
+		if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		    continue;
+		dfe = dd->dd_dbdiff; /* key1/key2/op */
+		op = dbdiff2commit_op(dfe->dfe_op);
+		switch (op){ /* reverse operation */
+		case CO_ADD:
+		    op = CO_DELETE;
+		    break;
+		case CO_DELETE:
+		    op = CO_ADD;
+		    break;
+		default:
+		    break;
+		}
+		if (plugin_commit_callback(h,
+					   op,                  /* oper */
+					   candidate,               /* db1 */
+					   running,                 /* db2 */
+					   dd->dd_mkey2,            /* key1 */
+					   dd->dd_mkey1,            /* key2 */
+					   dd->dd_dbdiff->dfe_vec2, /* vec1 */
+					   dd->dd_dbdiff->dfe_vec1, /* vec2 */
+					   dp                       /* callback */
+					   ) < 0){
+		    /* ignore errors or signal major setback ? */
+		    clicon_log(LOG_NOTICE, "Error in rollback, trying to continue");
+		    continue; 
+		}
+	    }
+	    goto done;
+	} /* error handling */
+    }
+    else { /* commit_order == 1 or 2 */
+	/* Now follows commit rules in order.
+	 * 4. For all keys that are not in candidate but in running, delete key
+	 * in reverse prio order
+	 */
+	for (i = nvec-1; i >= 0; i--){
+	    dd = &ddvec[i];
+	    dp = dd->dd_dep;     /* op, callback, arg */
+	    if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		continue;
+	    dfe = dd->dd_dbdiff; /* key1/key2/op */
+	    op = dbdiff2commit_op(dfe->dfe_op);
+	    /* original mode 2 where CHANGE=DEL/ADD */
+	    if (clicon_commit_order(h) == 2 && op == CO_CHANGE)
+		op = CO_DELETE;
+	    if (op != CO_DELETE)
+		continue;
+	    if (plugin_commit_callback(h,
+				       op,               /* oper */
+				       running,                 /* db1 */
+				       candidate,               /* db2 */
+				       dd->dd_mkey1,            /* key1 */
+				       dd->dd_mkey2,            /* key2 */
+				       dd->dd_dbdiff->dfe_vec1, /* vec1 */
+				       dd->dd_dbdiff->dfe_vec2, /* vec2 */
+				       dp                       /* callback */
+				       ) < 0){
+		firsterr = clicon_err_save(); /* save this error */
+		break;
+	    }
+	}
+	/* 5. Failed deletion, add the key value back to running */
+	if (i >= 0){ /* failed */
+	    for (j=i+1; j<nvec; j++){ /* revert in opposite order */
+		dd = &ddvec[j];
+		dp = dd->dd_dep;     /* op, callback, arg */
+		if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		    continue;
+		dfe = dd->dd_dbdiff; /* key1/key2/op */
+		op = dbdiff2commit_op(dfe->dfe_op);
+		/* original mode 2 where CHANGE=DEL/ADD */
+		if (clicon_commit_order(h) == 2 && op == CO_CHANGE)
+		    op = CO_DELETE;
+		if (op != CO_DELETE)
+		    continue;
+		if (plugin_commit_callback(h,
+					   op,                  /* oper */
+					   candidate,               /* db1 */
+					   running,                 /* db2 */
+					   dd->dd_mkey2,            /* key1 */
+					   dd->dd_mkey1,            /* key2 */
+					   dd->dd_dbdiff->dfe_vec2, /* vec1 */
+					   dd->dd_dbdiff->dfe_vec1, /* vec2 */
+					   dp                       /* callback */
+					   ) < 0){
+		    /* ignore errors or signal major setback ? */
+		    clicon_log(LOG_NOTICE, "Error in rollback, trying to continue");
+		    continue; 
+		}
+	    }
+	    goto done;
+	}
+	/* 
+	 * 6. For all added or changed keys
+	 */
+	for (i=0; i < nvec; i++){
+	    dd = &ddvec[i];
+	    dp = dd->dd_dep;     /* op, callback, arg */
+	    if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		continue;
+	    dfe = dd->dd_dbdiff; /* key1/key2/op */
+	    op = dbdiff2commit_op(dfe->dfe_op);
+	    if (op != CO_CHANGE && op != CO_ADD)
+		continue;
+	    /* original mode 2 where CHANGE=DEL/ADD */
+	    if (clicon_commit_order(h) == 2 && op == CO_CHANGE)
+		op = CO_ADD;
+	    if (plugin_commit_callback(h,
+				       op,                  /* oper */
+				       running,                 /* db1 */
+				       candidate,               /* db2 */
+				       dd->dd_mkey1,            /* key1 */
+				       dd->dd_mkey2,            /* key2 */
+				       dd->dd_dbdiff->dfe_vec1, /* vec1 */
+				       dd->dd_dbdiff->dfe_vec2, /* vec2 */
+				       dp                       /* callback */
+				       ) < 0){
+		firsterr = clicon_err_save(); /* save this error */
+		failed++;
+		break;
+	    }
+	}
+	if (!failed) /* Commit here in case cp fails */
+	    if (file_cp(candidate, running) < 0){
+		clicon_err(OE_UNIX, errno, "file_cp(candidate; running)");
+		failed++;
+	    }
+	/* 10. Failed setting keys in running, first remove the keys set */
+	if (failed){ /* failed */
+	    for (j=i-1; j>=0; j--){ /* revert in opposite order */
+		dd = &ddvec[j];
+		dp = dd->dd_dep;     /* op, callback, arg */
+		if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		    continue;
+		dfe = dd->dd_dbdiff; /* key1/key2/op */
+		op = dbdiff2commit_op(dfe->dfe_op);
+		if (op != CO_CHANGE && op != CO_ADD)
+		    continue;
+		/* original mode 2 where CHANGE=DEL/ADD */
+		if (clicon_commit_order(h) == 2 && op == CO_CHANGE)
+		    op = CO_ADD;
+		if (op == CO_ADD) /* reverse op */
+		    op = CO_DELETE;
+		if (plugin_commit_callback(h,
+					   op,               /* oper */
+					   candidate,               /* db1 */
+					   running,                 /* db2 */
+					   dd->dd_mkey2,            /* key1 */
+					   dd->dd_mkey1,            /* key2 */
+					   dd->dd_dbdiff->dfe_vec2, /* vec1 */
+					   dd->dd_dbdiff->dfe_vec1, /* vec2 */
+					   dp                       /* callback */
+					   ) < 0){
+		    /* ignore errors or signal major setback ? */
+		    clicon_log(LOG_NOTICE, "Error in rollback, trying to continue");
+		    continue; 
+		}
+	    }
+	    for (j=0; j < nvec; j++){ /* revert in opposite order */
+		dd = &ddvec[j];
+		dp = dd->dd_dep;     /* op, callback, arg */
+		if ((dp->dp_type & TRANS_CB_COMMIT) == 0)
+		    continue;
+		dfe = dd->dd_dbdiff; /* key1/key2/op */
+		op = dbdiff2commit_op(dfe->dfe_op);
+		/* original mode 2 where CHANGE=DEL/ADD */
+		if (clicon_commit_order(h) == 2 && op == CO_CHANGE)
+		    op = CO_DELETE;
+		if (op != CO_DELETE)
+		    continue;
+		op = CO_ADD;
+		if (plugin_commit_callback(h,
+					   op,                  /* oper */
+					   candidate,               /* db1 */
+					   running,                 /* db2 */
+					   dd->dd_mkey2,            /* key1 */
+					   dd->dd_mkey1,            /* key2 */
+					   dd->dd_dbdiff->dfe_vec2, /* vec1 */
+					   dd->dd_dbdiff->dfe_vec1, /* vec2 */
+					   dp                       /* callback */
+					   ) < 0){
+		    /* ignore errors or signal major setback ? */
+		    clicon_log(LOG_NOTICE, "Error in rollback, trying to continue");
+		    continue; 
+		}
+	    }
+	    goto done;
+	}
+    } /* commit_order */
+  
+    /* Copy running back to candidate in case end functions triggered
+       updates in running */
+    if (file_cp(running, candidate) < 0){
+	/* ignore errors or signal major setback ? */
+	clicon_err(OE_UNIX, errno, "file_cp(running, candidate)");
+	clicon_log(LOG_NOTICE, "Error in rollback, trying to continue");
+	goto done;
+    } 
+    
+	/* Call plugin post-commit hooks */
+    plugin_end_hooks(h, candidate);
+    
+    retval = 0;
+ done:
+    if (retval < 0) /* Call plugin fail-commit hooks */
+	plugin_abort_hooks(h, candidate);
+    if (ddvec)
+	dbdep_commitvec_free(ddvec, nvec);
+    db_diff_free(&df);
+    unchunk_group(__FUNCTION__);
+    if (firsterr)
+	clicon_err_restore(firsterr);
+    return retval;
+}
 
  int
  candidate_validate(clicon_handle h, char *candidate, char *running)

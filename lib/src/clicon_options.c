@@ -35,6 +35,7 @@
  * CLICON_SOCK             $APPDIR/clicon.sock # Unix domain socket
  * CLICON_SOCK_GROUP       clicon # Unix group for clicon socket group access
  * CLICON_AUTOCOMMIT       0 # Automatically commit configuration changes (no commit)
+ * CLICON_COMMIT_ORDER     0 # priority only, 1: delete in reverse prio; change/add in prio
  * CLICON_QUIET            # Do not print greetings on stdout. Eg clicon_cli -q
  * CLICON_MASTER_PLUGIN    master.so # Master plugin name. backend and CLI
  * CLICON_BACKEND_DIR      $APPDIR/backend/<group> # Dirs of all backend plugins
@@ -299,6 +300,10 @@ clicon_option_default(clicon_hash_t  *copt)
     }
     if (!hash_lookup(copt, "CLICON_AUTOCOMMIT")){
 	if (hash_add(copt, "CLICON_AUTOCOMMIT", "0", strlen("0")+1) < 0)
+	    goto catch;
+    }
+    if (!hash_lookup(copt, "CLICON_COMMIT_ORDER")){
+	if (hash_add(copt, "CLICON_COMMIT_ORDER", "0", strlen("0")+1) < 0)
 	    goto catch;
     }
     /* Legacy is 1 but default should really be 0. New apps should use 0 */
@@ -668,6 +673,18 @@ clicon_autocommit_set(clicon_handle h, int val)
 {
     return clicon_option_int_set(h, "CLICON_AUTOCOMMIT", val);
 }
+
+int
+clicon_commit_order(clicon_handle h)
+{
+    char const *opt = "CLICON_COMMIT_ORDER";
+
+    if (clicon_option_exists(h, opt))
+	return clicon_option_int(h, opt);
+    else
+	return 0;
+}
+
 
 /*! Dont include keys in cvec in cli vars callbacks
  */

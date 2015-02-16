@@ -102,6 +102,8 @@ enum genmodel_type clicon_cli_genmodel_type(clicon_handle h);
 int clicon_autocommit(clicon_handle h);
 int clicon_autocommit_set(clicon_handle h, int val);
 
+int clicon_commit_order(clicon_handle h);
+
 #define clicon_dbspec(h)  clicon_dbspec_key(h) /* obsolete */
 dbspec_key *clicon_dbspec_key(clicon_handle h);
 int clicon_dbspec_key_set(clicon_handle h, dbspec_key *ds);

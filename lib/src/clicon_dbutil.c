@@ -240,9 +240,10 @@ catch:
  * @param   dname  Name of database to search in (filename including dir path)
  * @param   key    String containing key to look for.
  *
- * @retval NULL On error : key is not data key, alloc failed
- * @retval cv  A cligen vector containing all variables found. This vector contains no 
- *             variables (length == 0) if key is not found.
+ * @retval NULL    On error : key is not data key, alloc failed
+ * @retval cvec    A cligen vector containing all variables found. This
+ *                 vector contains no variables (length == 0) if key is 
+ *                 not found. Must be freed with cvec_free() by caller.
  * XXX Note NULL can also be that the key is invalid .
  */
 cvec *
