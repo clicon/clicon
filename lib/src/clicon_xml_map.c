@@ -1184,7 +1184,8 @@ xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
  * @param[out] cvv  CLIgen variable vector. Should be freed by cvec_free()
  * @retval     0    Everything OK, cvv allocated and set
  * @retval    -1    Something wrong, clicon_err() called to set error. No cvv returned
- * Not recursive means that only one level of XML bodies is translated to cvec:s.
+ * 'Not recursive' means that only one level of XML bodies is translated to cvec:s.
+ * yang is needed to know which type an xml element has.
  * Example: 
     <a>
       <b>23</b>
@@ -1194,6 +1195,7 @@ xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
       </d>
     </a> 
          --> b:23, c:88
+ * @see cvec2xml
  */
 int
 xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
@@ -1251,3 +1253,42 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
     return retval;
 }
 
+/*! Translate a cligen vraiable vector to an XML tree with depth one 
+ * @param[in]   cvv  CLIgen variable vector. Should be freed by cvec_free()
+ * @param[in]   toptag    The XML tree in xt will have this XML tag
+ * @param[out]  xt   Pointer to XML tree containing one top node. SHould be freed w xml_free
+ * @retval     0    Everything OK, cvv allocated and set
+ * @retval    -1    Something wrong, clicon_err() called to set error. No xt returned
+ * @see xml2cvec
+ * @see dbkey2xml   This does more but has an internal xml2cvec translation
+*/
+int
+cvec2xml(cvec *cvv, char *toptag, cxobj **xt0)
+{
+    int               retval = -1;
+    cxobj            *xt = NULL;
+    cxobj            *xn;
+    cxobj            *xb;
+    cg_var           *cv = NULL;
+    char             *val;
+
+    if ((xt = xml_new(toptag, NULL)) == NULL)
+	goto err;
+    while ((cv = cvec_each(cvv, cv)) != NULL) {
+	if ((xn = xml_new(cv_name_get(cv), xt)) == NULL)
+	    goto err;
+	if ((xb = xml_new("body", xn)) == NULL)
+	    goto err;
+	xml_type_set(xb, CX_BODY);
+	val = cv2str_dup(cv);
+	xml_value_set(xb, val);
+	if (val)
+	    free(val);
+    }
+    *xt0 = xt;
+    return 0;
+ err:
+    if (xt)
+	xml_free(xt);
+    return retval;
+}
