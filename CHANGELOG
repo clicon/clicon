@@ -23,5 +23,6 @@ The changes from previous versions are too numerous to document.
 Major recent additions are:
 - Added python API
 - YANG modeling support
-- Asynchronous notification
+- Updated commit callback API
+- Asynchronous notifications
 - db2txt

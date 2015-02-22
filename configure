@@ -2164,8 +2164,8 @@ ac_config_headers="$ac_config_headers include/clicon_config.h"
 
  # Bind to specific CLIgen version
 
-CLICON_VERSION_MAJOR="2"
-CLICON_VERSION_MINOR="3"
+CLICON_VERSION_MAJOR="3"
+CLICON_VERSION_MINOR="0"
 CLICON_VERSION_PATCH="0"
 CLICON_VERSION="${CLICON_VERSION_MAJOR}.${CLICON_VERSION_MINOR}.${CLICON_VERSION_PATCH}"
 # Fix to specific version (eg 3.5) or head (3)

@@ -92,7 +92,6 @@ plugin_commit_callback(clicon_handle h,
 		       dbdep_t *dp)
 {
     int retval = -1;
-
     commit_data_t d;
 
     clicon_debug(2, "commit diff %c%s",
@@ -262,28 +261,6 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
     return retval;
 }
 
-/*! Translate from dbdiff op to commit op
- * XXX maybe we can equate the two?
- */
-static commit_op
-dbdiff2commit_op(enum dbdiff_op dop)
-{
-    commit_op cop;
-
-    switch (dop){
-    case DBDIFF_OP_FIRST:
-	cop = CO_DELETE;
-	break;
-    case DBDIFF_OP_BOTH:
-	cop = CO_CHANGE;
-	break;
-    case DBDIFF_OP_SECOND:
-	cop = CO_ADD;
-	break;
-    } 
-    return cop;
-}
-
 char *
 commitop2txt(commit_op op)
 {
@@ -301,6 +278,29 @@ commitop2txt(commit_op op)
     return NULL;
 }
 
+/*! Transalte from dbdiff operation to commit operation
+ * XXX: Maybe they arecan be the same?
+ */
+static commit_op
+dbdiff2commit_op(enum dbdiff_op dop)
+{
+    commit_op cop = 0;
+
+    switch (dop){
+    case DBDIFF_OP_FIRST:
+	cop = CO_DELETE;
+	break;
+    case DBDIFF_OP_BOTH:
+	cop = CO_CHANGE;
+	break;
+    case DBDIFF_OP_SECOND:
+	cop = CO_ADD;
+	break;
+    } 
+    return cop;
+}
+
+
 /*! Make user-defined callbacks on each changed keys
  * The order is: deleted keys, changed keys, added keys.
  */
@@ -313,7 +313,7 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
     dbdep_t           *dp;
     struct dbdiff_ent *dfe;
     dbdep_dd_t        *dd;
-    commit_op op;
+    commit_op          op;
 
     for (i=0; i < nvec; i++){
         dd = &ddvec[i];
@@ -323,7 +323,7 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
 	dfe = dd->dd_dbdiff; /* key1/key2/op */
 	op = dbdiff2commit_op(dfe->dfe_op);
 	if (plugin_commit_callback(h,
-				   op,               /* oper */
+				   op,                      /* oper */
 				   running,                 /* db1 */
 				   candidate,               /* db2 */
 				   dd->dd_mkey1,            /* key1 */
