@@ -42,9 +42,9 @@
  * db once everything is done as if will then contain the new config.
  */
 int
-datamodel_commit(clicon_handle h, lv_op_t op, commit_data d)
+datamodel_commit(clicon_handle h, commit_op op, commit_data d)
 {
-    if (op == LV_SET) {
+    if (op == CO_ADD) {
         fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
 	cvec_print(stdout, commit_vec2(d));
     }
@@ -53,9 +53,9 @@ datamodel_commit(clicon_handle h, lv_op_t op, commit_data d)
 
 
 int
-datamodel_validate(clicon_handle h, lv_op_t op, commit_data d)
+datamodel_validate(clicon_handle h, commit_op op, commit_data d)
 {
-    if (op == LV_SET)
+    if (op == CO_ADD)
         fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
     return 0;
 }

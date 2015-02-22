@@ -66,6 +66,27 @@ struct event_data{
  */
 static struct event_data *ee = NULL;
 static struct event_data *ee_timers = NULL;
+static int _clicon_exit = 0;
+
+/*! For signal handlers: instead of doing exit, set a global variable to exit
+ * Status is then checked in event_loop.
+ * Note it maybe would be better to do use on a handle basis, bit a signal
+ * handler is global
+ */
+int
+clicon_exit_set(void)
+{
+    _clicon_exit++;
+    return 0;
+}
+
+/*! Get the status of global exit variable, usually set by signal handlers
+ */
+int
+clicon_exit_get(void)
+{
+    return _clicon_exit;
+}
 
 /*! Register a callback function to be called on input on a file descriptor.
  *
@@ -219,7 +240,7 @@ event_loop(void)
     fd_set fdset;
     int retval = -1;
 
-    while (1){
+    while (!clicon_exit_get()){
 	FD_ZERO(&fdset);
 	for (e=ee; e; e=e->e_next)
 	    if (e->e_type == EVENT_FD)
@@ -235,18 +256,17 @@ event_loop(void)
 	}
 	else
 	    n = select(FD_SETSIZE, &fdset, NULL, NULL, NULL); 
+	if (clicon_exit_get())
+	    break;
 	if (n == -1) {
-#if 0 /* You may want to be more elaborate here */
-	    if (errno == EINTR)
-		continue;
-#endif
 	    if (errno == EINTR){
 		clicon_debug(1, "%s select: %s", __FUNCTION__, strerror(errno));
+		clicon_err(OE_EVENTS, errno, "%s select1: %s", __FUNCTION__, strerror(errno));
 		retval = 0;
 		goto err;
 	    }
 	    else
-		clicon_err(OE_EVENTS, errno, "%s select", __FUNCTION__);
+		clicon_err(OE_EVENTS, errno, "%s select2", __FUNCTION__);
 	    goto err;
 	}
 	if (n==0){ /* Timeout */

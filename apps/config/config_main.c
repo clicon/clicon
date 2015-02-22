@@ -96,9 +96,9 @@ config_sig_term(int arg)
 {
     static int i=0;
     if (i++ == 0)
-	clicon_log(LOG_NOTICE, "%s: %u Signal %d", 
-		   __PROGRAM__, getpid(), arg);
-//    exit(0); /* XXX: should not exit here, but it hangs sometimes */
+	clicon_log(LOG_NOTICE, "%s: %s: pid: %u Signal %d", 
+		   __PROGRAM__, __FUNCTION__, getpid(), arg);
+    clicon_exit_set(); /* checked in event_loop() */
 }
 
 /*

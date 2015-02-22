@@ -43,26 +43,22 @@
  */
 int
 routing_commit(clicon_handle h, 
-		 char *db,
-		 lv_op_t op,
-		 char *key,
-		 void *arg)
+	       commit_op op, 
+	       commit_data d)
 {
-    if (op == LV_SET)
-	fprintf(stderr, "%s key:%s\n", __FUNCTION__, key);    
+    if (op == CO_ADD)
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
     return 0;
 }
 
 
 int
 routing_validate(clicon_handle h, 
-		 char *db,
-		 lv_op_t op,
-		 char *key,
-		 void *arg)
+		 commit_op op, 
+		 commit_data d)
 {
-    if (op == LV_SET)
-	fprintf(stderr, "%s key:%s\n", __FUNCTION__, key);    
+    if (op == CO_ADD)
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
     return 0;
 }
 

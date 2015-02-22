@@ -49,8 +49,8 @@ keyops_t key2ops[] = {
 };
 
 
-int hello_validate(clicon_handle, char *, lv_op_t, char *, void *);
-int hello_commit(clicon_handle, char *, lv_op_t, char *, void *);
+int hello_validate(clicon_handle, commit_op op, commit_data d);
+int hello_commit(clicon_handle, commit_op op, commit_data d);
 
 /*
  * Plugin initialization
@@ -161,20 +161,16 @@ transaction_abort(clicon_handle h)
  */
 int
 hello_validate(clicon_handle h, 
-		 char *dbname,
-		 lv_op_t op,
-		 char *key,
-		 void *arg)
+	       commit_op op, 
+	       commit_data d)
 {
     dbspec_key     *dbspec;
-    int                 retval = -1;
+    int             retval = -1;
+    char           *key;
 
-    clicon_debug(1, "%s %s\n", __FUNCTION__, key);
-    clicon_debug(1, "  dbname:  %s\n", dbname);
-    clicon_debug(1, "  key: %s\n", key);
-    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");
-    if (op !=  LV_SET && op != LV_MERGE)
+    if (op ==  CO_DELETE)
 	return 0;
+    key = commit_key1(d);
     dbspec = clicon_dbspec_key(h);
     if (key2spec_key(dbspec, key) == NULL){
 	clicon_log(LOG_ERR, "%s: %s not found in database spec\n",
@@ -193,23 +189,17 @@ hello_validate(clicon_handle h,
  */
 int
 hello_commit(clicon_handle h, 
-	       char *dbname,
-	       lv_op_t op,
-	       char *key,
-	       void *arg)
+	     commit_op op, 
+	     commit_data d)
 {
     int                 retval = -1;
 
-    clicon_debug(1, "%s %s\n", __FUNCTION__, key);
-    clicon_debug(1, "  dbname:  %s\n", dbname);
-    clicon_debug(1, "  key: %s\n", key);
-    clicon_debug(1, "  op:  %s\n", op==LV_DELETE?"delete":op==LV_SET?"set":"merge");
     switch (op){
-    case LV_DELETE:
+    case CO_DELETE:
 	break;
-    case LV_SET: 
+    case CO_ADD: 
 	break;
-    case LV_MERGE:
+    case CO_CHANGE:
 	break;
     }
     retval = 0;
