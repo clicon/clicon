@@ -47,7 +47,7 @@ routing_commit(clicon_handle h,
 	       commit_data d)
 {
     if (op == CO_ADD)
-        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_target_key(d));
     return 0;
 }
 
@@ -58,7 +58,7 @@ routing_validate(clicon_handle h,
 		 commit_data d)
 {
     if (op == CO_ADD)
-        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_target_key(d));
     return 0;
 }
 

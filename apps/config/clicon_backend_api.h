@@ -30,12 +30,12 @@
  * Commit data accessors
  */
 typedef void *commit_data;
-char *commit_db1(commit_data d);
-char *commit_db2(commit_data d);
-char *commit_key1(commit_data d);
-char *commit_key2(commit_data d);
-cvec *commit_vec1(commit_data d);
-cvec *commit_vec2(commit_data d);
+char *commit_source_db(commit_data d);
+char *commit_target_db(commit_data d);
+char *commit_source_key(commit_data d);
+char *commit_target_key(commit_data d);
+cvec *commit_source_vec(commit_data d);
+cvec *commit_target_vec(commit_data d);
 void *commit_arg(commit_data d);
 
 /*

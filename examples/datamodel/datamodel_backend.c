@@ -45,8 +45,8 @@ int
 datamodel_commit(clicon_handle h, commit_op op, commit_data d)
 {
     if (op == CO_ADD) {
-        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
-	cvec_print(stdout, commit_vec2(d));
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_target_key(d));
+	cvec_print(stdout, commit_target_vec(d));
     }
     return 0;
 }
@@ -56,7 +56,7 @@ int
 datamodel_validate(clicon_handle h, commit_op op, commit_data d)
 {
     if (op == CO_ADD)
-        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_key2(d));
+        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_target_key(d));
     return 0;
 }
 

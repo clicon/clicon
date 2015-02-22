@@ -170,7 +170,7 @@ hello_validate(clicon_handle h,
 
     if (op ==  CO_DELETE)
 	return 0;
-    key = commit_key1(d);
+    key = commit_source_key(d);
     dbspec = clicon_dbspec_key(h);
     if (key2spec_key(dbspec, key) == NULL){
 	clicon_log(LOG_ERR, "%s: %s not found in database spec\n",

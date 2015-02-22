@@ -75,10 +75,8 @@ static char *ntp_fmt =
  */
 int
 ntp_commit(clicon_handle h, 
-	   char *db,
-	    lv_op_t op,
-	    char *key,
-	    void *arg)
+	   commit_op op, 
+	   commit_data d)
 {
     fprintf(stderr, "%s\n", __FUNCTION__);    
     ntp_reload = 1; /* Mark NTP config as changed */

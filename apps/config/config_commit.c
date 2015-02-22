@@ -64,12 +64,15 @@
  * The routine logs on debug.
  * It also checks whether an error was properly registered using clicon_err().
  * Arguments:
- * @param  db:   The database which contains the key value, most relevant in a set operation
- *         but may possibly in some cases be important in delete operations, although
- *         I cannot think of any,..
- * @param  key:  The name of the key in the database above.
- * @param  op:   Either set or delete
- * @param  dep:  plugin dependency information. Contains function and argument pointers.
+ * @param  h          Clicon handle
+ * @param  op         Operation: ADD,DELETE,CHANGE
+ * @param  source_db  The database containing the original state
+ * @param  target_db  The database containing the wanted state
+ * @param  source_key The key in the source db. Only if OP = CO_DELETE, CO_CHANGE
+ * @param  target_key The key in the target db. Only if OP = CO_ADD, CO_CHANGE
+ * @param  source_vec Cligen variable vector for source key (if defined)
+ * @param  target_vec Cligen variable vector for target key (if defined)
+ * @param  dp:        plugin dependency information with function and argument pointers.
  *
  * Returns:
  * @retval  0: OK
@@ -80,12 +83,12 @@
 static int
 plugin_commit_callback(clicon_handle h,
 		       commit_op op,
-		       char *db1,
-		       char *db2,
-		       char *key1,
-		       char *key2,
-		       cvec *vec1,
-		       cvec *vec2,
+		       char *source_db,
+		       char *target_db,
+		       char *source_key,
+		       char *target_key,
+		       cvec *source_vec,
+		       cvec *target_vec,
 		       dbdep_t *dp)
 {
     int retval = -1;
@@ -94,17 +97,17 @@ plugin_commit_callback(clicon_handle h,
 
     clicon_debug(2, "commit diff %c%s",
 		 (op==CO_ADD)?'+':'-',
-		 (op==CO_ADD) ? key2 : key1);
+		 (op==CO_ADD) ? target_key : source_key);
     clicon_err_reset();
 
     /* populate commit data */
     memset(&d, 0, sizeof(d));
-    d.db1 = db1;
-    d.db2 = db2;
-    d.key1 = key1;
-    d.key2 = key2;
-    d.vec1 = vec1;
-    d.vec2 = vec2;
+    d.source_db = source_db;
+    d.target_db = target_db;
+    d.source_key = source_key;
+    d.target_key = target_key;
+    d.source_vec = source_vec;
+    d.target_vec = target_vec;
     d.arg = dp->dp_arg;
 
 
@@ -113,7 +116,7 @@ plugin_commit_callback(clicon_handle h,
 	    clicon_log(LOG_NOTICE, "%s: key: %c%s: callback does not make clicon_err call on error",
 		       __FUNCTION__,
 		       (op==CO_ADD)?'+':'-',
-		       (op==CO_ADD) ? key2 : key1);
+		       (op==CO_ADD) ? target_key : source_key);
 	goto done;
     }
     retval = 0;
