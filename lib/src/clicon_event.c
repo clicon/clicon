@@ -236,7 +236,7 @@ event_loop(void)
 {
     struct event_data *e, *e_next;
     int n;
-    struct timeval t, t0;
+    struct timeval t, t0, tnull={0,};
     fd_set fdset;
     int retval = -1;
 
@@ -245,12 +245,11 @@ event_loop(void)
 	for (e=ee; e; e=e->e_next)
 	    if (e->e_type == EVENT_FD)
 		FD_SET(e->e_fd, &fdset);
-
 	if (ee_timers != NULL){
 	    gettimeofday(&t0, NULL);
 	    timersub(&ee_timers->e_time, &t0, &t); 
 	    if (t.tv_sec < 0)
-		n = 0;
+		n = select(FD_SETSIZE, &fdset, NULL, NULL, &tnull); 
 	    else
 		n = select(FD_SETSIZE, &fdset, NULL, NULL, &t); 
 	}
@@ -283,7 +282,7 @@ event_loop(void)
 	for (e=ee; e; e=e_next){
 	    e_next = e->e_next;
 	    if(e->e_type == EVENT_FD && FD_ISSET(e->e_fd, &fdset)){
-		clicon_debug(2, "%s: socket: %s[%x]", 
+		clicon_debug(2, "%s: FD_ISSET: %s[%x]", 
 			__FUNCTION__, e->e_string, e->e_arg);
 		if ((*e->e_fn)(e->e_fd, e->e_arg) < 0)
 		    goto err;
