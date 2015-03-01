@@ -16,8 +16,10 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-R3.0.0 January 2015
-===================
+- fixed error in event-loop if timers are used: events before now caused hanging
+
+R3.0.0 23 February 2015
+=======================
 This is a new major CLICON release. 
 The changes from previous versions are too numerous to document.
 Major recent additions are:

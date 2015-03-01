@@ -443,7 +443,15 @@ dbpairs2xml(struct db_pair *pairs,
  * @param[in]  toptag    The XML tree returned will have this top XML tag
  * retval      xt        XML parse tree, free with xml_free()
  * retval      NULL      on error
- *
+ * @code
+ *  char       *dbname = clicon_candidate_db(h);
+ *  dbspec_key *dbspec = clicon_dbspec_key(h);;
+ *  cxobj      *x;
+ *  if ((x = db2xml_key(dbname, dbspec, "^symbol.*$", "clicon")) == NULL) 
+ *     goto done;
+ *  # do stuff
+ *  xml_free(x);
+ * @endcode
  * dont work:
  * system.hostname (only hostname)
  * inet.address (only hostname)
@@ -545,7 +553,7 @@ xml2db_transform_key(cxobj       *xn,
     cg_var           *v;           /* single variable */
     int               retval = -1; 
     cvec             *vh1 = NULL;           
-    cg_var           *cv;
+    cg_var           *cv = NULL;
     int               index;
     int               len;
     char             *k;

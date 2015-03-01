@@ -307,6 +307,10 @@ ys_dup(yang_stmt *old)
 
     if ((new = ys_new(old->ys_keyword)) == NULL)
 	return NULL;
+    if (new->ys_cvec){
+	cvec_free(new->ys_cvec);
+	new->ys_cvec = NULL;
+    }
     if (ys_cp(new, old) < 0){
 	ys_free(new);
 	return NULL;
@@ -847,9 +851,9 @@ ys_populate(yang_stmt *ys, void *arg)
  * @retval -1  Error, with clicon_err called
  */
 static int
-ys_grouping_resolve(yang_stmt *ys, 
-		    char *prefix, 
-		    char *name,
+ys_grouping_resolve(yang_stmt  *ys, 
+		    char       *prefix, 
+		    char       *name,
 		    yang_stmt **ygrouping0)
 {
     int             retval = -1;
@@ -921,6 +925,8 @@ yang_expand(yang_node *yn, const char *module)
 	    prefix  = ytype_prefix(ys); /* And this its prefix */
 	    if (ys_grouping_resolve(ys, prefix, name, &ygrouping) < 0)
 		goto done;
+	    if (prefix)
+		free(prefix); 
 	    if (ygrouping == NULL){
 		clicon_log(LOG_NOTICE, "%s: Yang error in %s: grouping \"%s\" not found", 
 			   __FUNCTION__, module, ys->ys_argument);
@@ -940,7 +946,10 @@ yang_expand(yang_node *yn, const char *module)
 	     * First enlarge parent vector 
 	     */
 	    glen = ygrouping->ys_len;
-	    /* Is there a case when glen == 0? */
+	    /* 
+	     * yn is parent: the children of ygrouping replaces ys.
+	     * Is there a case when glen == 0? 
+	     */
 	    if (glen > 1){
 		size = (yn->yn_len - i - 1)*sizeof(struct yang_stmt *);
 		yn->yn_len += glen - 1;
@@ -961,8 +970,6 @@ yang_expand(yang_node *yn, const char *module)
 		yn->yn_stmt[i+j] = yg;
 		yg->ys_parent = yn;
 	    }
-	    for (j=0; j<yn->yn_len; j++)
-		assert(yn->yn_stmt[j]);
 	    /* XXX: refine */
 	    /* Remove 'uses' node */
 	    ys_free(ys);
@@ -1252,8 +1259,16 @@ yang_parse(clicon_handle h,
     /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
     /* Step 2: Macro expansion of all grouping/uses pairs. Expansion needs marking */
+    if (debug > 1){
+	fprintf(stderr, "%s BEFORE\n", __FUNCTION__);
+	yang_print(stderr, (yang_node*)ysp, 0);
+    }
     if (yang_expand((yang_node*)ysp, module) < 0)
 	goto done;
+    if (debug > 1){
+	fprintf(stderr, "%s AFTER\n", __FUNCTION__);
+	yang_print(stderr, (yang_node*)ysp, 0);
+    }
     yang_apply((yang_node*)ys, ys_flag_reset, (void*)YANG_FLAG_MARK);
     //        yang_print(stderr, (yang_node*)ysp, 0);
     /* Step 3: Go through parse tree and populate it with cv types */

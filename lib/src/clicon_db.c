@@ -43,7 +43,7 @@
 #include "clicon_yang.h"
 #include "clicon_dbutil.h"
 
-
+#define align4(s) (((s)/4)*4 + 4) /* to avoid warnings in valgrind memory check */
 
 /*! Search for key in database and return a vector of cligen variables.
  *
@@ -371,7 +371,7 @@ clicon_dbkeys(char *db, size_t *len, char *rx)
     }
 
     buflen = (nkeys+1) * sizeof(char *) + keylen;
-    if ((keys = malloc(buflen)) == NULL) {
+    if ((keys = malloc(align4(buflen))) == NULL) {
 	clicon_err(OE_UNIX, errno, "%s: malloc", __FUNCTION__);
 	goto quit;
     }
