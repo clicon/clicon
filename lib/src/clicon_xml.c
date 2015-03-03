@@ -674,9 +674,10 @@ xml_parse(char **str, cxobj *x_up)
 	goto done;
     if (clicon_xml_parseparse(&ya) != 0)  /* yacc returns 1 on error */
 	goto done;
-    clicon_xml_parsel_exit(&ya);
+
     retval = 0;
   done:
+    clicon_xml_parsel_exit(&ya);
     if(ya.ya_parse_string != NULL)
 	free(ya.ya_parse_string);
     return retval; 
