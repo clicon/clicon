@@ -141,8 +141,9 @@ config_socket_init(clicon_handle h)
 int
 config_accept_client(int fd, void *arg)
 {
+    int           retval = -1;
     clicon_handle h = (clicon_handle)arg;
-    int s;
+    int           s;
     struct sockaddr_un from;
     socklen_t     len;
     struct client_entry *ce;
@@ -161,19 +162,18 @@ config_accept_client(int fd, void *arg)
     len = sizeof(from);
     if ((s = accept(fd, (struct sockaddr*)&from, &len)) < 0){
 	clicon_err(OE_UNIX, errno, "%s: accept", __FUNCTION__);
-	return -1;
+	goto done;
     }
-
 #if defined(SO_PEERCRED)
     /* fill in the user data structure */
     clen =  sizeof(credentials);
     if(getsockopt(s, SOL_SOCKET, SO_PEERCRED/* XXX finns ej i freebsd*/, &credentials, &clen)){
 	clicon_err(OE_UNIX, errno, "%s: getsockopt", __FUNCTION__);
-	return 1;
+	goto done;
     }
 #endif   
     if ((ce = backend_client_add(h, (struct sockaddr*)&from)) == NULL)
-	return -1;
+	goto done;
 #if defined(SO_PEERCRED)
     ce->ce_pid = credentials.pid;
     ce->ce_uid = credentials.uid;
@@ -183,7 +183,7 @@ config_accept_client(int fd, void *arg)
     /* check credentials of caller (not properly implemented yet) */
     if ((config_group = clicon_sock_group(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "clicon_sock_group option not set");
-	return -1;
+	goto done;
     }
     if ((gr = getgrnam(config_group)) != NULL){
 	i = 0; /* one of mem should correspond to ce->ce_uid */
@@ -206,9 +206,10 @@ config_accept_client(int fd, void *arg)
      * Here we register callbacks for actual data socket 
      */
     if (event_reg_fd(s, from_client, (void*)ce, "client socket") < 0)
-	return -1;
-
-    return 0;
+	goto done;
+    retval = 0;
+ done:
+    return retval;
 }
 
 

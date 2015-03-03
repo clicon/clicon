@@ -280,6 +280,8 @@ event_loop(void)
 	    unchunk(e);
 	}
 	for (e=ee; e; e=e_next){
+	    if (clicon_exit_get())
+		break;
 	    e_next = e->e_next;
 	    if(e->e_type == EVENT_FD && FD_ISSET(e->e_fd, &fdset)){
 		clicon_debug(2, "%s: FD_ISSET: %s[%x]", 

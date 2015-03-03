@@ -412,6 +412,7 @@ quit:
  * @param   db     Name of database to search in (filename including dir path)
  * @param   len    Pointer where length of returned list is stored.
  * @param   rx     Regular expression for key matching
+ * @retval  items  Vector of cvecs. Free with clicon_dbitems_free()
  */
 cvec **
 clicon_dbitems(char *db, size_t *len, char *rx)

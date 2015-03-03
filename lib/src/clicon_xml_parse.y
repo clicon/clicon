@@ -61,7 +61,7 @@
 void 
 clicon_xml_parseerror(void *_ya, char *s) 
 { 
-  clicon_err(OE_XML, 0, "line %d: %s: at or before: %s", 
+  clicon_err(OE_XML, 0, "xml_parse: line %d: %s: at or before: %s", 
 	      _YA->ya_linenum, s, clicon_xml_parsetext); 
   return;
 }
