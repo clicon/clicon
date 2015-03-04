@@ -342,9 +342,12 @@ db_regexp(char *file,
 	memset (pair, 0, sizeof(*pair));
 	
 	pair->dp_key = chunk_sprintf(label, "%s", key);
-	pair->dp_matched = chunk_sprintf(label, "%.*s",
-					 pmatch[0].rm_eo - pmatch[0].rm_so,
-					 key + pmatch[0].rm_so);
+	if (regexp)
+	    pair->dp_matched = chunk_sprintf(label, "%.*s",
+					     pmatch[0].rm_eo - pmatch[0].rm_so,
+					     key + pmatch[0].rm_so);
+	else
+	    pair->dp_matched = chunk_sprintf(label, "%s", key);
 	if (pair->dp_key == NULL || pair->dp_matched == NULL) {
 	    clicon_err(OE_DB, errno, "%s: chunk_sprintf");
 	    goto quit;
