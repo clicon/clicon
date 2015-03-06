@@ -457,7 +457,7 @@ yang_find_xpath(yang_node *yn, char *argument)
 static int
 ys_flag_reset(yang_stmt *ys, void *arg)
 {
-    int flags = (int)arg;
+    int flags = (intptr_t)arg;
 
     ys->ys_flags |= ~flags;
     return 0;

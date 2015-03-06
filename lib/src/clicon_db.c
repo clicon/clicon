@@ -413,6 +413,16 @@ quit:
  * @param   len    Pointer where length of returned list is stored.
  * @param   rx     Regular expression for key matching
  * @retval  items  Vector of cvecs. Free with clicon_dbitems_free()
+ * @code
+ *  cvec **items;
+ * if ((items = clicon_dbitems(resultdb, &nkeys, keypattern)) ==  NULL)
+ *    goto err;
+ * for (i=0; i<nkeys; i++){
+ *    item = items[i];
+ *    ... do stuff ...
+ * }
+ * clicon_dbitems_free(items);
+ * @endcode
  */
 cvec **
 clicon_dbitems(char *db, size_t *len, char *rx)

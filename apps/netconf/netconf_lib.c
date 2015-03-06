@@ -148,15 +148,13 @@ add_error_postamble(cbuf *xf)
     return 0;
 }
 
-/*
- * detect_endtag
- * Args:
- *  ch - input character
- *  state - a state integer holding how far we have parsed.
- *  transport - soap or ssh?
- * Return value:
- *  0 - No, we havent detected end tag
- *  1 - Yes, we have detected end tag!
+/*! Look for a text pattern in an input string, one char at a time
+ *  @param[in]     tag     What to look for
+ *  @param[in]     ch      New input character
+ *  @param[in,out] state   A state integer holding how far we have parsed.
+ *  @retval        0       No, we havent detected end tag
+ *  @retval        1       Yes, we have detected end tag!
+ * XXX: move to clicon_xml?
  */
 int
 detect_endtag(char *tag, char ch, int *state)
