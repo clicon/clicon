@@ -1,8 +1,9 @@
 CLICON
 ======
 
-CLICON is an automatic configuration manager including CLI
-generation, transaction support, YANG, NETCONF and embedded databases.
+CLICON is an automatic configuration manager where you from a YANG
+specification generate interactive CLI, NETCONF and embedded
+databases with transaction support.
 
 Presentations and tutorial is found on the [CLICON project
 page](http://www.clicon.org)

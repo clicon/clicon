@@ -2166,13 +2166,13 @@ ac_config_headers="$ac_config_headers include/clicon_config.h"
 
 CLICON_VERSION_MAJOR="3"
 CLICON_VERSION_MINOR="0"
-CLICON_VERSION_PATCH="0"
+CLICON_VERSION_PATCH="1"
 CLICON_VERSION="${CLICON_VERSION_MAJOR}.${CLICON_VERSION_MINOR}.${CLICON_VERSION_PATCH}"
 # Fix to specific version (eg 3.5) or head (3)
 CLIGEN_VERSION="3.5"
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: CLICON version is ${CLICON_VERSION}_PRE3" >&5
-$as_echo "CLICON version is ${CLICON_VERSION}_PRE3" >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: CLICON version is ${CLICON_VERSION}_PRE1" >&5
+$as_echo "CLICON version is ${CLICON_VERSION}_PRE1" >&6; }
 
 ac_aux_dir=
 for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do

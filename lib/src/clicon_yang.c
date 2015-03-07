@@ -601,7 +601,7 @@ yang_print(FILE *f, yang_node *yn, int marginal)
 }
 
 
-/*! Populate yang leafs after first round of parsing. Create a cv and fill it in.
+/*! Populate yang leafs in third round after parsing. Create cv and fill it in.
  *
  * Populate leaf in 2nd round of yang parsing, now that context is complete:
  * 1. Find type specification and set cv type accordingly 
@@ -794,6 +794,7 @@ static int
 ys_populate_type(yang_stmt *ys, void *arg)
 {
     int             retval = -1;
+    yang_stmt      *ybase;
 
     if (strcmp(ys->ys_argument, "decimal64") == 0){
 	if (yang_find((yang_node*)ys, Y_FRACTION_DIGITS, NULL) == NULL){
@@ -801,10 +802,42 @@ ys_populate_type(yang_stmt *ys, void *arg)
 	    goto done;
 	}
     }
+    if (strcmp(ys->ys_argument, "identityref") == 0){
+	if ((ybase = yang_find((yang_node*)ys, Y_BASE, NULL)) == NULL){
+	    clicon_err(OE_YANG, 0, "identityref type requires base sub-statement");
+	    goto done;
+	}
+	if ((yang_find_identity(ys, ybase->ys_argument)) == NULL){
+	    clicon_err(OE_YANG, 0, "Identity %s not found (base type of %s)",
+		       ybase->ys_argument, ys->ys_argument);
+	    goto done;
+	}
+    }
     retval = 0;
   done:
     return retval;
 }
+
+/*! Sanity check yang type statement
+ */
+static int
+ys_populate_identity(yang_stmt *ys, void *arg)
+{
+    int             retval = -1;
+    yang_stmt      *ybase;
+
+    if ((ybase = yang_find((yang_node*)ys, Y_BASE, NULL)) == NULL)
+	return 0;
+    if ((yang_find_identity(ys, ybase->ys_argument)) == NULL){
+	clicon_err(OE_YANG, 0, "Identity %s not found (base type of %s)",
+		   ybase->ys_argument, ys->ys_argument);
+	goto done;
+    }
+    retval = 0;
+  done:
+    return retval;
+}
+
 
 /*! Populate with cligen-variables, default values, etc. Sanity checks on complete tree.
  *
@@ -835,6 +868,10 @@ ys_populate(yang_stmt *ys, void *arg)
 	break;
     case Y_TYPE:
 	if (ys_populate_type(ys, arg) < 0)
+	    goto done;
+	break;
+    case Y_IDENTITY:
+	if (ys_populate_identity(ys, arg) < 0)
 	    goto done;
 	break;
     default:
