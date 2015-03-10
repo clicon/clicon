@@ -429,26 +429,32 @@ yang_find_specnode(yang_node *yn, char *argument)
  * That is, basic syntax nodes.
  * @see yang_find_specnode # Maybe this is the same as specnode?
  */
-static yang_node *
-yang_find_xpath(yang_node *yn, char *argument)
+static yang_stmt *
+yang_find_xpath_stmt(yang_node *yn, char *argument)
 {
-    yang_node *ys = NULL;
+    yang_stmt *ys = NULL;
     int i;
     int match = 0;
 
     for (i=0; i<yn->yn_len; i++){
-	ys = (yang_node*)yn->yn_stmt[i];
-	if (ys->yn_keyword == Y_CONTAINER || ys->yn_keyword == Y_LEAF || 
-	    ys->yn_keyword == Y_LIST || ys->yn_keyword == Y_LEAF_LIST ||
-	    ys->yn_keyword == Y_MODULE || ys->yn_keyword == Y_SUBMODULE){
-	    if (argument == NULL)
+	ys = yn->yn_stmt[i];
+	/* some keys dont have arguments, match on key */
+	if (ys->ys_keyword == Y_INPUT || ys->ys_keyword == Y_OUTPUT){
+	    if (strcmp(argument, yang_key2str(ys->ys_keyword)) == 0)
 		match++;
-	    else
-		if (ys->yn_argument && strcmp(argument, ys->yn_argument) == 0)
-		    match++;
-	    if (match)
-		break;
-	    }
+	}
+        else
+	if (ys->ys_keyword == Y_CONTAINER || ys->ys_keyword == Y_LEAF || 
+	    ys->ys_keyword == Y_LIST   || ys->ys_keyword == Y_LEAF_LIST ||
+	    ys->ys_keyword == Y_MODULE || ys->ys_keyword == Y_SUBMODULE ||
+	    ys->ys_keyword == Y_RPC    || ys->ys_keyword == Y_CHOICE ||
+	    ys->ys_keyword == Y_CASE
+	    ){
+	    if (ys->ys_argument && strcmp(argument, ys->ys_argument) == 0)
+		match++;
+	}
+	if (match)
+	    break;
     }
     return match ? ys : NULL;
 }
@@ -463,7 +469,7 @@ ys_flag_reset(yang_stmt *ys, void *arg)
     return 0;
 }
 
-/* RFC 6020 keywords mapping.
+/*! Translate from RFC 6020 keywords to printable string.
    linear search,...
  */
 char *
@@ -477,9 +483,13 @@ yang_key2str(int keyword)
     return NULL;
 }
 
-/*! Find top of tree: module or sub-module */
+/*! Find top module or sub-module. Note that ultimate top is yang spec 
+ * @param[in] ys    Any yang statement in a yang tree
+ * @retval    ymod  The top module or sub-module 
+ * @see ys_spec
+ */
 yang_stmt *
-ys_top(yang_stmt *ys)
+ys_module(yang_stmt *ys)
 {
     yang_node *yn;
 
@@ -491,10 +501,14 @@ ys_top(yang_stmt *ys)
 	ys = (yang_stmt*)yn;
     }
     /* Here it is either NULL or is a typedef-kind yang-stmt */
-    return (yang_stmt*)ys;
+    return ys;
 }
 
-/* find top of tree: specification */
+/*! Find top of tree, the yang specification 
+ * @param[in] ys    Any yang statement in a yang tree
+ * @retval    yspec The top yang specification
+ * @see  ys_module
+ */
 yang_spec *
 ys_spec(yang_stmt *ys)
 {
@@ -544,15 +558,18 @@ ytype_prefix(yang_stmt *ys)
 }
 
 
+/*! Given a module and a prefix, find the import statement fo that prefix
+ * Note, not the other module but the proxy import statement only
+ * @param[in]  ytop  yang module
+ */
 yang_stmt *
-ys_prefix2import(yang_stmt *ys, char *prefix)
+ys_module_import(yang_stmt *ymod, char *prefix)
 {
-    yang_stmt *ytop;
     yang_stmt *yimport = NULL;
     yang_stmt *yprefix;
 
-    ytop      = ys_top(ys);
-    while ((yimport = yn_each((yang_node*)ytop, yimport)) != NULL) {
+    assert(ymod->ys_keyword == Y_MODULE || ymod->ys_keyword == Y_SUBMODULE);
+    while ((yimport = yn_each((yang_node*)ymod, yimport)) != NULL) {
 	if (yimport->ys_keyword != Y_IMPORT)
 	    continue;
 	if ((yprefix = yang_find((yang_node*)yimport, Y_PREFIX, NULL)) != NULL &&
@@ -601,7 +618,7 @@ yang_print(FILE *f, yang_node *yn, int marginal)
 }
 
 
-/*! Populate yang leafs in third round after parsing. Create cv and fill it in.
+/*! Populate yang leafs after parsing. Create cv and fill it in.
  *
  * Populate leaf in 2nd round of yang parsing, now that context is complete:
  * 1. Find type specification and set cv type accordingly 
@@ -802,6 +819,7 @@ ys_populate_type(yang_stmt *ys, void *arg)
 	    goto done;
 	}
     }
+    else
     if (strcmp(ys->ys_argument, "identityref") == 0){
 	if ((ybase = yang_find((yang_node*)ys, Y_BASE, NULL)) == NULL){
 	    clicon_err(OE_YANG, 0, "identityref type requires base sub-statement");
@@ -812,6 +830,21 @@ ys_populate_type(yang_stmt *ys, void *arg)
 		       ybase->ys_argument, ys->ys_argument);
 	    goto done;
 	}
+    }
+    else
+    if (strcmp(ys->ys_argument, "leafref") == 0){
+#ifdef notyet /* XXX: Do augment first */
+	yang_stmt      *ypath;
+	if ((ypath = yang_find((yang_node*)ys, Y_PATH, NULL)) == NULL){
+	    clicon_err(OE_YANG, 0, "leafref type requires path sub-statement");
+	    goto done;
+	}
+	if (yang_xpath((yang_node*)ys, ypath->ys_argument) == NULL){
+	    clicon_err(OE_YANG, 0, "Leafref path %s not found",
+		       ypath->ys_argument);
+	    goto done;
+	}
+#endif
     }
     retval = 0;
   done:
@@ -899,10 +932,12 @@ ys_grouping_resolve(yang_stmt  *ys,
     yang_stmt      *ymodule;
     yang_stmt      *ygrouping = NULL;
     yang_node      *yn;
+    yang_stmt      *ymod;
 
     /* find the grouping associated with argument and expand(?) */
     if (prefix){ /* Go to top and find import that matches */
-	if ((yimport = ys_prefix2import(ys, prefix)) == NULL){
+	ymod      = ys_module(ys);
+	if ((yimport = ys_module_import(ymod, prefix)) == NULL){
 	    clicon_err(OE_DB, 0, "Prefix %s not defined not found", prefix);
 	    goto done;
 	}
@@ -927,6 +962,73 @@ ys_grouping_resolve(yang_stmt  *ys,
     return retval;
 }
 
+/*! This is an augment node, augment the original datamodel. 
+  The target node MUST be either a container, list, choice, case, input,
+  output, or notification node.
+  If the "augment" statement is on the top level the absolute form MUST be used.
+  XXX: Destructuvely changing a datamodel may affect outlying loop?
+ */
+static int
+yang_augment_node(yang_stmt *ys, yang_spec *ysp)
+{
+    int        retval = -1;
+    char      *path;
+    yang_node *yn;
+    yang_stmt *yc;
+    int        i;
+
+    path = ys->ys_argument;
+    clicon_debug(1, "%s %s", __FUNCTION__, path);
+
+    /* Find the target */
+    if ((yn = yang_xpath_abs((yang_node*)ys, path)) == NULL){
+	clicon_err(OE_YANG, 0, "Augment path %s not found",  path);
+	//	retval = 0; /* Ignore, continue */
+	goto done;
+    }
+    /* Extend yn with ys' children
+     * First enlarge yn vector 
+     */
+    for (i=0; i<ys->ys_len; i++){
+	if ((yc = ys_dup(ys->ys_stmt[i])) == NULL)
+	    goto done;
+	/* XXX: use prefix of origin */
+	if (yn_insert(yn, yc) < 0)
+	    goto done;
+    }
+    retval = 0;
+ done:
+    return retval;
+}
+
+/*! Find all top-level augments and change original datamodels. */
+static int
+yang_augment_spec(yang_spec *ysp)
+{
+    int        retval = -1;
+    yang_stmt *ym;
+    yang_stmt *ys;
+    int        i;
+    int        j;
+
+    i = 0;
+    while (i<ysp->yp_len){ /* Loop through modules and sub-modules */
+	ym = ysp->yp_stmt[i++];
+	j = 0;
+	while (j<ym->ys_len){ /* Top-level symbols in modules */
+	    ys = ym->ys_stmt[j++];
+	    if (ys->ys_keyword != Y_AUGMENT)
+		continue;
+	    if (yang_augment_node(ys, ysp) < 0)
+		goto done;
+	}
+    }
+    retval = 0;
+ done:
+    return retval;
+}
+
+
 /*! Macro expansion of grouping/uses done in step 2 of yang parsing 
   NOTE
   RFC6020 says this:
@@ -938,7 +1040,7 @@ ys_grouping_resolve(yang_stmt  *ys,
   macro-expand them
 */
 static int
-yang_expand(yang_node *yn, const char *module)
+yang_expand(yang_node *yn)
 {
     int        retval = -1;
     yang_stmt *ys = NULL;
@@ -965,8 +1067,8 @@ yang_expand(yang_node *yn, const char *module)
 	    if (prefix)
 		free(prefix); 
 	    if (ygrouping == NULL){
-		clicon_log(LOG_NOTICE, "%s: Yang error in %s: grouping \"%s\" not found", 
-			   __FUNCTION__, module, ys->ys_argument);
+		clicon_log(LOG_NOTICE, "%s: Yang error : grouping \"%s\" not found", 
+			   __FUNCTION__, ys->ys_argument);
 		retval = 0;
 		goto done;
 		break;
@@ -975,7 +1077,7 @@ yang_expand(yang_node *yn, const char *module)
 	       If not, this needs to be done before we can insert it into
 	       the 'uses' place */
 	    if ((ygrouping->ys_flags & YANG_FLAG_MARK) == 0){ 
-		if (yang_expand((yang_node*)ygrouping, module) < 0)
+		if (yang_expand((yang_node*)ygrouping) < 0)
 		    goto done;
 		ygrouping->ys_flags |= YANG_FLAG_MARK; /* Mark as expanded */
 	    }
@@ -1019,7 +1121,7 @@ yang_expand(yang_node *yn, const char *module)
     /* Second pass since length may have changed */
     for (i=0; i<yn->yn_len; i++){
 	ys = yn->yn_stmt[i];
-	if (yang_expand((yang_node*)ys, module) < 0)
+	if (yang_expand((yang_node*)ys) < 0)
 	    goto done;
     }
     retval = 0;
@@ -1295,22 +1397,20 @@ yang_parse(clicon_handle h,
 	goto done;
     /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
+
     /* Step 2: Macro expansion of all grouping/uses pairs. Expansion needs marking */
-    if (debug > 1){
-	fprintf(stderr, "%s BEFORE\n", __FUNCTION__);
-	yang_print(stderr, (yang_node*)ysp, 0);
-    }
-    if (yang_expand((yang_node*)ysp, module) < 0)
+    if (yang_expand((yang_node*)ysp) < 0)
 	goto done;
-    if (debug > 1){
-	fprintf(stderr, "%s AFTER\n", __FUNCTION__);
-	yang_print(stderr, (yang_node*)ysp, 0);
-    }
     yang_apply((yang_node*)ys, ys_flag_reset, (void*)YANG_FLAG_MARK);
-    //        yang_print(stderr, (yang_node*)ysp, 0);
-    /* Step 3: Go through parse tree and populate it with cv types */
+
+    /* Step 4: Go through parse tree and populate it with cv types */
     if (yang_apply((yang_node*)ysp, ys_populate, NULL) < 0)
 	goto done;
+
+    /* Step 3: Top-level augmentation of all modules */
+    if (yang_augment_spec(ysp) < 0)
+	goto done;
+
     retval = 0;
   done:
     return retval;
@@ -1435,13 +1535,15 @@ dbkey2yang(yang_node *yn, char *dbkey)
     return ys;
 }
 
-/*! All the work for yang_xpath */
+/*! All the work for yang_xpath. 
+  Ignore prefixes, see _abs */
 static yang_node *
 yang_xpath_vec(yang_node *yn, char **vec, int nvec)
 {
     char            *arg;
-    yang_node       *ys;
+    yang_stmt       *ys;
     yang_node       *yret = NULL;
+    char            *id;
 
     if (nvec <= 0)
 	goto done;
@@ -1449,13 +1551,18 @@ yang_xpath_vec(yang_node *yn, char **vec, int nvec)
     clicon_debug(2, "%s: key=%s arg=%s match=%s len=%d",
 	    __FUNCTION__, yang_key2str(yn->yn_keyword), yn->yn_argument, 
 	    arg, yn->yn_len);
-    if (strcmp(arg, "..") == 0){
-	yret = yn->yn_parent;
-	goto done;
-    }
-    if ((ys = yang_find_xpath(yn, arg)) == NULL){
-	yret = (yang_node*)ys;
-	goto done;
+    if (strcmp(arg, "..") == 0)
+	ys = (yang_stmt*)yn->yn_parent;
+    else{
+	/* ignore prefixes */
+	if ((id = strchr(arg, ':')) == NULL)
+	    id = arg;
+	else
+	    id++;
+	if ((ys = yang_find_xpath_stmt(yn, id)) == NULL){
+	    clicon_debug(0, "%s %s not found", __FUNCTION__, id);
+	    goto done;
+	}
     }
     if (nvec == 1){
 	yret = (yang_node*)ys;
@@ -1466,15 +1573,72 @@ yang_xpath_vec(yang_node *yn, char **vec, int nvec)
     return yret;
 }
 
-/*! Given an xpath (eg /a/b/c) find matching yang specification
+/*! Given an absolute xpath (eg /a/b/c) find matching yang specification  */
+yang_node *
+yang_xpath_abs(yang_node *yn, char *xpath)
+{
+    char           **vec;
+    int              nvec;
+    yang_node       *ys = NULL;
+    yang_stmt       *ymod;
+    yang_spec       *yspec;
+    yang_stmt       *yimport;
+    char            *id;
+    char            *prefix = NULL;
+
+    if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
+	return NULL;
+    }
+    /* Assume path looks like: "/prefix:id[/prefix:id]*" */
+    if (nvec < 2){
+	clicon_err(OE_YANG, 0, "%s: NULL or truncated path: %s", 
+		   __FUNCTION__, xpath);
+	goto done;
+    }
+    /* Check for absolute path */
+    if (strcmp(vec[0], "") != 0){
+	clicon_err(OE_YANG, errno, "%s: %s: expected absolute path",
+		   __FUNCTION__, vec[0]); 
+	goto done;
+    }
+    /* Find correct module */
+    ymod = ys_module((yang_stmt*)yn); /* This is current module */
+    /* split <prefix>:<id> */
+    if ((id = strchr(vec[1], ':')) == NULL)
+	id = vec[1];
+    else{ /* other module - peek into first element to find module */
+	if ((prefix = strdup(vec[1])) == NULL){
+	    clicon_err(OE_UNIX, errno, "%s: strdup", __FUNCTION__); 
+	    goto done;
+	}
+	prefix[id-vec[1]] = '\0';
+	id++;
+	if ((yimport = ys_module_import(ymod, prefix)) == NULL){
+	    clicon_err(OE_DB, 0, "Prefix %s not defined not found", prefix);
+	    goto done;
+	}
+	yspec = ys_spec(ymod);
+	if ((ymod = yang_find((yang_node*)yspec, Y_MODULE, yimport->ys_argument)) == NULL){
+	    clicon_err(OE_DB, 0, "Module referred to with prefix %s not found", prefix);
+	    goto done;
+	}
+    }
+    ys = yang_xpath_vec((yang_node*)ymod, vec+1, nvec-1);
+ done:
+    unchunk_group(__FUNCTION__);
+    if (prefix)
+	free(prefix);
+    return ys;
+}
+
+/*! Given an xpath (eg /a/b/c or a/b/c) find matching yang specification
  * @param[in]  yn     Yang node tree
  * @param[in]  xpath  A limited xpath expression on the type a/b/c
  * @retval     NULL   Error, with clicon_err called
  * @retval     ys     First yang node matching xpath
  * Note: the identifiers in the xpath (eg a, b in a/b) can match the nodes defined in
- * yang_find_xpath: container, leaf,list,leaf-list, modules, sub-modules
- * Note: Absolute paths are not supported.
- * Note: prefix not supported.
+ * yang_xpath: container, leaf,list,leaf-list, modules, sub-modules
  * Example:
  * yn : module m { prefix b; container b { list c { key d; leaf d; }} }
  * xpath = m/b/c, returns the list 'c'.
@@ -1486,14 +1650,21 @@ yang_xpath(yang_node *yn, char *xpath)
     int              nvec;
     yang_node       *ys;
 
+    /* check absolute path */
+    if (strlen(xpath) && xpath[0] == '/')
+	return yang_xpath_abs(yn, xpath);
     if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
 	return NULL;
     }
-    ys = yang_xpath_vec(yn, vec, nvec);
+    if (nvec <= 0)
+	ys = NULL;
+    else
+	ys = yang_xpath_vec((yang_node*)yn, vec, nvec);
     unchunk_group(__FUNCTION__);
     return ys;
 }
+
 
 /*! Parse argument as CV and save result in yang cv variable
  *

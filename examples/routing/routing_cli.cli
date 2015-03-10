@@ -4,6 +4,7 @@ CLICON_MODE="routing";
 CLICON_PROMPT="%U@%H> ";
 
 # Note, when switching to PT, change datamodel to only @datamodel
+#set @datamodel:ietf-routing@2014-10-26, cli_merge();
 set @datamodel:ietf-ipv4-unicast-routing@2014-10-26, cli_merge();
 delete("Delete a configuration item") @datamodel:ietf-ipv4-unicast-routing, cli_del();
 

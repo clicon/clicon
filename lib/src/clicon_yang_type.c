@@ -529,6 +529,7 @@ yang_find_identity(yang_stmt *ys, char *identity)
     yang_stmt   *ymodule;
     yang_stmt   *yid = NULL;
     yang_node   *yn;
+    yang_stmt   *ymod;
 
     if ((id = strchr(identity, ':')) == NULL)
 	id = identity;
@@ -539,7 +540,8 @@ yang_find_identity(yang_stmt *ys, char *identity)
     }
     /* No, now check if identityref is derived from base */
     if (prefix){ /* Go to top and find import that matches */
-	if ((yimport = ys_prefix2import(ys, prefix)) == NULL)
+	ymod = ys_module(ys);
+	if ((yimport = ys_module_import(ymod, prefix)) == NULL)
 	    goto done;
 	yspec = ys_spec(ys);
 	if ((ymodule = yang_find((yang_node*)yspec, Y_MODULE, yimport->ys_argument)) == NULL)
@@ -639,7 +641,7 @@ yang_type_resolve(yang_stmt   *ys,
     int          retval = -1;
     yang_node   *yn;
     yang_spec   *yspec;
-    yang_stmt   *ymodule;
+    yang_stmt   *ymod;
 
     if (options)
 	*options = 0x0;
@@ -660,14 +662,15 @@ yang_type_resolve(yang_stmt   *ys,
     }
     /* Not basic type. Now check if prefix which means we look in other module */
     if (prefix){ /* Go to top and find import that matches */
-	if ((yimport = ys_prefix2import(ys, prefix)) == NULL){
+	ymod = ys_module(ys);
+	if ((yimport = ys_module_import(ymod, prefix)) == NULL){
 	    clicon_err(OE_DB, 0, "Prefix %s not defined not found", prefix);
 	    goto done;
 	}
 	yspec = ys_spec(ys);
-	if ((ymodule = yang_find((yang_node*)yspec, Y_MODULE, yimport->ys_argument)) == NULL)
+	if ((ymod = yang_find((yang_node*)yspec, Y_MODULE, yimport->ys_argument)) == NULL)
 	    goto ok; /* unresolved */
-	if ((rytypedef = yang_find((yang_node*)ymodule, Y_TYPEDEF, type)) == NULL)
+	if ((rytypedef = yang_find((yang_node*)ymod, Y_TYPEDEF, type)) == NULL)
 	    goto ok; /* unresolved */
     }
     else

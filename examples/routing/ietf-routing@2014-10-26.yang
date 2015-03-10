@@ -14,6 +14,11 @@
        revision-date "2014-05-08";
      }
 
+     import ietf-inet-types {
+       prefix "inet";
+       revision-date "2013-07-15";
+     }
+
      organization
        "IETF NETMOD (NETCONF Data Modeling Language) Working Group";
 
@@ -736,7 +741,6 @@
      }
 
      /* Configuration Data */
-
      container routing {
        description
          "Configuration parameters for the routing subsystem.";
