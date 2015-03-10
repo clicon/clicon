@@ -97,7 +97,7 @@ validate_name(const char *name)
 	return 0;
 
     while (*(++name)) 
-	if (!isalnum(*name) && *name!='_')
+	if (!isalnum(*name) && *name!='_' && *name!='-')
 	    return 0;
 		
     return 1;
