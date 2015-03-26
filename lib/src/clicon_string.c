@@ -40,11 +40,21 @@
 #include "clicon_string.h"
 #include "clicon_err.h"
 
-/*
- * Splits a string into a vector of strings using the specified delimiters.
+/*! Split string into a vector based on character delimiters
+ *
+ * The given string is split into a vector where the delimiter can be
+ * any of the characters in the specified delimiter string. 
+ *
+ * See also clicon_strsplit() which is similar by operates on a full string
+ * delimiter rather than individual character delimiters.
+ *
  * The vector returned is one single memory chunk that must be unchunked 
  * by the caller
- * XXX: same as clicon_strsplit ?
+ *
+ * @param   string     String to be split
+ * @param   delim      String of delimiter characters
+ * @param   nvec       Number of entries in returned vector
+ * @param   label      Chunk label for returned vector
  */
 char **
 clicon_sepsplit (char *string, char *delim, int *nvec, const char *label)
@@ -78,17 +88,22 @@ clicon_sepsplit (char *string, char *delim, int *nvec, const char *label)
     return vec;
 }
 
-/*! Splits a string into a vector of strings using 'delim' as delimiter. 
+/*! Split string into a vector based on a string delimiter
+ *
+ * The given string is split into a vector where the delimited by the
+ * the full delimiter string. The matched delimiters are not part of the
+ * resulting vector.
+ *
+ * See also clicon_sepsplit() which is similar by operates on individual
+ * character delimiters rather then a full string delimiter.
+ *
  * The vector returned is one single memory chunk that must be unchunked 
  * by the caller
- * @code
- *  char **vec;
- *  int    nvec;
- *  vec = clicon_strsplit(mode, ":", &nvec, __FUNCTION__);
- *  for (i = 0; i < nvec; i++) 
- *      ... vec[i] ...
- *  unchunk_group(__FUNCTION__);
- * @endcode
+ *
+ * @param   string     String to be split
+ * @param   delim      String of delimiter characters
+ * @param   nvec       Number of entries in returned vector
+ * @param   label      Chunk label for returned vector
  */
 char **
 clicon_strsplit (char *string, char *delim, int *nvec, const char *label)
