@@ -2150,7 +2150,7 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 	} /* Now values just need to follow,... */
 	if (cvv== NULL)
 	    goto done;
-	xml2csv(stdout, xc, cvv); /* cli syntax */
+	xml2csv(stdout, xc, cvv); /* csv syntax */
     }
 
     retval = 0;

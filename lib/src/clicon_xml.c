@@ -565,7 +565,7 @@ xml_free(cxobj *x)
  * Uses clicon_xml2cbuf internally
  *
  * @param[in]   f           UNIX output stream
- * @param[in]   xn          xmlgen xml tree
+ * @param[in]   xn          clicon xml tree
  * @param[in]   level       how many spaces to insert before each line
  * @param[in]   prettyprint insert \n and spaces tomake the xml more readable.
  * See also clicon_xml2cbuf
@@ -595,7 +595,7 @@ clicon_xml2file(FILE *f, cxobj *xn, int level, int prettyprint)
 /*! Print an XML tree structure to a clicon buffer
  *
  * @param[in,out] cb          Clicon buffer to write to
- * @param[in]     xn          xmlgen xml tree
+ * @param[in]     xn          clicon xml tree
  * @param[in]     level       how many spaces to insert before each line
  * @param[in]     prettyprint insert \n and spaces tomake the xml more readable.
  *

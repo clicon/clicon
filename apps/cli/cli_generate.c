@@ -122,8 +122,28 @@ yang2cli_var_sub(clicon_handle h,
 	cprintf(cbuf, "(");
     cvtypestr = cv_type2str(cvtype);
     cprintf(cbuf, "<%s:%s", ys->ys_argument, cvtypestr);
+#if 0
+    if (type && (strcmp(type, "identityref") == 0)){
+	yang_stmt      *ybase;
+	if ((ybase = yang_find((yang_node*)ytype, Y_BASE, NULL)) != NULL){
+	    cprintf(cbuf, " choice:"); 
+	    i = 0;
+	    /* for every found identity derived from base-type , do: */
+	    {
+		if (yi->ys_keyword != Y_ENUM && yi->ys_keyword != Y_BIT)
+		    continue;
+		if (i)
+		    cprintf(cbuf, "|"); 
+		cprintf(cbuf, "%s", yi->ys_argument); 
+		i++;
+	    }
+	}
+
+    }
+#endif
     if (type && (strcmp(type, "enumeration") == 0 || strcmp(type, "bits") == 0)){
 	cprintf(cbuf, " choice:"); 
+	i = 0;
 	while ((yi = yn_each((yang_node*)ytype, yi)) != NULL){
 	    if (yi->ys_keyword != Y_ENUM && yi->ys_keyword != Y_BIT)
 		continue;
@@ -377,6 +397,79 @@ yang2cli_list(clicon_handle h,
 	cvec_free(cvk);
     return retval;
 }
+/*
+
+  container food {
+       choice snack {
+           case sports-arena {
+               leaf pretzel {
+                   type empty;
+               }
+               leaf beer {
+                   type empty;
+               }
+           }
+           case late-night {
+               leaf chocolate {
+                   type enumeration {
+                       enum dark;
+                       enum milk;
+                       enum first-available;
+                   }
+               }
+           }
+       }
+    }
+
+set food {
+    snack{
+     sports-arena{
+       pretzel;
+       beer;
+     }
+     late-night{
+      chocolate;
+    }
+  }
+}
+ */
+static int
+yang2cli_choice(clicon_handle h, 
+		yang_stmt    *ys, 
+		cbuf         *cbuf,
+		enum genmodel_type gt,
+		int           level)
+{
+    int           retval = -1;
+    yang_stmt    *yc;
+    int           i;
+
+    cprintf(cbuf, "%*s%s{\n", level*3, "", ys->ys_argument);
+    for (i=0; i<ys->ys_len; i++)
+	if ((yc = ys->ys_stmt[i]) != NULL){
+	    switch (yc->ys_keyword){
+	    case Y_CASE:
+		cprintf(cbuf, "%*s%s{\n", 3*(level+1), "", yc->ys_argument);
+		if (yang2cli_stmt(h, yc, cbuf, gt, level+2) < 0)
+		    goto done;
+		cprintf(cbuf, "}");
+		break;
+	    case Y_CONTAINER:
+	    case Y_LEAF:
+	    case Y_LEAF_LIST:
+	    case Y_LIST:
+	    default:
+		if (yang2cli_stmt(h, yc, cbuf, gt, level+1) < 0)
+		    goto done;
+		break;
+	    }
+	}
+    cprintf(cbuf, "%*s}\n", level*3, "");
+    retval = 0;
+  done:
+    return retval;
+}
+
 
 /*! Translate yang-stmt to CLIgen syntax.
  */
@@ -405,6 +498,10 @@ yang2cli_stmt(clicon_handle h,
 	    break;
 	case Y_LIST:
 	    if (yang2cli_list(h, ys, cbuf, gt, level) < 0)
+		goto done;
+	    break;
+	case Y_CHOICE:
+	    if (yang2cli_choice(h, ys, cbuf, gt, level) < 0)
 		goto done;
 	    break;
 	case Y_LEAF_LIST:
@@ -443,7 +540,7 @@ yang2cli(clicon_handle h,
     cbuf           *cbuf;
     int             i;
     int             retval = -1;
-    yang_stmt      *ys = NULL;
+    yang_stmt      *ymod = NULL;
     cvec           *globals;       /* global variables from syntax */
 
     if ((cbuf = cbuf_new()) == NULL){
@@ -452,8 +549,8 @@ yang2cli(clicon_handle h,
     }
     /* Traverse YANG specification: loop through statements */
     for (i=0; i<yspec->yp_len; i++)
-	if ((ys = yspec->yp_stmt[i]) != NULL){
-	    if (yang2cli_stmt(h, ys, cbuf, gt, 0) < 0)
+	if ((ymod = yspec->yp_stmt[i]) != NULL){
+	    if (yang2cli_stmt(h, ymod, cbuf, gt, 0) < 0)
 		goto done;
 	}
     clicon_debug(1, "%s: buf\n%s\n", __FUNCTION__, cbuf_get(cbuf));

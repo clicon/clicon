@@ -84,6 +84,8 @@ config_terminate(clicon_handle h)
 	unlink(sockpath);   
     backend_handle_exit(h);
     clicon_debug(1, "%s done", __FUNCTION__);
+    if (debug)
+	chunk_check(stderr, NULL);
     return 0;
 }
 

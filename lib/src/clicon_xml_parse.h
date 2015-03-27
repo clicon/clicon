@@ -20,8 +20,8 @@
 
  * XML parser
  */
-#ifndef _XMLGEN_PARSE_H_
-#define _XMLGEN_PARSE_H_
+#ifndef _CLICON_XML_PARSE_H_
+#define _CLICON_XML_PARSE_H_
 
 /*
  * Types
@@ -46,6 +46,5 @@ int clicon_xml_parsel_exit(struct xml_parse_yacc_arg *ya);
 int clicon_xml_parsel_linenr(void);
 int clicon_xml_parselex(void *);
 int clicon_xml_parseparse(void *);
-void xmlgen_xmlerror(char*);
 
-#endif	/* _XMLGEN_PARSE_H_ */
+#endif	/* _CLICON_XML_PARSE_H_ */

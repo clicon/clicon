@@ -20,8 +20,8 @@
 
  * XML XPATH and XSLT functions.
  */
-#ifndef _XMLGEN_XSL_H
-#define _XMLGEN_XSL_H
+#ifndef _CLICON_XSL_H
+#define _CLICON_XSL_H
 
 /*
  * Prototypes
@@ -30,4 +30,4 @@ cxobj *xpath_first(cxobj *xn_top, char *xpath);
 cxobj *xpath_each(cxobj *xn_top, char *xpath, cxobj *prev);
 cxobj **xpath_vec(cxobj *xn_top, char *xpath, int *xv_len);
 
-#endif /* _XMLGEN_XSL_H */
+#endif /* _CLICON_XSL_H */

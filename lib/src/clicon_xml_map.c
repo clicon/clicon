@@ -182,34 +182,20 @@ xml_xfind_vec(cxobj *xn, char *node, cvec *cvv)
     return NULL;
 }
 
-/*
- * dbkey2xml
- * key is a name of a unique variable, we look it up in variable list vh
- * and then find the object it corresponds to in xml tree xn.
- * @param[out]   xnt
-
- * XXX: A[] $!a; A[].B[] $!a $!b should be shown as:
- <Group>
-  <GroupName>G</GroupName>
-  <Node>
-    <NodeName>N</NodeName>
-    <Port>4242</Port>
-  </Node>
-</Group>
-
-Now it is shown with this appended:
-
-<Group>
-  <GroupName>G</GroupName>
-</Group>
-
+/*! Given a database and a key in that database, return xml parsetree.
+ * @param[in]  db_spec  
+ * @param[in]  key      Database key
+ * @param[in]  val      lvalue vector conatining variables (please use cvec)
+ * @param[in]  vlen     length of lvalue vector
+ * @param[out] xnt      Output xml tree (should contain allocated top-of-tree)
+ * XXX: val/vlen -> cvec
  */
-int
-dbkey2xml(dbspec_key *db_spec, 
-	  cxobj      *xnt, 
+static int
+dbkey2xml(dbspec_key *key_dbspec, 
 	  char       *key, 
 	  char       *val, 
-	  int         vlen)
+	  int         vlen,
+	  cxobj      *xnt)
 {
     cxobj      *xnp;   /* parent */
     cxobj      *xn = NULL;
@@ -260,7 +246,7 @@ dbkey2xml(dbspec_key *db_spec,
 	    goto catch;
 	/* a vector subkey may not have a spec: spec: a.b[], then a.b has
 	   no spec */
-	if ((subspec = key2spec_key(db_spec, subkey)) == NULL){
+	if ((subspec = key2spec_key(key_dbspec, subkey)) == NULL){
 	    if (!prevspec){
 		if  ((xn = xml_find(xnp, vec[n-1])) == NULL)
 		    if ((xn = xml_new(vec[n-1], xnp)) == NULL)
@@ -413,20 +399,20 @@ dbkey2xml(dbspec_key *db_spec,
 static int
 dbpairs2xml(struct db_pair *pairs, 
 	    int             npairs, 
-	    dbspec_key     *db_spec, 
+	    dbspec_key     *key_dbspec, 
 	    cxobj          *xnt)
 {
-    int              i;
-    int retval = -1;
+    int     i;
+    int     retval = -1;
 
     /* XXX: Why do we need to sort the pairs ? */
     if(0)    qsort (pairs, npairs, sizeof (struct db_pair), db2xml_sort);
     for (i=0; i<npairs; i++) {
-	if (dbkey2xml(db_spec, 
-		      xnt, 
+	if (dbkey2xml(key_dbspec, 
 		      pairs[i].dp_key, 
 		      pairs[i].dp_val, 
-		      pairs[i].dp_vlen) < 0)
+		      pairs[i].dp_vlen,	    
+		      xnt) < 0)
 	    goto catch;
     } /* for pairs */
     retval = 0;
@@ -495,10 +481,13 @@ db2xml(char       *dbname,
 
 /*! Given a database and a key in that database, return an xml parsetree.
  * 
- * @param[out]   xtop
+ * @param[in]    key      Database key
+ * @param[in]    dbname   Datase name
+ * @param[in]    dbspec   Database specification in key format
+ * @param[inout] xtop     This is a (existing) xml tree where adds will be made
  */
 int
-key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop)
+key2xml(char *key, char *dbname, dbspec_key *dbspec, cxobj *xtop)
 {
     char             *lvec = NULL;
     size_t            lvlen;
@@ -506,7 +495,7 @@ key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop)
 
     if (db_get_alloc(dbname, key, (void*)&lvec, &lvlen) < 0)
 	goto catch;
-    if (dbkey2xml(db_spec, xtop, key, lvec, lvlen) < 0)
+    if (dbkey2xml(dbspec, key, lvec, lvlen, xtop) < 0)
 	goto catch;
     retval = 0;
   catch:
@@ -1264,9 +1253,9 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 /*! Translate a cligen vraiable vector to an XML tree with depth one 
  * @param[in]   cvv  CLIgen variable vector. Should be freed by cvec_free()
  * @param[in]   toptag    The XML tree in xt will have this XML tag
- * @param[out]  xt   Pointer to XML tree containing one top node. SHould be freed w xml_free
- * @retval     0    Everything OK, cvv allocated and set
- * @retval    -1    Something wrong, clicon_err() called to set error. No xt returned
+ * @param[out]  xt   Pointer to XML tree containing one top node. Should be freed with xml_free
+ * @retval      0    Everything OK, cvv allocated and set
+ * @retval     -1    Something wrong, clicon_err() called to set error. No xt returned
  * @see xml2cvec
  * @see dbkey2xml   This does more but has an internal xml2cvec translation
 */
