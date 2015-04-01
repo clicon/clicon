@@ -189,6 +189,7 @@ xml_xfind_vec(cxobj *xn, char *node, cvec *cvv)
  * @param[in]  vlen     length of lvalue vector
  * @param[out] xnt      Output xml tree (should contain allocated top-of-tree)
  * XXX: val/vlen -> cvec
+ * @see db2xml_key for a key regexp
  */
 static int
 dbkey2xml(dbspec_key *key_dbspec, 
@@ -442,6 +443,7 @@ dbpairs2xml(struct db_pair *pairs,
  * system.hostname (only hostname)
  * inet.address (only hostname)
  * Note caller must free returned xml tree with xml_free()
+ * @see dbkey2xml for a single key (not regexp)
  */
 cxobj *
 db2xml_key(char       *dbname, 

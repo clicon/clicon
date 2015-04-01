@@ -295,7 +295,10 @@ dbmatch_vec_free(char **keyv, cvec **cvecv, int len)
  * Key.1 $!a=443 $b=7 $uuid=u1
  * Key.1 $!a=53  $b=3 $uuid=u2
  * @code
- *  dbmatch_one(dbname, key="^Key.*$", attr="a", pattern="44*", &key, &cvec)
+ *  char *key="^Key.*$";
+ *  char *attr="a";
+ *  char *pattern="44*";
+ *  dbmatch_one(h, dbname, key, attr, pattern, &key, &cvec)
  * @endcode
  * will result in the return of the cvec of Key.0
  * This is a special case of dbmatch_fn()

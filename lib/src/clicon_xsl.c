@@ -457,7 +457,7 @@ xpath_internal(cxobj *cxtop, char *xpath0, int *vec_len00)
  *
  * @code
  *   cxobj *x;
- *   if ((x = xpath_vec(xtop, "//symbol/foo")) != NULL) {
+ *   if ((x = xpath_first(xtop, "//symbol/foo")) != NULL) {
  *         ...
  *   }
  * @endcode
