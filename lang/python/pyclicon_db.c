@@ -452,7 +452,7 @@ CliconDB_init_object(PyObject *m)
         return -1;
 
     Py_INCREF(&CliconDB_Type);
-    PyModule_AddObject(m, "CliconDB", (PyObject *)&CliconDB_Type);
+    PyModule_AddObject(m, "_CliconDB", (PyObject *)&CliconDB_Type);
 
     return 0;
 }

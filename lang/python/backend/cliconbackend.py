@@ -161,10 +161,23 @@ def _find_method(ob, name):
     else:
         return None
 
+class CommitData:
+    '''
+    '''
+    def __init__(self, source_db, target_db, source_key, target_key, source_vec, target_vec, arg):
+        self.source_db = source_db
+        self.target_db = target_db
+        self.source_key = source_key
+        self.target_key = target_key
+        self.source_vec = source_vec
+        self.target_vec = target_vec
+        self.arg = arg
 
-def _plugin_commit(h, func, db, op, key, arg):
+        
+
+def _plugin_commit(h, func, op, src_db, target_db, src_key, target_key, src_vec, target_vec, arg):
     clicon_debug(1, "Calling {:s}\n".format(str(func)))
-    return func(Handle(h), CliconDB(db), op, key, arg)
+    return func(Handle(h), op, CommitData(src_db, target_db, src_key, target_key, src_vec, target_vec, arg))
 
 
 def _plugin_init(h):

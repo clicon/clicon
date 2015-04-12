@@ -39,8 +39,6 @@
 /* libpyclicon */
 #include "libpyclicon.h"
 
-
-
 typedef struct {
     PyObject *arg;
     PyObject *commit_func;
@@ -52,16 +50,18 @@ typedef struct {
  */
 static int
 backend_commit(clicon_handle h,
-	       char *db,
-	       lv_op_t op,
-	       char *key,
-	       void *arg)
+	       commit_op op,
+	       commit_data d)
 {
     long  retval = -1;
     PyObject *val = NULL;
     PyObject *handle = NULL;
     PyObject *backend = NULL;
-    dep_capsule *cap = (dep_capsule *)arg;
+    PyObject *source_vec = NULL;
+    PyObject *target_vec = NULL;
+    PyObject *Cvec = NULL;
+    PyObject *Ret = NULL;
+    dep_capsule *cap = (dep_capsule *)commit_arg(d);
 
     PyErr_Clear();
     if ((backend = PyImport_ImportModule("cliconbackend")) == NULL)
@@ -70,9 +70,51 @@ backend_commit(clicon_handle h,
     if ((handle = PyCapsule_New((void *)h, NULL, NULL)) == NULL)
 	goto quit;
     
+    /* Create source vector */
+    if (commit_source_vec(d) != NULL) {
+        if ((Cvec = PyCapsule_New((void *)commit_source_vec(d), NULL, NULL)) == NULL)
+	    goto quit;
+	if ((source_vec = PyObject_CallMethod(__cligen_module(),"Cvec", NULL)) == NULL)
+	    goto quit;
+	if ((Ret = PyObject_CallMethod(source_vec, "__Cvec_from_cvec", "O", Cvec)) == NULL)
+	    goto quit;
+	Py_DECREF(Ret);
+	Py_DECREF(Cvec);
+	Cvec = NULL;
+    }
+    else {
+        source_vec = Py_None;
+	Py_INCREF(Py_None);
+    }
     
-    if ((val = PyObject_CallMethod(backend, "_plugin_commit", "OOsisO",
-		handle, cap->commit_func, db, op, key, cap->arg)) == NULL)
+    /* Create target vector */
+    if (commit_target_vec(d) != NULL) {
+        if ((Cvec = PyCapsule_New((void *)commit_target_vec(d), NULL, NULL)) == NULL)
+	    goto quit;
+	if ((target_vec = PyObject_CallMethod(__cligen_module(),"Cvec", NULL)) == NULL)
+	    goto quit;
+	if ((Ret = PyObject_CallMethod(target_vec, "__Cvec_from_cvec", "O", Cvec)) == NULL)
+	    goto quit;
+	Py_DECREF(Ret);
+	Py_DECREF(Cvec);
+	Cvec = NULL;
+    }
+    else {
+        target_vec = Py_None;
+	Py_INCREF(Py_None);
+    }
+
+    if ((val = PyObject_CallMethod(backend, "_plugin_commit", "OOissssOOO",
+				   handle,
+				   cap->commit_func,
+				   op,
+				   commit_source_db(d),
+				   commit_target_db(d),
+				   commit_source_key(d),
+				   commit_target_key(d),
+				   source_vec,
+				   target_vec,
+				   cap->arg)) == NULL)
 	goto quit;
     
     retval = IntAsLong(val);
@@ -81,6 +123,7 @@ quit:
     if (PyErr_Occurred())
 	clicon_err(OE_PLUGIN, 0, "%s", ErrStringVerbose(0));
 
+    Py_XDECREF(Cvec);
     Py_XDECREF(backend);
     Py_XDECREF(handle);
     Py_XDECREF(val);
@@ -169,7 +212,7 @@ static PyMethodDef backend_module_methods[] = {
 
 MOD_INIT(_backend)
 {
-    PyObject* m;
+    PyObject *m;
 
     MOD_DEF(m,"_cliconbackend","Python CLICON backend", backend_module_methods);
     if (m == NULL)
@@ -179,9 +222,9 @@ MOD_INIT(_backend)
     PyModule_AddIntConstant(m, (char *) "TRANS_CB_VALIDATE", TRANS_CB_VALIDATE);
     PyModule_AddIntConstant(m, (char *) "TRANS_CB_BOTH", TRANS_CB_BOTH);
 
-    PyModule_AddIntConstant(m, (char *) "LV_DELETE", LV_DELETE);
-    PyModule_AddIntConstant(m, (char *) "LV_SET", LV_SET);
-    PyModule_AddIntConstant(m, (char *) "LV_MERGE", LV_MERGE);
+    PyModule_AddIntConstant(m, (char *) "CO_DELETE", CO_DELETE);
+    PyModule_AddIntConstant(m, (char *) "CO_ADD", CO_ADD);
+    PyModule_AddIntConstant(m, (char *) "CO_CHANGE", CO_CHANGE);
 
     return MOD_SUCCESS_VAL(m);
 }

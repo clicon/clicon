@@ -73,6 +73,8 @@ class Plugin:
         self._start    = _find_method(self._plugin, PLUGIN_START)
         self._exit     = _find_method(self._plugin, PLUGIN_EXIT)
 
+        self._plugin.plugin_init(handle)
+        
     def __str__(self):
         return self._name
 
@@ -96,10 +98,15 @@ def _plugin_init(h):
     for path in glob.glob(handle.cli_dir()+"/*.py"):
         name = os.path.basename(path)[0:-3]
         try:
-            __plugins__[name] = Plugin(handle, name)
-            if (__plugins__[name]._init(handle) < 0):
-                return -1;
-
+            clicon_debug(1, "Loading {:s}.py".format(name))
+            __plugins__[name] = importlib.import_module(name)
+            func = _find_method(__plugins__[name], PLUGIN_INIT)
+            if func is not None:
+                clicon_debug(1, "Calling {:s}.{:s}()\n".format(name, PLUGIN_INIT))
+                if (func(handle) < 0):
+                    clicon_err(OE_FATAL, 0,
+                               "{:s}.{:s}() failed\n".format(name, PLUGIN_INIT))
+                    return -1
         except Exception as e:
             print("Python plugin '{:s}' failed to load: {:s}\n".format(name, str(e)))
             clicon_err(OE_FATAL, 0,
@@ -113,11 +120,12 @@ def _plugin_start(h, argc, argv):
 
     handle = Handle(h)
     for name, p in __plugins__.items():
-        if p._start is not None:
-            clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
-            if (p._start(handle, argc, argv) < 0):
+        func = _find_method(p, PLUGIN_START)
+        if func is not None:
+            clicon_debug(1, "Calling {:s}.{:s}()\n".format(name, PLUGIN_START))
+            if (func(handle, argc, argv) < 0):
                 clicon_err(OE_FATAL, 0,
-                           "{:s}.plugin_start() failed\n".format(name))
+                           "{:s}.{:s}() failed\n".format(name, PLUGIN_START))
                 return -1
             
     return 0
@@ -127,9 +135,10 @@ def _plugin_exit(h):
 
     handle = Handle(h)
     for name, p in __plugins__.items():
-        if p._exit is not None:
-            clicon_debug(1, "Calling {:s}.plugin_start()\n".format(name))
-            p._start(handle, argc, argv)
+        func = _find_method(p, PLUGIN_EXIT)
+        if func is not None:
+            clicon_debug(1, "Calling {:s}.{:s}()\n".format(name, PLUGIN_EXIT))
+            func(handle, argc, argv)
             
     return 0
         
