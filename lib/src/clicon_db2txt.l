@@ -187,7 +187,7 @@ db2txt_debug(const char *s, ...)
 <VAR>\}			{ APPBUF; pop_state(_YA); return *yytext; }
 <VAR>[:\{\[\]]		{ APPBUF; return *yytext; }
 <VAR>\-\>		{ APPBUF; return ARROW; }
-<VAR>[a-zA-Z]([a-zA-Z0-9_]|[\-][a-zA-Z])*(\.([0-9]+|[a-zA-Z]([a-zA-Z0-9_]|[\-][a-zA-Z])*))* {
+<VAR>[a-zA-Z_]([a-zA-Z0-9_]|[\-][a-zA-Z])*(\.([0-9]+|[a-zA-Z_]([a-zA-Z0-9_]|[\-][a-zA-Z])*))* {
 			  APPBUF;
 			  clicon_db2txtlval.string = strdup(yytext);
 			  return VARIABLE;
