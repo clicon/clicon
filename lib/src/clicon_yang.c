@@ -1573,11 +1573,42 @@ yang_xpath_vec(yang_node *yn, char **vec, int nvec)
     return yret;
 }
 
+/* Alternative to clicon_strsplit using malloc. Note delim can only be one char 
+ * Free return value after use
+ */
+static char **
+clicon_strsplit_malloc(char *string, char *delim, int *nvec0)
+{
+    char **vec = NULL;
+    char  *ptr;
+    char  *p;
+    int   nvec = 1;
+    int   i;
+
+    for (i=0; i<strlen(string); i++)
+	if (string[i]==*delim)
+	    nvec++;
+    /* alloc vector and append copy of string */
+    if ((vec = (char**)malloc(nvec* sizeof(char*) + strlen(string)+1)) == NULL){
+	clicon_err(OE_YANG, errno, "calloc"); 
+	goto err;
+    } 
+    ptr = (char*)vec + nvec* sizeof(char*); /* this is where ptr starts */
+    strncpy(ptr, string, strlen(string)+1);
+    i = 0;
+    while ((p = strsep(&ptr, delim)) != NULL)
+	vec[i++] = p;
+    *nvec0 = nvec;
+ err:
+    return vec;
+}
+
+
 /*! Given an absolute xpath (eg /a/b/c) find matching yang specification  */
 yang_node *
 yang_xpath_abs(yang_node *yn, char *xpath)
 {
-    char           **vec;
+    char           **vec = NULL;
     int              nvec;
     yang_node       *ys = NULL;
     yang_stmt       *ymod;
@@ -1586,7 +1617,7 @@ yang_xpath_abs(yang_node *yn, char *xpath)
     char            *id;
     char            *prefix = NULL;
 
-    if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
+    if ((vec = clicon_strsplit_malloc(xpath, "/", &nvec)) == NULL){
 	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
 	return NULL;
     }
@@ -1626,11 +1657,13 @@ yang_xpath_abs(yang_node *yn, char *xpath)
     }
     ys = yang_xpath_vec((yang_node*)ymod, vec+1, nvec-1);
  done:
-    unchunk_group(__FUNCTION__);
+    if (vec)
+	free(vec);
     if (prefix)
 	free(prefix);
     return ys;
 }
+
 
 /*! Given an xpath (eg /a/b/c or a/b/c) find matching yang specification
  * @param[in]  yn     Yang node tree
@@ -1646,22 +1679,21 @@ yang_xpath_abs(yang_node *yn, char *xpath)
 yang_node *
 yang_xpath(yang_node *yn, char *xpath)
 {
-    char           **vec;
+    char           **vec = NULL;
+    yang_node       *ys = NULL;
     int              nvec;
-    yang_node       *ys;
 
-    /* check absolute path */
-    if (strlen(xpath) && xpath[0] == '/')
-	return yang_xpath_abs(yn, xpath);
-    if ((vec = clicon_strsplit(xpath, "/", &nvec, __FUNCTION__)) == NULL){
-	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
+    if (strlen(xpath) == 0)
 	return NULL;
-    }
-    if (nvec <= 0)
-	ys = NULL;
-    else
-	ys = yang_xpath_vec((yang_node*)yn, vec, nvec);
-    unchunk_group(__FUNCTION__);
+    /* check absolute path */
+    if (xpath[0] == '/')
+	return yang_xpath_abs(yn, xpath);
+    if ((vec = clicon_strsplit_malloc(xpath, "/", &nvec)) == NULL)
+	goto err;
+    ys = yang_xpath_vec((yang_node*)yn, vec, nvec);
+ err:
+    if (vec)
+	free(vec);
     return ys;
 }
 

@@ -51,8 +51,10 @@ int       xml_index_set(cxobj *xn, int index);
 
 int       xml_child_nr(cxobj *xn);
 cxobj    *xml_child_i(cxobj *xn, int i);
+cxobj    *xml_child_i_set(cxobj *xt, int i, cxobj *xc);
 cxobj    *xml_child_each(cxobj *xparent, cxobj *xprev,  enum cxobj_type type);
 
+int       xml_childvec_set(cxobj *x, int len);
 cxobj    *xml_new(char *name, cxobj *xn_parent);
 cxobj    *xml_find(cxobj *xn_parent, char *name);
 
