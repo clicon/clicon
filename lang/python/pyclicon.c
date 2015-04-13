@@ -36,20 +36,6 @@ typedef struct _clicon {
     PyObject_HEAD
 } clicon;
 
-/*
- * Keep an internal reference to the CLIgen module
- */
-PyObject *
-__cligen_module()
-{
-    static PyObject *cligen = NULL;
-
-    if (cligen == NULL)
-	cligen = PyImport_ImportModule("cligen");
-
-    return cligen;
-}
-
 
 static PyMethodDef Clicon_module_methods[] = {
     {"_clicon_options", (PyCFunction)Clicon_options, METH_VARARGS,

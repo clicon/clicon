@@ -46,7 +46,7 @@ CLICON_MINOR    = @CLICON_VERSION_MINOR@
 CPPFLAGS  	= @CPPFLAGS@ -fPIC
 INCLUDES	= -I. -I$(top_srcdir)/lib -I$(top_srcdir)/include -I$(top_srcdir) @INCLUDES@ @PYTHON_INCLUDES@
 
-SRC         =  py23.c syspath.c handle.c
+SRC         =  py23.c syspath.c handle.c cligenmod.c
 OBJS        = $(SRC:.c=.o)
 LIB         = libpyclicon.a
 

@@ -21,3 +21,4 @@
 #include "py23.h"
 #include "handle.h"
 #include "syspath.h"
+#include "cligenmod.h"

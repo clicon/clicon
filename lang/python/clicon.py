@@ -41,6 +41,26 @@ import cligen
 import _clicon
 from _clicon import *
 
+CLICON_CANDIDATE_DB	= 'CLICON_CANDIDATE_DB'
+CLICON_RUNNING_DB	= 'CLICON_RUNNING_DB'
+CLICON_APPDIR		= 'CLICON_APPDIR'
+CLICON_CONFIGFILE	= 'CLICON_CONFIGFILE'
+CLICON_DBSPEC_TYPE	= 'CLICON_DBSPEC_TYPE'
+CLICON_YANG_DIR		= 'CLICON_YANG_DIR'
+CLICON_YANG_MODULE_MAIN	= 'CLICON_YANG_MODULE_MAIN'
+CLICON_BACKEND_DIR	= 'CLICON_BACKEND_DIR'
+CLICON_CLI_DIR		= 'CLICON_CLI_DIR'
+CLICON_CLISPEC_DIR	= 'CLICON_CLISPEC_DIR'
+CLICON_NETCONF_DIR	= 'CLICON_NETCONF_DIR'
+CLICON_ARCHIVE_DIR	= 'CLICON_ARCHIVE_DIR'
+CLICON_STARTUP_CONFIG	= 'CLICON_STARTUP_CONFIG'
+CLICON_SOCK		= 'CLICON_SOCK'
+CLICON_BACKEND_PIDFILE	= 'CLICON_BACKEND_PIDFILE'
+CLICON_SOCK_GROUP	= 'CLICON_SOCK_GROUP'
+CLICON_MASTER_PLUGIN	= 'CLICON_MASTER_PLUGIN'
+CLICON_CLI_MODE		= 'CLICON_CLI_MODE'
+CLICON_AUTOCOMMIT	= 'CLICON_AUTOCOMMIT'
+
 
 
 def clicon_log(level, msg):
@@ -100,61 +120,63 @@ class BaseHandle:
 
 
     def candidate_db(self):
-        return self.options['CLICON_CANDIDATE_DB']
+        return self.options[CLICON_CANDIDATE_DB]
 
     def running_db(self):
-        return self.options['CLICON_RUNNING_DB']
+        return self.options[CLICON_RUNNING_DB]
 
     def appdir(self):
-        return self.options['CLICON_APPDIR']
+        return self.options[CLICON_APPDIR]
 
     def config_file(self):
-        return self.options['CLICON_CONFIGFILE']
+        return self.options[CLICON_CONFIGFILE]
 
     def dbspec_type(self):
-        return self.options['CLICON_DBSPEC_TYPE']
+        return self.options[CLICON_DBSPEC_TYPE]
 
     def yang_dir(self):
-        return self.options['CLICON_YANG_DIR']
+        return self.options[CLICON_YANG_DIR]
 
     def yang_module_main(self):
-        return self.options['CLICON_YANG_MODULE_MAIN']
+        return self.options[CLICON_YANG_MODULE_MAIN]
 
     def backend_dir(self):
-        return self.options['CLICON_BACKEND_DIR']
+        return self.options[CLICON_BACKEND_DIR]
 
     def cli_dir(self):
-        return self.options['CLICON_CLI_DIR']
+        return self.options[CLICON_CLI_DIR]
 
     def clispec_dir(self):
-        return self.options['CLICON_CLISPEC_DIR']
+        return self.options[CLICON_CLISPEC_DIR]
 
     def netconf_dir(self):
-        return self.options['CLICON_NETCONF_DIR']
+        return self.options[CLICON_NETCONF_DIR]
 
     def archive_dir(self):
-        return self.options['CLICON_ARCHIVE_DIR']
+        return self.options[CLICON_ARCHIVE_DIR]
 
     def startup_config(self):
-        return self.options['CLICON_STARTUP_CONFIG']
+        return self.options[CLICON_STARTUP_CONFIG]
 
     def sock(self):
-        return self.options['CLICON_SOCK']
+        return self.options[CLICON_SOCK]
 
     def backend_pidfile(self):
-        return self.options['CLICON_BACKEND_PIDFILE']
+        return self.options[CLICON_BACKEND_PIDFILE]
 
     def sock_group(self):
-        return self.options['CLICON_SOCK_GROUP']
+        return self.options[CLICON_SOCK_GROUP]
 
     def master_plugin(self):
-        return self.options['CLICON_MASTER_PLUGIN']
+        return self.options[CLICON_MASTER_PLUGIN]
 
     def cli_mode(self):
-        return self.options['CLICON_CLI_MODE']
+        return self.options[CLICON_CLI_MODE]
 
+    def autocommit(self):
+        return self.options[CLICON_AUTOCOMMIT]
 
-class CliconDB(_clicon.CliconDB):
+class CliconDB(_clicon._CliconDB):
     'A reference to a CLICON database'
 
     def __init__(self, filename):
@@ -257,8 +279,4 @@ class CliconDB(_clicon.CliconDB):
         else:
             raise TypeError("Invalid syntax argument")
 
-        return super(CliconDB, self)._db2txt(handle, syntax)
-
-
-
-
+        return super(CliconDB, self)._db2txt(handle._h, syntax)
