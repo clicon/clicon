@@ -59,6 +59,7 @@
 #include "clicon_log.h"
 #include "clicon_err.h"
 #include "clicon_xml.h"
+#include "clicon_xml_map.h"
 
 /*! Create sub-elements for every variable in skiplist
  * The skipvr list are the 'unique' variables of vectors
@@ -1208,8 +1209,13 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
     char             *body;
     char             *reason = NULL;
     int               ret;
+    int               i = 0;
+    int               len = 0;
 
-    if ((cvv = cvec_new(0)) == NULL){
+    xc = NULL;
+    while ((xc = xml_child_each(xt, xc, CX_ELMNT)) != NULL)
+	len++;
+    if ((cvv = cvec_new(len)) == NULL){
 	clicon_err(OE_UNIX, errno, "cvec_new");
 	goto err;
     }
@@ -1223,8 +1229,10 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 	}
 	if ((ycv = ys->ys_cv) != NULL){
 	    if ((body = xml_body(xc)) != NULL){
-		if ((cv = cvec_add_cv(cvv, ycv)) == NULL){
-		    clicon_err(OE_PLUGIN, errno, "cvec_add");
+		/* XXX: cvec_add uses realloc, can we avoid that? */
+		cv = cvec_i(cvv, i++);
+		if (cv_cp(cv, ycv) < 0){
+		    clicon_err(OE_PLUGIN, errno, "cv_cp");
 		    goto err;
 		}
 		if ((ret = cv_parse1(body, cv, &reason)) < 0){
@@ -1251,7 +1259,6 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 	cvec_free(cvv);
     return retval;
 }
-
 /*! Translate a cligen vraiable vector to an XML tree with depth one 
  * @param[in]   cvv  CLIgen variable vector. Should be freed by cvec_free()
  * @param[in]   toptag    The XML tree in xt will have this XML tag
@@ -1268,19 +1275,30 @@ cvec2xml(cvec *cvv, char *toptag, cxobj **xt0)
     cxobj            *xt = NULL;
     cxobj            *xn;
     cxobj            *xb;
-    cg_var           *cv = NULL;
+    cg_var           *cv;
     char             *val;
+    int               len=0;
+    int               i;
 
+    cv = NULL;
+    while ((cv = cvec_each(cvv, cv)) != NULL) 
+	len++;
     if ((xt = xml_new(toptag, NULL)) == NULL)
 	goto err;
+    if (xml_childvec_set(xt, len) < 0)
+	goto err;
+    cv = NULL;
+    i = 0;
     while ((cv = cvec_each(cvv, cv)) != NULL) {
-	if ((xn = xml_new(cv_name_get(cv), xt)) == NULL)
+	if ((xn = xml_new(cv_name_get(cv), NULL)) == NULL) /* this leaks */
 	    goto err;
-	if ((xb = xml_new("body", xn)) == NULL)
+	xml_parent_set(xn, xt);
+	xml_child_i_set(xt, i++, xn);
+	if ((xb = xml_new("body", xn)) == NULL) /* this leaks */
 	    goto err;
 	xml_type_set(xb, CX_BODY);
 	val = cv2str_dup(cv);
-	xml_value_set(xb, val);
+	xml_value_set(xb, val); /* this leaks */
 	if (val)
 	    free(val);
     }

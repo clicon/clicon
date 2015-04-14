@@ -38,7 +38,6 @@
 #include <sys/time.h>
 
 #include "clicon_queue.h"
-#include "clicon_chunk.h"
 #include "clicon_log.h"
 #include "clicon_err.h"
 #include "clicon_event.h"
@@ -105,8 +104,8 @@ event_reg_fd(int fd, int (*fn)(int, void*), void *arg, char *str)
 {
     struct event_data *e;
 
-    if ((e = (struct event_data *)chunk(sizeof(struct event_data), str)) == NULL){
-	clicon_err(OE_EVENTS, errno, "chunk");
+    if ((e = (struct event_data *)malloc(sizeof(struct event_data))) == NULL){
+	clicon_err(OE_EVENTS, errno, "malloc");
 	return -1;
     }
     memset(e, 0, sizeof(struct event_data));
@@ -139,7 +138,7 @@ event_unreg_fd(int s, int (*fn)(int, void*))
 	if (fn == e->e_fn && s == e->e_fd) {
 	    found++;
 	    *e_prev = e->e_next;
-	    unchunk(e);
+	    free(e);
 	    break;
 	}
 	e_prev = &e->e_next;
@@ -176,8 +175,8 @@ event_reg_timeout(struct timeval t,  int (*fn)(int, void*),
 {
     struct event_data *e, *e1, **e_prev;
 
-    if ((e = (struct event_data *)chunk(sizeof(struct event_data), "event")) == NULL){
-	clicon_err(OE_EVENTS, errno, "chunk");
+    if ((e = (struct event_data *)malloc(sizeof(struct event_data))) == NULL){
+	clicon_err(OE_EVENTS, errno, "malloc");
 	return -1;
     }
     memset(e, 0, sizeof(struct event_data));
@@ -219,7 +218,7 @@ event_unreg_timeout(int (*fn)(int, void*), void *arg)
 	if (fn == e->e_fn && arg == e->e_arg) {
 	    found++;
 	    *e_prev = e->e_next;
-	    unchunk(e);
+	    free(e);
 	    break;
 	}
 	e_prev = &e->e_next;
@@ -274,10 +273,10 @@ event_loop(void)
 	    clicon_debug(2, "%s timeout: %s[%x]", 
 		    __FUNCTION__, e->e_string, e->e_arg);
 	    if ((*e->e_fn)(0, e->e_arg) < 0){
-		unchunk(e);
+		free(e);
 		goto err;
 	    }
-	    unchunk(e);
+	    free(e);
 	}
 	for (e=ee; e; e=e_next){
 	    if (clicon_exit_get())

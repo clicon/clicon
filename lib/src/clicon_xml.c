@@ -285,6 +285,14 @@ xml_child_i(cxobj *xn, int i)
     return NULL;
 }
 
+cxobj *
+xml_child_i_set(cxobj *xt, int i, cxobj *xc)
+{
+    if (i < xt->x_childvec_len)
+	xt->x_childvec[i] = xc;
+    return 0;
+}
+
 /*! Iterator over xml children objects
  *
  * NOTE: Never manipulate the child-list during operation or using the
@@ -325,7 +333,7 @@ xml_child_each(cxobj *xparent,
 }
 
 /*! Extend child vector with one and insert xml node there
- * Note: does not do anything with child, youmay need to set its parent, etc
+ * Note: does not do anything with child, you may need to set its parent, etc
  */
 static int
 xml_child_append(cxobj *x, cxobj *xc)
@@ -340,6 +348,24 @@ xml_child_append(cxobj *x, cxobj *xc)
     return 0;
 }
 
+/*! Set a a childvec to a speciufic size, fill with children after
+ * @code
+ *   xml_childvec_set(x, 2);
+ *   xml_child_i(x, 0) = xc0;
+ *   xml_child_i(x, 1) = xc1;
+ * @endcode
+ */
+int
+xml_childvec_set(cxobj *x, int len)
+{
+    x->x_childvec_len = len;
+    if ((x->x_childvec = calloc(len, sizeof(cxobj*))) == NULL){
+	clicon_err(OE_XML, errno, "calloc");
+	return -1;
+    }
+    return 0;
+}
+
 /*! Create new xml node given a name and parent. Free it with xml_free().
  *
  * @param[in]  name      Name of new 
@@ -348,7 +374,6 @@ xml_child_append(cxobj *x, cxobj *xc)
  * @retval created xml object if successful
  * @retval NULL          if error and clicon_err() called
  */
-
 cxobj *
 xml_new(char *name, cxobj *xp)
 {
