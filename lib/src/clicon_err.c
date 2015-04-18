@@ -128,7 +128,11 @@ clicon_err_reset(void)
  * @param    reason   Error string, format with argv
  */
 int
-clicon_err_fn(const char *fn, const int line, int category, int suberr, char *reason, ...)
+clicon_err_fn(const char *fn, 
+	      const int line, 
+	      int category, 
+	      int suberr, 
+	      char *reason, ...)
 {
     va_list args;
     int     len;
@@ -163,13 +167,17 @@ clicon_err_fn(const char *fn, const int line, int category, int suberr, char *re
     /* Actually log it */
     if (suberr){
 	/* Here we could take care of specific suberr, like application-defined errors */
-	clicon_log(LOG_ERR, "%s: %s: %s", 
+	clicon_log(LOG_ERR, "%s: %d: %s: %s: %s", 
+		   fn,
+		   line,
 		   clicon_strerror(category),
 		   msg,
 		   strerror(suberr));
     }
     else
-	clicon_log(LOG_ERR, "%s: %s", 
+	clicon_log(LOG_ERR, "%s: %d: %s: %s", 
+		   fn,
+		   line,
 		   clicon_strerror(category),
 		   msg);
 

@@ -753,6 +753,11 @@ ys_populate_range(yang_stmt *ys, void *arg)
        }
        minstr[maxstr-minstr] = '\0';
        maxstr += 2;
+       /* minstr and maxstr need trimming */
+       if (isblank(minstr[strlen(minstr)-1]))
+	   minstr[strlen(minstr)-1] = '\0';
+       if (isblank(maxstr[0]))
+	   maxstr++;
 	if ((cv = cvec_add(ys->ys_cvec, cvtype)) == NULL){
 	    clicon_err(OE_YANG, errno, "cvec_add");
 	    goto done;
@@ -1056,7 +1061,7 @@ yang_expand(yang_node *yn)
     /* Cannot use yang_apply here since child-list is modified (is destructive) */
     i = 0;
     while (i<yn->yn_len){
-	ys = yn->yn_stmt[i];
+	ys = yn->yn_stmt[i]; 
 	switch(ys->ys_keyword){
 	case Y_USES:
 	    /* Split argument into prefix and name */
@@ -1069,7 +1074,6 @@ yang_expand(yang_node *yn)
 	    if (ygrouping == NULL){
 		clicon_log(LOG_NOTICE, "%s: Yang error : grouping \"%s\" not found", 
 			   __FUNCTION__, ys->ys_argument);
-		retval = 0;
 		goto done;
 		break;
 	    }
@@ -1087,12 +1091,12 @@ yang_expand(yang_node *yn)
 	    glen = ygrouping->ys_len;
 	    /* 
 	     * yn is parent: the children of ygrouping replaces ys.
-	     * Is there a case when glen == 0? 
+	     * Is there a case when glen == 0?  YES AND THIS BREAKS
 	     */
-	    if (glen > 1){
+	    if (glen != 1){
 		size = (yn->yn_len - i - 1)*sizeof(struct yang_stmt *);
 		yn->yn_len += glen - 1;
-		if ((yn->yn_stmt = realloc(yn->yn_stmt, (yn->yn_len)*sizeof(yang_stmt *))) == 0){
+		if (glen && (yn->yn_stmt = realloc(yn->yn_stmt, (yn->yn_len)*sizeof(yang_stmt *))) == 0){
 		    clicon_err(OE_YANG, errno, "%s: realloc", __FUNCTION__);
 		    return -1;
 		}
@@ -1111,7 +1115,7 @@ yang_expand(yang_node *yn)
 	    }
 	    /* XXX: refine */
 	    /* Remove 'uses' node */
-	    ys_free(ys);
+	    ys_free(ys); 
 	    break; /* Note same child is re-iterated since it may be changed */
 	default:
 	    i++;

@@ -87,6 +87,10 @@ stripdup(char *s0)
    The argument is a string
 
    Example: keyword argument ; keyword ; keyword { keyword argument; } keyword
+
+   STRING0 corresponds to string rule
+   ARGUMENT corresponds to identifier-arg-str,unique-arg-str,key-arg-str, etc.
+                           more to do here.
 */
 
 
@@ -94,6 +98,7 @@ stripdup(char *s0)
 
 %x KEYWORD
 %s ARGUMENT
+%s STRING0
 %s STRING1
 %s STRING2
 %s ESCAPE
@@ -102,11 +107,11 @@ stripdup(char *s0)
 
 %%
  /* Common tokens */
-<KEYWORD,ARGUMENT>[ \t]            
-<KEYWORD,ARGUMENT><<EOF>> { return MY_EOF; }
-<KEYWORD,ARGUMENT,COMMENT1>\n   { _YY->yy_linenum++; }
-<KEYWORD,ARGUMENT>"/*"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT1); }
-<KEYWORD,ARGUMENT>"//"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT2); }
+<KEYWORD,ARGUMENT,STRING0>[ \t]            
+<KEYWORD,ARGUMENT,STRING0><<EOF>> { return MY_EOF; }
+<KEYWORD,ARGUMENT,STRING0,COMMENT1>\n   { _YY->yy_linenum++; }
+<KEYWORD,ARGUMENT,STRING0>"/*"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT1); }
+<KEYWORD,ARGUMENT,STRING0>"//"    { _YY->yy_lex_state = YYSTATE; BEGIN(COMMENT2); }
 
 <KEYWORD>\}               { return *yytext; }
 
@@ -120,15 +125,15 @@ stripdup(char *s0)
 <KEYWORD>case             { BEGIN(ARGUMENT); return K_CASE; }
 <KEYWORD>choice           { BEGIN(ARGUMENT); return K_CHOICE; }
 <KEYWORD>config           { BEGIN(ARGUMENT); return K_CONFIG; }
-<KEYWORD>contact          { BEGIN(ARGUMENT); return K_CONTACT; }
+<KEYWORD>contact          { BEGIN(STRING0);  return K_CONTACT; }
 <KEYWORD>container        { BEGIN(ARGUMENT); return K_CONTAINER; }
-<KEYWORD>default          { BEGIN(ARGUMENT); return K_DEFAULT; }
-<KEYWORD>description      { BEGIN(ARGUMENT); return K_DESCRIPTION; }
+<KEYWORD>default          { BEGIN(STRING0);  return K_DEFAULT; }
+<KEYWORD>description      { BEGIN(STRING0);  return K_DESCRIPTION; }
 <KEYWORD>deviate          { BEGIN(ARGUMENT); return K_DEVIATE; }
 <KEYWORD>deviation        { BEGIN(ARGUMENT); return K_DEVIATION; }
-<KEYWORD>enum             { BEGIN(ARGUMENT); return K_ENUM; }
-<KEYWORD>error-app-tag    { BEGIN(ARGUMENT); return K_ERROR_APP_TAG; }
-<KEYWORD>error-message    { BEGIN(ARGUMENT); return K_ERROR_MESSAGE; }
+<KEYWORD>enum             { BEGIN(STRING0);  return K_ENUM; }
+<KEYWORD>error-app-tag    { BEGIN(STRING0);  return K_ERROR_APP_TAG; }
+<KEYWORD>error-message    { BEGIN(STRING0);  return K_ERROR_MESSAGE; }
 <KEYWORD>extension        { BEGIN(ARGUMENT); return K_EXTENSION; }
 <KEYWORD>feature          { BEGIN(ARGUMENT); return K_FEATURE; }
 <KEYWORD>fraction-digits  { BEGIN(ARGUMENT); return K_FRACTION_DIGITS; }
@@ -147,19 +152,19 @@ stripdup(char *s0)
 <KEYWORD>max-elements     { BEGIN(ARGUMENT); return K_MAX_ELEMENTS; }
 <KEYWORD>min-elements     { BEGIN(ARGUMENT); return K_MIN_ELEMENTS; }
 <KEYWORD>module           { BEGIN(ARGUMENT); return K_MODULE; }
-<KEYWORD>must             { BEGIN(ARGUMENT); return K_MUST; }
+<KEYWORD>must             { BEGIN(STRING0);  return K_MUST; }
 <KEYWORD>namespace        { BEGIN(ARGUMENT); return K_NAMESPACE; }
 <KEYWORD>notification     { BEGIN(ARGUMENT); return K_NOTIFICATION; }
 <KEYWORD>ordered-by       { BEGIN(ARGUMENT); return K_ORDERED_BY; }
-<KEYWORD>organization     { BEGIN(ARGUMENT); return K_ORGANIZATION; }
+<KEYWORD>organization     { BEGIN(STRING0);  return K_ORGANIZATION; }
 <KEYWORD>output           { BEGIN(ARGUMENT); return K_OUTPUT; }
 <KEYWORD>path             { BEGIN(ARGUMENT); return K_PATH; }
-<KEYWORD>pattern          { BEGIN(ARGUMENT); return K_PATTERN; }
+<KEYWORD>pattern          { BEGIN(STRING0);  return K_PATTERN; }
 <KEYWORD>position         { BEGIN(ARGUMENT); return K_POSITION; }
 <KEYWORD>prefix           { BEGIN(ARGUMENT); return K_PREFIX; }
-<KEYWORD>presence         { BEGIN(ARGUMENT); return K_PRESENCE; }
+<KEYWORD>presence         { BEGIN(STRING0);  return K_PRESENCE; }
 <KEYWORD>range            { BEGIN(ARGUMENT); return K_RANGE; }
-<KEYWORD>reference        { BEGIN(ARGUMENT); return K_REFERENCE; }
+<KEYWORD>reference        { BEGIN(STRING0);  return K_REFERENCE; }
 <KEYWORD>refine           { BEGIN(ARGUMENT); return K_REFINE; }
 <KEYWORD>require-instance { BEGIN(ARGUMENT); return K_REQUIRE_INSTANCE; }
 <KEYWORD>revision         { BEGIN(ARGUMENT); return K_REVISION; }
@@ -170,23 +175,31 @@ stripdup(char *s0)
 <KEYWORD>type             { BEGIN(ARGUMENT); return K_TYPE; }
 <KEYWORD>typedef          { BEGIN(ARGUMENT); return K_TYPEDEF; }
 <KEYWORD>unique           { BEGIN(ARGUMENT); return K_UNIQUE; }
-<KEYWORD>units            { BEGIN(ARGUMENT); return K_UNITS; }
+<KEYWORD>units            { BEGIN(STRING0);  return K_UNITS; }
 <KEYWORD>uses             { BEGIN(ARGUMENT); return K_USES; }
 <KEYWORD>value            { BEGIN(ARGUMENT); return K_VALUE; }
-<KEYWORD>when             { BEGIN(ARGUMENT); return K_WHEN; }
+<KEYWORD>when             { BEGIN(STRING0);  return K_WHEN; }
 <KEYWORD>yang-version     { BEGIN(ARGUMENT); return K_YANG_VERSION; }
 <KEYWORD>yin-element      { BEGIN(ARGUMENT); return K_YIN_ELEMENT; }
 
 <KEYWORD>.                { return K_UNKNOWN; }
 
 <ARGUMENT>;                { BEGIN(KEYWORD); return *yytext; }
+<ARGUMENT>\{               { BEGIN(KEYWORD); return *yytext; }
 <ARGUMENT>\"               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING1); return DQ; }
 <ARGUMENT>\'               { _YY->yy_lex_string_state =ARGUMENT; BEGIN(STRING2); return DQ; }
-<ARGUMENT>\+               { return *yytext; }
-<ARGUMENT>:                { return *yytext; }
-<ARGUMENT>\{               {  BEGIN(KEYWORD); return *yytext; }
+<ARGUMENT>\+               { return *yytext; /* many arg rules dont like this */ }
+<ARGUMENT>:                { return *yytext; /* many arg rules dont like this */ }
 <ARGUMENT>.                { clicon_yang_parselval.string = strdup(yytext);
                              return CHAR;}
+
+<STRING0>\{                { BEGIN(KEYWORD); return *yytext; }
+<STRING0>;                 { BEGIN(KEYWORD); return *yytext; }
+<STRING0>\"                { _YY->yy_lex_string_state =STRING0; BEGIN(STRING1); return DQ; }
+<STRING0>\'                { _YY->yy_lex_string_state =STRING0; BEGIN(STRING2); return DQ; }
+<STRING0>.                 { clicon_yang_parselval.string = strdup(yytext);
+                            return CHAR;}
+
 
 <STRING1>\\                { _YY->yy_lex_state = STRING1; BEGIN(ESCAPE); }
 <STRING1>\"                { BEGIN(_YY->yy_lex_string_state); return DQ; }
