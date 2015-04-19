@@ -42,6 +42,9 @@ struct dbspec_key{
     cvec              *ds_vec;    /* List of variables */
     int                ds_vector; /* allow list of variables to have same names, but
 				not same values XXX but $a[] should be in ds_vec?*/
+    /* Record keeping for head of list */
+    struct dbspec_key *ds_tail;   /* Tail of linked list */
+    clicon_hash_t     *ds_index;  /* Hashed index of keys in whole list */
 };
 typedef struct dbspec_key dbspec_key;
 
