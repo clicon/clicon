@@ -110,16 +110,15 @@ clicon_strsplit (char *string, char *delim, int *nvec, const char *label)
 {
     int idx;
     size_t siz;
-    char *s, *s0;
+    char *s;
     char **vec, *vecp;
 
     *nvec = 1;
-    s0 = s = chunkdup (string, strlen(string)+1, __FUNCTION__);
+    s = string;
     while ((s = strstr(s, delim))) {
 	s += strlen(delim);
 	(*nvec)++;
     }
-    unchunk (s0);
 
     siz = ((*nvec +1) * sizeof (char *)) + strlen(string) + 1;
     vec = (char **) chunk (siz, label);
