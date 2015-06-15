@@ -315,7 +315,7 @@ dbspec_parse_line(char *line, int linenr, const char *filename, dbspec_key **lis
 
 /*! Parse a db specification from text format to key-dbspec format.
  *
- * used internally in syntax-checking functions (such as key2spec_key()).
+ * used internally in syntax-checking functions (such as key2spc_key()).
  * Free the returned parse-tree with db_spec_free()
  * (Only way to create a db_spec)
  * Return value:
@@ -514,7 +514,7 @@ key2spec_key(dbspec_key *dbspec_list, char *key)
 {
     dbspec_key *db;
     int             ret;
-
+    
     for (db=dbspec_list; db; db=db->ds_next){
 	if ((ret = dbspec_key_match(key, db->ds_key)) < 0)
 	    goto catch;

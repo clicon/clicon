@@ -552,6 +552,7 @@ unchunk_group (const char *name)
 	/* Remove group from list and free it 
 	 */
 	DELQ (grp, chunk_grp, chunk_group_t *);
+	unchunk (grp->cg_name);
 	unchunk (grp);
 }
 
