@@ -1991,7 +1991,7 @@ cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
 /*! Register log notification stream
  * @param[in] h       Clicon handle
  * @param[in] stream  Event stream. CLICON is predefined, others are application-defined
- * @param[in] filter  Filter. For xml notification eg xpath
+ * @param[in] filter  Filter. For xml notification ie xpath: /[name=kalle]
  * @param[in] status  0 for stop, 1 to start
  * @param[in] fn      Callback function called when notification occurs
  * @param[in] arg     Argumnent to function

@@ -90,12 +90,14 @@ db_spec_new(void)
 }
 
 /*! Free a single db_spec struct */
-int
+static int
 db_spec_free1(dbspec_key *ds)
 {
     cvec_free(ds->ds_vec);
     assert(ds->ds_key);
     free(ds->ds_key); 
+    if(ds->ds_index)
+	hash_free(ds->ds_index);
     free(ds);
     return 0;
 }
@@ -104,46 +106,115 @@ db_spec_free1(dbspec_key *ds)
  * 
  * Note, ds may be freed.
  */
+#if 0
+ int
+ db_spec_tailadd(dbspec_key **ds_list, dbspec_key *ds)
+ {
+    dbspec_key **dsp = ds_list;
+     dbspec_key  *ds1;
+     cg_var      *cv;
+     cg_var      *cv2;
+     int          retval = -1;
+ 
+    while (*dsp){
+        ds1 = *dsp;
+       if (strcmp(ds1->ds_key, ds->ds_key) == 0){ /* same key? */
+           cv = NULL;
+           /* Go thru vars in the new key and see if exists in old */
+           while ((cv = cvec_each(ds->ds_vec, cv)) != NULL) {
+               if (cvec_find(ds1->ds_vec, cv_name_get(cv)) == NULL){
+                   /* Add if not found */
+                   if ((cv2 = cvec_add(ds1->ds_vec, cv_type_get(cv))) == NULL){
+                       clicon_err(OE_UNIX, errno, "cvec_add");
+                       goto done;
+                   }
+                   if (cv_cp(cv2, cv) != 0) {
+                       clicon_err(OE_UNIX, errno, "cv_cp");
+                       goto done;
+                   }
+                }
+            }
+       ds1->ds_vector = ds->ds_vector; /* broken */
+            db_spec_free1(ds); /* already in list, remove OK */
+            retval = 0;
+            goto done; 
+
+        }
+       dsp = &(*dsp)->ds_next;
+    }
+    *dsp = ds;
+     retval = 0;
+
+   done:
+     return retval;
+ }
+#else /* bennys optimization */
 int
 db_spec_tailadd(dbspec_key **ds_list, dbspec_key *ds)
 {
-    dbspec_key **dsp = ds_list;
+    dbspec_key **dsp;
     dbspec_key  *ds1;
     cg_var      *cv;
     cg_var      *cv2;
     int          retval = -1;
 
-    while (*dsp){
+    /*
+     * If first entry, simply assign and create list hashed key index 
+     */
+    if (*ds_list == NULL) {
+	*ds_list = ds;
+	if ((ds->ds_index = hash_init()) == NULL)
+	    return -1;
+	/* Add tail pointer to index */
+	ds->ds_tail = ds;
+	/* Add new key to index */
+	if (hash_add (ds->ds_index, ds->ds_key, &ds, sizeof(ds)) == NULL) {
+	    hash_free(ds->ds_index);
+	    return -1;
+	}
+	return 0;
+    }
+
+    /*
+     * Not first entry; Try to match existing key/vars
+     */
+    assert((*ds_list)->ds_index);
+    dsp = (dbspec_key **)hash_value((*ds_list)->ds_index, ds->ds_key, NULL);
+    if (dsp) {
 	ds1 = *dsp;
-	if (strcmp(ds1->ds_key, ds->ds_key) == 0){ /* same key? */
-	    cv = NULL;
-	    /* Go thru vars in the new key and see if exists in old */
-	    while ((cv = cvec_each(ds->ds_vec, cv)) != NULL) {
-		if (cvec_find(ds1->ds_vec, cv_name_get(cv)) == NULL){
-		    /* Add if not found */
-		    if ((cv2 = cvec_add(ds1->ds_vec, cv_type_get(cv))) == NULL){
-			clicon_err(OE_UNIX, errno, "cvec_add");
-			goto done;
-		    }
-		    if (cv_cp(cv2, cv) != 0) {
-			clicon_err(OE_UNIX, errno, "cv_cp");
-			goto done;
-		    }
+	cv = NULL;
+	/* Go thru vars in the new key and see if exists in old */
+	while ((cv = cvec_each(ds->ds_vec, cv)) != NULL) {
+	    if (cvec_find(ds1->ds_vec, cv_name_get(cv)) == NULL){
+		/* Add if not found */
+		if ((cv2 = cvec_add(ds1->ds_vec, cv_type_get(cv))) == NULL){
+		    clicon_err(OE_UNIX, errno, "cvec_add");
+		    goto done;
+		}
+		if (cv_cp(cv2, cv) != 0) {
+		    clicon_err(OE_UNIX, errno, "cv_cp");
+		    goto done;
 		}
 	    }
-	    ds1->ds_vector = ds->ds_vector; /* broken */
-	    db_spec_free1(ds); /* already in list, remove OK */
-	    retval = 0;
-	    goto done; 
 	}
-	dsp = &(*dsp)->ds_next;
+	ds1->ds_vector = ds->ds_vector; /* broken */
+	db_spec_free1(ds); /* already in list, remove OK */
+	retval = 0;
+	goto done; 
     }
-    *dsp = ds;
+    
+    /* Key not found; add to tail and update index */
+    if (hash_add ((*ds_list)->ds_index, ds->ds_key, &ds, sizeof(ds)) == NULL)
+	goto done;
+    assert((*ds_list)->ds_tail);
+    (*ds_list)->ds_tail->ds_next = ds;
+    (*ds_list)->ds_tail = ds;
     retval = 0;
+
   done:
     return retval;
 }
-
+#endif
 
 /*! Parse a single line of dbspec key syntax
  *
@@ -250,7 +321,7 @@ dbspec_parse_line(char *line, int linenr, const char *filename, dbspec_key **lis
  * Return value:
  * db_spec - specification
  */
-dbspec_key *
+static dbspec_key *
 db_spec_parse_file(const char *filename)
 {
     char   *ptr;
@@ -390,15 +461,15 @@ match_key_index(int *i0, char *key)
 }
 
 /*
- * match_key
+ * dbspec_key_match
  * key on the form A.4.B.4
  * skey on the form A[]B[]
  * return 0 on fail, 1 on sucess.
  * key:  a.0b
  * skey: a[]
  */
-int
-match_key(char *key, char *skey)
+static int
+dbspec_key_match(char *key, char *skey)
 {
     int   i, j;
     char  k, s;
@@ -445,7 +516,7 @@ key2spec_key(dbspec_key *dbspec_list, char *key)
     int             ret;
 
     for (db=dbspec_list; db; db=db->ds_next){
-	if ((ret = match_key(key, db->ds_key)) < 0)
+	if ((ret = dbspec_key_match(key, db->ds_key)) < 0)
 	    goto catch;
 	if (ret)
 	    break;
@@ -513,7 +584,7 @@ int
 dbspec_key_main(clicon_handle h, FILE *f, int printspec, int printalt)
 {
     int             retval = -1;
-    dbspec_key *db_spec;
+    dbspec_key     *db_spec;
     char           *db_spec_file;
     struct stat     st;
     yang_spec      *yspec;

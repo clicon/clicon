@@ -316,6 +316,7 @@ content     : emnt         { clicon_debug(3, "content -> emnt"); }
             | comment      { clicon_debug(3, "content -> comment"); }
             | CHAR         { if (xml_parse_content(_YA, $1) < 0) YYABORT;  
                              clicon_debug(3, "content -> CHAR", $1); }
+            |              { clicon_debug(3, "content -> "); }
             ;
 
 comment     : BCOMMENT ECOMMENT

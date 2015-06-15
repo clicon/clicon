@@ -60,16 +60,21 @@
 #include "config_dbdep.h"
 #include "config_handle.h"
 
-/*
- * See also backend_notify
+/*! Add client notification subscription. Ie send notify to this client when event occurs
+ * @param[in] ce      Client entry struct
+ * @param[in] stream  Notification stream name
+ * @param[in] format  How to display event (see enum format_enum)
+ * @param[in] filter  Filter, what to display, eg xpath for format=xml, fnmatch
+ *
+ * @see backend_notify - where subscription is made and notify call is made
  */
-static struct subscription *
-subscription_add(struct client_entry *ce, 
-		 char *stream, 
-		 enum format_enum format,
-		 char *filter)
+static struct client_subscription *
+client_subscription_add(struct client_entry *ce, 
+		 char                *stream, 
+		 enum format_enum     format,
+		 char                *filter)
 {
-    struct subscription *su = NULL;
+    struct client_subscription *su = NULL;
 
     if ((su = malloc(sizeof(*su))) == NULL){
 	clicon_err(OE_PLUGIN, errno, "malloc");
@@ -97,10 +102,11 @@ ce_find_bypid(struct client_entry *ce_list, int pid)
 }
 
 static int
-subscription_delete(struct client_entry *ce, struct subscription *su0)
+client_subscription_delete(struct client_entry *ce, 
+		    struct client_subscription *su0)
 {
-    struct subscription   *su;
-    struct subscription  **su_prev;
+    struct client_subscription   *su;
+    struct client_subscription  **su_prev;
 
     su_prev = &ce->ce_subscription; /* this points to stack and is not real backpointer */
     for (su = *su_prev; su; su = su->su_next){
@@ -117,10 +123,10 @@ subscription_delete(struct client_entry *ce, struct subscription *su0)
     return 0;
 }
 
-static struct subscription *
-subscription_find(struct client_entry *ce, char *stream)
+static struct client_subscription *
+client_subscription_find(struct client_entry *ce, char *stream)
 {
-    struct subscription   *su = NULL;
+    struct client_subscription   *su = NULL;
 
     for (su = ce->ce_subscription; su; su = su->su_next)
 	if (strcmp(su->su_stream, stream) == 0)
@@ -139,7 +145,7 @@ backend_client_rm(clicon_handle h, struct client_entry *ce)
     struct client_entry   *c;
     struct client_entry   *c0;
     struct client_entry  **ce_prev;
-    struct subscription   *su;
+    struct client_subscription   *su;
 
     c0 = backend_client_list(h);
     ce_prev = &c0; /* this points to stack and is not real backpointer */
@@ -151,7 +157,7 @@ backend_client_rm(clicon_handle h, struct client_entry *ce)
 		ce->ce_s = 0;
 	    }
 	    while ((su = ce->ce_subscription) != NULL)
-		subscription_delete(ce, su);
+		client_subscription_delete(ce, su);
 	    break;
 	}
 	ce_prev = &c->ce_next;
@@ -695,7 +701,7 @@ from_client_subscription(clicon_handle h,
     char                *stream;
     char                *filter;
     int                  retval = -1;
-    struct subscription *su;
+    struct client_subscription *su;
     clicon_log_notify_t *old;
 
     if (clicon_msg_subscription_decode(msg, 
@@ -710,15 +716,15 @@ from_client_subscription(clicon_handle h,
     }
 
     if (status){
-	if ((su = subscription_add(ce, stream, format, filter)) == NULL){
+	if ((su = client_subscription_add(ce, stream, format, filter)) == NULL){
 	    send_msg_err(ce->ce_s, clicon_errno, clicon_suberrno,
 			 clicon_err_reason);
 	    goto done;
 	}
     }
     else{
-	if ((su = subscription_find(ce, stream)) != NULL)
-	    subscription_delete(ce, su);
+	if ((su = client_subscription_find(ce, stream)) != NULL)
+	    client_subscription_delete(ce, su);
     }
     /* Avoid recursion when sending logs */
     old = clicon_log_register_callback(NULL, NULL);

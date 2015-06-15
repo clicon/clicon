@@ -25,6 +25,13 @@
 #define _CONFIG_HANDLE_H_
 
 /*
+ * Structures
+ */
+
+
+
+
+/*
  * Prototypes 
  * not exported.
  */

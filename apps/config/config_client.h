@@ -38,12 +38,14 @@ struct client_entry{
     int                    ce_pid;   /* Process id */
     int                    ce_uid;   /* User id of calling process */
     clicon_handle          ce_handle; /* clicon config handle (all clients have same?) */
-    struct subscription   *ce_subscription; /* notification subscriptions */
+    struct client_subscription   *ce_subscription; /* notification subscriptions */
 };
 
-/* Notification subscription info */
-struct subscription{
-    struct subscription *su_next;
+/* Notification subscription info 
+ * @see subscription in config_handle.c
+ */
+struct client_subscription{
+    struct client_subscription *su_next;
     int                  su_s; /* stream socket */
     enum format_enum     su_format; /* format of notification stream */
     char                *su_stream;

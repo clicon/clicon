@@ -57,8 +57,13 @@
 
 #define handle(h) (assert(clicon_handle_check(h)==0),(struct backend_handle *)(h))
 
+/* static */
+static struct handle_subscription *
+subscription_each(clicon_handle h,
+		  struct handle_subscription *hprev);
+
 /*
- * config_handle
+ * backend_handle
  * first part of this is header, same for clicon_handle and cli_handle.
  * Access functions for common fields are found in clicon lib: clicon_options.[ch]
  * This file should only contain access functions for the _specific_
@@ -72,6 +77,7 @@ struct backend_handle {
     dbdep_t                 *cb_dbdep;     /* Database dependencies: commit checks */
     struct client_entry     *cb_ce_list;   /* The client list */
     int                      cb_ce_nr;     /* Number of clients, just increment */
+    struct handle_subscription *cb_subscription; /* Event subscription list */
 };
 
 /*
@@ -134,11 +140,12 @@ backend_dbdep_set(clicon_handle h, dbdep_t *dbdep)
 int
 backend_notify(clicon_handle h, char *stream, int level, char *event)
 {
-    struct client_entry *ce;
-    struct subscription *su;
+    struct client_entry        *ce;
+    struct client_subscription *su;
+    struct handle_subscription *hs;
     int                  retval = -1;
 
-    /* Now go thru all clients(sessions), and all subscriptions and find matches */
+    /* First thru all clients(sessions), and all subscriptions and find matches */
     for (ce = backend_client_list(h); ce; ce = ce->ce_next)
 	for (su = ce->ce_subscription; su; su = su->su_next)
 	    if (strcmp(su->su_stream, stream) == 0){
@@ -146,6 +153,17 @@ backend_notify(clicon_handle h, char *stream, int level, char *event)
 		    if (send_msg_notify(ce->ce_s, level, event) < 0)
 			goto done;
 	    }
+    /* Then go thru all global (handle) subscriptions and find matches */
+    hs = NULL;
+    while ((hs = subscription_each(h, hs)) != NULL){
+	if (hs->hs_format != MSG_NOTIFY_TXT)
+	    continue;
+	if (strcmp(hs->hs_stream, stream))
+	    continue;
+	if (fnmatch(hs->hs_filter, event, 0) == 0)
+	    if ((*hs->hs_fn)(h, event, hs->hs_arg) < 0)
+		goto done;
+    }
     retval = 0;
   done:
     return retval;
@@ -168,9 +186,10 @@ int
 backend_notify_xml(clicon_handle h, char *stream, int level, cxobj *x)
 {
     struct client_entry *ce;
-    struct subscription *su;
+    struct client_subscription *su;
     int                  retval = -1;
     cbuf                *cb = NULL;
+    struct handle_subscription *hs;
 
     /* Now go thru all clients(sessions), and all subscriptions and find matches */
     for (ce = backend_client_list(h); ce; ce = ce->ce_next)
@@ -189,6 +208,19 @@ backend_notify_xml(clicon_handle h, char *stream, int level, cxobj *x)
 			goto done;
 		}
 	    }
+    /* Then go thru all global (handle) subscriptions and find matches */
+    /* XXX: x contains name==dk-ore, but filter is 
+       id==/[userid=d2d5e46c-c6f9-42f3-9a69-fb52fe60940d] */
+    hs = NULL;
+    while ((hs = subscription_each(h, hs)) != NULL){
+	if (hs->hs_format != MSG_NOTIFY_XML)
+	    continue;
+	if (strcmp(hs->hs_stream, stream))
+	    continue;
+	if (strlen(hs->hs_filter)==0 || xpath_first(x, hs->hs_filter) != NULL)
+	    if ((*hs->hs_fn)(h, x, hs->hs_arg) < 0)
+		goto done;
+    }
     retval = 0;
   done:
     if (cb)
@@ -245,3 +277,83 @@ backend_client_delete(clicon_handle h, struct client_entry *ce)
     return 0;
 }
 
+struct handle_subscription *
+subscription_add(clicon_handle        h,
+		 char                *stream, 
+		 enum format_enum     format,
+		 char                *filter,
+		 subscription_fn_t    fn,
+		 void                *arg)
+{
+    struct backend_handle *cb = handle(h);
+    struct handle_subscription *hs = NULL;
+
+    if ((hs = malloc(sizeof(*hs))) == NULL){
+	clicon_err(OE_PLUGIN, errno, "malloc");
+	goto done;
+    }
+    memset(hs, 0, sizeof(*hs));
+    hs->hs_stream = strdup(stream);
+    hs->hs_format = format;
+    hs->hs_filter = strdup(filter);
+    hs->hs_next   = cb->cb_subscription;
+    hs->hs_fn     = fn;
+    hs->hs_arg    = arg;
+    cb->cb_subscription = hs;
+  done:
+    return hs;
+}
+
+int
+subscription_delete(clicon_handle     h,
+		    char             *stream, 
+		    subscription_fn_t fn)
+{
+    struct backend_handle *cb = handle(h);
+    struct handle_subscription   *hs;
+    struct handle_subscription  **hs_prev;
+
+    hs_prev = &cb->cb_subscription; /* this points to stack and is not real backpointer */
+    for (hs = *hs_prev; hs; hs = hs->hs_next){
+	if (strcmp(hs->hs_stream, stream)==0 && hs->hs_fn == fn){
+	    *hs_prev = hs->hs_next;
+	    free(hs->hs_stream);
+	    if (hs->hs_filter)
+		free(hs->hs_filter);
+	    free(hs);
+	    break;
+	}
+	hs_prev = &hs->hs_next;
+    }
+    return 0;
+}
+
+/*! Iterator over subscriptions
+ *
+ * NOTE: Never manipulate the child-list during operation or using the
+ * same object recursively, the function uses an internal field to remember the
+ * index used. It works as long as the same object is not iterated concurrently. 
+ *
+ * @param[in] h     clicon handle 
+ * @param[in] hprev iterator, initialize with NULL
+ * @code
+ *   clicon_handle h;
+ *   struct handle_subscription *hs = NULL;
+ *   while ((hs = subscription_each(h, hs)) != NULL) {
+ *     ...
+ *   }
+ * @endcode
+ */
+static struct handle_subscription *
+subscription_each(clicon_handle               h,
+		  struct handle_subscription *hprev)
+{
+    struct backend_handle      *cb = handle(h);
+    struct handle_subscription *hs = NULL;
+
+    if (hprev)
+	hs = hprev->hs_next;
+    else
+	hs = cb->cb_subscription;
+    return hs;
+}

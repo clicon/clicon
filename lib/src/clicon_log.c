@@ -251,7 +251,6 @@ clicon_debug_init(int dbglevel, FILE *f)
     return 0;
 }
 
-
 /*! Print a debug message with debug-level. Settings determine where msg appears.
  *
  * If the dbglevel passed in the function is equal to or lower than the one set by 

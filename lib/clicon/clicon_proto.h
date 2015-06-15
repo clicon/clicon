@@ -98,9 +98,9 @@ enum clicon_msg_type{
     CLICON_MSG_SUBSCRIPTION, /* Create a new notification subscription. 
 			        Body is:
 			        1. int: status off/on
-			        1. int: format (enum notify_format)
-			        2. string: name of stream 
-			        3. string: filter */
+			        1. int: format (enum format_enum)
+			        2. string: name of notify stream 
+			        3. string: filter, if format=xml: xpath, if text: fnmatch */
     CLICON_MSG_OK,       /* server->client reply */
     CLICON_MSG_NOTIFY,   /* Notification. Body is:
 			    1. int: loglevel

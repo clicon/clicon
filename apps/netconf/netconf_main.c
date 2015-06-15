@@ -57,7 +57,7 @@
 #include "netconf_rpc.h"
 
 /* Command line options to be passed to getopt(3) */
-#define NETCONF_OPTS "hDa:f:Sqs:d:"
+#define NETCONF_OPTS "hDa:qf:s:d:S"
 
 static int
 packet(clicon_handle h, cbuf *xf)
@@ -340,7 +340,8 @@ usage(char *argv0, clicon_handle h)
             "\t-q\t\tQuiet: dont send hello prompt\n"
     	    "\t-f <file>\tConfiguration file (default: %s)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
-	    "\t-d <dir>\tSpecify netconf plugin directory dir (default: %s)\n",
+	    "\t-d <dir>\tSpecify netconf plugin directory dir (default: %s)\n"
+	    "\t-S\t\tLog on syslog\n",
 	    argv0,
 	    appdir?appdir:"none",
 	    conffile?conffile:"none",
@@ -413,7 +414,7 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	case 'a' : /* appdir */
 	case 'f': /* config file */
-	 case 'S': /* Log on syslog */
+	case 'S': /* Log on syslog */
 	    break; /* see above */
 	case 'q':  /* quiet: dont write hello */
 	    quiet++;

@@ -42,6 +42,9 @@ struct dbspec_key{
     cvec              *ds_vec;    /* List of variables */
     int                ds_vector; /* allow list of variables to have same names, but
 				not same values XXX but $a[] should be in ds_vec?*/
+    /* Record keeping for head of list */
+    struct dbspec_key *ds_tail;   /* Tail of linked list */
+    clicon_hash_t     *ds_index;  /* Hashed index of keys in whole list */
 };
 typedef struct dbspec_key dbspec_key;
 
@@ -50,16 +53,10 @@ typedef struct dbspec_key dbspec_key;
  */
 dbspec_key *db_spec_new(void); // static?
 int db_spec_tailadd(dbspec_key **db_sp0, dbspec_key *db_s);// static?
-dbspec_key *db_spec_parse_file(const char *filename);
 int db_spec_free(dbspec_key *db_spec);
-int db_spec_free1(dbspec_key *ds);
 char *db_spec2str(dbspec_key *db);
 int db_spec_dump(FILE *f, dbspec_key *db_spec);
-
-#define db_spec_match(dbs, key) key2spec_key((dbs), (key)) /* obsolete */
-
 dbspec_key *key2spec_key(dbspec_key *db_speclist, char *key);
-int match_key(char *key, char *skey);
 int sanity_check_cvec(char *key, dbspec_key *db_spec, cvec *vec);
 int dbspec_key_main(clicon_handle h, FILE *f, int printspec, int printalt);
 

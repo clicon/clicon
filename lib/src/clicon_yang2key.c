@@ -150,15 +150,9 @@ yang2key_container(yang_stmt       *ys,
     if (cli2db_genkey(keys0, vars0, &ds) < 0)
 	goto done;
     /* Add symbol but only if there are variables */
-    
-#if 0
-    if (cvec_len(vars0) &&
-	db_spec_tailadd(ds_list, ds) < 0) /* ds is consumed and may be freed in this call */
-	goto done;
-#else
     if (db_spec_tailadd(ds_list, ds) < 0) /* ds is consumed and may be freed in this call */
 	goto done;
-#endif
+
     /* XXX: Many problems with this code:
        1. ds may leak or may be freed maturely?
        2. I dont think it should be here, the ds is added by leaf function anyhow,...

@@ -389,6 +389,9 @@ dbmatch_one(void *handle,
  * NOTE: return value must be freed after use.
  * @code
  * char **vec = dbvectorkeys(running, "key[]", &len);
+ * for (i=0; i<len; i++){
+ *    vec[i]
+ * }
  * ...
  * free(vec);
  * @endcode
