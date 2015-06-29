@@ -449,7 +449,7 @@ main(int argc, char **argv)
     if (debug)
 	clicon_option_dump(h, debug);
 
-    /* Call start function is all plugins before we go interactive 
+    /* Call start function in all plugins before we go interactive 
        Pass all args after the standard options to plugin_start
      */
 

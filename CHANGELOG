@@ -16,7 +16,8 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-- Mem-leak in chunk-code
+- Event subscription API: add/delete/each
+- Long-term mem-leak in chunk-code
 - xml parser did not support "<a></a>" only "</a>"
 - fixed error in event-loop if timers are used: events before now caused hanging
 

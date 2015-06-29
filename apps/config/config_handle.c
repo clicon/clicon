@@ -57,11 +57,6 @@
 
 #define handle(h) (assert(clicon_handle_check(h)==0),(struct backend_handle *)(h))
 
-/* static */
-static struct handle_subscription *
-subscription_each(clicon_handle h,
-		  struct handle_subscription *hprev);
-
 /*
  * backend_handle
  * first part of this is header, same for clicon_handle and cli_handle.
@@ -277,6 +272,17 @@ backend_client_delete(clicon_handle h, struct client_entry *ce)
     return 0;
 }
 
+/*! Add subscription given stream name, callback and argument 
+ * @param[in]  h      Clicon handle
+ * @param[in]  stream Name of event stream
+ * @param[in]  format Expected format of event, eg text or xml
+ * @param[in]  filter Filter to match event, depends on format, eg xpath for xml
+ * @param[in]  fn     Callback when event occurs
+ * @param[in]  arg    Argument to use with callback. Also handle when deleting
+ * Note that arg is not a real handle.
+ * @see subscription_delete
+ * @see subscription_each
+ */
 struct handle_subscription *
 subscription_add(clicon_handle        h,
 		 char                *stream, 
@@ -304,10 +310,20 @@ subscription_add(clicon_handle        h,
     return hs;
 }
 
+/*! Delete subscription given stream name, callback and argument 
+ * @param[in]  h      Clicon handle
+ * @param[in]  stream Name of event stream
+ * @param[in]  fn     Callback when event occurs
+ * @param[in]  arg    Argument to use with callback and handle
+ * Note that arg is not a real handle.
+ * @see subscription_add
+ * @see subscription_each
+ */
 int
 subscription_delete(clicon_handle     h,
 		    char             *stream, 
-		    subscription_fn_t fn)
+		    subscription_fn_t fn,
+		    void             *arg)
 {
     struct backend_handle *cb = handle(h);
     struct handle_subscription   *hs;
@@ -315,11 +331,14 @@ subscription_delete(clicon_handle     h,
 
     hs_prev = &cb->cb_subscription; /* this points to stack and is not real backpointer */
     for (hs = *hs_prev; hs; hs = hs->hs_next){
+	/* XXX arg == hs->hs_arg */
 	if (strcmp(hs->hs_stream, stream)==0 && hs->hs_fn == fn){
 	    *hs_prev = hs->hs_next;
 	    free(hs->hs_stream);
 	    if (hs->hs_filter)
 		free(hs->hs_filter);
+	    if (hs->hs_arg)
+		free(hs->hs_arg);
 	    free(hs);
 	    break;
 	}
@@ -344,7 +363,7 @@ subscription_delete(clicon_handle     h,
  *   }
  * @endcode
  */
-static struct handle_subscription *
+struct handle_subscription *
 subscription_each(clicon_handle               h,
 		  struct handle_subscription *hprev)
 {

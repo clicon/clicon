@@ -107,6 +107,9 @@ struct handle_subscription{
 struct handle_subscription *subscription_add(clicon_handle h, char *stream, 
 		  enum format_enum format, char *filter, subscription_fn_t fn, void *arg);
 
-int subscription_delete(clicon_handle h, char *stream, subscription_fn_t fn);
+int subscription_delete(clicon_handle h, char *stream, subscription_fn_t fn, void *arg);
+
+struct handle_subscription *subscription_each(clicon_handle h,
+					      struct handle_subscription *hprev);
 
 #endif /* _CLICON_BACKEND_API_H_ */
