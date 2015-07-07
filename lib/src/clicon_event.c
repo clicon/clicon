@@ -65,6 +65,10 @@ struct event_data{
  */
 static struct event_data *ee = NULL;
 static struct event_data *ee_timers = NULL;
+
+/* Set if element in ee is deleted (event_unreg_fd). Check in ee loops */
+static int _ee_unreg = 0;
+
 static int _clicon_exit = 0;
 
 /*! For signal handlers: instead of doing exit, set a global variable to exit
@@ -138,6 +142,7 @@ event_unreg_fd(int s, int (*fn)(int, void*))
 	if (fn == e->e_fn && s == e->e_fd) {
 	    found++;
 	    *e_prev = e->e_next;
+	    _ee_unreg++;
 	    free(e);
 	    break;
 	}
@@ -278,6 +283,7 @@ event_loop(void)
 	    }
 	    free(e);
 	}
+	_ee_unreg = 0;
 	for (e=ee; e; e=e_next){
 	    if (clicon_exit_get())
 		break;
@@ -287,6 +293,10 @@ event_loop(void)
 			__FUNCTION__, e->e_string, e->e_arg);
 		if ((*e->e_fn)(e->e_fd, e->e_arg) < 0)
 		    goto err;
+		if (_ee_unreg){
+		    _ee_unreg = 0;
+		    break;
+		}
 	    }
 	}
 	continue;
