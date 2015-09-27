@@ -1768,16 +1768,43 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
 
 }
 
+/* Show configuration as prettyprinted xml 
+ */
 int
 show_conf_as_xml(clicon_handle h, cvec *vars, cg_var *arg)
 {
     return show_conf_as_xml1(h, vars, arg, 0);
 }
 
+/* Show configuration as prettyprinted xml with netconf hdr/tail
+ */
 int
 show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg)
 {
     return show_conf_as_xml1(h, vars, arg, 1);
+}
+
+/* Show configuration as JSON
+ */
+int
+show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg)
+{
+    cxobj *xt = NULL;
+    cxobj *xc;
+    int              retval = -1;
+
+    if ((xt = xml_new("tmp", NULL)) == NULL)
+	goto done;
+    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+	goto done;
+    xc = NULL; /* Dont print xt itself */
+    while ((xc = xml_child_each(xt, xc, -1)) != NULL)
+	xml2json(stdout, xc, 1);
+    retval = 0;
+  done:
+    if (xt)
+	xml_free(xt);
+    return retval;
 }
 
 /*

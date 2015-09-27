@@ -1073,7 +1073,7 @@ xml2cli(FILE              *f,
  * XXX ugly code could be cleaned up
  */
 int 
-xml2json1(FILE *f, cxobj *x, int level, int eq)
+xml2json1(FILE *f, cxobj *x, int level, int eq, int comma)
 {
     cxobj           *xe = NULL;
     cxobj           *x1;
@@ -1120,7 +1120,7 @@ xml2json1(FILE *f, cxobj *x, int level, int eq)
 			    eq1 = 2; /* last */
 		}
 	    }
-	    if (xml2json1(f, xe, level1, eq1) < 0)
+	    if (xml2json1(f, xe, level1, eq1, (i+1<n)) < 0)
 		goto done;
 	    if (xml_body(xe)!=NULL){
 		if (eq1 == 2){
@@ -1138,12 +1138,16 @@ xml2json1(FILE *f, cxobj *x, int level, int eq)
 	if (tleaf(x)){
 	}
 	else{
-	    fprintf(f, "%*s}\n", 2*level1, "");
+	    fprintf(f, "%*s}", 2*level1, "");
+	    if (comma)
+		fprintf(f, ",");
+	    fprintf(f, "\n");
 	}
 	break;
     default:
 	break;
     }
+
     //    fprintf(f, "%*s", 2*level, "");
     retval = 0;
  done:
@@ -1156,7 +1160,7 @@ xml2json(FILE *f, cxobj *x, int level)
     int retval = 1;
 
     fprintf(f, "{\n");
-    if (xml2json1(f, x, level, 0) < 0)
+    if (xml2json1(f, x, level, 0, 0) < 0)
 	goto done;
     fprintf(f, "}\n");
     retval = 0;

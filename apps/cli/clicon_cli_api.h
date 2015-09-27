@@ -114,6 +114,7 @@ int delete_all(clicon_handle h, cvec *vars, cg_var *arg);
 int discard_changes(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_xml(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg);
+int show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_text(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg);
 int show_conf_as_csv(clicon_handle h, cvec *vars, cg_var *arg);

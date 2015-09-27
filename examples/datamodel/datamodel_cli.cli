@@ -1,6 +1,7 @@
 # $Id: datamodel_cli.cli,v 1.2 2013/09/19 15:02:38 olof Exp $
 # Common CLI syntax for both server and PMNode operatio mode
 CLICON_MODE="datamodel";
+CLICON_PLUGIN="datamodel_cli";
 CLICON_PROMPT="%U@%H> ";
 
 # Note, when switching to PT, change datamodel to only @datamodel
@@ -24,6 +25,7 @@ show("Show a particular state of the system"){
 	    netconf("Show configuration as netconf edit-config operation"), show_conf_as_netconf("candidate ^.*$");
 	    text("Show configuration as text"), show_conf_as_text("candidate ^.*$");
 	    cli("Show configuration as cli commands"), show_conf_as_cli("candidate ^.*$");
+	    json("Show configuration as JSON"), show_conf_as_json("candidate ^.*$");
     }
 }
 

@@ -34,23 +34,29 @@ CFLAGS  	= @CFLAGS@ -rdynamic -fPIC
 
 INCLUDES 	= -I$(includedir) @INCLUDES@ 
 
+FE_PLUGIN       = datamodel_cli.so
 BE_PLUGIN       = datamodel_backend.so
 
-PLUGINS = $(BE_PLUGIN)
+PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN)
 
 all:	$(PLUGINS)
 
+FE_SRC   = datamodel_cli.c
 BE_SRC   = datamodel_backend.c
-SRC = $(BE_SRC)
+SRC = $(FE_SRC) $(BE_SRC)
 
+FE_OBJ   = $(FE_SRC:%.c=%.o)
 BE_OBJ   = $(BE_SRC:%.c=%.o)
-OBJS = $(BE_OBJ)
+OBJS = $(FE_OBJ) $(BE_OBJ)
+
+$(FE_PLUGIN): $(FE_OBJ)
+	$(CC) -shared -o $(FE_PLUGIN) -lc $<
 
 $(BE_PLUGIN): $(BE_OBJ)
 	$(CC) -shared -o $(BE_PLUGIN) -lc $<
 
 clean:
-	rm -f $(OBJS) $(BE_PLUGIN)
+	rm -f $(OBJS) $(PLUGINS)
 
 distclean: clean
 	rm -f clicon.conf Makefile *~ .depend
@@ -69,6 +75,9 @@ install:	clicon.conf datamodel.yang datamodel.key extmodel.yang datamodel_cli.cl
 	install -m 755 -d $(DESTDIR)$(APPDIR)/archive
 	for i in datamodel_cli.cli; do \
 		install $$i $(DESTDIR)$(APPDIR)/clispec/`basename $$i`; \
+	done
+	for i in $(FE_PLUGIN); do \
+		install $$i $(DESTDIR)$(APPDIR)/cli/`basename $$i`; \
 	done
 	for i in $(BE_PLUGIN); do \
 		install $$i $(DESTDIR)$(APPDIR)/backend/`basename $$i`; \
