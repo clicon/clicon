@@ -1,0 +1,32 @@
+# $Id: datamodel_cli.cli,v 1.2 2013/09/19 15:02:38 olof Exp $
+# Common CLI syntax for both server and PMNode operatio mode
+CLICON_MODE="clicon_yang";
+CLICON_PLUGIN="clicon_yang_cli";
+CLICON_PROMPT="%U@%H> ";
+
+# Note, when switching to PT, change datamodel to only @datamodel
+@datamodel:datamodel, cli_merge();
+
+quit("Quit"), cli_quit();
+delete("Delete a configuration item") @datamodel:datamodel, cli_del();
+delete("Delete a configuration item")  all("Delete whole candidate configuration"), delete_all("candidate");
+
+no("Negate or remove") debug("Debugging parts of the system"), cli_debug((int)0);
+debug("Debugging parts of the system"), cli_debug((int)1);{
+    level("Set debug level: 1..n") <level:int32>("Set debug level (0..n)"), cli_debug();
+}
+
+
+show("Show configuration"), show_conf_as_text("candidate ^.*$");{
+	    xml("Show configuration as XML"), show_conf_as_xml("candidate ^.*$");
+	    netconf("Show configuration as netconf edit-config operation"), show_conf_as_netconf("candidate ^.*$");
+	    text("Show configuration as text"), show_conf_as_text("candidate ^.*$");
+	    cli("Show configuration as cli commands"), show_conf_as_cli("candidate ^.*$");
+	    json("Show configuration as JSON"), show_conf_as_json("candidate ^.*$");
+}
+
+save("Save candidate configuration to XML file") <filename:string>("Filename (local filename)"), save_config_file("candidate filename");
+load("Load configuration from XML file") <filename:string>("Filename (local filename)"),load_config_file("filename replace");{
+    replace("Replace candidate with file contents"), load_config_file("filename replace");
+    merge("Merge file with existent candidate"), load_config_file("filename merge");
+}

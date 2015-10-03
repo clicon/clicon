@@ -197,6 +197,7 @@ stripdup(char *s0)
 <STRING0>;                 { BEGIN(KEYWORD); return *yytext; }
 <STRING0>\"                { _YY->yy_lex_string_state =STRING0; BEGIN(STRING1); return DQ; }
 <STRING0>\'                { _YY->yy_lex_string_state =STRING0; BEGIN(STRING2); return DQ; }
+<STRING0>\+               { return *yytext; }
 <STRING0>.                 { clicon_yang_parselval.string = strdup(yytext);
                             return CHAR;}
 

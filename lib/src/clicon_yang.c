@@ -1827,7 +1827,7 @@ yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
     char           *yang_dir;
     char           *yang_module;
     int             retval = -1;
-    dbspec_key *db_spec;
+    dbspec_key     *db_spec;
 
     if ((yspec = yspec_new()) == NULL)
 	goto done;

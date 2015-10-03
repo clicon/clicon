@@ -44,7 +44,7 @@ cxobj *db2xml_key(char *dbname, dbspec_key *dbspec, char *key_regex, char *topta
 int key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop);
 int xml2db(cxobj *, dbspec_key *dbspec, char *dbname);
 
-int save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname);
+int save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname, int prettyprint);
 int load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname);
 int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);

@@ -1,0 +1,105 @@
+module datamodel{
+    import ietf-inet-types {
+      prefix inet;
+    }
+    list vpod {
+      key name;
+      leaf name{
+      	type string;
+      }
+      leaf description {
+        type string;
+      }
+      list LogicalComputerSystem {
+        key cname;
+	leaf cname{
+	  type string;
+	}
+        leaf description {
+	  type string;
+        }
+	list LogicalInterface{
+	  key ifname;
+	  leaf ifname{
+	    type string;
+	  }
+	  leaf description {
+	    type string;
+          }
+	  container control{
+ 	    description "Set if control network, otherwise data";
+          } 
+	  container pxe{
+ 	    description "Set if system should network boot from this interface";
+          } 
+	  container redundant{
+ 	    description "Set if sub-ports should be on redundant switches";
+          } 
+	  leaf loadbalancing{
+	    type enumeration{
+	      enum lacp;
+	      enum static;
+            }
+          } 
+	  list L2Endpoint{
+ 	    key eth;
+            leaf eth{
+	      type string;
+            }
+            leaf speed{
+	      type enumeration{
+	        enum 1Gbps;
+	        enum 10Gbps;
+	        enum 25Gbps;
+	        enum 40Gbps;
+	        enum 100Gbps;
+	      }
+            }
+          }
+	}
+      }
+      list L2Network {
+        key id;
+	leaf id{
+	  type uint16;
+	}
+	leaf lname{
+      	  type string;
+        }
+        leaf description {
+	  type string;
+        }
+	container control{
+	   description "Set if control network, otherwise data";
+        } 
+	container L3Network{
+	  leaf virtual-router{
+	    type string;
+	  }
+	  leaf prefix{
+	    type inet:ipv4-prefix;
+	  }
+        }
+	list server{
+          key srv;
+          leaf srv{
+	    type leafref{
+	        path "/vpod/ComputerSystem/cname";
+	    }
+ 	    description "Reference to server";
+          }
+	  list interfaces{
+	    key interface;
+            leaf interface{
+	      type leafref{
+	        path "/vpod/LogicalComputerSystem/LogicalInterface/ifname";
+	      }
+	      description "Reference to server interface";
+	    }
+	    container untagged;
+	  }
+	}
+      }
+    }
+  }
+

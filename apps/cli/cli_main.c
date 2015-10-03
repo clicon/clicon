@@ -208,6 +208,7 @@ main(int argc, char **argv)
     int          logclisyntax  = 0;
     int          help = 0;
     char        *treename;
+    char        *running_db;
     int          logdst = CLICON_LOG_STDERR;
 
     /* Defaults */
@@ -434,11 +435,15 @@ main(int argc, char **argv)
     }
 
     /* Initialize databases */    
-    if (clicon_running_db(h) == NULL)
+    if ((running_db = clicon_running_db(h)) == NULL)
 	goto done;
 
     if (strlen(private_db))
 	clicon_option_str_set(h, "CLICON_CANDIDATE_DB", private_db);
+
+    if (!cli_usedaemon(h)) 
+	if (db_init(running_db) < 0)
+	    return -1;
 
     if (init_candidate_db(h, dbtype) < 0)
 	return -1;

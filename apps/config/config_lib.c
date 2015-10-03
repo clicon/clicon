@@ -89,6 +89,6 @@ config_snapshot(dbspec_key *dbspec, char *dbname, char *dir)
     }
     /* Make the most current snapshot */
     snprintf(filename0, MAXPATHLEN, "%s/0", dir);
-    return save_db_to_xml(filename0, dbspec, dbname);
+    return save_db_to_xml(filename0, dbspec, dbname, 0);
 }
 

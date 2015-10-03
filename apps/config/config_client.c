@@ -265,7 +265,7 @@ from_client_save(clicon_handle h,
 	}
     }
     else
-	if (save_db_to_xml(filename, clicon_dbspec_key(h), db) < 0){
+	if (save_db_to_xml(filename, clicon_dbspec_key(h), db, 0) < 0){
 	send_msg_err(s, clicon_errno, clicon_suberrno,
 		     clicon_err_reason);
 	    goto done;

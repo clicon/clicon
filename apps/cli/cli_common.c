@@ -96,21 +96,33 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
     case CANDIDATE_DB_PRIVATE:
 	if (lstat(candidate_db, &sb) < 0){
 	    if (file_cp(running_db, candidate_db) < 0){
-		clicon_err(OE_UNIX, errno, "Error when copying %s to %s: %s\n", 
-			running_db, candidate_db,
-			strerror(errno));
+		clicon_err(OE_UNIX, errno, "Error when copying %s to %s", 
+			   running_db, candidate_db);
 		unlink(candidate_db);
 		goto err;
 	    }
 	}
 	break;
     case CANDIDATE_DB_SHARED:
+	if (lstat(running_db, &sb) < 0){
+	    clicon_err(OE_FATAL, 0, "Running db (%s) does not exist", 
+		       running_db);
+	    goto err;
+	}
 	if (lstat(candidate_db, &sb) < 0){
-	    if ((s = clicon_sock(h)) == NULL){
-		clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-		goto err;
+	    if (cli_usedaemon(h)) {
+		if ((s = clicon_sock(h)) == NULL){
+		    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+		    goto err;
+		}
+		clicon_proto_copy(s, running_db, candidate_db);
 	    }
-	    clicon_proto_copy(s, running_db, candidate_db);
+	    else
+		if (file_cp(running_db, candidate_db) < 0){
+		    clicon_err(OE_UNIX, errno, "Error when copying %s to %s", 
+			       running_db, candidate_db);
+		    goto err;
+		}
 	}
 	break;
     case CANDIDATE_DB_CURRENT:
@@ -430,10 +442,12 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
     /* cli */
     clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
     /* config daemon */
-    if ((s = clicon_sock(h)) == NULL)
-	goto done;
-    if (clicon_proto_debug(s, level) < 0)
-	goto done;
+    if (cli_usedaemon(h)) {
+	if ((s = clicon_sock(h)) == NULL)
+	    goto done;
+	if (clicon_proto_debug(s, level) < 0)
+	    goto done;
+    }
   done:
     return 0;
 }
@@ -664,16 +678,18 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
     char          *candidate_db;
     int            retval = -1;
 
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	return -1;
-    }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	return -1;
     }
-    if ((retval = clicon_proto_validate(s, candidate_db)) < 0)
-	cli_output(stderr, "Validate failed. Edit and try again or discard changes\n");
+    if (cli_usedaemon(h)) {
+	if ((s = clicon_sock(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	    return -1;
+	}
+	if ((retval = clicon_proto_validate(s, candidate_db)) < 0)
+	    cli_output(stderr, "Validate failed. Edit and try again or discard changes\n");
+    }
     return retval;
 }
 
@@ -1495,13 +1511,26 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  		filename, strerror(errno));
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
+    if (cli_usedaemon(h)) {
+	if ((s = clicon_sock(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	    goto done;
+	}
+	if (clicon_proto_load(s, replace, dbname, filename) < 0)
+	    goto done;
     }
-    if (clicon_proto_load(s, replace, dbname, filename) < 0)
-	goto done;
-
+    else{
+	if (replace){
+	    if (unlink(dbname) < 0){
+		clicon_err(OE_UNIX, 0, "rm %s %s", filename, strerror(errno));
+		goto done;
+	    }
+	    if (db_init(dbname) < 0) 
+		goto done;
+	}
+	if (load_xml_to_db(filename, clicon_dbspec_key(h), dbname) < 0) 
+	    goto done;
+    }
     ret = 0;
   done:
     return ret;
@@ -1568,12 +1597,18 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     filename = vecp[0];
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
+    if (cli_usedaemon(h)) {
+	if ((s = clicon_sock(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	    goto done;
+	}
+	if (clicon_proto_save(s, dbname, 0, filename) < 0) /*  */
+	    goto done;
     }
-    if (clicon_proto_save(s, dbname, 0, filename) < 0) /*  */
-	goto done;
+    else{
+	if (save_db_to_xml(filename, clicon_dbspec_key(h), dbname, 1) < 0)
+	    goto done;
+    }
     retval = 0;
     /* Fall through */
   done:
@@ -1606,12 +1641,22 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "dbname not set");
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
+    if (cli_usedaemon(h)) {
+	if ((s = clicon_sock(h)) == NULL){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	    goto done;
+	}
+	clicon_proto_rm(s, dbname);
+	clicon_proto_initdb(s, dbname);
     }
-    clicon_proto_rm(s, dbname);
-    clicon_proto_initdb(s, dbname);
+    else{
+	if (unlink(dbname) < 0){
+	    clicon_err(OE_FATAL, errno, "unlink(%s)", dbname);
+	    goto done;
+	}
+	if (db_init(dbname) < 0) 
+	    goto done;
+    }
     retval = 0;
   done:
     return retval;

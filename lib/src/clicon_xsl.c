@@ -241,6 +241,7 @@ xpath_expr(char *e, searchvec *sv)
     return retval;
 }
 
+/*! Transform eg "a/b[kalle]" -> "a/b" e="kalle" */
 static int
 xpath_loop(char *xpathstr, char **pathexpr)
 {

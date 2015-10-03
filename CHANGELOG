@@ -16,6 +16,9 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+- Reverse match order in dbmatch functions
+- yang parse error using '+' in strings
+- New example: clicon_yang for stateless yang experiments (no backend)
 - Event subscription API: add/delete/each
 - Long-term mem-leak in chunk-code
 - xml parser did not support "<a></a>" only "</a>"

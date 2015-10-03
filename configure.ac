@@ -212,6 +212,7 @@ AC_OUTPUT(Makefile
 	  examples/datamodel/Makefile
 	  examples/datamodel/clicon.conf
 	  examples/routing/Makefile
+	  examples/clicon_yang/Makefile
 	  doc/Makefile 
 )
 

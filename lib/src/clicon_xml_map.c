@@ -693,7 +693,7 @@ xml2db_1(cxobj          *xn,
     )         /* on format A.2.B.3 */
 {
     int               retval = -1;
-    int               superleaf;
+
     cxobj            *xc;
     char             *basekey = NULL;
     char             *key = NULL;
@@ -705,13 +705,18 @@ xml2db_1(cxobj          *xn,
     int               partial = 0;
     cg_var           *cv; 
     int               len;
+#ifdef SUPERLEAF
+    int               superleaf;
 
     /*
      * Identify what is called a 'superleaf'. This is an XML node with element
      * children which in turn do not have sub-element.
      * Example: x is a superleaf: <x><a>text</a><b/><c attr="foo/></x>
+    * XXX Dont understand this legacy 'superleaf code.
+    * If I have it, empty nodes like '<test/>' are not transformed 
      */
     superleaf = 0;
+#endif
     xc = NULL;
 
     /*
@@ -721,6 +726,7 @@ xml2db_1(cxobj          *xn,
     if (key2spec(xml_name(xn), basekey0, dbspec, &spec, 
 		 &partial, &basekey) < 0)
 	goto catch;
+
     /* actual key */
     if (key0){
 	len = strlen(key0) + 1 + strlen(xml_name(xn));
@@ -778,9 +784,10 @@ xml2db_1(cxobj          *xn,
 		       __FUNCTION__, xml_name(xn));
 #endif
     }
+
+#ifdef SUPERLEAF
     /* At least one sub is a leaf, then mark this node as superleaf
        and transform to DB */
-
     if (!leaf(xn))
 	while ((xc = xml_child_each(xn, xc, CX_ELMNT)) != NULL)
 	    if (leaf(xc)){
@@ -789,12 +796,24 @@ xml2db_1(cxobj          *xn,
 	    }
     /* 
      */
+
+   /* 
+    * XXX Dont understand this legacy 'superleaf code.
+    * If I have it, empty nods like '<test/>' are not transformed 
+    */
     if (superleaf){
 	if ((xml2db_transform_key(xn, dbspec, dbname, 
 				  key_isvector(basekey), 
 				  &key, spec, uv)) < 0)
 	    goto catch;
     }
+#else  /* SUPERLEAF */
+    else
+	if ((xml2db_transform_key(xn, dbspec, dbname, 
+				  key_isvector(basekey), 
+				  &key, spec, uv)) < 0)
+	    goto catch;
+#endif /* SUPERLEAF */
   loop:
     xc = NULL;
     while ((xc = xml_child_each(xn, xc, CX_ELMNT)) != NULL)
@@ -852,7 +871,8 @@ xml2db(cxobj *xt, dbspec_key *dbspec, char *dbname)
  * Transform a db into XML and save into a file
  */
 int
-save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname)
+save_db_to_xml(char *filename, dbspec_key *dbspec, 
+	       char *dbname, int prettyprint)
 {
     FILE *f;
     cxobj *xn;
@@ -866,8 +886,7 @@ save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname)
 	clicon_err(OE_CFG, errno, "Formatting config XML %s", filename);
 	return -1;
     }
-
-    clicon_xml2file(f, xn, 0, 0); /* pretty-print may add spaces in values */
+    clicon_xml2file(f, xn, 0, prettyprint); /* pretty-print may add spaces in values */
     fclose(f);
     xml_free(xn);
 

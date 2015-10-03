@@ -525,15 +525,17 @@ lv_next_seq(char *dbname, char *basekey, char *varname, int increment)
  * We read A.n.42 to get index (i) if it exists. (set matched)
  * If not, we read A.n to get the max index, use that, increment and write back to A.n
  * We return i.
- * Note the key A.i is not written, bit the caller must write such a key, otherwise
+ * Note the key A.i is not written, but the caller must write such a key, otherwise
  * the database will be corrupt.
+ * @param[in]  setvars vector of unique indexes
+ * @param[out] match   index of key that matches
  */
 int
 db_lv_vec_find(dbspec_key *dbspec, /* spec list */
-	       char *dbname, 
-	       char *basekey,
-	       cvec *setvars, 
-	       int *match)
+	       char       *dbname, 
+	       char       *basekey,
+	       cvec       *setvars, 
+	       int        *match)
 {
     int             i;
     int             retval = -1;

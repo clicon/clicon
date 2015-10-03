@@ -1293,9 +1293,10 @@ qstrings      : qstrings '+' qstring
 			 $$ = realloc($1, len + strlen($3) + 1); 
 			 sprintf($$+len, "%s", $3);
 			 free($3); 
+			 clicon_debug(2,"qstrings-> qstrings + qstring"); 
 		     }
               | qstring    
-                     { $$=$1; clicon_debug(2,"qstrings-> \" qstring \""); } 
+                     { $$=$1; clicon_debug(2,"qstrings-> qstring"); } 
               ;
 
 qstring        : DQ ustring DQ  { $$=$2; clicon_debug(2,"string-> \" ustring \""); } 

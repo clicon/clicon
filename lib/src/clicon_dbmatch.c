@@ -103,13 +103,14 @@ dbmatch_fn(void *handle,
     char            *str;
     int              len;
     int              ret;
+    int              i;
 
     /* Following can be done generic */
     if ((npairs = db_regexp(dbname, keypattern, 
 			    __FUNCTION__, &pairs, 0)) < 0)
 	goto done;
-    for (npairs--; npairs >= 0; npairs--) {
-	key = pairs[npairs].dp_key;
+    for (i=0; i<npairs; i++) {
+	key = pairs[i].dp_key;
 	if (key_isvector_n(key) || key_iskeycontent(key))
 	    continue;
 	if ((vr = dbkey2cvec(dbname, key)) == NULL) /* get cvec of key */
@@ -172,6 +173,7 @@ dbmatch_fn(void *handle,
        keyv[i],... cvecv[i],....
     dbmatch_vec_free(keyv, cvecv, len);
  * @endcode
+ * @see clicon_dbitems  Preferred function
  */
 int
 dbmatch_vec(void *handle,
@@ -195,13 +197,14 @@ dbmatch_vec(void *handle,
     int              retval = -1;
     char            *str;
     int              len;
+    int              i;
 
     /* Following can be done generic */
     if ((npairs = db_regexp(dbname, keypattern, 
 			    __FUNCTION__, &pairs, 0)) < 0)
 	goto done;
-    for (npairs--; npairs >= 0; npairs--) {
-	key = pairs[npairs].dp_key;
+    for (i=0; i<npairs; i++) {
+	key = pairs[i].dp_key;
 	if (key_isvector_n(key) || key_iskeycontent(key))
 	    continue;
 	if ((vr = dbkey2cvec(dbname, key)) == NULL) /* get cvec of key */
@@ -323,13 +326,14 @@ dbmatch_one(void *handle,
     char            *str;
     int              len;
     int              retval = -1;
+    int              i;
 
     /* Following can be done generic */
     if ((npairs = db_regexp(dbname, keypattern, 
 			    __FUNCTION__, &pairs, 0)) < 0)
 	goto done;
-    for (npairs--; npairs >= 0; npairs--) {
-	key = pairs[npairs].dp_key;
+    for (i=0; i<npairs; i++) {
+	key = pairs[i].dp_key;
 	if (key_isvector_n(key) || key_iskeycontent(key))
 	    continue;
 	if ((vr = dbkey2cvec(dbname, key)) == NULL) /* get cvec of key */
