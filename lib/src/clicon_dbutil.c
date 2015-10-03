@@ -788,7 +788,7 @@ dbx(yang_stmt *ys,
 cvec *
 clicon_dbget_xpath(clicon_handle h, char *dbname, cvec *cvv0, char *xpath)
 {
-    char        *xp;
+    char        *xp = NULL;
     char        *expr = NULL;
     cvec        *cvv = NULL;
     char       **vec = NULL;
@@ -797,7 +797,7 @@ clicon_dbget_xpath(clicon_handle h, char *dbname, cvec *cvv0, char *xpath)
     yang_stmt   *ymod;
     char        *modstr;
     cbuf        *key;
-    cbuf        *keyn;
+    cbuf        *keyn = NULL;
     yang_stmt   *yres = NULL;
     char        *val;
     char        *sha1str = NULL;
