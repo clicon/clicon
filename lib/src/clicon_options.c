@@ -189,12 +189,13 @@ clicon_option_default(clicon_hash_t  *copt)
 	return -1;
     }
     if (stat(appdir, &st) < 0){
-	clicon_err(OE_UNIX, errno, "%s", appdir);
-	return -1;
+      /* Should be OK that APPDIR does not exist using -f option */
     }
-    if (!S_ISDIR(st.st_mode)){
+    else {
+      if (!S_ISDIR(st.st_mode)){
 	clicon_err(OE_UNIX, ENOTDIR, "%s", appdir);
 	return -1;
+      }
     }
     if (!hash_lookup(copt, "CLICON_CLI_DIR")){
 	if ((val = chunk_sprintf(__FUNCTION__, "%s/cli", appdir)) == NULL)
@@ -361,14 +362,15 @@ clicon_options_main(clicon_handle h, int argc, char **argv)
     }
     appdir = hash_value(copt, "CLICON_APPDIR", NULL);
     if (stat(appdir, &st) < 0){
-	clicon_err(OE_CFG, errno, "%s", appdir);
-	return -1;
+      /* should be OK if APPDIR does not exist using -f option*/
     }
-    if (!S_ISDIR(st.st_mode)){
+    else{
+      if (!S_ISDIR(st.st_mode)){
 	clicon_err(OE_CFG, ENOTDIR, "%s", appdir);
 	return -1;
+      }
+      clicon_debug(1, "CLICON_APPDIR=%s", appdir);
     }
-    clicon_debug(1, "CLICON_APPDIR=%s", appdir);
     /*
      * Set configure file if not set by command-line above
      */

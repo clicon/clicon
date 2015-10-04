@@ -1,6 +1,8 @@
-sudo docker build --no-cache=true -t olofhagsand/grideye_agent:v1.3 .
+clicon_cli -cf /usr/local/etc/clicon_yang.conf 
 
-sudo docker run -i -t -P olofhagsand/grideye_agent:v1.3
-sudo docker run -i -t -p 7878:7878/udp olofhagsand/grideye_agent:v1.3
-sudo docker run -d -P olofhagsand/grideye_agent:v1.3
-sudo docker push olofhagsand/grideye_agent
+sudo docker build -t olofhagsand/clicon_yang:v1.0 .
+#sudo docker build --no-cache=true -t olofhagsand/clicon_yang:v1.0 .
+
+sudo docker run -i -t -P olofhagsand/clicon_yang:v1.0
+
+sudo docker push olofhagsand/clicon_yang

@@ -1918,6 +1918,24 @@ show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
     return show_conf_as_command(h, vars, arg, NULL); /* XXX: how to set prepend? */
 }
 
+int
+show_yang(clicon_handle h, cvec *vars, cg_var *arg)
+{
+  yang_spec *yspec;
+  yang_node *yn;
+  char      *str = NULL;
+
+  yspec = clicon_dbspec_yang(h);	
+  if (arg != NULL){
+    str = cv_string_get(arg);
+    yn = (yang_node*)yang_find((yang_node*)yspec, 0, str);
+  }
+  else
+    yn = (yang_node*)yspec;
+  yang_print(stdout, yn, 0);
+  return 0;
+}
+
 /* These are strings that can be used as 3rd argument to cli_setlog */
 static const char *SHOWAS_TXT     = "txt";
 static const char *SHOWAS_XML     = "xml";

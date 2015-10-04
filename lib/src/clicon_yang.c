@@ -363,8 +363,8 @@ yn_each(yang_node *yn, yang_stmt *ys)
 
 /*! Find first child yang_stmt with matching keyword and argument
  *
- * If argument is NULL, match any argument.
- * If key is 0 match any keyword
+ * @param[in]  argument   if NULL, match any argument.
+ * @param[in]  keyword    if 0 match any keyword
  * This however means that if you actually want to match only a yang-stmt with 
  * argument==NULL you cannot, but I have not seen any such examples.
  * @see yang_find_specnode

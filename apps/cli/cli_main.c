@@ -164,7 +164,7 @@ usage(char *argv0, clicon_handle h)
 	    "where commands is a CLI command or options passed to the main plugin\n" 
 	    "where options are\n"
             "\t-h \t\tHelp\n"
-    	    "\t-D \t\tDebug\n"
+    	    "\t-D <level> \tDebug\n"
 	    "\t-f <file> \tConfig-file (default: %s)\n"
     	    "\t-F <file> \tRead commands from file (default stdin)\n"
 	    "\t-1\t\tDont enter interactive mode\n"
@@ -442,8 +442,10 @@ main(int argc, char **argv)
 	clicon_option_str_set(h, "CLICON_CANDIDATE_DB", private_db);
 
     if (!cli_usedaemon(h)) 
-	if (db_init(running_db) < 0)
-	    return -1;
+      if (db_init(running_db) < 0){
+	fprintf (stderr, "FATAL: Could not init running_db. (Run as root?)\n");
+	  goto done;
+      }
 
     if (init_candidate_db(h, dbtype) < 0)
 	return -1;

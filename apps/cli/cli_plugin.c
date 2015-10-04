@@ -101,12 +101,12 @@ plugin_find_cli(cli_syntax_t *stx, char *plgnam)
 {
     struct cli_plugin *p;
     
-    p = stx->stx_plugins;
-    do {
+    if ((p = stx->stx_plugins) != NULL)
+      do {
 	if (strcmp (p->cp_name, plgnam) == 0)
-	    return p;
+	  return p;
 	p = NEXTQ(struct cli_plugin *, p);
-    } while (p && p != stx->stx_plugins);
+      } while (p && p != stx->stx_plugins);
 
     return NULL;
 }
@@ -429,7 +429,7 @@ done:
  * Load plugins within a directory
  */
 static int
-plugin_load_dir(clicon_handle h, char *dir, cli_syntax_t *stx)
+cli_plugin_load_dir(clicon_handle h, char *dir, cli_syntax_t *stx)
 {
     int                i;
     int	               ndp;
@@ -550,14 +550,13 @@ cli_syntax_load (clicon_handle h)
     cli_syntax_set(h, stx);
 
     /* First load CLICON system plugins */
-    if (plugin_load_dir(h, CLICON_CLI_SYSDIR, stx) < 0)
+    if (cli_plugin_load_dir(h, CLICON_CLI_SYSDIR, stx) < 0)
         goto quit;
     
     /* Then load application plugins */
-    if (plugin_load_dir(h, plugin_dir, stx) < 0)
+    if (cli_plugin_load_dir(h, plugin_dir, stx) < 0)
         goto quit;
     
-
     /* load syntaxfiles */
     if ((ndp = clicon_file_dirent(clispec_dir, &dp, "(.cli)$", S_IFREG, __FUNCTION__)) < 0)
 	goto quit;

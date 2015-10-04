@@ -254,7 +254,7 @@ plugin_append(struct plugin *p)
 }
 
 static int
-plugin_load_dir(clicon_handle h, const char *dir)
+config_plugin_load_dir(clicon_handle h, const char *dir)
 {
     int            retval = -1;
     int            i;
@@ -346,7 +346,7 @@ plugin_initiate(clicon_handle h)
     char *dir;
 
     /* First load CLICON system plugins */
-    if (plugin_load_dir(h, CLICON_BACKEND_SYSDIR) < 0)
+    if (config_plugin_load_dir(h, CLICON_BACKEND_SYSDIR) < 0)
 	return -1;
 
     /* Then load application plugins */
@@ -354,7 +354,7 @@ plugin_initiate(clicon_handle h)
 	clicon_err(OE_PLUGIN, 0, "backend_dir not defined");
 	return -1;
     }
-    if (plugin_load_dir(h, dir) < 0)
+    if (config_plugin_load_dir(h, dir) < 0)
 	return -1;
     
     return 0;

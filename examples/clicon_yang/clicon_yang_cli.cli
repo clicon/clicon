@@ -1,8 +1,8 @@
 # $Id: datamodel_cli.cli,v 1.2 2013/09/19 15:02:38 olof Exp $
 # Common CLI syntax for both server and PMNode operatio mode
 CLICON_MODE="clicon_yang";
-CLICON_PLUGIN="clicon_yang_cli";
-CLICON_PROMPT="%U@%H> ";
+# CLICON_PLUGIN="clicon_yang_cli";
+CLICON_PROMPT="clicon_yang> ";
 
 # Note, when switching to PT, change datamodel to only @datamodel
 @datamodel:datamodel, cli_merge();
@@ -18,6 +18,7 @@ debug("Debugging parts of the system"), cli_debug((int)1);{
 
 
 show("Show configuration"), show_conf_as_text("candidate ^.*$");{
+	    yang("Show YANG specification"), show_yang("datamodel");
 	    xml("Show configuration as XML"), show_conf_as_xml("candidate ^.*$");
 	    netconf("Show configuration as netconf edit-config operation"), show_conf_as_netconf("candidate ^.*$");
 	    text("Show configuration as text"), show_conf_as_text("candidate ^.*$");

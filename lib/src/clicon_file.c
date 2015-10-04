@@ -159,15 +159,22 @@ clicon_file_dirent_sort(const void* arg1, const void* arg2)
 }
 
 
-/* 
- * Return a number of matched entries from a certain directory or -1 on failure.
+/*! Return number of matched entries from a directory or -1 on failure.
+ * @param[in]  dir     Directory path 
+ * @param[out] ent     Entries pointer, will be filled in with dir entries
+ * @param[in]  regexp  Regexp filename matching 
+ * @param[in]  type    File type matching, see stat(2) 
+ * @param[in]  label   Clicon Chunk label for memory handling
+ *
+ * @retval  n  Number of matching files in directory
+ * @retval -1  Error
  */
 int
-clicon_file_dirent(const char *dir,	/* Directory path */
-		struct dirent **ent,	/* Entries pointer */
-		const char *regexp,	/* Regexp filename matching */
-		mode_t type, 		/* FIle type matching, see stat(2) */
-		const char *label)		/* Chunk label */
+clicon_file_dirent(const char     *dir,
+		   struct dirent **ent,
+		   const char     *regexp,	
+		   mode_t          type, 	
+		   const char     *label)
 {
    DIR *dirp;
    int retval = -1;
@@ -193,8 +200,11 @@ clicon_file_dirent(const char *dir,	/* Directory path */
    }
 
    if ((dirp = opendir (dir)) == NULL) {
+     if (errno = ENOENT) /* Dir does not exist -> return 0 matches */
+       retval = 0;
+     else
        clicon_err(OE_UNIX, errno, "opendir(%s)", dir);
-       goto quit;
+     goto quit;
    }
    
    for (res = readdir_r (dirp, &dent, &dresp); dresp; res = readdir_r (dirp, &dent, &dresp)) {
