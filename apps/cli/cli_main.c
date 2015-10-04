@@ -237,7 +237,7 @@ main(int argc, char **argv)
 	case 'h':
 	    /* Defer the call to usage() to later. Reason is that for helpful
 	       text messages, default dirs, etc, are not set until later.
-	       But this measn that we need to check if 'help' is set before 
+	       But this means that we need to check if 'help' is set before 
 	       exiting, and then call usage() before exit.
 	    */
 	    help = 1; 
@@ -280,8 +280,11 @@ main(int argc, char **argv)
     clicon_debug_init(debug, NULL); 
 
     /* Find appdir. Find and read configfile */
-    if (clicon_options_main(h, argc, argv) < 0)
+    if (clicon_options_main(h, argc, argv) < 0){
+        if (help)
+	  usage(argv[0], h);
 	return -1;
+    }
 
     /* Now rest of options */   
     opterr = 0;
