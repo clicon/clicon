@@ -1,8 +1,93 @@
-clicon_cli -cf /usr/local/etc/clicon_yang.conf 
+Play around with yang specifications using a generated cli.
 
-sudo docker build -t olofhagsand/clicon_yang:v1.0 .
-#sudo docker build --no-cache=true -t olofhagsand/clicon_yang:v1.0 .
+1. From docker
+++++++++++++++
+The easiest is just to run it from docker hub:
+> sudo docker run -i -t -P olofhagsand/clicon_yang:v1.0
 
-sudo docker run -i -t -P olofhagsand/clicon_yang:v1.0
+Either just try out the default yang specification or try out your own.
 
+1.1 Enter your own spec
+-----------------------
+$ sudo docker run -i -t -P olofhagsand/clicon_yang:v1.0
+input yang spec(end with ^d). Or just ^d for default spec>
+container hello{
+  leaf world{
+    type string;                                                                 }
+}
+^d
+clicon_yang> hello world !
+clicon_yang> show 
+hello {
+    world !;
+}
+clicon_yang> 
+
+1.2 Run the default
+-------------------
+> sudo docker run -i -t -P olofhagsand/clicon_yang:v1.0
+input yang spec(end with ^d). Or just ^d for default spec> ^d
+clicon_yang> a 43 b y 88
+clicon_yang> a 43 c z 12
+clicon_yang> show 
+a {
+    x 43;
+    b {
+        y 88;
+    }
+    c {
+        z 12;
+    }
+}
+
+1.3 Show options
+----------------
+
+There are several show commands where you can display your
+specification as CLI, JSON or XML. You can also display the YANG specification.
+
+clicon_yang> show cli 
+hello world !
+clicon_yang> show json 
+{
+    "hello": {
+      "world": "!"
+    }
+}
+clicon_yang> show xml 
+<hello>
+   <world>!</world>
+</hello>
+clicon_yang> show yang 
+container hello {
+   leaf world {
+      type string;
+   }
+}
+
+2. Building it yourself
++++++++++++++++++++++++
+Ensure that cligen and clicon has been built.
+> git clone https://github.com/clicon/clicon.git
+> cd clicon
+> ./configure
+> make
+> sudo make install
+> sudo make install-include
+> cd example/clicon_yang
+> make
+> sudo make install
+> sudo clicon_cli -cf /usr/local/etc/clicon_yang.conf
+
+Or run the start script:
+> sudo start.sh
+
+3. Building a docker and publishing it
+++++++++++++++++++++++++++++++++++++++
+This example pushes it to my (Olof Hagsand)s docker hub repository
+
+sudo docker build --no-cache=true -t olofhagsand/clicon_yang:v1.0 .
 sudo docker push olofhagsand/clicon_yang
+
+
+
