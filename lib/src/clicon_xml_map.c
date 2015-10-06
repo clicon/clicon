@@ -66,7 +66,7 @@
  * that should already have been added.
  */
 static int
-var2xml_all(cxobj *xnp, cvec *vr, cvec *skipvr)
+var2xml_all(cxobj *xnp, cvec *vr)
 {
     cxobj    *xn;
     cxobj    *xnb;
@@ -77,9 +77,9 @@ var2xml_all(cxobj *xnp, cvec *vr, cvec *skipvr)
     /* Print/Calculate varible format string if variable exist */
     cv = NULL;
     while ((cv = cvec_each(vr, cv))) {
+	if (cv_flag(cv, V_UNIQUE))
+	    continue;
 	vname = cv_name_get(cv);
-	if (cvec_find(skipvr, vname))
-	    continue; /* skip the ones in skiplist */
 	/* create a parse-node here */
 	if ((xn = xml_new(vname, xnp)) == NULL)
 	    goto catch;
@@ -373,7 +373,7 @@ dbkey2xml(dbspec_key *key_dbspec,
 	}
 	xnp = xn;
     } /* for */
-    if (var2xml_all(xn, vr, uvr) < 0)
+    if (var2xml_all(xn, vr) < 0)
 	goto catch;
     if (uvr) /* clear unique var set */
 	cvec_free(uvr);

@@ -200,7 +200,7 @@ clicon_file_dirent(const char     *dir,
    }
 
    if ((dirp = opendir (dir)) == NULL) {
-     if (errno = ENOENT) /* Dir does not exist -> return 0 matches */
+     if (errno == ENOENT) /* Dir does not exist -> return 0 matches */
        retval = 0;
      else
        clicon_err(OE_UNIX, errno, "opendir(%s)", dir);

@@ -713,9 +713,12 @@ db_lv_set(dbspec_key *spec,
 		    goto quit;
 	}
     }
+#if 0
+    /* removed because sanity checks for duplicates, and they are OK */
     /* Check sanity */
     if (sanity_check_cvec(key, spec, vec) < 0)     /* sanity check */
 	goto quit;
+#endif
     /* 
      * Merge with dataspec default values (if not present) It may be
      * 'early' to add default values, but if we wait to validate or
