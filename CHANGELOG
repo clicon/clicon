@@ -16,7 +16,7 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-- Ensure same order of cli commands and database so that commands not in order:
+- Reference documentation using doxygen: make doc.
 - When entering CLI commands, they appear in the same order in xml and reload.
 - yang parse error using '+' in strings
 - New example: clicon_yang for stateless yang experiments (no backend)
