@@ -113,8 +113,6 @@ int lvmap_get_dbregex(char *dbname, struct lvmap *lm, char *basekey,
 		      const char *label, struct lvmap_dbkeyent **keys, 
 		      int *nkeys, int addempty);
 
-int lvmap_get_dbvector_sort (const void *p1, const void *p2);
-
 int lvmap_get_dbvector(char *dbname, struct lvmap *lm, char *basekey,
 		       const char *label, struct lvmap_dbkeyent **keys, 
 		       int *nkeys, int addempty);

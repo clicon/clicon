@@ -126,12 +126,13 @@ cvec_add_name(cvec *vec, enum cv_type type, char *name)
     return cv;
 }
 
-/*! Merge two cvec's, no overlap.
+/*! Merge two cvec's, append
  *
  * @param orig		Original variable vector
  * @param add		New variable vector
  *
- * @retval              Number of added/overwritten keys to 'old'
+ * @retval              Number of added/overwritten keys to 'orig'
+ * append add to orig (not prepend)
  */
 int
 cvec_merge(cvec *orig, cvec *add)
@@ -151,7 +152,6 @@ cvec_merge(cvec *orig, cvec *add)
     }
     return retval;
 }
-
 
 /*! Merge two cvec's, accept overlap
  *
@@ -197,7 +197,6 @@ cvec_merge2(cvec *orig, cvec *add)
   err:
     return -1;
 }
-
 
 /*
  * dbvar2cv
@@ -782,8 +781,9 @@ dbx(yang_stmt *ys,
 }
 
 /*!
- * @param[in]  xpath   xpath expression on the form /a/b
+ * @param[in]  xpath   xpath expression on the form /a/b[a=5]
  * @retval     cvec    Leaf content at database node pointed to by xpath
+ * XXX work in progress
  */
 cvec *
 clicon_dbget_xpath(clicon_handle h, char *dbname, cvec *cvv0, char *xpath)

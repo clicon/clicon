@@ -145,7 +145,7 @@ lvmap_get_dbsingle(char *dbname,
  * qsort function for lvmap_get_dbvector.
  * Sorts vector values based on the "_SEQ" variable if it exist. 
  */
-int
+static int
 lvmap_get_dbvector_sort(const void *p1, const void *p2)
 {
   int retval = 0;

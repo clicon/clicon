@@ -48,6 +48,7 @@
 #include "clicon_dbvars.h"
 
 
+
 /*
  * Assign the next sequence number for a vector variable.
  */
@@ -126,7 +127,7 @@ clicon_dbvars_parse(dbspec_key *spec,
 	goto err;
 
     free(dbv->dbv_key);
-    if ((dbv->dbv_key = strdup(key)) == NULL)
+    if ((dbv->dbv_key = strdup4(key)) == NULL)
 	goto err;
     
     /* Substitute sequence numbers */

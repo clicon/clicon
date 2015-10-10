@@ -34,11 +34,15 @@ SUBDIRS =
 
 all:  $(SUBDIRS)
 
+doc:
+	doxygen Doxyfile # generates html dir
+
 $(SUBDIRS):
 	(cd $@; $(MAKE) $(MFLAGS) all)
 
 distclean: clean
 	rm -f Makefile *~ .depend
+	rm -rf html
 	for i in $(SUBDIRS); \
 	do (cd $$i; $(MAKE) $(MFLAGS) $@); done
 

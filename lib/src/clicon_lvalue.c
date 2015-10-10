@@ -126,7 +126,8 @@ key_iscomment(char *key)
 int 
 key_isvector_n(char *key)
 {
-    return (strcmp(key+strlen(key)-2, ".n")==0);
+    int len = strlen(key);
+    return (len>1 && strcmp(key+len-2, ".n")==0);
 }
 
 /* 
@@ -682,21 +683,22 @@ quit:
  *   op      DELETE, SET, MERGE
  */
 int 
-db_lv_set(dbspec_key *spec, 
+db_lv_set(dbspec_key     *spec, 
 	  char           *dbname,  
 	  char           *key,  
 	  cvec           *vec, 
 	  lv_op_t         op)
 {
     int              retval = -1;
-    cvec            *old = NULL;
+    cvec            *orig = NULL;
     cvec            *def;
+    cvec            *vec2;
     cg_var          *v = NULL;
 
     /* Merge with existing variable list. Note, some calling functions
      do this before calling this function, eg db_lv_lvec_set() */
     if (op  == LV_MERGE) { /* Add vars to vh from db */
-	if ((old = dbkey2cvec(dbname, key)) != NULL){
+	if ((orig = dbkey2cvec(dbname, key)) != NULL){
 	    if (spec->ds_vector){ /* If vector append new unique cv:s */
 		/* Since vector, assume same variables eg x, y below */
 		/* The values in a leaf-list MUST be unique.*/
@@ -705,14 +707,18 @@ db_lv_set(dbspec_key *spec,
 		 * vec:[x=42;y=99] old:[x=42;y=100] => vec:[x=42;y=99;y=100] ??
 		 * vec:[x=42;y=99] old:[x=42;y=99]  => vec:[x=42;y=99]
 		 */
-		if (cvec_merge2(vec, old) < 0)
+		if (cvec_merge2(orig, vec) < 0)
 		    goto quit;
 	    }
-	    else
-		if (cvec_merge(vec, old) < 0)
+	    else{ /* Wrong to append old values should be prepended */
+		if (cvec_merge(orig, vec) < 0)
 		    goto quit;
+	    }
+	    vec2 = orig;
 	}
     }
+    else
+	vec2 = cvec_dup(vec);
 #if 0
     /* removed because sanity checks for duplicates, and they are OK */
     /* Check sanity */
@@ -730,19 +736,17 @@ db_lv_set(dbspec_key *spec,
     /* Mark them as default values */
     while ((v = cvec_each(def, v))) 
 	cv_flag_set(v, V_DEFAULT);
-    if (cvec_merge(vec, def) < 0)
+    if (cvec_merge(vec2, def) < 0)
 	goto quit;
 
     /* write to database, key and a vector of variables */
-    if (cvec2dbkey(dbname, key, vec) < 0)
+    if (cvec2dbkey(dbname, key, vec2) < 0)
 	goto quit;
     
     retval = 0;
-
 quit:
-    if (old)
-	cvec_free (old);
-
+    if (vec2)
+	cvec_free(vec2);
     return retval;
 }
 
@@ -762,7 +766,7 @@ db_lv_vec_set(dbspec_key *dbspec,
     int              i;
     int              matched;
     int              retval = -1;
-    cvec            *dbvars = NULL;
+    cvec            *dbvars = NULL; /* From database */
     dbspec_key      *spec;
     size_t           lvlen;
     char            *lvec = NULL;
@@ -784,6 +788,7 @@ db_lv_vec_set(dbspec_key *dbspec,
 	    if ((dbvars = lvec2cvec(lvec, lvlen)) == NULL)
 		goto quit;
 	    free(lvec);
+	    /* Append setvars to dbvars */
 	    cvec_merge(setvars, dbvars); /* XXX Here is where two same variables dont work */
 	    cvec_free (dbvars);
 	}

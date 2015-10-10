@@ -61,6 +61,9 @@
 #include "clicon_xml.h"
 #include "clicon_xml_map.h"
 
+/* Something to do with reverse engineering of junos syntax? */
+#undef SPECIAL_TREATMENT_OF_NAME  
+
 /*! Create sub-elements for every variable in skiplist
  * The skipvr list are the 'unique' variables of vectors
  * that should already have been added.
@@ -96,39 +99,6 @@ var2xml_all(cxobj *xnp, cvec *vr)
   catch:
     return 0;
 }
-
-
-/*
- * XXX: Is this really necessary?
- */
-static int
-db2xml_sort (const void *p1, const void *p2)
-{
-    char *ptr1, *ptr2;
-    char *s1 = ((struct db_pair *)p1)->dp_key;
-    char *s2 = ((struct db_pair *)p2)->dp_key;
-    
-    ptr1 = s1 + strlen(s1)-1;
-    while (ptr1 > s1 && isdigit(*ptr1))
-      ptr1--;
-    if (*ptr1 != '.')
-	goto regex;
-    ptr1++;
-
-    ptr2 = s2 + strlen(s2)-1;
-    while (ptr2 > s2 && isdigit(*ptr2))
-      ptr2--;
-    if (*ptr2 != '.')
-	goto regex;
-    ptr2++;
-
-    if(ptr1-s1 == ptr2-s2 && strncmp(s1, s2, ptr1-s1) == 0)
-	return lvmap_get_dbvector_sort(p1, p2);
-    
-regex:
-    return lvmap_get_dbregex_sort (p1, p2);
-}
-
 
 /* 
    Optimization of xpath_first(xn, "/node[key=str]")
@@ -407,8 +377,6 @@ dbpairs2xml(struct db_pair *pairs,
     int     i;
     int     retval = -1;
 
-    /* XXX: Why do we need to sort the pairs ? */
-    if(0)    qsort (pairs, npairs, sizeof (struct db_pair), db2xml_sort);
     for (i=0; i<npairs; i++) {
 	if (dbkey2xml(key_dbspec, 
 		      pairs[i].dp_key, 
@@ -960,7 +928,9 @@ xml2txt(FILE *f, cxobj *x, int level)
     int              children=0;
     char            *term;
     int              retval = -1;
-    cxobj *xname;
+#ifdef SPECIAL_TREATMENT_OF_NAME  
+    cxobj           *xname;
+#endif
 
     xe = NULL;     /* count children */
     while ((xe = xml_child_each(x, xe, -1)) != NULL)
@@ -982,7 +952,8 @@ xml2txt(FILE *f, cxobj *x, int level)
 	goto done;
     }
     fprintf(f, "%*s", 4*level, "");
-    /* XXX: Why special treatment for name? */
+
+#ifdef SPECIAL_TREATMENT_OF_NAME  
     if (strcmp(xml_name(x), "name") != 0)
 	fprintf(f, "%s ", xml_name(x));
     if ((xname = xml_find(x, "name")) != NULL){
@@ -992,15 +963,21 @@ xml2txt(FILE *f, cxobj *x, int level)
 	    fprintf(f, "{\n");
     }
     else
-	{
 	if (!tleaf(x))
 	    fprintf(f, "{\n");
-    }
+#else
+	fprintf(f, "%s ", xml_name(x));
+	if (!tleaf(x))
+	    fprintf(f, "{\n");
+#endif /* SPECIAL_TREATMENT_OF_NAME */
+
     xe = NULL;
     while ((xe = xml_child_each(x, xe, -1)) != NULL){
+#ifdef SPECIAL_TREATMENT_OF_NAME  
 	if (xml_type(xe) == CX_ELMNT &&  (strcmp(xml_name(xe), "name")==0) && 
 	    (children > 1)) /* skip if this is a name element (unless 0 children) */
 	    continue;
+#endif
 	if (xml2txt(f, xe, level+1) < 0)
 	    break;
     }
