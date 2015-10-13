@@ -50,7 +50,6 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_db.h"
-#include "clicon_lvmap.h"
 #include "clicon_string.h"
 #include "clicon_chunk.h"
 #include "clicon_handle.h"
@@ -462,57 +461,6 @@ lv_matchvar (cvec *vec1, cvec *vec2, int cmpall)
 }
 #endif
 
-/*
- * Get next _SEQ value for a vector.
- */
-int
-lv_next_seq(char *dbname, char *basekey, char *varname, int increment)
-{
-  int i;
-  int seq = 0;
-  int val;
-  int retval = -1;
-  char *key;
-  int npairs;
-  struct db_pair *pairs;
-  cg_var *cv;
-  cvec *vr = NULL;
-
-  if ((key = chunk_sprintf(__FUNCTION__, "%s\\.[0-9]+$", basekey)) == NULL){
-      clicon_err(OE_UNIX, errno, "chunk");
-      goto catch;
-  }
-  /* Get all keys/values for vector */
-  npairs = db_regexp(dbname, key, __FUNCTION__, &pairs, 0);
-  if (npairs < 0)
-    goto catch;
-
-  /* Loop through list and check variable */ 
-  for (i = 0; i < npairs; i++) {
-
-    if ((vr = lvec2cvec (pairs[i].dp_val, pairs[i].dp_vlen)) == NULL)
-      goto catch;
-      
-    if ((cv = cvec_find (vr, varname[0]=='!'?varname+1:varname)) && cv_type_get(cv) == CGV_INT32) {
-      val = cv_int_get(cv);
-      if (val > seq)
-	seq = val;
-    }
-    cvec_free (vr);
-    vr = NULL;
-  }
-
-  retval = seq - (seq % increment) + increment;
-
-  /* Fall through */
- catch:
-  if (vr)
-    cvec_free(vr);
-  unchunk_group (__FUNCTION__);
-  return retval;
-}
-
-
 
 #ifdef DB_KEYCONTENT
 /*
@@ -692,7 +640,7 @@ db_lv_set(dbspec_key     *spec,
     int              retval = -1;
     cvec            *orig = NULL;
     cvec            *def;
-    cvec            *vec2;
+    cvec            *vec2 = NULL;
     cg_var          *v = NULL;
 
     /* Merge with existing variable list. Note, some calling functions
@@ -818,7 +766,7 @@ quit:
  *     A.B[] $!a=42 $b $c 
  * should be replaced by
  *     A.B[] $!a=99 $b $c 
- * Args:
+ * Arg2_s:
  *   basekey: e.g. A.B[]
  *   prevval: eg 42
  *   prevval: eg 99
@@ -1306,6 +1254,7 @@ db_lv_op(dbspec_key *dbspec,
     return retval;
 }
 
+#ifdef notanymore
 /*
  * db_lv_string
  * Get a value from database given key, 
@@ -1351,7 +1300,7 @@ db_lv_string(char *dbname, char *key, char *fmt)
     return lvmap_fmt (dbname, fmt, key);
 }
 #endif
-
+#endif /* notanymore */
 
 /*
  * cgv_fmt_string XXX: name does not properly describe function (cvec2str()?)

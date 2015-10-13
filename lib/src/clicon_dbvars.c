@@ -48,6 +48,49 @@
 #include "clicon_dbvars.h"
 
 
+/*
+ * Get next _SEQ value for a vector.
+ */
+static int
+clicon_dbvars_next_seq(char *dbname, char *basekey, char *varname, int increment)
+{
+    int i;
+    int seq = 0;
+    int val;
+    int retval = -1;
+    char *key;
+    cg_var *cv;
+    size_t nitems;
+    cvec *item;
+    cvec **items = NULL;
+    
+    if ((key = chunk_sprintf(__FUNCTION__, "%s\\.[0-9]+$", basekey)) == NULL){
+        clicon_err(OE_UNIX, errno, "chunk");
+	goto catch;
+    }
+    if ((items = clicon_dbitems(dbname, &nitems, key)) ==  NULL)
+        goto catch;
+    for (i=0; i<nitems; i++){
+        item = items[i];
+	if ((cv = cvec_find (item, varname[0]=='!'?varname+1:varname)) && cv_type_get(cv) == CGV_INT32) {
+	    val = cv_int_get(cv);
+	    if (val > seq)
+	      seq = val;
+	}
+    }
+    clicon_dbitems_free(items);
+    items = NULL;
+
+    retval = seq - (seq % increment) + increment;
+
+    /* Fall through */
+ catch:
+    if (items) 
+        clicon_dbitems_free(items);
+    unchunk_group (__FUNCTION__);
+    return retval;
+}
+
 
 /*
  * Assign the next sequence number for a vector variable.
@@ -61,7 +104,7 @@ clicon_dbvars_seq(char *db, char *key, clicon_dbvars_t *dbv)
     cv = NULL;
     while ((cv = cvec_each(dbv->dbv_vec, cv))) {
 	if (cv_flag(cv, V_SEQ)) {
-	    ival = lv_next_seq(db, key, cv_name_get(cv), cv_int_get(cv));
+	    ival = clicon_dbvars_next_seq(db, key, cv_name_get(cv), cv_int_get(cv));
 	    if (ival < 0) {
 		clicon_debug(1, "%s: lv_next_seq < 0\n", __FUNCTION__);
 		return -1;

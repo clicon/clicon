@@ -53,7 +53,6 @@
 #include "clicon_options.h"
 #include "clicon_lvalue.h"
 #include "clicon_dbutil.h"
-#include "clicon_lvmap.h"
 #include "clicon_xml.h"
 #include "clicon_xsl.h"
 #include "clicon_log.h"

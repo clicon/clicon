@@ -393,37 +393,6 @@ done:
 
 
 /*
- * View db contents based on lvmap.
- */
-int
-cli_show_lvmap(char *dbname, struct lvmap *lmap)
-{
-  int res = -1;
-  FILE *f = NULL;
-  char buf[1024];
-
-  if ((f = tmpfile()) == NULL) {
-    clicon_err(OE_UNDEF, errno, "tmpfile: %s", strerror (errno));
-    return -1;
-  }
-  
-  if (lvmap_print(f, dbname, lmap, NULL) < 0)
-    goto done;
-
-  /* Now send contents of file to cligen_output via cli_output_formatted() */
-  rewind(f);
-  while(fgets(buf, sizeof(buf), f))
-    cli_output_formatted(buf);
-  
-  res = 0;
-
- done:
-  if (f)
-    fclose(f);
-  return res;
-}
-
-/*
  * cli_debug
  * set debug level on stderr (not syslog).
  * The level is either what is specified in arg as int argument.
@@ -1254,16 +1223,19 @@ compare_dbs(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 
+
 /*
+ * XXX: A bit rough
  * cli_show_diff
  * Display the differences between two databases based on an
- * application specified lvmap.
+ * application specified db2txt format
  */
 int
-cli_show_diff(clicon_handle h, char *db1, char *db2, struct lvmap *lmap)
+cli_show_diff(clicon_handle h, char *db1, char *db2, char *d2t)
 {
-    int ret;
     int  retval = -1;
+    char *out;
+    
     char *cmd;
     char *tmp1 = NULL;
     char *tmp2 = NULL;
@@ -1276,11 +1248,14 @@ cli_show_diff(clicon_handle h, char *db1, char *db2, struct lvmap *lmap)
     if ((f1 = fopen(tmp1, "w")) == NULL){
 	clicon_err(OE_UNIX, errno, "fopen");
 	goto quit;
+    } 
+    if ((out = clicon_db2txt_buf(h, db1, d2t)) == NULL) {
+      fclose(f1);
+      goto quit;
     }
-    ret = lvmap_print(f1, db1, lmap, NULL);
+    fputs(out, f1);
+    free(out);
     fclose(f1);
-    if (ret < 0)
-	goto quit;
 
     /* dump db2 to file */
     if ((tmp2 = clicon_tmpfile(__FUNCTION__)) == NULL)
@@ -1288,11 +1263,14 @@ cli_show_diff(clicon_handle h, char *db1, char *db2, struct lvmap *lmap)
     if ((f2 = fopen(tmp2, "w")) == NULL){
 	clicon_err(OE_UNIX, errno, "fopen");
 	goto quit;
+    } 
+    if ((out = clicon_db2txt_buf(h, db2, d2t)) == NULL) {
+      fclose(f2);
+      goto quit;
     }
-    ret = lvmap_print(f2, db2, lmap, NULL);
+    fputs(out, f2);
+    free(out);
     fclose(f2);
-    if (ret < 0)
-	goto quit;
 
     /* diff candidate with snapshot */
     cmd = chunk_sprintf(__FUNCTION__,
@@ -1315,7 +1293,6 @@ quit:
     unchunk_group(__FUNCTION__);
     return retval;
 }
-
 
 /*! An rpc call from a frontend module to a function in a backend module
  *

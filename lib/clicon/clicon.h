@@ -48,7 +48,6 @@
 #include <clicon/clicon_dbmatch.h>
 #include <clicon/clicon_chunk.h>
 #include <clicon/clicon_event.h>
-#include <clicon/clicon_lvmap.h>
 #include <clicon/clicon_string.h>
 #include <clicon/clicon_file.h>
 #include <clicon/clicon_proto.h>

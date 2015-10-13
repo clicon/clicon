@@ -83,7 +83,6 @@ int cli_set (clicon_handle h, cvec *vars, cg_var *arg);
 int cli_mmerge (clicon_handle h, cvec *vars, cg_var *arg);
 int cli_merge (clicon_handle h, cvec *vars, cg_var *arg);
 int cli_del(clicon_handle h, cvec *vars, cg_var *argv);
-int cli_show_lvmap(char *dbname, struct lvmap *lmap);
 int cli_debug(clicon_handle h, cvec *vars, cg_var *argv);
 int cli_record(clicon_handle h, cvec *vars, cg_var *argv);
 int isrecording(void);
@@ -106,7 +105,7 @@ int expand_db_variable(clicon_handle h, char *dbname, char *basekey, char *varia
 int expand_db_symbol(clicon_handle h, char *symbol, int element, int *nr, char ***commands);
 int expand_dir(char *dir, int *nr, char ***commands, mode_t flags, int detail);
 int compare_dbs(clicon_handle h, cvec *vars, cg_var *arg);
-int cli_show_diff(clicon_handle h, char *db, char *db2, struct lvmap *lmap);
+int cli_show_diff(clicon_handle h, char *db, char *db2, char *d2tfmt);
 
 int load_config_file(clicon_handle h, cvec *vars, cg_var *arg);
 int save_config_file(clicon_handle h, cvec *vars, cg_var *arg);

@@ -53,7 +53,6 @@
 #include "clicon_yang.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
-#include "clicon_lvmap.h"
 #include "clicon_chunk.h"
 #include "clicon_options.h"
 #include "clicon_dbutil.h"
