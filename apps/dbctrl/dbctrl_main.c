@@ -50,7 +50,7 @@
 #include <clicon/clicon.h>
 
 /* Command line options to be passed to getopt(3) */
-#define DBCTRL_OPTS "hDf:s:ZipPd:r:a:m:n:"
+#define DBCTRL_OPTS "hDf:s:Zipbd:r:a:m:n:"
 
 /*
  * dump_database
@@ -129,7 +129,7 @@ usage(char *argv0)
             "\t-d <dbname>\tDatabase name (default: running_db)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
     	    "\t-p\t\tDump database on stdout\n"
-    	    "\t-P\t\tDump database on stdout (brief output)\n"
+    	    "\t-b\t\tBrief output, just print keys. Combine with -p or -m\n"
 	    "\t-n \"<key> <var=%%T{value}> <var=...>\"\tAdd database entry\n"
             "\t-r <key>\tRemove database entry\n"
 	    "\t-m <regexp key>\tMatch regexp key in database\n"
@@ -149,7 +149,6 @@ main(int argc, char **argv)
     int              dumpdb;
     int              addent;
     int              rment;
-    int              matchent;
     char            *matchkey = NULL;
     char            *addstr;
     char             rmkey[MAXPATHLEN];
@@ -170,7 +169,6 @@ main(int argc, char **argv)
     zapdb      = 0;
     initdb     = 0;
     dumpdb     = 0;
-    matchent   = 0;
     addent     = 0;
     rment      = 0;
     brief      = 0;
@@ -239,8 +237,7 @@ main(int argc, char **argv)
 	case 'p': /* Dump/print database */
 	    dumpdb++;
 	    break;
-	case 'P': /* Dump/print database  brief*/
-	    dumpdb++;
+	case 'b': /* Dump/print/match database  brief (combone w -p or -m) */
 	    brief++;
 	    break;
 	case 'd': /* dbname */
@@ -260,7 +257,7 @@ main(int argc, char **argv)
 	case 'm':
 	  if (!optarg || !strlen(optarg) || (matchkey = strdup(optarg)) == NULL)
 	        usage(argv[0]);
-	    matchent++;
+	    dumpdb++;
 	    break;
 	case 'D':  /* Processed earlier, ignore now. */
 	case 'a':
@@ -292,10 +289,6 @@ main(int argc, char **argv)
 	    goto quit;
 	}
     if (dumpdb)
-        if (dump_database(dbname, NULL, brief, dbspec) < 0)
-	    goto quit;
-
-    if (matchent)
         if (dump_database(dbname, matchkey, brief, dbspec)) {
 	    fprintf(stderr, "Match error\n");
 	    goto quit;
