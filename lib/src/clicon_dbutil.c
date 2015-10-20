@@ -59,6 +59,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <limits.h>
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
@@ -92,6 +93,11 @@
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
 #include "clicon_sha1.h"
+
+#include "clicon_xml.h"
+#include "clicon_xsl.h"
+#include "clicon_xml_map.h"
+
 
 /*! Append a new cligen variable (cv) to cligen variable vector (cvec),
  *
@@ -674,8 +680,6 @@ dbspec_last_unique_str(dbspec_key *ds, cvec *setvars)
     return cv2str_dup(cvc);
 }
 
-
-
 /*
  * Same as clicon_proto_change just with a cvec instead of lvec, and get the sock
  * from handle.
@@ -703,172 +707,183 @@ clicon_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
     return retval;
 }
 
-/*! Transform eg "a/b[kalle]" -> "a/b" e="kalle" 
- * XXX work in progress
- */
-static int
-xpath_split(char *xpathstr, char **pathexpr)
+static inline int
+isnumber(char *p)
 {
-    int retval = -1;
-    int len;
-    int i;
+    long il;
 
-    char *pe = NULL;
-    len = strlen(xpathstr) - 1;
-    if (xpathstr[len] == ']'){
-	xpathstr[len] = '\0';
-	len = strlen(xpathstr) - 1; /* recompute due to null */
-	for (i=len; i; i--){
-	    if (xpathstr[i] == '['){
-		xpathstr[i] = '\0';
-		pe = &xpathstr[i+1];
-		break;
-	    }
-	}
-	if (pe==NULL){
-	    clicon_err(OE_XML, errno, "%s: mismatched []: %s", __FUNCTION__, xpathstr);
+    il = strtol((p), (char**)NULL, 10);
+    return !((il == LONG_MIN || il == LONG_MAX) && errno==ERANGE);
+}
+
+/*! Given a database key, get its parent, 
+ * For example, if key="a.0.b" get db content for "a.0" 
+ * @param[in]  db    Name of database
+ * @param[in]  key   Database key
+ * @param[out] cvv   Contains parent database symbol and content, NULL if top
+ * Note free cvv with cvec_free() after use
+ */
+int
+clicon_dbget_parent(char      *db, 
+		    char      *key, 
+		    cvec     **cvv)
+{
+    int   retval = -1;
+    char *pkey = NULL;
+    char *pos;
+    
+    /* pkey is parent key: remove rightmost element, eg a.b -> a 
+       or a.0 -> NULL
+     */
+    if ((pkey = strdup(key)) == NULL){
+	clicon_err(OE_UNIX, errno, "malloc");
+	goto done;
+    }
+    if ((pos = rindex(pkey, '.')) == NULL)
+	goto ok; /* top */
+    *pos = '\0';
+    if (isnumber(pos+1)){
+	if ((pos = rindex(pkey, '.')) == NULL)
+	    goto ok; /* top */
+	*pos = '\0';
+    }
+    *cvv = clicon_dbget(db, pkey);
+ ok:
+    retval = 0;
+ done:
+    if (pkey)
+	free(pkey);
+    return retval;
+}
+
+/*! Given a database key, return list of children in cvec form
+ * @param[in]  db    Name of database
+ * @param[in]  key   Database key
+ * @param[out] cvv   Vector of children. Free with clicon_dbitems_free()
+ * @param[out] len   Length of vector
+ */
+int
+clicon_dbget_children(char      *db, 
+		      char      *key, 
+		      cvec    ***cvv, 
+		      size_t    *len)
+{
+    int   retval = -1;
+    char *rx;
+
+    rx = chunk_sprintf(__FUNCTION__, 
+		       "^%s%s[a-zA-Z0-9]*(\\.[0-9]*)?$", 
+		       key?key:"", 
+		       key?".":"");
+    if (rx == NULL){
+	clicon_err(OE_XML, errno, "chunk_sprintf");
+	goto done;
+    }
+    if ((*cvv = clicon_dbitems(db, len, rx)) == NULL)
+	goto done;
+    retval = 0;
+ done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! Given a database key, return list of all descendants in cvec form
+ * @param[in]  db    Name of database
+ * @param[in]  key   Database key
+ * @param[out] cvv   Vector of descendants. Free with clicon_dbitems_free()
+ * @param[out] len   Length of vector
+ */
+int
+clicon_dbget_descendants(char      *db, 
+			 char      *key, 
+			 cvec    ***cvv, 
+			 size_t    *len)
+{
+    int   retval = -1;
+    char *rx;
+
+    rx = chunk_sprintf(__FUNCTION__, 
+		       "%s%s.*$", 
+		       key?key:"", 
+		       key?".":"");
+    if (rx == NULL){
+	clicon_err(OE_XML, errno, "chunk_sprintf");
+	goto done;
+    }
+    *cvv = clicon_dbitems(db, len, rx);
+    retval = 0;
+ done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! Access objects in database using xpath expressions
+ * @param[in]  h       Clicon handle
+ * @param[in]  cn      Represents 'current' position in tree, NULL if root.
+ * @param[in]  dbname  Name of database file
+ * @param[in]  xpath   xpath expression on the form /a/b[a=5]
+ * @param[out] cn_list Result list of nodes Free with clicon_dbitems_free()
+ * @param[out] cn_len  Length of vector
+ * @retval     cn_list Result list of nodes 
+ *
+ * @code
+ * clicon_dbget_xpath(h, db, cn, "//c[z=73]", &cn_list, &cn_len);
+ * clicon_dbitems_free(cn_list)
+ * @endcode
+ * 
+ * Note: xpath only absolute paths starting with /
+ */
+int
+clicon_dbget_xpath(clicon_handle h, 
+		   char         *dbname, 
+		   cvec         *cn,  /* context node */
+		   char         *xpath,
+		   cvec       ***cn_list0,
+		   int          *cn_len0
+		   )
+{
+    int                   retval = -1;
+    dbspec_key           *dbspec;
+    cxobj                *x;
+    cxobj               **xv;
+    cxobj                *xn;
+    int                   i;
+    char                 *key;
+    cvec                **cn_list;
+    int                   cn_len=0;
+    char                 *rx;
+
+    dbspec = clicon_dbspec_key(h);
+    /* XXX: start from cn a.0.b -> /a/b 
+       The logic is broken here. How does cn relate to xpath?
+       Also xpath_vec is major broken, does not support relative paths!!
+     */
+    cn = NULL; /* XXX */
+    rx = chunk_sprintf(__FUNCTION__, "^%s.*$", cn?cvec_name_get(cn):"");
+    if ((x = db2xml_key(dbname, dbspec, rx, "clicon")) == NULL) 
+	goto done;
+    if ((xv = xpath_vec(x, xpath, &cn_len)) != NULL) {
+	/* Allocate list. One extra to NULL terminate list */
+	if ((cn_list = calloc(cn_len+1, sizeof(cvec *))) == NULL){
+	    clicon_err(OE_UNIX, errno, "calloc");
 	    goto done;
+	}
+	for (i=0; i<cn_len; i++){
+	    xn = xv[i];
+	    key = xml_dbkey(xn);
+	    assert(key!=NULL);
+	    cn_list[i] = clicon_dbget(dbname, key);
 	}
     }
     retval = 0;
-  done:
-    *pathexpr = pe;
-    return retval;
-}
-
-
-/*
- * Match if vec matches one of ys children.
- */
-static int
-dbx(yang_stmt *ys, 
-    char **vec, 
-    int nv, 
-    cbuf *key, 
-    yang_stmt **yres)
-{
-    int            i;
-    char          *str;
-    yang_stmt     *yc;
-    int            retval = 0;
-    enum rfc_6020  keyword;
-
-    assert(ys!=NULL);
-    str = vec[0];
-    keyword = ys->ys_keyword;
-    fprintf(stderr, "spec: %s:%s vec: %s\n", 
-	    ys->ys_argument, 
-	    yang_key2str(keyword),
-	    vec[0]);
-    if (nv == 0 || strlen(str)==0){
-	*yres = ys;
-	return 1; /* match */
-    }
-    for (i=0; i<ys->ys_len; i++){ // nvec
-	yc = ys->ys_stmt[i];
-	fprintf(stderr, "  trying %s = %s ", yc->ys_argument, str);
-	if (strcmp(str, yc->ys_argument) == 0){
-	    fprintf(stderr, ".. match\n");
-	    if (cbuf_len(key))
-		cprintf(key, ".");
-	    cprintf(key, "%s", str);
-	    retval = dbx(yc, vec+1, nv-1, key, yres);
-	    break;
-	}
-	fprintf(stderr, "\n");
-    }
-    return retval;
-}
-
-/*!
- * @param[in]  xpath   xpath expression on the form /a/b[a=5]
- * @retval     cvec    Leaf content at database node pointed to by xpath
- * XXX work in progress
- */
-cvec *
-clicon_dbget_xpath(clicon_handle h, char *dbname, cvec *cvv0, char *xpath)
-{
-    char        *xp = NULL;
-    char        *expr = NULL;
-    cvec        *cvv = NULL;
-    char       **vec = NULL;
-    int          nvec;
-    yang_spec   *yspec;
-    yang_stmt   *ymod;
-    char        *modstr;
-    cbuf        *key;
-    cbuf        *keyn = NULL;
-    yang_stmt   *yres = NULL;
-    char        *val;
-    char        *sha1str = NULL;
-    int          i;
-    size_t       lvlen;
-
-    fprintf(stderr, "%s %s\n", __FUNCTION__, xpath);
-    if ((key = cbuf_new()) == NULL){
-	clicon_err(OE_XML, errno, "cbuf_new");
-	goto done;
-    }
-    if ((xp = strdup(xpath)) == NULL){
-	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
-	goto done;
-    }
-    /*! Transform eg "a/b[kalle]" -> xp="a/b" expr="kalle" */
-    if (xpath_split(xp, &expr) < 0)
-	goto done;
-    vec = clicon_strsplit(xp, "/", &nvec, __FUNCTION__);
-    if ((yspec = clicon_dbspec_yang(h)) == NULL){
-	clicon_err(OE_XML, 0, "yang spec not found");
-	goto done;
-    }
-    if ((modstr = clicon_yang_module_main(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_YANG_MODULE_MAIN option not set");
-	goto done;
-    }
-    if ((ymod = yang_find((yang_node*)yspec, Y_MODULE, modstr)) == NULL){
-	clicon_err(OE_FATAL, 0, "yang module %s not found", modstr);
-	goto done;
-    }
-    if (dbx(ymod, vec+1, nvec-1, key, &yres) != 1)
-	goto done;
-    fprintf(stderr, "match: '%s' %s expr:%s\n", 
-	    cbuf_get(key), yang_key2str(yres->ys_keyword),
-	    expr);
-    if (expr){
-	if ((val=index(expr, '=')) == NULL)
-	    goto done;
-	*(val++) = '\0';
-	if ((sha1str = clicon_sha1hex(val)) == NULL)
-	    goto done;
-	if ((keyn = cbuf_new()) == NULL){
-	    clicon_err(OE_XML, errno, "cbuf_new");
-	    goto done;
-	}
-	cprintf(keyn, "%s.n.%s", cbuf_get(key), sha1str);
-	fprintf(stderr, "key: %s\n", cbuf_get(keyn));
-	/* Read value of key.n.<value> */
-	lvlen = sizeof(i);
-	if (db_get(dbname, cbuf_get(keyn), (void*)&i, &lvlen) < 0)
-	    goto done;
-	if (lvlen == 0)  /* No such entry */
-	    goto done;
-	cprintf(key, ".%d", i);
-    }
-    cvv = clicon_dbget(dbname, cbuf_get(key));
-#if 0
-    db_lv_vec_find(dbspec, 
-		   dbname, 
-		   char *basekey,
-		   cvec *setvars, 
-		   int *match)
-#endif
  done:
-    if (key)
-	cbuf_free(key);
-    if (keyn)
-	cbuf_free(keyn);
-    if (xp)
-	free(xp);
     unchunk_group(__FUNCTION__);
-    return cvv;
+    xml_free(x);
+    if (retval == 0){
+	*cn_len0 = cn_len;
+	*cn_list0 = cn_list;
+    }
+    else
+	clicon_dbitems_free(cn_list);
+    return retval;
 }

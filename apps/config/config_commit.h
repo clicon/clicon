@@ -27,11 +27,11 @@
 typedef struct {
   char *source_db;		/* Database 1 path */
   char *target_db;		/* Database 2 path */
-  char *source_key;		/* Matched key 1 (matched part of key for tree deps */
-  char *target_key;		/* Matched key 2 (matched part of key for tree deps */
+  char *source_key;		/* Matched key 1 (matched part of key for tree deps) */
+  char *target_key;		/* Matched key 2 (matched part of key for tree deps) */
   cvec *source_vec;		/* Cvec 1 */
   cvec *target_vec;		/* Cvec 2 */
-  void *arg;		/* Application specific arg */
+  void *arg;		        /* Application specific arg */
 } commit_data_t;
 
 /*

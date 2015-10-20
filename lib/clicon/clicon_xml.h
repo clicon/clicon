@@ -48,6 +48,8 @@ enum cxobj_type xml_type(cxobj *xn);
 int       xml_type_set(cxobj *xn, enum cxobj_type type);
 int       xml_index(cxobj *xn);
 int       xml_index_set(cxobj *xn, int index);
+char     *xml_dbkey(cxobj *xn);
+int       xml_dbkey_set(cxobj *xn, char *dbkey);
 
 int       xml_child_nr(cxobj *xn);
 cxobj    *xml_child_i(cxobj *xn, int i);

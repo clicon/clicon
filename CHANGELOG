@@ -16,6 +16,9 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+	
+- Extended tree-based access functions: clicon_dbget_parent/children/descendents/xpath.
+- clicon_dbctrl: Renamed brief option from -P to -b and made it work with -m 
 - Reference documentation using doxygen: make doc.
 - When entering CLI commands, they appear in the same order in xml and reload.
 - yang parse error using '+' in strings

@@ -61,17 +61,20 @@
 
 /*! A wrapper function for invoking the plugin dependency set/del call
  * for a changed a key value.
+ * Expressed in a transition from an origin -> wanted state.
+ * For example, adding a database symbol 'a' in candidate and commiting
+ * would give running in source and 'a' and candidate in 'target'.
  * The routine logs on debug.
  * It also checks whether an error was properly registered using clicon_err().
  * Arguments:
  * @param  h          Clicon handle
  * @param  op         Operation: ADD,DELETE,CHANGE
- * @param  source_db  The database containing the original state
- * @param  target_db  The database containing the wanted state
- * @param  source_key The key in the source db. Only if OP = CO_DELETE, CO_CHANGE
- * @param  target_key The key in the target db. Only if OP = CO_ADD, CO_CHANGE
- * @param  source_vec Cligen variable vector for source key (if defined)
- * @param  target_vec Cligen variable vector for target key (if defined)
+ * @param  source_db  Database containing origin state
+ * @param  target_db  Database containing wanted state
+ * @param  source_key DB key in origin db. Only if OP = CO_DELETE, CO_CHANGE
+ * @param  target_key DB key in target db. Only if OP = CO_ADD, CO_CHANGE
+ * @param  source_vec DB content of source key (if defined)
+ * @param  target_vec DB content of target key (if defined)
  * @param  dp:        plugin dependency information with function and argument pointers.
  *
  * Returns:
@@ -677,8 +680,8 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     return retval;
 }
 
- int
- candidate_validate(clicon_handle h, char *candidate, char *running)
+int
+candidate_validate(clicon_handle h, char *candidate, char *running)
  {
      struct dbdiff      df = {0, };
      dbdep_dd_t        *ddvec = NULL;

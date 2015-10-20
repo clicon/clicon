@@ -63,7 +63,9 @@ struct xml{
     enum cxobj_type   x_type;       /* type of node: element, attribute, body */
     char             *x_value;      /* attribute and body nodes have values */
     int               x_index;      /* key node, cf sql index */
+    char             *x_dbkey;      /* optional database key if translated */
     int              _x_vector_i;   /* internal use: xml_child_each */
+
 };
 
 /*
@@ -366,6 +368,39 @@ xml_childvec_set(cxobj *x, int len)
     return 0;
 }
 
+/*! Get database key of xml object
+ * @param[in]  xn    xml node
+ * @retval     namespace of xml node
+ */
+char*
+xml_dbkey(cxobj *xn)
+{
+    return xn->x_dbkey;
+}
+
+/*! Set database key of xml object
+ * @param[in]  xn         xml node
+ * @param[in]  dbkey      new key
+ * @retval     -1         on error with clicon-err set
+ * @retval     0          OK
+ */
+int
+xml_dbkey_set(cxobj *xn, char *dbkey)
+{
+    if (xn->x_dbkey){
+	free(xn->x_dbkey);
+	xn->x_dbkey = NULL;
+    }
+    if (dbkey){
+	if ((xn->x_dbkey = strdup(dbkey)) == NULL){
+	    clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
+	    return -1;
+	}
+    }
+    return 0;
+}
+
+
 /*! Create new xml node given a name and parent. Free it with xml_free().
  *
  * @param[in]  name      Name of new 
@@ -581,6 +616,8 @@ xml_free(cxobj *x)
     }
     if (x->x_childvec)
 	free(x->x_childvec);
+    if (x->x_dbkey)
+	free(x->x_dbkey);
     free(x);
     return 0;
 }
@@ -844,6 +881,9 @@ copy_one(cxobj *xn0, cxobj *xn1)
     }
     if (xml_name(xn0)) /* malloced string */
 	if ((xml_name_set(xn1, xml_name(xn0))) < 0)
+	    return -1;
+    if (xml_dbkey(xn0)) /* malloced string */
+	if ((xml_dbkey_set(xn1, xml_dbkey(xn0))) < 0)
 	    return -1;
     return 0;
 }

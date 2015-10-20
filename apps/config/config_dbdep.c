@@ -644,34 +644,54 @@ dbdep_commitvec_free(dbdep_dd_t *ddvec, int nvec)
 
 
 
-/* 
- * Access functions for commit-data handle in callbacks
- * XXX Should probably be in in this file...
+/*! Access functions for commit-data handle in callbacks
+ * Expressed in a transition from an current -> wanted state.
+ * For example, adding a database symbol 'a' in candidate and commiting
+ * would give running in source and 'a' and candidate in 'target'.
+ */
+/*! Database containing original state
  */
 char *commit_source_db(commit_data d)
 {
   return ((commit_data_t *)d)->source_db;
 }
+
+/*! Database containing wanted state
+ */
 char *commit_target_db(commit_data d)
 {
   return ((commit_data_t *)d)->target_db;
 }
+
+/*! DB key in origin db. Only if OP = CO_DELETE, CO_CHANGE
+ */
 char *commit_source_key(commit_data d)
 {
   return ((commit_data_t *)d)->source_key;
 }
+
+/*! DB key in target/wanted db. Only if OP = CO_ADD, CO_CHANGE
+ */
 char *commit_target_key(commit_data d)
 {
   return ((commit_data_t *)d)->target_key;
 }
+
+/*! DB content of source key (if defined)
+ */
 cvec *commit_source_vec(commit_data d)
 {
   return ((commit_data_t *)d)->source_vec;
 }
+/*! DB content of target/wanted key (if defined)
+ */
 cvec *commit_target_vec(commit_data d)
 {
   return ((commit_data_t *)d)->target_vec;
 }
+
+/*! Application specific arg 
+*/
 void *commit_arg(commit_data d)
 {
   return ((commit_data_t *)d)->arg;

@@ -67,7 +67,13 @@ char *dbspec_last_unique_str(dbspec_key *ds, cvec *setvars);
 int clicon_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
 			  char *key, cvec *cvv);
 
-cvec  *clicon_dbget_xpath(clicon_handle h, char *db, cvec *cvv, char *xpath);
+int clicon_dbget_parent(char *db, char *key, cvec **cvv);
 
+int clicon_dbget_children(char *db, char *key, cvec ***cvv, size_t *len);
+
+int clicon_dbget_descendants(char *db, char *key, cvec ***cvv, size_t *len);
+
+int clicon_dbget_xpath(clicon_handle h, char *dbname, cvec *cn, 
+		       char *xpath, cvec ***cn_list, int *cn_len);
 
 #endif  /* _CLICON_DBUTIL_H_ */

@@ -57,7 +57,6 @@
 #include "clicon_xsl.h"
 #include "clicon_log.h"
 #include "clicon_err.h"
-#include "clicon_xml.h"
 #include "clicon_xml_map.h"
 
 /* Something to do with reverse engineering of junos syntax? */
@@ -304,6 +303,7 @@ dbkey2xml(dbspec_key *key_dbspec,
 	    assert(n>0);
 	    if ((xn = xml_new(vec[n-1], xnp)) == NULL)
 		goto catch;
+	    xml_dbkey_set(xn, key);
 	    vs = NULL;
 	    while ((vs = cvec_each(uvr0, vs))){
 		vname = cv_name_get(vs); /* Cache name of the unique variable */
@@ -1258,6 +1258,7 @@ xml2cvec(cxobj *xt, yang_stmt *yt, cvec **cvv0)
 	cvec_free(cvv);
     return retval;
 }
+
 /*! Translate a cligen vraiable vector to an XML tree with depth one 
  * @param[in]   cvv  CLIgen variable vector. Should be freed by cvec_free()
  * @param[in]   toptag    The XML tree in xt will have this XML tag

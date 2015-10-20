@@ -362,8 +362,9 @@ yn_each(yang_node *yn, yang_stmt *ys)
 
 /*! Find first child yang_stmt with matching keyword and argument
  *
- * @param[in]  argument   if NULL, match any argument.
+ * @param[in]  yn         Yang node, current context node.
  * @param[in]  keyword    if 0 match any keyword
+ * @param[in]  argument   if NULL, match any argument.
  * This however means that if you actually want to match only a yang-stmt with 
  * argument==NULL you cannot, but I have not seen any such examples.
  * @see yang_find_specnode
@@ -393,10 +394,13 @@ yang_find(yang_node *yn, int keyword, char *argument)
 
 /*! Find a child spec-node yang_stmt with matching argument (container, leaf, etc)
  *
- * See also yang_find() but this looks only for the yang specification nodes with
- * the following keyword: container, leaf, list, leaf-list
- * That is, basic syntax nodes.
- * @see yang_find
+ * @param[in]  yn         Yang node, current context node.
+ * @param[in]  argument   if NULL, match any argument.
+ *
+ * See also yang_find() 
+ * @see yang_find   But this looks only for the yang specification nodes with
+ *                  the following keyword: container, leaf, list, leaf-list
+ *                  That is, basic syntax nodes.
  */
 yang_stmt *
 yang_find_specnode(yang_node *yn, char *argument)
@@ -427,6 +431,8 @@ yang_find_specnode(yang_node *yn, char *argument)
  * the following keyword: container, leaf, list, leaf-list
  * That is, basic syntax nodes.
  * @see yang_find_specnode # Maybe this is the same as specnode?
+ * @see clicon_dbget_xpath
+ * @see xpath_vec
  */
 static yang_stmt *
 yang_find_xpath_stmt(yang_node *yn, char *argument)
@@ -1497,8 +1503,10 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
     key = vec[0];
     if (yn->yn_keyword == Y_LIST){
 	i = strtol(key, (char **) NULL, 10);
-	if ((i == LONG_MIN || i == LONG_MAX) && errno)
+	if ((i == LONG_MIN || i == LONG_MAX) && errno){
+	    clicon_err(OE_YANG, errno, "strtol");
 	    goto done;
+	}
 	if (nvec == 1)
 	    return (yang_stmt*)yn;
 	vec++;
@@ -1519,7 +1527,7 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
  * e.g. a.0 matches the db_spec corresponding to a[].
  * Input args:
  * @param[in] yn     top-of yang tree where to start finding
- * @param[in] dbkey  databse key to match in yang spec tree
+ * @param[in] dbkey  database key to match in yang spec tree
  * See also yang_dbkey_get
  */
 yang_stmt *
@@ -1529,6 +1537,7 @@ dbkey2yang(yang_node *yn, char *dbkey)
     int              nvec;
     yang_stmt       *ys;
 
+    /* Split key into parts, eg "a.0.b" -> "a" "0" "b" */
     if ((vec = clicon_strsplit(dbkey, ".", &nvec, __FUNCTION__)) == NULL){
 	clicon_err(OE_YANG, errno, "%s: strsplit", __FUNCTION__); 
 	return NULL;
