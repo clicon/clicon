@@ -68,7 +68,7 @@ clicon_dbvars_next_seq(char *dbname, char *basekey, char *varname, int increment
         clicon_err(OE_UNIX, errno, "chunk");
 	goto catch;
     }
-    if ((items = clicon_dbitems(dbname, &nitems, key)) ==  NULL)
+    if (clicon_dbitems(dbname, key, &items, &nitems) < 0)
         goto catch;
     for (i=0; i<nitems; i++){
         item = items[i];

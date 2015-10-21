@@ -50,6 +50,7 @@ to the xml standards:
 	'//bbb | //ddd' <bbb><ccc>42</ccc></bbb><bbb x="hello"><ccc>99</ccc></bbb>
 		        <ddd><ccc>22</ccc></ddd> (NB spaces)
 	etc
+ For xpath v1.0 see http://www.w3.org/TR/xpath/
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,6 +84,169 @@ struct searchvec{
     int        sv_max;
 };
 typedef struct searchvec searchvec;
+
+#if 1 /* New xpath code */
+/* Local types 
+ */
+enum axis_type{
+    A_SELF,
+    A_CHILD,
+    A_PARENT,
+    A_ROOT,
+    A_ANCESTOR,
+    A_DESCENDANT_OR_SELF, /* actually descendant-or-self */
+};
+
+struct map_str2int{
+    char         *ms_str; /* string as in 4.2.4 in RFC 6020 */
+    int           ms_int;
+};
+
+/* Mapping between axis type string <--> int  */
+static const struct map_str2int atmap[] = {
+    {"self",             A_SELF}, 
+    {"child",            A_CHILD}, 
+    {"parent",           A_PARENT},
+    {"root",             A_ROOT},
+    {"ancestor",         A_ANCESTOR}, 
+    {"descendant-or-self", A_DESCENDANT_OR_SELF}, 
+    {NULL,               -1}
+};
+
+struct xpath_element{
+    struct xpath_element *xe_next;
+    enum axis_type        xe_type;
+    char                 *xe_str; /* eg for child */
+    char                 *xe_predicate; /* eg within [] note: same alloc as xe_str*/
+};
+
+static int xpath_split(char *xpathstr, char **pathexpr);
+
+static char *axis_type2str(enum axis_type type) __attribute__ ((unused));
+
+static char *
+axis_type2str(enum axis_type type)
+{
+    const struct map_str2int *at;
+
+    for (at = &atmap[0]; at->ms_str; at++)
+	if (at->ms_int == type)
+	    return at->ms_str;
+    return NULL;
+}
+
+static int
+xpath_element_new(enum axis_type          atype, 
+		  char                   *str,
+		  struct xpath_element ***xpnext)
+{
+    int                   retval = -1;
+    struct xpath_element *xe;
+
+    if ((xe = malloc(sizeof(*xe))) == NULL){
+	clicon_err(OE_UNIX, errno, "malloc");
+	goto done;
+    }
+    memset(xe, 0, sizeof(*xe));
+    xe->xe_type = atype;
+    if (str){
+	if ((xe->xe_str = strdup(str)) == NULL){
+	    clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
+	    goto done;
+	}
+	if (xpath_split(xe->xe_str, &xe->xe_predicate) < 0)
+	    goto done;
+    }
+    (**xpnext) = xe;
+    *xpnext = &xe->xe_next;
+    retval = 0;
+ done:
+    return retval;
+}
+
+static int
+xpath_element_free(struct xpath_element *xe)
+{
+    if (xe->xe_str)
+	free(xe->xe_str);
+    free(xe);
+    return 0;
+}
+
+static int
+xpath_free(struct xpath_element *xplist)
+{
+    struct xpath_element *xe, *xe_next;
+
+    for (xe=xplist; xe; xe=xe_next){
+	xe_next = xe->xe_next;
+	xpath_element_free(xe);
+    }
+    return 0;
+}
+
+/*
+ * // is short for /descendant-or-self::node()/
+ */
+static int
+xpath_parse(char *xpath, struct xpath_element **xplist0)
+{
+    int                    retval = -1;
+    int                    nvec = 0;
+    char                  *p;
+    char                  *s;
+    char                  *s0;
+    int                    i;
+    struct xpath_element  *xplist = NULL;
+    struct xpath_element **xpnext = &xplist;
+
+    if ((s0 = strdup(xpath)) == NULL){
+	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
+	goto done;
+    }
+    s = s0;
+    if (strlen(s))
+	nvec = 1;
+    while ((p = index(s, '/')) != NULL){
+	nvec++;
+	*p = '\0';
+	s = p+1;
+    }
+    s = s0;
+    for (i=0; i<nvec; i++){
+	if ((i==0 && strcmp(s,"")==0)) /* Initial / or // */
+	    xpath_element_new(A_ROOT, NULL, &xpnext);
+	else if (i!=nvec-1 && strcmp(s,"")==0)
+	    xpath_element_new(A_DESCENDANT_OR_SELF, NULL, &xpnext);
+	else if (strncmp(s,"descendant-or-self::", strlen("descendant-or-self::"))==0){ 
+	    xpath_element_new(A_DESCENDANT_OR_SELF, s+strlen("descendant-or-self::"), &xpnext);
+	}
+	else if (strncmp(s,".", strlen("."))==0)
+	    xpath_element_new(A_SELF, s+strlen("."), &xpnext);
+	else if (strncmp(s,"self::", strlen("self::"))==0)
+	    xpath_element_new(A_SELF, s+strlen("self::"), &xpnext);
+	else if (strncmp(s,"..", strlen(".."))==0)
+	    xpath_element_new(A_PARENT, s+strlen(".."), &xpnext);
+	else if (strncmp(s,"parent::", strlen("parent::"))==0)
+	    xpath_element_new(A_PARENT, s+strlen("parent::"), &xpnext);
+	else if (strncmp(s,"ancestor::", strlen("ancestor::"))==0)
+	    xpath_element_new(A_ANCESTOR, s+strlen("ancestor::"), &xpnext);
+	else if (strncmp(s,"child::", strlen("child::"))==0)
+	    xpath_element_new(A_CHILD, s+strlen("child::"), &xpnext);
+	else
+	    xpath_element_new(A_CHILD, s, &xpnext);
+	s += strlen(s) + 1;
+    }
+    retval = 0;
+ done:
+    if (s0)
+	free(s0);
+    if (retval == 0)
+	*xplist0 = xplist;
+    return retval;
+}
+
+#endif /* New xpath code */
 
 /* move from v1 to v0 */
 static int
@@ -243,7 +407,7 @@ xpath_expr(char *e, searchvec *sv)
 
 /*! Transform eg "a/b[kalle]" -> "a/b" e="kalle" */
 static int
-xpath_loop(char *xpathstr, char **pathexpr)
+xpath_split(char *xpathstr, char **pathexpr)
 {
     int retval = -1;
     int len;
@@ -289,8 +453,29 @@ xpath_exec(cxobj *cxtop, char *xpath0, searchvec *sv)
 	clicon_err(OE_XML, errno, "%s: strdup", __FUNCTION__);
 	return -1;
     }
+
+    if (0)
+    {
+	struct xpath_element *xplist;
+
+
+	if (xpath_parse(xpath0, &xplist) < 0)
+	    goto done;
+#if 1
+	{
+	    struct xpath_element *xe;
+	    for (xe=xplist; xe; xe=xe->xe_next)
+		fprintf(stderr, "\t:%s %s\n", 
+			axis_type2str(xe->xe_type),
+			xe->xe_str?xe->xe_str:"");
+	}
+#endif
+	if (xpath_free(xplist) < 0)
+	    goto done;
+
+    }
     /* Transform eg "a/b[kalle]" -> "a/b" e="kalle" */
-    if (xpath_loop(xp, &pathexpr) < 0)
+    if (xpath_split(xp, &pathexpr) < 0)
 	return -1;
     /* first look for expressions regarding attrs */
     str = xp;

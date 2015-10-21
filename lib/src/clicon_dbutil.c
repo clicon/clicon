@@ -59,7 +59,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <limits.h>
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
@@ -82,9 +81,11 @@
 #include "clicon_string.h"
 #include "clicon_chunk.h"
 #include "clicon_hash.h"
-#include "clicon_db.h"
+
 #include "clicon_handle.h"
 #include "clicon_dbspec_key.h"
+#include "clicon_db.h"
+#include "clicon_qdb.h"
 #include "clicon_log.h"
 #include "clicon_lvalue.h"
 #include "clicon_yang.h"
@@ -93,10 +94,6 @@
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
 #include "clicon_sha1.h"
-
-#include "clicon_xml.h"
-#include "clicon_xsl.h"
-#include "clicon_xml_map.h"
 
 
 /*! Append a new cligen variable (cv) to cligen variable vector (cvec),
@@ -707,183 +704,3 @@ clicon_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
     return retval;
 }
 
-static inline int
-isnumber(char *p)
-{
-    long il;
-
-    il = strtol((p), (char**)NULL, 10);
-    return !((il == LONG_MIN || il == LONG_MAX) && errno==ERANGE);
-}
-
-/*! Given a database key, get its parent, 
- * For example, if key="a.0.b" get db content for "a.0" 
- * @param[in]  db    Name of database
- * @param[in]  key   Database key
- * @param[out] cvv   Contains parent database symbol and content, NULL if top
- * Note free cvv with cvec_free() after use
- */
-int
-clicon_dbget_parent(char      *db, 
-		    char      *key, 
-		    cvec     **cvv)
-{
-    int   retval = -1;
-    char *pkey = NULL;
-    char *pos;
-    
-    /* pkey is parent key: remove rightmost element, eg a.b -> a 
-       or a.0 -> NULL
-     */
-    if ((pkey = strdup(key)) == NULL){
-	clicon_err(OE_UNIX, errno, "malloc");
-	goto done;
-    }
-    if ((pos = rindex(pkey, '.')) == NULL)
-	goto ok; /* top */
-    *pos = '\0';
-    if (isnumber(pos+1)){
-	if ((pos = rindex(pkey, '.')) == NULL)
-	    goto ok; /* top */
-	*pos = '\0';
-    }
-    *cvv = clicon_dbget(db, pkey);
- ok:
-    retval = 0;
- done:
-    if (pkey)
-	free(pkey);
-    return retval;
-}
-
-/*! Given a database key, return list of children in cvec form
- * @param[in]  db    Name of database
- * @param[in]  key   Database key
- * @param[out] cvv   Vector of children. Free with clicon_dbitems_free()
- * @param[out] len   Length of vector
- */
-int
-clicon_dbget_children(char      *db, 
-		      char      *key, 
-		      cvec    ***cvv, 
-		      size_t    *len)
-{
-    int   retval = -1;
-    char *rx;
-
-    rx = chunk_sprintf(__FUNCTION__, 
-		       "^%s%s[a-zA-Z0-9]*(\\.[0-9]*)?$", 
-		       key?key:"", 
-		       key?".":"");
-    if (rx == NULL){
-	clicon_err(OE_XML, errno, "chunk_sprintf");
-	goto done;
-    }
-    if ((*cvv = clicon_dbitems(db, len, rx)) == NULL)
-	goto done;
-    retval = 0;
- done:
-    unchunk_group(__FUNCTION__);
-    return retval;
-}
-
-/*! Given a database key, return list of all descendants in cvec form
- * @param[in]  db    Name of database
- * @param[in]  key   Database key
- * @param[out] cvv   Vector of descendants. Free with clicon_dbitems_free()
- * @param[out] len   Length of vector
- */
-int
-clicon_dbget_descendants(char      *db, 
-			 char      *key, 
-			 cvec    ***cvv, 
-			 size_t    *len)
-{
-    int   retval = -1;
-    char *rx;
-
-    rx = chunk_sprintf(__FUNCTION__, 
-		       "%s%s.*$", 
-		       key?key:"", 
-		       key?".":"");
-    if (rx == NULL){
-	clicon_err(OE_XML, errno, "chunk_sprintf");
-	goto done;
-    }
-    *cvv = clicon_dbitems(db, len, rx);
-    retval = 0;
- done:
-    unchunk_group(__FUNCTION__);
-    return retval;
-}
-
-/*! Access objects in database using xpath expressions
- * @param[in]  h       Clicon handle
- * @param[in]  cn      Represents 'current' position in tree, NULL if root.
- * @param[in]  dbname  Name of database file
- * @param[in]  xpath   xpath expression on the form /a/b[a=5]
- * @param[out] cn_list Result list of nodes Free with clicon_dbitems_free()
- * @param[out] cn_len  Length of vector
- * @retval     cn_list Result list of nodes 
- *
- * @code
- * clicon_dbget_xpath(h, db, cn, "//c[z=73]", &cn_list, &cn_len);
- * clicon_dbitems_free(cn_list)
- * @endcode
- * 
- * Note: xpath only absolute paths starting with /
- */
-int
-clicon_dbget_xpath(clicon_handle h, 
-		   char         *dbname, 
-		   cvec         *cn,  /* context node */
-		   char         *xpath,
-		   cvec       ***cn_list0,
-		   int          *cn_len0
-		   )
-{
-    int                   retval = -1;
-    dbspec_key           *dbspec;
-    cxobj                *x;
-    cxobj               **xv;
-    cxobj                *xn;
-    int                   i;
-    char                 *key;
-    cvec                **cn_list;
-    int                   cn_len=0;
-    char                 *rx;
-
-    dbspec = clicon_dbspec_key(h);
-    /* XXX: start from cn a.0.b -> /a/b 
-       The logic is broken here. How does cn relate to xpath?
-       Also xpath_vec is major broken, does not support relative paths!!
-     */
-    cn = NULL; /* XXX */
-    rx = chunk_sprintf(__FUNCTION__, "^%s.*$", cn?cvec_name_get(cn):"");
-    if ((x = db2xml_key(dbname, dbspec, rx, "clicon")) == NULL) 
-	goto done;
-    if ((xv = xpath_vec(x, xpath, &cn_len)) != NULL) {
-	/* Allocate list. One extra to NULL terminate list */
-	if ((cn_list = calloc(cn_len+1, sizeof(cvec *))) == NULL){
-	    clicon_err(OE_UNIX, errno, "calloc");
-	    goto done;
-	}
-	for (i=0; i<cn_len; i++){
-	    xn = xv[i];
-	    key = xml_dbkey(xn);
-	    assert(key!=NULL);
-	    cn_list[i] = clicon_dbget(dbname, key);
-	}
-    }
-    retval = 0;
- done:
-    unchunk_group(__FUNCTION__);
-    xml_free(x);
-    if (retval == 0){
-	*cn_len0 = cn_len;
-	*cn_list0 = cn_list;
-    }
-    else
-	clicon_dbitems_free(cn_list);
-    return retval;
-}

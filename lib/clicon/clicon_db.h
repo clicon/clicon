@@ -36,40 +36,14 @@ int     clicon_dbdelvar(char *db, char *key, char *variable);
 int     clicon_dbappend(char *db, char *key, cg_var *cv);
 int     clicon_dbexists(char *db, char *key);
 int     clicon_dbmerge(char *db, char *key, cvec *vec);
-char  **clicon_dbkeys(char *db, size_t *len, char *rx);
-cvec  **clicon_dbitems(char *db, size_t *len, char *rx);
+int     clicon_dbkeys(char *db, char *rx, char ***keysv, size_t *len);
+int     clicon_dbitems(char *db, char *rx, cvec ***cvv, size_t *len);
 void    clicon_dbitems_free(cvec **vecs);
+int     clicon_dbget_parent(char *db, char *key, cvec **cvv);
+int     clicon_dbget_children(char *db, char *key, cvec ***cvv, size_t *len);
+int     clicon_dbget_descendants(char *db, char *key, cvec ***cvv, size_t *len);
+int     clicon_dbget_xpath(clicon_handle h, char *dbname, cvec *cn, 
+		       char *xpath, cvec ***cn_list, int *cn_len);
 
-
-/*
- * Low level API
- */
-
-struct db_pair {    
-    char *dp_key;  /* database key */
-    char *dp_matched; /* Matched component of key */
-    char *dp_val;  /* pointer to vector of lvalues */
-    int dp_vlen;   /* length of vector of lvalues */
-};
-
-/*
- * Prototypes
- */ 
-int db_init(char *file);
-
-int db_set(char *file, char *key, void *data, size_t datalen);
-
-int db_get(char *file, char *key, void *data, size_t *datalen);
-
-int db_get_alloc(char *file, char *key, void **data, size_t *datalen);
-
-int db_del(char *file, char *key);
-
-int db_exists(char *file, char *key);
-
-int db_regexp(char *file, char *regexp, const char *label, 
-	      struct db_pair **pairs, int noval);
-
-char *db_sanitize(char *rx, const char *label);
 
 #endif  /* _CLICON_DB_H_ */

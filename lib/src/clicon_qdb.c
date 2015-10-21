@@ -24,8 +24,6 @@
 #include "clicon_config.h"
 #endif
 
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -52,7 +50,7 @@
 #include "clicon_err.h"
 #include "clicon_queue.h"
 #include "clicon_chunk.h"
-#include "clicon_db.h" 
+#include "clicon_qdb.h" 
 
 /*
  * db_init_mode

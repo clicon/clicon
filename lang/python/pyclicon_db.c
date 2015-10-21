@@ -259,7 +259,7 @@ _keys(CliconDB *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "|s", &rx))
         return NULL;
     
-    if ((keys = clicon_dbkeys(self->filename, &nkeys, rx)) == NULL) {
+    if (clicon_dbkeys(self->filename, rx, &nkeys, &keys) < 0) {
 	/* XXX Need CLICON exceptoions */
 	PyErr_Format(PyExc_RuntimeError, "clicon_dbkeys failed");
 	return NULL;
@@ -301,7 +301,7 @@ _items(CliconDB *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "|s", &rx))
         return NULL;
     
-    if ((items = clicon_dbitems(self->filename, &len, rx)) == NULL) {
+    if (clicon_dbitems(self->filename, rx, &len, &items) < 0) {
 	/* XXX Need CLICON exceptions */
 	PyErr_Format(PyExc_RuntimeError, "clicon_dbitems failed");
 	return NULL;

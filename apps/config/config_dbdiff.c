@@ -201,9 +201,9 @@ dbdiff_vector(char *db1, char *db2,
     int                   retval = -1;
 
     /* List all matches from both db's */
-    if ((items1 = clicon_dbitems(db1, &nitems1, key)) == NULL) 
+    if (clicon_dbitems(db1, key, &items1, &nitems1) < 0) 
 	goto quit;
-    if ((items2 = clicon_dbitems(db2, &nitems2, key)) == NULL) 
+    if (clicon_dbitems(db2, key, &items2, &nitems2) < 0) 
 	goto quit;
 
     /* Loop through db1 items and check with db2 for adds or modifications */
@@ -300,13 +300,13 @@ dbdiff_vector_1(char *db1, char *db2,
     cvec                **items2 = NULL;
 
     /* List all matches from both db's */
-    if ((items1 = clicon_dbitems(db1, &nitems1, key)) == NULL) 
+    if (clicon_dbitems(db1, key, &items1, &nitems1) < 0) 
 	goto quit;
     if ((v1 = calloc(nitems1, sizeof(struct _dbvars))) == NULL){
 	clicon_err(OE_DB, errno, "%s: calloc", __FUNCTION__);
 	goto quit;
     }
-    if ((items2 = clicon_dbitems(db2, &nitems2, key)) == NULL) 
+    if (clicon_dbitems(db2, key, &items2, &nitems2) < 0) 
 	goto quit;
     if ((v2 = calloc(nitems2, sizeof(struct _dbvars))) == NULL){
 	clicon_err(OE_DB, errno, "%s: calloc", __FUNCTION__);

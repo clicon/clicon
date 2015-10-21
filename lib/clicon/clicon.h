@@ -38,6 +38,7 @@
 #include <clicon/clicon_queue.h>
 #include <clicon/clicon_hash.h>
 #include <clicon/clicon_handle.h>
+#include <clicon/clicon_qdb.h>
 #include <clicon/clicon_db.h>
 #include <clicon/clicon_dbspec_key.h>
 #include <clicon/clicon_yang.h>
