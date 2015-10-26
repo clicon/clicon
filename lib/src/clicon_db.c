@@ -624,7 +624,6 @@ clicon_dbget_descendants(char      *db,
  * clicon_dbitems_free(cn_list)
  * @endcode
  * 
- * Note: xpath only absolute paths starting with /
  */
 int
 clicon_dbget_xpath(clicon_handle h, 
@@ -649,7 +648,6 @@ clicon_dbget_xpath(clicon_handle h,
     dbspec = clicon_dbspec_key(h);
     /* XXX: start from cn a.0.b -> /a/b 
        The logic is broken here. How does cn relate to xpath?
-       Also xpath_vec is major broken, does not support relative paths!!
      */
     cn = NULL; /* XXX */
     rx = chunk_sprintf(__FUNCTION__, "^%s.*$", cn?cvec_name_get(cn):"");
@@ -684,6 +682,7 @@ clicon_dbget_xpath(clicon_handle h,
 /*! Free list of db items
  *
  * Free list of database items as allocated by clicon_dbitems()
+ * This is really 'free vector of cvec:s'
  *
  * @param   vecs     List of cvec pointers
  */

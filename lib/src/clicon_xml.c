@@ -312,9 +312,9 @@ xml_child_i_set(cxobj *xt, int i, cxobj *xc)
  * @endcode
  */
 cxobj *
-xml_child_each(cxobj *xparent, 
-	       cxobj *xprev, 
-	       enum cxobj_type type)
+xml_child_each(cxobj           *xparent, 
+	       cxobj           *xprev, 
+	       enum cxobj_type  type)
 {
     int i;
     cxobj *xn = NULL; 
