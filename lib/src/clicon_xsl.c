@@ -699,7 +699,7 @@ xpath_choice(cxobj   *xtop,
 cxobj *
 xpath_first(cxobj *cxtop, char *xpath)
 {
-    cxobj **vec0;
+    cxobj **vec0 = NULL;
     size_t  vec0len = 0;
     cxobj  *xn = NULL;
 

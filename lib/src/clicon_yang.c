@@ -1496,14 +1496,15 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
 {
     char            *key;
     yang_stmt       *ys;
-    long             i;
+    int64_t          i;
+    int              ret;
 
     if (nvec <= 0)
 	return NULL;
     key = vec[0];
     if (yn->yn_keyword == Y_LIST){
-	i = strtol(key, (char **) NULL, 10);
-	if ((i == LONG_MIN || i == LONG_MAX) && errno){
+	ret = parse_int64(key, &i, NULL);
+	if (ret != 1){ // XXX? 0?
 	    clicon_err(OE_YANG, errno, "strtol");
 	    goto done;
 	}

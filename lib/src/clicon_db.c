@@ -41,6 +41,7 @@
 #include "clicon_handle.h"
 #include "clicon_dbspec_key.h"
 #include "clicon_yang.h"
+#include "clicon_string.h"
 #include "clicon_options.h"
 #include "clicon_db.h"
 #include "clicon_qdb.h"
@@ -499,15 +500,6 @@ quit:
     return retval;
 }
 
-static inline int
-isnumber(char *p)
-{
-    long il;
-
-    il = strtol((p), (char**)NULL, 10);
-    return !((il == LONG_MIN || il == LONG_MAX) && errno==ERANGE);
-}
-
 /*! Given a database key, get its parent, 
  * For example, if key="a.0.b" get db content for "a.0" 
  * @param[in]  db    Name of database
@@ -523,6 +515,7 @@ clicon_dbget_parent(char      *db,
     int   retval = -1;
     char *pkey = NULL;
     char *pos;
+    int64_t i64;
     
     /* pkey is parent key: remove rightmost element, eg a.b -> a 
        or a.0 -> NULL
@@ -534,7 +527,7 @@ clicon_dbget_parent(char      *db,
     if ((pos = rindex(pkey, '.')) == NULL)
 	goto ok; /* top */
     *pos = '\0';
-    if (isnumber(pos+1)){
+    if (parse_int64(pos+1, &i64, NULL) == 1){
 	if ((pos = rindex(pkey, '.')) == NULL)
 	    goto ok; /* top */
 	*pos = '\0';
@@ -610,6 +603,47 @@ clicon_dbget_descendants(char      *db,
     return retval;
 }
 
+static int
+key2xpath(char *key, char **xpath)
+{
+    int     retval = -1;
+    char   *key2 = NULL;
+    int     nvec;
+    char  **vec = NULL;
+    char   *str;
+    char   *rx = "";
+    int     i;
+    int64_t i64;
+
+    if ((key2 = strdup(key)) == NULL){
+	clicon_err(OE_UNIX, errno, "strdup");
+	goto done;
+    }
+    if ((vec = clicon_sepsplit (key2, ".", &nvec, __FUNCTION__))==NULL){
+	clicon_err(OE_UNIX, errno, "clicon_sepplit");
+	goto done;
+    }
+    for (i = 0; i < nvec; i++) {
+	str = vec[i];
+	if (parse_int64(str, &i64, NULL) == 1)
+	    continue;
+	if (rx)
+	    rx = chunk_sprintf(__FUNCTION__, "%s/%s", rx, str);
+	else
+	    rx = chunk_sprintf(__FUNCTION__, "%s", str);
+    }
+    if ((*xpath = strdup(rx)) == NULL){
+	clicon_err(OE_UNIX, errno, "strdup");
+	goto done;
+    }
+    retval = 0;
+ done:
+    if (key2 != NULL)
+	free(key2);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
 /*! Access objects in database using xpath expressions
  * @param[in]  h       Clicon handle
  * @param[in]  cn      Represents 'current' position in tree, NULL if root.
@@ -637,23 +671,36 @@ clicon_dbget_xpath(clicon_handle h,
     int                   retval = -1;
     dbspec_key           *dbspec;
     cxobj                *x;
+    cxobj                *x2;
     cxobj               **xv;
     cxobj                *xn;
     int                   i;
     char                 *key;
+    char                 *dbkey;
     cvec                **cn_list;
     int                   cn_len=0;
     char                 *rx;
+    char                 *xp2;
+
+    key = cvec_name_get(cn);
 
     dbspec = clicon_dbspec_key(h);
-    /* XXX: start from cn a.0.b -> /a/b 
-       The logic is broken here. How does cn relate to xpath?
+    /* Two cases:
+       (1) Start from  / for absolute paths
+       (2) Start from cn a.0.b -> /a/b for relative paths
+       XXX: dont work for ..
      */
-    cn = NULL; /* XXX */
-    rx = chunk_sprintf(__FUNCTION__, "^%s.*$", cn?cvec_name_get(cn):"");
+    if (xpath && (*xpath=='/')) /* absolute paths */
+	rx = chunk_sprintf(__FUNCTION__, "^%s.*$", "");
+    else
+	rx = chunk_sprintf(__FUNCTION__, "^%s.*$", key);
     if ((x = db2xml_key(dbname, dbspec, rx, "clicon")) == NULL) 
 	goto done;
-    if ((xv = xpath_vec(x, xpath, &cn_len)) != NULL) {
+    if (key2xpath(key, &xp2) < 0)
+	goto done;
+    if ((x2 = xpath_first(x, xp2)) == NULL) 
+	goto done;
+    if ((xv = xpath_vec(x2, xpath, &cn_len)) != NULL) {
 	/* Allocate list. One extra to NULL terminate list */
 	if ((cn_list = calloc(cn_len+1, sizeof(cvec *))) == NULL){
 	    clicon_err(OE_UNIX, errno, "calloc");
@@ -661,8 +708,8 @@ clicon_dbget_xpath(clicon_handle h,
 	}
 	for (i=0; i<cn_len; i++){
 	    xn = xv[i];
-	    key = xml_dbkey(xn);
-	    cn_list[i] = clicon_dbget(dbname, key);
+	    dbkey = xml_dbkey(xn);
+	    cn_list[i] = clicon_dbget(dbname, dbkey);
 	}
     }
     retval = 0;

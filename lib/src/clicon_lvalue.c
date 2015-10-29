@@ -1070,7 +1070,7 @@ db_lv_op_keyfmt (dbspec_key *dbspec,
     char *key = NULL;
     
     if ((vec = clicon_sepsplit (basekey, ".", &nvec, __FUNCTION__)) == NULL){
-	clicon_err(OE_UNIX, errno, "clicon_strsplit");
+	clicon_err(OE_UNIX, errno, "clicon_sepsplit");
 	goto catch;
     }
 
