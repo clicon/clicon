@@ -1,0 +1,59 @@
+Q: How are values stored in the database?
+
+A: CLICON uses a key-value database.
+To understand how configuration trees are stored in a KV-database, see
+clicon-datamodel.pdf.
+It may also be useful to play around with clicon_dbctrl, for example:
+>clicon_dbctrl -pbd /usr/local/var/clicon_yang/candidate_db
+x.0
+x.n
+x.0.x.0
+x.0.x.n
+
+Q: How to access leaf database values in C?
+
+A: The best way is to use the set of database matching functions, in clicon_db.c.
+
+Assume a yang database specification:
+container cnt {
+    list lst {
+	key id;
+	leaf id {
+	    type int32;
+	}
+	leaf desc {
+	    type string;
+	}
+    }
+}
+
+Example C-code for accessing the elements of cnt is as follows:
+{
+    size_t       len;
+    int          i;
+    cvec       **cvecv = NULL; /* vector of variable vectors */
+    char        *dbname = clicon_running_db(h); /* name of database */
+    cvec        *cvv;          /* variable vector */
+
+    if (clicon_dbget_xpath(h, dbname, NULL, "/cnt/lst", &cvecv, &len) < 0)
+        goto done;
+    for (i=0; i<len; i++){
+        cvv = cvecv[i]; /* Vector of database values */
+	cvec_print(stdout, cvv);
+    }
+ done:
+    clicon_dbitems_free(cvecv);
+    return 0;
+}
+
+Example configuration:
+cli> set cnt lst 1 desc DescA
+cli> set cnt lst 2 desc DescB
+
+Output:
+0 : id = 1
+1 : desc = "DescA"
+0 : id = 2
+1 : desc = "DescB"
+
+
