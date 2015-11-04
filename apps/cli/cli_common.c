@@ -79,7 +79,6 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
     struct stat  sb;
     char *running_db; 
     char *candidate_db;
-    char *s;
 
     if ((running_db = clicon_running_db(h)) == NULL){
     	clicon_err(OE_PLUGIN, 0, "%s: RUNNING_CANDIDATE_DB option not set", __FUNCTION__); 
@@ -111,11 +110,7 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
 	}
 	if (lstat(candidate_db, &sb) < 0){
 	    if (cli_usedaemon(h)) {
-		if ((s = clicon_sock(h)) == NULL){
-		    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-		    goto err;
-		}
-		clicon_proto_copy(s, running_db, candidate_db);
+		clicon_rpc_copy(h, running_db, candidate_db);
 	    }
 	    else
 		if (file_cp(running_db, candidate_db) < 0){
@@ -403,7 +398,6 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
 {
     cg_var *cv;
     int     level;
-    char   *s;
 
     if ((cv = cvec_find_var(vars, "level")) == NULL)
 	cv = arg;
@@ -412,9 +406,7 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
     clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
     /* config daemon */
     if (cli_usedaemon(h)) {
-	if ((s = clicon_sock(h)) == NULL)
-	    goto done;
-	if (clicon_proto_debug(s, level) < 0)
+	if (clicon_rpc_debug(h, level) < 0)
 	    goto done;
     }
   done:
@@ -607,7 +599,6 @@ int
 cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 {
     int            retval = -1;
-    char          *s;
     int            snapshot = arg?cv_int32_get(arg):0;
     char          *candidate;
     char          *running;
@@ -620,15 +611,11 @@ cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
     }
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
-    }
-    if ((retval = clicon_proto_commit(s, 
-				   running, 
-				   candidate, 
-				   snapshot, /* snapshot */
-				   snapshot)) < 0){ /* startup */
+    if ((retval = clicon_rpc_commit(h, 
+				    running, 
+				    candidate, 
+				    snapshot, /* snapshot */
+				    snapshot)) < 0){ /* startup */
 	cli_output(stderr, "Commit failed. Edit and try again or discard changes\n");
 	goto done;
     }
@@ -643,7 +630,6 @@ cli_commit(clicon_handle h, cvec *vars, cg_var *arg)
 int
 cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    char          *s;
     char          *candidate_db;
     int            retval = -1;
 
@@ -652,11 +638,7 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 	return -1;
     }
     if (cli_usedaemon(h)) {
-	if ((s = clicon_sock(h)) == NULL){
-	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	    return -1;
-	}
-	if ((retval = clicon_proto_validate(s, candidate_db)) < 0)
+	if ((retval = clicon_rpc_validate(h, candidate_db)) < 0)
 	    cli_output(stderr, "Validate failed. Edit and try again or discard changes\n");
     }
     return retval;
@@ -1294,62 +1276,10 @@ quit:
     return retval;
 }
 
-/*! An rpc call from a frontend module to a function in a backend module
- *
- * A CLI/netconf frontend module can make a functional call to a backend
- * module and get return value back. 
- * The backend module needs to be specified (XXX would be nice to avoid this)
- * parameters can be sent, and value returned.
- * A function (func) must be defined in the backend module (plugin)
- * An example signature of such a downcall function is:
- * @code
-int
-downcall(clicon_handle h, uint16_t op, uint16_t len, void *arg, 
-	      uint16_t *reply_data_len, void **reply_data)
- * @endcode
- *
- * @param[in]   h
- * @param[in]   op       Generic application-defined operation
- * @param[in]   plugin   Name of backend plugin (XXX look in backend plugin dir)
- * @param[in]   func     Name of function i backend (ie downcall above) as string
- * @param[in]   param    Input parameter given to function (void* arg in downcall)
- * @param[in]   paramlen Length of input parameter
- * @param[out]  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
- * @param[out]  retlen   Length of returned data
- * @param[in]   label    Label used in chunk (de)allocation.
- */
-int
-cli_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
-	     void *param, uint16_t paramlen, 
-	     char **ret, uint16_t *retlen,
-	     const void *label
-    )
-{
-    struct clicon_msg *msg;
-    char *s;
-    int retval = -1;
-
-    if ((msg = clicon_msg_call_encode(op, plugin, func, 
-				      paramlen, param, 
-				      label)) == NULL)
-	goto done;
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
-    }
-    if (clicon_rpc_connect(msg, s, (char**)ret, retlen, label) < 0)
-	goto done;
-    retval = 0;
-done:
-    return retval;
-}
-
-
 /* New cli_set/del code */
 static int 
 cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 {
-    char            *s;
     char            *candidate;
     char            *running;
     dbspec_key      *spec;
@@ -1369,29 +1299,25 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
     }
     spec = clicon_dbspec_key(h);
     
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto quit;
-    }
     if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
 	goto quit;
 
     if (cli_usedaemon(h)) {
-	if (clicon_proto_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
+	if (clicon_rpc_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
 	    goto quit;
+	if (clicon_autocommit(h)) {
+	    if (clicon_rpc_commit(h, running, candidate, 0, 0) < 0) {
+		if (clicon_rpc_copy(h, running, candidate) < 0)
+		    fprintf(stderr, "Failed to restore candidate: %s\n", 
+			    strerror(errno));
+		goto quit;
+	    }
+	}
     } else {
 	if (db_lv_op_exec(spec, candidate, dbv->dbv_key, op, dbv->dbv_vec) < 0)
 	    goto quit;
     }
 
-    if (cli_usedaemon(h) && clicon_autocommit(h)) {
-        if (clicon_proto_commit(s, running, candidate, 0, 0) < 0) {
-	    if (clicon_proto_copy(s, running, candidate) < 0)
-	        fprintf(stderr, "Failed to restore candidate: %s\n", 
-			strerror(errno));
-	    goto quit;
-	}
-    }
     retval = 0;
 quit:
     if (dbv)
@@ -1439,7 +1365,6 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char      **vecp;
     char       *filename;
     int         replace;
-    char       *s;
     char       *dbname;
     char       *str;
     cg_var     *cv;
@@ -1489,11 +1414,7 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     if (cli_usedaemon(h)) {
-	if ((s = clicon_sock(h)) == NULL){
-	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	    goto done;
-	}
-	if (clicon_proto_load(s, replace, dbname, filename) < 0)
+	if (clicon_rpc_load(h, replace, dbname, filename) < 0)
 	    goto done;
     }
     else{
@@ -1526,7 +1447,6 @@ int
 save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 {
     int        retval = -1;
-    char      *s;
     char     **vec;
     char     **vecp;
     char      *filename;
@@ -1575,11 +1495,7 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     }
     filename = vecp[0];
     if (cli_usedaemon(h)) {
-	if ((s = clicon_sock(h)) == NULL){
-	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	    goto done;
-	}
-	if (clicon_proto_save(s, dbname, 0, filename) < 0) /*  */
+	if (clicon_rpc_save(h, dbname, 0, filename) < 0) /*  */
 	    goto done;
     }
     else{
@@ -1596,7 +1512,6 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 int
 delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    char            *s;
     char            *dbname;
     char            *dbstr;
     int              retval = -1;
@@ -1619,12 +1534,8 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     if (cli_usedaemon(h)) {
-	if ((s = clicon_sock(h)) == NULL){
-	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	    goto done;
-	}
-	clicon_proto_rm(s, dbname);
-	clicon_proto_initdb(s, dbname);
+	clicon_rpc_rm(h, dbname);
+	clicon_rpc_initdb(h, dbname);
     }
     else{
 	if (unlink(dbname) < 0){
@@ -1642,15 +1553,10 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 int
 discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 {
-    char *s;
     char *running_db;
     char *candidate_db;
     int   retval = -1;
 
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
-    }
     if ((candidate_db = clicon_candidate_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	goto done;
@@ -1659,7 +1565,7 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "running db not set");
 	goto done;
     }
-    clicon_proto_copy(s, running_db, candidate_db);
+    clicon_rpc_copy(h, running_db, candidate_db);
     retval = 0;
   done:
     return retval;
@@ -2073,7 +1979,6 @@ cli_notification_register(clicon_handle h,
 			  void         *arg)
 {
     int              retval = -1;
-    char            *sockpath;
     char            *logname;
     void            *p;
     int              s;
@@ -2081,10 +1986,6 @@ cli_notification_register(clicon_handle h,
     size_t           len;
     int              s_exist = -1;
 
-    if ((sockpath = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
-    }
     if ((logname = chunk_sprintf(__FUNCTION__, "log_socket_%s", stream)) == NULL){
 	clicon_err(OE_PLUGIN, errno, "%s: chunk_sprintf", __FUNCTION__);
 	goto done;
@@ -2097,7 +1998,7 @@ cli_notification_register(clicon_handle h,
 	    clicon_err(OE_PLUGIN, 0, "%s: result log socket already exists", __FUNCTION__);
 	    goto done;
 	}
-	if (clicon_proto_subscription(sockpath, status, stream, format, filter, &s) < 0)
+	if (clicon_rpc_subscription(h, status, stream, format, filter, &s) < 0)
 	    goto done;
 	if (cligen_regfd(s, fn, arg) < 0)
 	    goto done;
@@ -2109,7 +2010,7 @@ cli_notification_register(clicon_handle h,
 	    cligen_unregfd(s_exist);
 	}
 	hash_del(cdat, logname);
-	if (clicon_proto_subscription(sockpath, status, stream, format, filter, NULL) < 0)
+	if (clicon_rpc_subscription(h, status, stream, format, filter, NULL) < 0)
 	    goto done;
 
     }

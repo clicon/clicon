@@ -136,18 +136,32 @@ struct clicon_msg_call_req {
 /*
  * Prototypes
  */ 
+#ifndef LIBCLICON_API
 int clicon_connect_unix(char *sockpath);
 
 int clicon_msg_send(int s, struct clicon_msg *msg);
 
-int clicon_msg_rcv(int s, struct clicon_msg **msg, 
-		  int *eof, const char *label);
+int clicon_rpc_connect_unix(struct clicon_msg *msg, 
+			    char *sockpath,
+			    char **data, 
+			    uint16_t *datalen, 
+			    int      *sock0,
+			    const char *label);
 
-int clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
-		    char **data, uint16_t *datalen, const char *label);
+int clicon_rpc_connect_inet(struct clicon_msg *msg, 
+			    char *dst, 
+			    uint16_t port,
+			    char **data, 
+			    uint16_t *datalen,
+			    int      *sock0,
+			    const char *label);
 
 int clicon_rpc(int s, struct clicon_msg *msg, char **data, uint16_t *datalen,
 	    const char *label);
+
+#endif
+int clicon_msg_rcv(int s, struct clicon_msg **msg, 
+		  int *eof, const char *label);
 
 int send_msg_notify(int s, int level, char *event);
 
@@ -156,6 +170,9 @@ int send_msg_reply(int s, uint16_t type, char *data, uint16_t datalen);
 int send_msg_ok(int s);
 
 int send_msg_err(int s, int err, int suberr, char *format, ...);
+
+
+
 
 
 #endif  /* _CLICON_PROTO_H_ */

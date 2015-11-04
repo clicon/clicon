@@ -657,7 +657,8 @@ key2xpath(char *key, char **xpath)
  * clicon_dbget_xpath(h, db, cn, "//c[z=73]", &cn_list, &cn_len);
  * clicon_dbitems_free(cn_list)
  * @endcode
- * 
+ * @see xpath_vec
+ * @see yang_xpath
  */
 int
 clicon_dbget_xpath(clicon_handle h, 

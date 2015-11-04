@@ -1504,7 +1504,7 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
     key = vec[0];
     if (yn->yn_keyword == Y_LIST){
 	ret = parse_int64(key, &i, NULL);
-	if (ret != 1){ // XXX? 0?
+	if (ret != 1){
 	    clicon_err(OE_YANG, errno, "strtol");
 	    goto done;
 	}
@@ -1679,6 +1679,8 @@ yang_xpath_abs(yang_node *yn, char *xpath)
 
 
 /*! Given an xpath (eg /a/b/c or a/b/c) find matching yang specification
+ * Note that xpath is defined for xml, and for instances of data, this is 
+ * for specifications, sp expect some differences.
  * @param[in]  yn     Yang node tree
  * @param[in]  xpath  A limited xpath expression on the type a/b/c
  * @retval     NULL   Error, with clicon_err called
@@ -1688,6 +1690,8 @@ yang_xpath_abs(yang_node *yn, char *xpath)
  * Example:
  * yn : module m { prefix b; container b { list c { key d; leaf d; }} }
  * xpath = m/b/c, returns the list 'c'.
+ * @see xpath_vec
+ * @see clicon_dbget_xpath
  */
 yang_node *
 yang_xpath(yang_node *yn, char *xpath)

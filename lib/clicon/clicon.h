@@ -31,8 +31,13 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
-#include <clicon/clicon_sig.h>
+/*
+ * Use this constant to disable some prototypes that should not be visible outside the lib.
+ * This is an alternative to use separate internal include files.
+ */
+#define LIBCLICON_API 1
 
+#include <clicon/clicon_sig.h>
 #include <clicon/clicon_log.h>
 #include <clicon/clicon_err.h>
 #include <clicon/clicon_queue.h>

@@ -98,9 +98,7 @@ msg_type2str(enum clicon_msg_type type)
     return NULL;
 }
 
-/*
- * clicon_connect_unix
- * open local connection using unix domain sockets
+/*! Open local connection using unix domain sockets
  */
 int
 clicon_connect_unix(char *sockpath)
@@ -132,8 +130,6 @@ clicon_connect_unix(char *sockpath)
   done:
     return retval;
 }
-
-
 
 static void
 atomicio_sig_handler(int arg)
@@ -286,15 +282,17 @@ clicon_msg_rcv(int s,
 }
 
 
-/*
- * clicon_rpc_connect
- * Connect to server, send an clicon_msg message and wait for result.
+/*! Connect to server, send an clicon_msg message and wait for result.
  * Compared to clicon_rpc, this is a one-shot rpc: open, send, get reply and close.
+ * NOTE: this is dependent on unix domain
  */
 int
-clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
-		   char **data, uint16_t *datalen,
-		   const char *label)
+clicon_rpc_connect_unix(struct clicon_msg *msg, 
+			char              *sockpath,
+			char             **data, 
+			uint16_t          *datalen,
+			int               *sock0, 
+			const char        *label)
 {
     int retval = -1;
     int s = -1;
@@ -314,15 +312,59 @@ clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
 	goto done;
     if (clicon_rpc(s, msg, data, datalen, label) < 0)
 	goto done;
+    if (sock0 != NULL)
+	*sock0 = s;
     retval = 0;
   done:
-    if (s >= 0)
+    if (sock0 == NULL && s >= 0)
 	close(s);
     return retval;
 }
 
+/*! Connect to server, send an clicon_msg message and wait for result using an inet socket
+ * Compared to clicon_rpc, this is a one-shot rpc: open, send, get reply and close.
+ */
+int
+clicon_rpc_connect_inet(struct clicon_msg *msg, 
+			char              *dst,
+			uint16_t           port,
+			char             **data, 
+			uint16_t          *datalen,
+			int               *sock0, 
+			const char        *label)
+{
+    int retval = -1;
+    int s = -1;
+    struct sockaddr_in addr;
 
+    clicon_debug(1, "Send %s msg to %s", msg_type2str(msg->op_type), dst);
 
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    if (inet_pton(addr.sin_family, dst, &addr.sin_addr) != 1)
+	goto done; /* Could check getaddrinfo */
+    
+    /* special error handling to get understandable messages (otherwise ENOENT) */
+    if ((s = socket(addr.sin_family, SOCK_STREAM, 0)) < 0) {
+	clicon_err(OE_CFG, errno, "socket");
+	return -1;
+    }
+    if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) < 0){
+	clicon_err(OE_CFG, errno, "connecting socket inet4");
+	close(s);
+	goto done;
+    }
+    if (clicon_rpc(s, msg, data, datalen, label) < 0)
+	goto done;
+    if (sock0 != NULL)
+	*sock0 = s;
+    retval = 0;
+  done:
+    if (sock0 == NULL && s >= 0)
+	close(s);
+    return retval;
+}
 
 /*! Send a clicon_msg message and wait for result.
  *
@@ -331,7 +373,7 @@ clicon_rpc_connect(struct clicon_msg *msg, char *sockpath,
  * errno set to ENOTCONN which means that socket is now closed probably
  * due to remote peer disconnecting. The caller may have to do something,...
  *
- * @param[in]  s       UNIX domain socket to communicate with backend
+ * @param[in]  s       Socket to communicate with backend
  * @param[in]  msg     CLICON msg data structure. It has fixed header and variable body.
  * @param[out] data    Returned data as byte-string. Deallocate w unchunk...(..., label)
  * @param[out] datalen Length of returedn data
@@ -457,3 +499,4 @@ send_msg_err(int s, int err, int suberr, char *format, ...)
     unchunk_group(__FUNCTION__);
     return retval;
 }
+

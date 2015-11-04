@@ -66,8 +66,14 @@ CLICON_ARCHIVE_DIR      localstatedir/APPNAME/archive
 # XXX Name of startup configuration file (in XML)
 CLICON_STARTUP_CONFIG   localstatedir/APPNAME/startup-config
 
-# XXX Unix socket for communicating with clicon_config
+# Address family for communicating with clicon_backend (UNIX|IPv4|IPv6)
+CLICON_SOCK_FAMILY  UNIX
+
+# Unix socket for communicating with clicon_backend
 CLICON_SOCK         localstatedir/APPNAME/APPNAME.sock
+
+# Inet socket port for communicating with clicon_backend
+CLICON_SOCK_PORT    4535
 
 # Process-id file
 CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile

@@ -92,11 +92,6 @@ int cli_start_shell(clicon_handle h, cvec *vars, cg_var *argv);
 int cli_quit(clicon_handle h, cvec *vars, cg_var *arg);
 int cli_commit(clicon_handle h, cvec *vars, cg_var *arg);
 int cli_validate(clicon_handle h, cvec *vars, cg_var *arg);
-int cli_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
-	     void *param, uint16_t paramlen, 
-	     char **ret, uint16_t *retlen,
-	     const void *label
-    );
 int expand_dbvar(void *h, char *name, cvec *vars, cg_var *arg, 
 		 int *nr, char ***commands, char ***helptexts);
 int expand_dbvar_auto(void *h, char *name, cvec *vars, cg_var *arg, 

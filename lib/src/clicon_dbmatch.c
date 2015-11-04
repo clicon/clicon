@@ -471,7 +471,7 @@ dbmatch_del(void *handle,
     if (dbmatch_vec(handle, dbname, key, attr, pattern, &keyv, &cvecv, &len) < 0)
 	goto done;
     for (i=0; i<len; i++)
-	if (clicon_proto_change_cvec(handle, dbname, LV_DELETE, keyv[i], cvecv[i]) < 0)
+	if (clicon_rpc_change_cvec(handle, dbname, LV_DELETE, keyv[i], cvecv[i]) < 0)
 	    goto done;
     dbmatch_vec_free(keyv, cvecv, len);
     if (lenp)

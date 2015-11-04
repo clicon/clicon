@@ -32,7 +32,9 @@
  * CLICON_RUNNING_DB       $APPDIR/db/running_db
  * CLICON_ARCHIVE_DIR      $APPDIR/archive    # Archive dir (rollback)
  * CLICON_STARTUP_CONFIG   $APPDIR/startup-config # Startup config-file
- * CLICON_SOCK             $APPDIR/clicon.sock # Unix domain socket
+ * CLICON_SOCK_FAMILY      Backend socket family: unix|ipv4|ipv6 
+ * CLICON_SOCK             $APPDIR/clicon.sock or IP address
+ * CLICON_SOCK_PORT        Backend socket port
  * CLICON_SOCK_GROUP       clicon # Unix group for clicon socket group access
  * CLICON_AUTOCOMMIT       0 # Automatically commit configuration changes (no commit)
  * CLICON_COMMIT_ORDER     0 # priority only, 1: delete in reverse prio; change/add in prio
@@ -581,11 +583,38 @@ clicon_startup_config(clicon_handle h)
     return clicon_option_str(h, "CLICON_STARTUP_CONFIG");
 }
 
-/* get unix domain socket */
+/* get family of backend socket: AF_UNIX, AF_INET or AF_INET6 */
+int
+clicon_sock_family(clicon_handle h)
+{
+    char *s;
+
+    if ((s = clicon_option_str(h, "CLICON_SOCK_FAMILY")) == NULL)
+	return AF_UNIX;
+    else  if (strcmp(s, "IPv4")==0)
+	return AF_INET;
+    else  if (strcmp(s, "IPv6")==0)
+	return AF_INET6;
+    else
+	return AF_UNIX; /* default */
+}
+
+/* get information about socket: unix domain filepath, or addr:path */
 char *
 clicon_sock(clicon_handle h)
 {
     return clicon_option_str(h, "CLICON_SOCK");
+}
+
+/* get port for backend socket in case of AF_INET or AF_INET6 */
+int
+clicon_sock_port(clicon_handle h)
+{
+    char *s;
+
+    if ((s = clicon_option_str(h, "CLICON_SOCK_PORT")) == NULL)
+	return -1;
+    return atoi(s);
 }
 
 char *

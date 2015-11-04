@@ -27,40 +27,28 @@
 #ifndef _CLICON_PROTO_CLIENT_H_
 #define _CLICON_PROTO_CLIENT_H_
 
-int clicon_proto_copy(char *spath, char *filename1, char *filename2);
-int clicon_proto_change(char *spath, char *db, lv_op_t op,
-		     char *key, char *lvec, int lvec_len);
-int clicon_proto_commit(char *spath, char *running_db, char *db, 
+int clicon_rpc_commit(clicon_handle h, char *running_db, char *db, 
 		     int snapshot, int startup);
-int clicon_proto_validate(char *spath, char *db);
-int clicon_proto_save(char *spath, char *dbname, int snapshot, char *filename);
-int clicon_proto_load(char *spath, int replace, char *db, char *filename);
-int clicon_proto_initdb(char *spath, char *filename);
-int clicon_proto_rm(char *spath, char *filename);
-int clicon_proto_lock(char *spath, char *dbname);
-int clicon_proto_unlock(char *spath, char *dbname);
-int clicon_proto_kill(char *spath, int session_id);
-int clicon_proto_subscription(char *spath, int status, char *stream, 
-			      enum format_enum format, char *filter, int *s);
-int clicon_proto_debug(char *spath, int level);
+int clicon_rpc_validate(clicon_handle h, char *db);
+int clicon_rpc_change(clicon_handle h, char *db, lv_op_t op,
+		     char *key, char *lvec, int lvec_len);
+int clicon_rpc_change_cvec(clicon_handle h, char *db, lv_op_t op,
+			   char *key, cvec *cvv);
+int clicon_rpc_save(clicon_handle h, char *dbname, int snapshot, char *filename);
+int clicon_rpc_load(clicon_handle h, int replace, char *db, char *filename);
+int clicon_rpc_copy(clicon_handle h, char *filename1, char *filename2);
+int clicon_rpc_rm(clicon_handle h, char *filename);
+int clicon_rpc_initdb(clicon_handle h, char *filename);
+int clicon_rpc_lock(clicon_handle h, char *dbname);
+int clicon_rpc_unlock(clicon_handle h, char *dbname);
+int clicon_rpc_kill(clicon_handle h, int session_id);
+int clicon_rpc_debug(clicon_handle h, int level);
+int clicon_rpc_call(clicon_handle h, uint16_t op, char *plugin, char *func,
+		    void *param, uint16_t paramlen, 
+		    char **ret, uint16_t *retlen,
+		    const void *label);
+int clicon_rpc_subscription(clicon_handle h, int status, char *stream, 
+			    enum format_enum format, char *filter, int *s);
 
-/*
- * Backward compatible functions
- */
-#if 0
-#define cli_proto_copy     clicon_proto_copy
-#define cli_proto_change   clicon_proto_change
-#define cli_proto_commit   clicon_proto_commit
-#define cli_proto_validate clicon_proto_validate
-#define cli_proto_save     clicon_proto_save
-#define cli_proto_load     clicon_proto_load
-#define cli_proto_initdb   clicon_proto_initdb
-#define cli_proto_rm       clicon_proto_rm
-#define cli_proto_lock     clicon_proto_lock
-#define cli_proto_unlock   clicon_proto_unlock
-#define cli_proto_kill     clicon_proto_kill
-#define cli_proto_subscription clicon_proto_subscription
-#define cli_proto_debug    clicon_proto_debug
-#endif
 
 #endif  /* _CLICON_PROTO_CLIENT_H_ */

@@ -226,47 +226,6 @@ get_target(clicon_handle h, cxobj *xn, char *path)
     
 }
 
-/*! An rpc call from a frontend module to a function in a backend module
- *
- * Call a config function
- * XXX: clone of cli_downcall
- *
- * @param[in]   h
- * @param[in]   op       Generic application-defined operation
- * @param[in]   plugin   Name of backend plugin (XXX look in backend plugin dir)
- * @param[in]   func     Name of function i backend (ie downcall above) as string
- * @param[in]   param    Input parameter given to function (void* arg in downcall)
- * @param[in]   paramlen Length of input parameter
- * @param[out]  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
- * @param[out]  retlen   Length of returned data
- * @param[in]   label    Label used in chunk (de)allocation.
- */
-int
-netconf_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
-		 void *param, uint16_t paramlen, 
-		 char **ret, uint16_t *retlen,
-		 const void *label
-    )
-{
-    struct clicon_msg *msg;
-    char *s;
-    int retval = -1;
-
-    if ((msg = clicon_msg_call_encode(op, plugin, func, 
-				      paramlen, param, 
-				      label)) == NULL)
-	goto done;
-    if ((s = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
-    }
-    if (clicon_rpc_connect(msg, s, (char**)ret, retlen, label) < 0)
-	goto done;
-    retval = 0;
-done:
-    return retval;
-}
-
 /*! Send netconf message from cbuf on socket
  * @param[in]   s    
  * @param[in]   cb   Cligen buffer that contains the XML message

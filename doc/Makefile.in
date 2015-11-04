@@ -41,12 +41,12 @@ $(SUBDIRS):
 	(cd $@; $(MAKE) $(MFLAGS) all)
 
 distclean: clean
+	rm -rf html
 	rm -f Makefile *~ .depend
 	for i in $(SUBDIRS); \
 	do (cd $$i; $(MAKE) $(MFLAGS) $@); done
 
 clean:
-	rm -rf html
 	for i in $(SUBDIRS); \
 	do (cd $$i; $(MAKE) $(MFLAGS) $@); done; 
 

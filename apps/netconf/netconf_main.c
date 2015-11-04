@@ -247,27 +247,16 @@ send_hello(int s)
     return retval;
 }
 
-/* from init_candidate_db() and clicon_proto_copy() */
+/* from init_candidate_db() and clicon_rpc_copy() */
 static int
 init_candidate_db(clicon_handle h, char *running_db, char *candidate_db)
 {
     struct stat      sb;
-    struct clicon_msg *msg;     /* inline from clicon_proto_copy */
     int                retval = -1;
-    char              *s;
 
     /* init shared candidate */
-
     if (lstat(candidate_db, &sb) < 0){
-	if ((msg=clicon_msg_copy_encode(running_db,
-					candidate_db,
-				       __FUNCTION__)) == NULL)
-	    return -1;
-	if ((s = clicon_sock(h)) == NULL){
-	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	    goto done;
-	}
-	if (clicon_rpc_connect(msg, s, NULL, 0, __FUNCTION__) < 0)
+	if (clicon_rpc_copy(h, running_db, candidate_db) < 0)
 	    goto done;
     }
     retval = 0;

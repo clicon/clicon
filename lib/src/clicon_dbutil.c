@@ -677,30 +677,4 @@ dbspec_last_unique_str(dbspec_key *ds, cvec *setvars)
     return cv2str_dup(cvc);
 }
 
-/*
- * Same as clicon_proto_change just with a cvec instead of lvec, and get the sock
- * from handle.
- * Utility function. COnsider moving to clicon_proto_client.c
- */
-int
-clicon_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
-		      char *key, cvec *cvv)
-{
-    char            *lvec = NULL;
-    size_t           lvec_len;
-    char            *spath;
-    int              retval = -1;
-
-    if ((spath = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	goto done;
-    }
-    if ((lvec = cvec2lvec(cvv, &lvec_len)) == NULL)
-	goto done;
-    retval = clicon_proto_change(spath, db, op, key, lvec, lvec_len);
-  done:
-    if (lvec)
-	free(lvec);
-    return retval;
-}
 

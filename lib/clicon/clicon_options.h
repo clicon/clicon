@@ -86,9 +86,12 @@ char *clicon_clispec_dir(clicon_handle h);
 char *clicon_netconf_dir(clicon_handle h);
 char *clicon_archive_dir(clicon_handle h);
 char *clicon_startup_config(clicon_handle h);
+int   clicon_sock_family(clicon_handle h);
 char *clicon_sock(clicon_handle h);
+int   clicon_sock_port(clicon_handle h);
 char *clicon_backend_pidfile(clicon_handle h);
 char *clicon_sock_group(clicon_handle h);
+
 char *clicon_master_plugin(clicon_handle h);
 char *clicon_cli_mode(clicon_handle h);
 int   clicon_cli_genmodel(clicon_handle h);

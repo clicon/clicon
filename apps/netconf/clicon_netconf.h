@@ -61,13 +61,6 @@ int netconf_create_rpc_error(cbuf *xf,            /* msg buffer */
 			     char *message, 
 			     char *info);
 
-int
-netconf_downcall(clicon_handle h, uint16_t op, char *plugin, char *func,
-		 void *param, uint16_t paramlen, 
-		 char **ret, uint16_t *retlen,
-		 const void *label );
-
-
 void netconf_ok_set(int ok);
 int netconf_ok_get(void);
 

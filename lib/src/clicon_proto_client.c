@@ -46,404 +46,473 @@
 #include "clicon_handle.h"
 #include "clicon_db.h"
 #include "clicon_dbspec_key.h"
+#include "clicon_yang.h"
+#include "clicon_options.h"
 #include "clicon_lvalue.h"
+#include "clicon_dbutil.h"
 #include "clicon_proto.h"
 #include "clicon_err.h"
 #include "clicon_proto_encode.h"
 #include "clicon_proto_client.h"
 
-/*
- * clicon_proto_copy
- * Let configure daemon copy a file from one location in a local 
- * filesystem (filename1) to another (filename2)
+/*! Internal rpc function
+ * @param[in]    h      CLICON handle
+ * @param[in]    msg    Encoded message
+ * @param[out]   ret    Return value from backend server (reply)
+ * @param[out]   retlen Length of return value
+ * @param[inout] sock0  If pointer exists, do not close socket to backend on success and return it here.
+ * @param[in]    label  Chunk label for deallocating return values
+ * Deallocate with unchunk_group(label)
+ * Note: sock0 is if connection should be persistent, like a notification/subscribe api
  */
-int
-clicon_proto_copy(char *spath, char *filename1, char *filename2)
+static int
+clicon_rpc_msg(clicon_handle      h, 
+	       struct clicon_msg *msg, 
+	       char             **ret, 
+	       uint16_t          *retlen, 
+	       int               *sock0, 
+	       const char        *label)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    char              *sock;
+    int                port;
 
-    if ((msg=clicon_msg_copy_encode(filename1, filename2,
-				     __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
+    if ((sock = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
 	goto done;
     }
-    retval = 0;
-  done:
-    unchunk_group(__FUNCTION__);
-    return retval;
-
-}
-
-/*
- * See also clicon_proto_change_cvec
- */
-int
-clicon_proto_change(char *spath, char *db, lv_op_t op,
-		 char *key, char *lvec, int lvec_len)
-{
-    struct clicon_msg *msg;
-    int                retval = -1;
-
-    assert(key && strlen(key));
-    if ((msg = clicon_msg_change_encode(db, op, key, lvec, lvec_len,
-				       __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
+    /* What to do if inet socket? */
+    switch (clicon_sock_family(h)){
+    case AF_UNIX:
+	if (clicon_rpc_connect_unix(msg, sock, ret, retlen, sock0, label) < 0){
 #if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
+	    if (errno == ESHUTDOWN)
+		/* Maybe could reconnect on a higher layer, but lets fail
+		   loud and proud */
+		cli_set_exiting(1);
 #endif
-	goto done;
+	    goto done;
+	}
+	break;
+    case AF_INET:
+	if ((port = clicon_sock_port(h)) < 0){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	    goto done;
+	}
+	if (port < 0){
+	    clicon_err(OE_FATAL, 0, "CLICON_SOCK_PORT not set");
+	    goto done;
+	}
+	if (clicon_rpc_connect_inet(msg, sock, port, ret, retlen, sock0, label) < 0)
+	    goto done;
+	break;
     }
     retval = 0;
-  done:
-    unchunk_group(__FUNCTION__);
+ done:
     return retval;
 }
 
-/*
- * Commit changes
- * Send a commit request to the config_daemon
- * Error handling like a clicon_lib function.
- * If OK returns, copy current->candidate
- * If snapshot set, also make a snpshot
- * If startup_config set, also save as startup_config
+/*! Commit changes send a commit request to backend daemon
+ * @param[in] h          CLICON handle
+ * @param[in] running_db Name of database
+ * @param[in] db         Name of database
+ * @param[in] snapshot   Make a snapshot copy of db state
+ * @param[in] startup    Make a copy to startup.
+ * @retval 0        Copy current->candidate
  */
 int
-clicon_proto_commit(char *spath, char *running_db, char *db, int snapshot, int startup)
+clicon_rpc_commit(clicon_handle h, 
+		  char         *running_db, 
+		  char         *db, 
+		  int           snapshot, 
+		  int           startup)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_commit_encode(db, running_db, snapshot, startup, 
-				     __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
+					  __FUNCTION__)) == NULL)
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*! Validate contents of a database
- * Send a validation request to the config_daemon to be passed on to backend.
- * Error handling like a clicon_lib function.
+/*! Send validate request to backend daemon
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ * @retval 0        
  */
 int
-clicon_proto_validate(char *spath, char *db)
+clicon_rpc_validate(clicon_handle h, 
+		    char         *db)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_validate_encode(db, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * clicon_proto_save
- * Send a save_current request to the config_daemon
- * Either save snapshot or to a file.
- * Error handling like a clicon_lib function.
+/*! Send database change request to backend daemon
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ * @param[in] op         Operation on database item: set, delete, (merge?)
+ * @param[in] key        Database key
+ * @param[in] lvec       value of key as lvalue vector        
+ * @param[in] lvec_len   Length of lvalue vector        
+ *
+ * @see clicon_rpc_change_cvec
  */
 int
-clicon_proto_save(char *spath, char *dbname, int snapshot, char *filename)
+clicon_rpc_change(clicon_handle h, 
+		  char         *db, 
+		  lv_op_t       op,
+		  char         *key, 
+		  char         *lvec, 
+		  int           lvec_len)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
-    if ((msg=clicon_msg_save_encode(dbname, snapshot, filename,
+    if ((msg = clicon_msg_change_encode(db, op, key, lvec, lvec_len,
+				       __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
+    retval = 0;
+ done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! Send database change request to backend daemon
+ * Same as clicon_proto_change just with a cvec instead of lvec
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ * @param[in] op         Operation on database item: set, delete, (merge?)
+ * @param[in] key        Database key
+ * @param[in] cvv        value of key as cvec
+ *
+ * @see clicon_rpc_change_cvec
+ */
+int
+clicon_rpc_change_cvec(clicon_handle h, 
+		       char         *db, 
+		       lv_op_t       op,
+		       char         *key, 
+		       cvec         *cvv)
+{
+    char            *lvec = NULL;
+    size_t           lvec_len;
+    int              retval = -1;
+
+    if ((lvec = cvec2lvec(cvv, &lvec_len)) == NULL)
+	goto done;
+    retval = clicon_rpc_change(h, db, op, key, lvec, lvec_len);
+  done:
+    if (lvec)
+	free(lvec);
+    return retval;
+}
+
+
+/*! Send database save request to backend daemon
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ * @param[in] snapshot   Save to snapshot file
+ * @param[in] filename   Save to file (backend file-system)
+ */
+int
+clicon_rpc_save(clicon_handle h, 
+		char         *db, 
+		int           snapshot, 
+		char         *filename)
+{
+    int                retval = -1;
+    struct clicon_msg *msg;
+
+    if ((msg=clicon_msg_save_encode(db, snapshot, filename,
 				   __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * clicon_proto_load
- * Send a load file request to the config_daemon
+/*! Send database load request to backend daemon
+ * @param[in] h          CLICON handle
+ * @param[in] replace    0: merge with existing data, 1:replace completely
+ * @param[in] db         Name of database
+ * @param[in] filename   Load from file (backend file-system)
  */
 int
-clicon_proto_load(char *spath, int replace, char *db, char *filename)
+clicon_rpc_load(clicon_handle h, 
+		int           replace, 
+		char         *db, 
+		char         *filename)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_load_encode(replace, db, filename,
 				   __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * clicon_proto_initdb
- * Let configure daemon initialize database
+/*! Send a request to backend to copy a file from one location to another 
+ * Note this assumes the backend can access these files and (usually) assumes
+ * clients and servers have the access to the same filesystem.
+ * @param[in] h          CLICON handle
+ * @param[in] filename1  src file
+ * @param[in] filename2  dst file
  */
 int
-clicon_proto_initdb(char *spath, char *filename)
+clicon_rpc_copy(clicon_handle h, 
+		char         *filename1, 
+		char         *filename2)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
-    if ((msg=clicon_msg_initdb_encode(filename, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
+    if ((msg=clicon_msg_copy_encode(filename1, filename2,
+				     __FUNCTION__)) == NULL)
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-
-/*
- * clicon_proto_rm
- * Let configure daemon remove a file 
+/*! Send a request to remove a file from backend file system
+ * @param[in] h          CLICON handle
+ * @param[in] filename   File to remove
  */
 int
-clicon_proto_rm(char *spath, char *filename)
+clicon_rpc_rm(clicon_handle h, 
+	      char         *filename)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_rm_encode(filename, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * clicon_proto_lock
- * Lock a database
+/*! Send a database initialization request to backend server
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
  */
 int
-clicon_proto_lock(char *spath, char *db)
+clicon_rpc_initdb(clicon_handle h, 
+		  char         *db)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
+
+    if ((msg=clicon_msg_initdb_encode(db, __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
+    retval = 0;
+ done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! Send a database lock request to backend server
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ */
+int
+clicon_rpc_lock(clicon_handle h, 
+		char         *db)
+{
+    int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_lock_encode(db, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * clicon_proto_unlock
- * Unlock a database
+/*! Send a database unlock request to backend server
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
  */
 int
-clicon_proto_unlock(char *spath, char *db)
+clicon_rpc_unlock(clicon_handle h, 
+		char         *db)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_unlock_encode(db, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-
-/*
- * clicon_proto_kill
- * Kill another session
+/*! Send a kill session request to backend server
+ * @param[in] h            CLICON handle
+ * @param[in] session_id   Id of session to kill
  */
 int
-clicon_proto_kill(char *spath, int session_id)
+clicon_rpc_kill(clicon_handle h, 
+		int           session_id)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_kill_encode(session_id, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
-
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-/*
- * clicon_proto_debug
- * Set debug level on config daemon
+/*! Send a debug request to backend server
+ * @param[in] h          CLICON handle
+ * @param[in] level      Debug level
  */
 int
-clicon_proto_debug(char *spath, int level)
+clicon_rpc_debug(clicon_handle h, 
+		int           level)
 {
-    struct clicon_msg *msg;
     int                retval = -1;
+    struct clicon_msg *msg;
 
     if ((msg=clicon_msg_debug_encode(level, __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc_connect(msg, spath, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
-    }
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
     retval = 0;
-  done:
+ done:
     unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! An rpc call from a frontend module to a function in a backend module
+ *
+ * A CLI/netconf frontend module can make a functional call to a backend
+ * module and get return value back. 
+ * The backend module needs to be specified (XXX would be nice to avoid this)
+ * parameters can be sent, and value returned.
+ * A function (func) must be defined in the backend module (plugin)
+ * An example signature of such a downcall function is:
+ * @code
+ *   char      name[16];
+ *   char     *ret;
+ *   uint16_t  retlen;
+ *   clicon_rpc_call(h, 0, "my-backend-plugin", "my_fn", name, 16,
+ *                   &ret, &retlen, __FUNCTION__);
+ *   unchunk_group(__FUNCTION__); # deallocate 'ret'
+ * @endcode
+ * Backend example function:
+ * @code
+int
+downcall(clicon_handle h, uint16_t op, uint16_t len, void *arg, 
+         uint16_t *reply_data_len, void **reply_data)
+ * @endcode
+ *
+ * @param[in]   h        Clicon handle
+ * @param[in]   op       Generic application-defined operation
+ * @param[in]   plugin   Name of backend plugin (XXX look in backend plugin dir)
+ * @param[in]   func     Name of function i backend (ie downcall above) as string
+ * @param[in]   param    Input parameter given to function (void* arg in downcall)
+ * @param[in]   paramlen Length of input parameter
+ * @param[out]  ret      Returned data as byte-string. Deallocate w unchunk...(..., label)
+ * @param[out]  retlen   Length of returned data
+ * @param[in]   label    Label used in chunk (de)allocation. Use:
+ *                       unchunk_group(label) to deallocate
+ */
+int
+clicon_rpc_call(clicon_handle h, uint16_t op, char *plugin, char *func,
+		void *param, uint16_t paramlen, 
+		char **ret, uint16_t *retlen,
+		const void *label)
+{
+    int                retval = -1;
+    struct clicon_msg *msg;
+
+    if ((msg = clicon_msg_call_encode(op, plugin, func, 
+				      paramlen, param, 
+				      label)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, (char**)ret, retlen, NULL, label) < 0)
+	goto done;
+    retval = 0;
+done:
     return retval;
 }
 
 /*! Create a new notification subscription
- * @param[in]   sockpath unix domain socket path 
+ * @param[in]   h        Clicon handle
  * @param[in]   status   0: stop existing notification stream 1: start new stream.
  * @param{in]   stream   name of notificatio/log stream (CLICON is predefined)
  * @param{in]   filter   message filter, eg xpath for xml notifications
  * @param[out]  s0       socket returned where notification mesages will appear
  */
 int
-clicon_proto_subscription(char *sockpath, 
-			  int status, 
-			  char *stream, 
-			  enum format_enum format,
-			  char *filter, 
-			  int *s0)
+clicon_rpc_subscription(clicon_handle    h,
+			int              status, 
+			char            *stream, 
+			enum format_enum format,
+			char            *filter, 
+			int             *s0)
 {
     struct clicon_msg *msg;
     int                retval = -1;
-    int                s = -1;
-    struct stat        sb;
 
-    assert(filter);
-    /* special error handling to get understandable messages (otherwise ENOENT) */
-    if (stat(sockpath, &sb) < 0){
-	clicon_err(OE_PROTO, errno, "%s: config daemon not running?", sockpath);
-	goto done;
-    }
-    if (!S_ISSOCK(sb.st_mode)){
-	clicon_err(OE_PROTO, EIO, "%s: Not unix socket", sockpath);
-	goto done;
-    }
-    if ((s = clicon_connect_unix(sockpath)) < 0)
-	goto done;
     if ((msg=clicon_msg_subscription_encode(status, stream, format, filter, 
 					    __FUNCTION__)) == NULL)
-	return -1;
-    if (clicon_rpc(s, msg, NULL, 0, __FUNCTION__) < 0){
-#if 0
-	if (errno == ESHUTDOWN)
-	    /* Maybe could reconnect on a higher layer, but lets fail
-	       loud and proud */
-	    cli_set_exiting(1);
-#endif
 	goto done;
+    if (clicon_rpc_msg(h, msg, NULL, NULL, s0, __FUNCTION__) < 0)
+	goto done;
+    if (status == 0){
+	close(*s0);
+	*s0 = -1;
     }
-    /* Regular rpc if close, but if start, then do not close socket */
-    if (status == 0)
-	close(s);
-    else
-	*s0 = s;
-    retval = 0;
   done:
     unchunk_group(__FUNCTION__);
     return retval;
 }
+

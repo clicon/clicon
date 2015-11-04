@@ -64,7 +64,4 @@ char *dbspec_unique_str(dbspec_key *ds, cvec *setvars);
 
 char *dbspec_last_unique_str(dbspec_key *ds, cvec *setvars);
 
-int clicon_proto_change_cvec(clicon_handle h, char *db, lv_op_t op,
-			  char *key, cvec *cvv);
-
 #endif  /* _CLICON_DBUTIL_H_ */
