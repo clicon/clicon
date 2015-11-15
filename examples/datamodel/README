@@ -1,16 +1,18 @@
 This directory contains an example application. After building and installing
-clicon, make and install this hello application.
+clicon, make and install this application.
 Example:
-> tar xzf clicon.tgz
+git clone https://github.com/clicon/clicon.git
 > cd clicon
+> ./configure
 > make
 > sudo make install
 > sudo make install-include # NB!
-> cd appdir
+> cd examples/hello
 > make
 > sudo make install
-> sudo clicon_backend
+> sudo clicon_backend -f /usr/local/etc/datamodel.conf
 clicon_config[17651]: clicon_config: 17651 Started
-> clicon_cli 
-Welcome to CLICON hello example CLI
-hello> 
+> clicon_cli -f /usr/local/etc/datamodel.conf
+user@host>
+
+

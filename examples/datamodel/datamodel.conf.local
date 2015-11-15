@@ -1,0 +1,11 @@
+
+# Startup CLI mode
+CLICON_YANG_MODULE_MAIN	datamodel
+
+# main yang module is ${CLICON_YANG_DIR}/${CLICON_YANG_MODULE_MAIN}.yang
+CLICON_CLI_MODE datamodel
+
+# Generate code for CLI completion of existing db symbols
+CLICON_CLI_GENMODEL_COMPLETION 1
+
+
