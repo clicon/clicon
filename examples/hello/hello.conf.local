@@ -1,0 +1,13 @@
+# Startup CLI mode. This should match the CLICON_MODE in your startup clispec file
+CLICON_CLI_MODE hello
+
+# Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
+# Only if CLICON_DBSPEC_TYPE is YANG
+CLICON_YANG_MODULE_MAIN hello
+
+# Set if all configuration changes are committed directly, commit command unnecessary
+CLICON_AUTOCOMMIT       1
+
+# Generate code for CLI completion of existing db symbols
+CLICON_CLI_GENMODEL_COMPLETION 1
+

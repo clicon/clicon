@@ -29,88 +29,41 @@ bindir 		= @bindir@
 includedir	= @includedir@
 localstatedir	= @localstatedir@
 INSTALL		= @INSTALL@
-APPDIR          = @APPDIR@
 CC		= @CC@
 CFLAGS  	= @CFLAGS@ -rdynamic -fPIC 
 INCLUDES 	= -I$(includedir) @INCLUDES@ 
 
 APPNAME		= hello
 
-FE_PLUGIN       = hello_cli.so
-NC_PLUGIN       = hello_netconf.so
-BE_PLUGIN       = hello_backend.so
-
-PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN) $(NC_PLUGIN) 
-
-all:	$(PLUGINS)
-
+# Defines clicon_*DIR variables and $(APPNAME).conf
 -include $(datadir)/clicon/clicon.mk
 
-# You can add more .c:s for every SRC.
-FE_SRC   = hello_cli.c
-NC_SRC   = hello_netconf.c
-BE_SRC   = hello_backend.c
-
-SRC = $(FE_SRC) $(BE_SRC) $(NC_SRC) 
-
-.c.o: $(SRC)
-	$(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c $<
-
-FE_OBJ   = $(FE_SRC:%.c=%.o)
-BE_OBJ   = $(BE_SRC:%.c=%.o)
-NC_OBJ   = $(NC_SRC:%.c=%.o)
-
-OBJS = $(FE_OBJ) $(BE_OBJ) $(NC_OBJ) 
-
-$(FE_PLUGIN): $(FE_OBJ)
-	$(CC) -shared -o $(FE_PLUGIN) -lc $<
-
-$(NC_PLUGIN): $(NC_OBJ)
-	$(CC) -shared -o $(NC_PLUGIN) -lc $<
-
-$(BE_PLUGIN): $(BE_OBJ)
-	$(CC) -shared -o $(BE_PLUGIN) -lc $<
+all:	$(APPNAME).conf
 
 clean:
-	rm -f $(OBJS) $(PLUGINS)
+	rm -f $(APPNAME).conf
 
 distclean: 	clean
-	rm -f clicon.conf Makefile *~ .depend
+	rm -f Makefile *~ .depend
 
-install:	hello.conf datamodel.spec hello_cli.cli $(PLUGINS)
-	install -d $(clicon_DBSPECDIR)
+install:	$(APPNAME).conf $(APPNAME).yang $(APPNAME)_cli.cli 
 	install -d $(clicon_SYSCONFDIR)
-	install -d $(clicon_LOCALSTATEDIR)
-	install -d $(clicon_LIBDIR)
-	install -d $(clicon_LIBDIR)/cli
-	install -d $(clicon_LIBDIR)/clispec
-	install -d $(clicon_LIBDIR)/backend
-	install -d $(clicon_LIBDIR)/netconf
-	install hello.conf $(clicon_SYSCONFDIR)/
-	install datamodel.spec $(clicon_DBSPECDIR)/
-	for i in $(FE_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/cli/`basename $$i`; \
-	done
-	for i in $(NC_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/netconf/`basename $$i`; \
-	done
-	for i in $(BE_PLUGIN); do \
-		install $$i $(clicon_LIBDIR)/backend/`basename $$i`; \
-	done
-	for i in hello_cli.cli; do \
-		install $$i $(clicon_LIBDIR)/clispec/`basename $$i`; \
-	done
+	install $(APPNAME).conf $(clicon_SYSCONFDIR)/
+	install -d $(DESTDIR)$(clicon_LIBDIR)/clispec
+	install $(APPNAME)_cli.cli $(clicon_LIBDIR)/clispec
+	install -d $(clicon_DBSPECDIR)/yang
+	install $(APPNAME).yang $(clicon_DBSPECDIR)/yang
+	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR)
 
 uninstall: 
-	rm -rf $(clicon_LIBDIR)/frontend
-	rm -rf $(clicon_LIBDIR)/backend
-	rm -rf $(clicon_LIBDIR)/netconf
-	rm -rf $(clicon_SYSCONFDIR)/hello.conf
-	rm -rf $(clicon_DBSPECDIR)/datamodel.spec
+	rm -rf $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf
+	rm -rf $(DESTDIR)$(clicon_DBSPECDIR)
+	rm -rf $(DESTDIR)$(clicon_LOCALSTATEDIR)
+	rm -rf $(DESTDIR)$(clicon_LIBDIR)
 
 install-include:	
 
-depend:
-	$(CC) $(DEPENDFLAGS) @DEFS@ $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
+#depend:
+#	$(CC) $(DEPENDFLAGS) @DEFS@ $(INCLUDES) $(CFLAGS) -MM $(SRC) > .depend
 
 #include .depend
