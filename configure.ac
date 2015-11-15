@@ -206,11 +206,9 @@ AC_OUTPUT(Makefile
 	  etc/cliconrc
 	  examples/Makefile
 	  examples/hello/Makefile
-	  examples/hello/clicon.conf
 	  examples/ntp/Makefile
 	  examples/ntp/clicon.conf
 	  examples/datamodel/Makefile
-	  examples/datamodel/clicon.conf
 	  examples/routing/Makefile
 	  examples/clicon_yang/Makefile
 	  doc/Makefile 

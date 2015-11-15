@@ -18,7 +18,7 @@
 #
 # Include this file in your application Makefile using eg:
 # -include $(datarootdir)/clicon/clicon.mk
-# the you can use the DIRS below in your install rules.
+# then you can use the DIRS below in your install rules.
 # You also get rules for the application configure file.
 # NOTE: APPNAME must be defined in the local Makefile
 
@@ -28,6 +28,11 @@ clicon_LOCALSTATEDIR=localstatedir/$(APPNAME)
 clicon_LIBDIR=libdir/$(APPNAME)
 clicon_DATADIR=datadir/clicon
 
+# Rules for the clicon application configuration file.
+# The clicon applications should be started with this fileas its -f argument.
+# Typically installed in sysconfdir
+# Example: APPNAME=myapp --> clicon_cli -f /usr/local/etc/myapp.conf
+# The two variants are if there is a .conf.local file or not
 .PHONY: $(APPNAME).conf
 ifneq (,$(wildcard ${APPNAME}.conf.local)) 	
 ${APPNAME}.conf:  ${clicon_DATADIR}/clicon.conf.cpp ${APPNAME}.conf.local

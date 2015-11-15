@@ -55,7 +55,7 @@ YANGSPECS	+= ietf-routing@2014-10-26.yang
 YANGSPECS	+= ietf-ipv4-unicast-routing@2014-10-26.yang
 YANGSPECS	+= ietf-ipv6-unicast-routing@2014-10-26.yang
 
-all:	$(PLUGINS)
+all:	$(PLUGINS) $(APPNAME).conf
 
 # Backend plugin
 BE_SRC   = routing_backend.c
@@ -79,10 +79,10 @@ SRC     = $(BE_SRC) $(CLI_SRC) $(NETCONF_SRC)
 OBJS    = $(BE_OBJ) $(CLI_OBJ) $(NETCONF_OBJ)
 
 clean:
-	rm -f $(PLUGINS) $(OBJS)
+	rm -f $(PLUGINS) $(OBJS) $(APPNAME).conf
 
 distclean: clean
-	rm -f $(APPNAME).conf Makefile *~ .depend
+	rm -f Makefile *~ .depend
 
 install: $(YANGSPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $(APPNAME).conf
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)
@@ -102,12 +102,10 @@ install: $(YANGSPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $
 	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)
 
 uninstall: 
-	rm -f $(DESTDIR)$(clicon_DBSPECDIR)/yang
-	rm -f $(DESTDIR)$(clicon_LIBDIR)/netconf
-	rm -f $(DESTDIR)$(clicon_LIBDIR)/cli
-	rm -f $(DESTDIR)$(clicon_LIBDIR)/clispec
-	rm -f $(DESTDIR)$(clicon_LIBDIR)/backend
-	rm -f $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf
+	rm -rf $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf
+	rm -rf $(DESTDIR)$(clicon_DBSPECDIR)
+	rm -rf $(DESTDIR)$(clicon_LOCALSTATEDIR)
+	rm -rf $(DESTDIR)$(clicon_LIBDIR)
 
 install-include:	
 

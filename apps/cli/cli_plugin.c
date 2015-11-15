@@ -549,7 +549,8 @@ cli_syntax_load (clicon_handle h)
 
     cli_syntax_set(h, stx);
 
-    /* First load CLICON system plugins */
+    /* First load CLICON system plugins. CLICON_CLI_SYSDIR is defined
+       in Makefile*/
     if (cli_plugin_load_dir(h, CLICON_CLI_SYSDIR, stx) < 0)
         goto quit;
     
@@ -573,7 +574,7 @@ cli_syntax_load (clicon_handle h)
 
     /* Did we successfully load any syntax modes? */
     if (stx->stx_nmodes <= 0) {
-	clicon_err(OE_PLUGIN, errno, "No syntax modes initialized");
+	retval = 0;
 	goto quit;
     }	
     /* Parse syntax tree for all modes */

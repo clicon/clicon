@@ -1,4 +1,8 @@
-The clicon examples directory contains clicon example applications to get you started.
- * hello - is a litte more than a simple hello example
- * ntp   - is the application used in the clicon tutorial, see clicon_tutorial.pdf
- * datamodel - an application centered on features of the datamodel
+The clicon examples directory contains clicon example applications to
+get you started:
+
+ hello       Simple hello example
+ ntp         Used in the clicon tutorial, see clicon_tutorial.pdf
+ datamodel   Centered on features of the datamodel
+ routing     Based on the IETF yang routing datamodel 
+ clicon_yang For Yang experimentation and includs a docker example

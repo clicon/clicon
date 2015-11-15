@@ -19,12 +19,6 @@
 # CLICON options - Default values
 # See clicon_tutorial for more documentation
 
-# If this file is used (see also clicon.mk) APPDIR is not necessary.
-# It is an alternative method to group all application files in one
-# single directory, given by -a option ot binaries or --with-appdir option
-# to configure
-# CLICON_APPDIR /usr/local/share/clicon
-
 # Location of configuration-file for default values (this file)
 CLICON_CONFIGFILE      sysconfdir/APPNAME.conf
 

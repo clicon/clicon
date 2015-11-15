@@ -30,7 +30,7 @@ LIBS    	= @LIBS@
 
 SHELL	= /bin/sh
 
-SUBDIRS = hello ntp datamodel
+SUBDIRS = hello ntp datamodel clicon_yang
 
 .PHONY: all clean depend $(SUBDIRS) install 
 

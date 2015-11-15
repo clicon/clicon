@@ -678,7 +678,7 @@ clicon_dbget_xpath(clicon_handle h,
     int                   i;
     char                 *key;
     char                 *dbkey;
-    cvec                **cn_list;
+    cvec                **cn_list = NULL;
     int                   cn_len=0;
     char                 *rx;
     char                 *xp2;

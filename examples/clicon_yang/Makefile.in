@@ -64,9 +64,10 @@ install: $(YANGSPECS) $(CLISPECS) $(APPNAME).conf
 	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR) # db
 
 uninstall: 
-	rm -f $(DESTDIR)$(clicon_DBSPECDIR)/yang
-	rm -f $(DESTDIR)$(clicon_LIBDIR)/clispec
-	rm -f $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf
+	rm -rf $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf
+	rm -rf $(DESTDIR)$(clicon_DBSPECDIR)
+	rm -rf $(DESTDIR)$(clicon_LOCALSTATEDIR)
+	rm -rf $(DESTDIR)$(clicon_LIBDIR)
 
 install-include:	
 

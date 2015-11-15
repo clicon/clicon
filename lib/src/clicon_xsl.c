@@ -485,9 +485,10 @@ xpath_find(struct xpath_element *xe,
 	free(vec0);
 	return 0;
     }
-    if (1)
-	fprintf(stderr, "%s: %s: \"%s\"\n", __FUNCTION__, 
-		axis_type2str(xe->xe_type), xe->xe_str?xe->xe_str:"");
+#if 0
+    fprintf(stderr, "%s: %s: \"%s\"\n", __FUNCTION__, 
+	    axis_type2str(xe->xe_type), xe->xe_str?xe->xe_str:"");
+#endif
     switch (xe->xe_type){
     case A_SELF:
 	break;
