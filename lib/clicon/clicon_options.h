@@ -57,7 +57,7 @@ enum genmodel_type{
  * Prototypes
  */
 /* Initialize options: set defaults, read config-file, etc */
-int clicon_options_main(clicon_handle h, int argc, char **argv);
+int clicon_options_main(clicon_handle h);
 
 void clicon_option_dump(clicon_handle h, int dblevel);
 
@@ -72,7 +72,6 @@ int clicon_option_int_set(clicon_handle h, const char *name, int val);
 /* Delete a single option via handle */
 int clicon_option_del(clicon_handle h, const char *name);
 
-char *clicon_appdir(clicon_handle h);
 char *clicon_configfile(clicon_handle h);
 char *clicon_dbspec_type(clicon_handle h);
 char *clicon_dbspec_file(clicon_handle h);

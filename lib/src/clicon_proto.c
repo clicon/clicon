@@ -337,7 +337,7 @@ clicon_rpc_connect_inet(struct clicon_msg *msg,
     int s = -1;
     struct sockaddr_in addr;
 
-    clicon_debug(1, "Send %s msg to %s", msg_type2str(msg->op_type), dst);
+    clicon_debug(1, "Send %s msg to %s:%hu", msg_type2str(msg->op_type), dst, port);
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;

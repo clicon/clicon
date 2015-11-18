@@ -1572,6 +1572,20 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 
+/*! callback used by show_conf_* just to merge xml 
+ * XXX: uses key, rewrite to use vr?
+ */
+static int
+add2xml_cb(void *handle, char *dbname, char *dummy, cvec *cvv, cxobj *xt)
+{
+    char *key;
+
+    /* XXX: cant we use cvv directly? */
+    key = cvec_name_get(cvv); 
+    return key2xml(key, dbname, clicon_dbspec_key(handle), xt);
+}
+
+
 /*! Generic function for showing configurations.
  * the callback differs.
  * @param[in] h     CLICON handle
@@ -1588,10 +1602,12 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
  * @endcode
  */
 static int
-show_conf_as(clicon_handle h, cvec *vars, cg_var *arg, 
-	     dbmatch_fn_t fn, void *fnarg)
+show_conf_as(clicon_handle h, 
+	     cvec         *vars, 
+	     cg_var       *arg, 
+	     cxobj        *xt) /* top xml */
 {
-    cxobj *x0 = NULL; /* top xml */
+    cxobj           *x0 = NULL; /* top xml */
     char            *regex;
     int              retval = -1;
     cg_var          *cv;
@@ -1602,9 +1618,11 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
     char           **vec = NULL;
     int              nvec;
     char            *str;
-    int              len;
+    size_t           len;
     int              i;
+#if 0
     char           **keyv;
+#endif
     cvec           **cvecv;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
@@ -1641,12 +1659,13 @@ show_conf_as(clicon_handle h, cvec *vars, cg_var *arg,
 	goto done;
     }
     regex = vec[1];
-    if (dbmatch_vec(h, dbname, regex, attr, val, &keyv, &cvecv, &len) < 0)
+    if (clicon_dbitems_match(dbname, regex, attr, val, &cvecv, &len) < 0)
 	goto done;
-    for (i=0; i<len; i++)
-	if ((*fn)(h, dbname, keyv[i], cvecv[i], fnarg) < 0)
+    i = 0;
+    while (cvecv[i] != NULL)
+	if (add2xml_cb(h, dbname, NULL, cvecv[i++], xt) < 0)
 	    goto done;
-    dbmatch_vec_free(keyv, cvecv, len);
+    clicon_dbitems_free(cvecv);
     retval = 0;
 done:
     unchunk_group(__FUNCTION__);
@@ -1657,15 +1676,6 @@ done:
     return retval;
 }
 
-/* callback used by show_conf_* just to merge xml */
-static int
-add2xml_cb(void *handle, char *dbname, char *key, cvec *vr, void *arg)
-{
-    cxobj *xt;
-
-    xt = (cxobj*)arg;
-    return key2xml(key, dbname, clicon_dbspec_key(handle), xt);
-}
 
 /*
  * Show a configuration database on stdout using XML format
@@ -1679,7 +1689,7 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto done;
-    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+    if (show_conf_as(h, vars, arg, xt) < 0)
 	goto done;
     if (netconf) /* netconf prefix */
 	fprintf(stdout, "<rpc><edit-config><target><candidate/></target><config>\n");
@@ -1723,7 +1733,7 @@ show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg)
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto done;
-    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+    if (show_conf_as(h, vars, arg, xt) < 0)
 	goto done;
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
@@ -1747,7 +1757,7 @@ show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg)
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto done;
-    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+    if (show_conf_as(h, vars, arg, xt) < 0)
 	goto done;
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
@@ -1773,7 +1783,7 @@ show_conf_as_command(clicon_handle h, cvec *vars, cg_var *arg, char *prepend)
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto done;
-    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+    if (show_conf_as(h, vars, arg, xt) < 0)
 	goto done;
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL){
@@ -2101,7 +2111,7 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
     dbspec = clicon_dbspec_key(h);
     if ((xt = xml_new("metrio", NULL)) == NULL)
 	goto done;
-    if (show_conf_as(h, vars, arg, add2xml_cb, xt) < 0)
+    if (show_conf_as(h, vars, arg, xt) < 0)
 	goto done;
 
     xc = NULL; /* Dont print xt itself */

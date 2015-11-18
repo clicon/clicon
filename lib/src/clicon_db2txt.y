@@ -53,7 +53,6 @@
 #include "clicon_options.h"
 #include "clicon_plugin.h"
 #include "clicon_dbutil.h"
-#include "clicon_dbmatch.h"
 #include "clicon_db2txt.h"
 #include "clicon_db2txt.y.h"
 #include "clicon_db2txt.tab.h"
@@ -482,10 +481,11 @@ run_callback(void *_ya, char *func, cg_var *arg)
 static keyvec_t *
 get_vector(void *_ya, char *basekey)
 {
-    int len;
+    int       len;
     keyvec_t *vec;
-    char *dbkey;
-    char *key;
+    char     *dbkey;
+    char     *key;
+    char     *vkey;
 
     len = strlen(basekey)+3;
     if ((dbkey = malloc(len)) == NULL) {
@@ -507,14 +507,16 @@ get_vector(void *_ya, char *basekey)
     free(dbkey);
     if (key == NULL)
 	return NULL;
-    
-    vec->vec = dbvectorkeys(_YA->ya_db, key, &vec->len);
+    vkey = db_gen_rxkey(key, __FUNCTION__);
+    clicon_dbkeys(_YA->ya_db, vkey, &(vec->vec), &vec->len);
+    unchunk_group(__FUNCTION__);
     free(key);
     if (vec->vec == NULL) {
 	clicon_db2txterror(_YA, "dbvectorkeys failed");
 	free(vec);
 	return NULL;
     }
+
     return vec;
 }
 

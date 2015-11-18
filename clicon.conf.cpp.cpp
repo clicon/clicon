@@ -17,6 +17,13 @@
 # <http://www.gnu.org/licenses/>.
 #
 # CLICON options - Default values
+# The origin of this file is run a _first_ time through a pre-processor at 
+# clicon make install time causing autoconf constants (such as "prefix" and 
+# "localstatedir") to be replaced with their installed values.
+# It should be run a _second_ time as a part of installation of the application,
+# in case clicon.mk is included in the application include file, and 
+# "$(APPNAME).conf" rule is accessed.
+# 
 # See clicon_tutorial for more documentation
 
 # Location of configuration-file for default values (this file)
@@ -63,7 +70,8 @@ CLICON_STARTUP_CONFIG   localstatedir/APPNAME/startup-config
 # Address family for communicating with clicon_backend (UNIX|IPv4|IPv6)
 CLICON_SOCK_FAMILY  UNIX
 
-# Unix socket for communicating with clicon_backend
+# If family above is AF_UNIX: Unix socket for communicating with clicon_backend
+# If family above is AF_INET: IPv4 address
 CLICON_SOCK         localstatedir/APPNAME/APPNAME.sock
 
 # Inet socket port for communicating with clicon_backend

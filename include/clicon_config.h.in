@@ -1,8 +1,5 @@
 /* include/clicon_config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* In-compiled clicon application dir, overruled by -a or env-variable */
-#undef APPDIR
-
 /* Check if extra keys inserted for database lists containing content. Eg
    A.n.foo = 3 means A.3 $!a=foo exists */
 #undef DB_KEYCONTENT

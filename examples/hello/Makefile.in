@@ -24,7 +24,7 @@ VPATH       	= @srcdir@
 srcdir  	= @srcdir@
 top_srcdir  	= @top_srcdir@
 prefix 		= @prefix@
-datadir 	= @datarootdir@
+datarootdir 	= @datarootdir@
 bindir 		= @bindir@
 includedir	= @includedir@
 localstatedir	= @localstatedir@
@@ -36,7 +36,7 @@ INCLUDES 	= -I$(includedir) @INCLUDES@
 APPNAME		= hello
 
 # Defines clicon_*DIR variables and $(APPNAME).conf
--include $(datadir)/clicon/clicon.mk
+-include $(datarootdir)/clicon/clicon.mk
 
 all:	$(APPNAME).conf
 
@@ -47,12 +47,12 @@ distclean: 	clean
 	rm -f Makefile *~ .depend
 
 install:	$(APPNAME).conf $(APPNAME).yang $(APPNAME)_cli.cli 
-	install -d $(clicon_SYSCONFDIR)
-	install $(APPNAME).conf $(clicon_SYSCONFDIR)/
+	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
+	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)/
 	install -d $(DESTDIR)$(clicon_LIBDIR)/clispec
-	install $(APPNAME)_cli.cli $(clicon_LIBDIR)/clispec
-	install -d $(clicon_DBSPECDIR)/yang
-	install $(APPNAME).yang $(clicon_DBSPECDIR)/yang
+	install $(APPNAME)_cli.cli $(DESTDIR)$(clicon_LIBDIR)/clispec
+	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
+	install $(APPNAME).yang $(DESTDIR)$(clicon_DBSPECDIR)/yang
 	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR)
 
 uninstall: 

@@ -29,6 +29,7 @@
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+#include <fnmatch.h>
 
 
 #include <cligen/cligen.h>
@@ -426,13 +427,13 @@ quit:
  * @retval  items  Vector of cvecs. Free with clicon_dbitems_free()
  * @code
  *  cvec **items;
- * if (clicon_dbitems(resultdb, keypattern, &items, &nkeys) < 0)
+ *  if (clicon_dbitems(resultdb, keypattern, &items, &nkeys) < 0)
  *    goto err;
- * for (i=0; i<nkeys; i++){
+ *  for (i=0; i<nkeys; i++){
  *    item = items[i];
  *    ... do stuff ...
- * }
- * clicon_dbitems_free(items);
+ *  }
+ *  clicon_dbitems_free(items);
  * @endcode
  */
 int
@@ -497,6 +498,121 @@ quit:
     }
     else
 	*cvv = items;
+    return retval;
+}
+
+/*! Return matching database entries using an attribute and string pattern
+ *
+ * More specific variant of clicon_dbitems where a single attribute value is
+ * matched as well.
+ *
+ * @param[in]  db    Name of database to search in (filename including dir path)
+ * @param[in]  rx    Regular expression for key matching
+ * @param[in]  attr  Name of attribute whose values should match
+ * @param[in]  val   Attribute value match pattern
+ * @param[out] cvv   Vector of database items
+ * @param[out] len   Pointer where length of returned vector is stored.
+ * @retval  items  Vector of cvecs. Free with clicon_dbitems_free()
+ * @code
+    int          i=0, len;
+    cvec       **cvecv;
+
+    if (clicon_dbitems_match(dbname, "^Sender.*$", "name", "my*", 
+                             &cvecv, &len) < 0)
+	goto done;
+    while ((cvv=cvecv[i]) != NULL){
+       do something with cvv;
+       i++;
+    }
+    clicon_dbitems_free(cvecv);
+ * @endcode
+ * @see clicon_dbitems
+ */
+int
+clicon_dbitems_match(char   *db, 
+		     char   *rx, 	    
+		     char   *attr, 
+		     char   *pattern, 
+		     cvec ***cvvp, 
+		     size_t *lenp)
+{
+    int             i;
+    int             n;
+    int             npairs;
+    int             retval = -1;
+    cvec          **items = NULL;
+    cvec           *cvv;
+    cg_var         *cv;
+    struct db_pair *pairs;
+    size_t          len;
+    char           *str;
+    
+    *lenp = 0;
+
+    if ((npairs = db_regexp(db, rx, __FUNCTION__, &pairs, 0)) < 0)
+	goto quit;
+    
+    n = 0;
+    for (i = 0; i < npairs; i++) {
+	if(key_isvector_n(pairs[i].dp_key) || key_iskeycontent(pairs[i].dp_key))
+	    continue;
+	if ((cvv = lvec2cvec(pairs[i].dp_val, pairs[i].dp_vlen)) == NULL)
+	    goto quit;
+	/* match attribute value with corresponding variable in database */
+	if (attr){ /* attr and value given on command line */
+	    if ((cv = cvec_find_var(cvv, attr)) == NULL){
+		cvec_free(cvv);
+		continue; /* no such variable for this key */
+	    }
+	    if ((len = cv2str(cv, NULL, 0)) < 0)
+		goto quit;
+	    if (len == 0){
+		cvec_free(cvv);
+		continue; /* If attr has no value (eg "") interpret it as no match */
+	    }
+	    if ((str = cv2str_dup(cv)) == NULL)
+		goto quit;
+	    if(fnmatch(pattern, str, 0) != 0) {
+		cvec_free(cvv);
+		free(str);
+		continue; /* no match */
+	    }
+	    free(str);
+	    str = NULL;
+	}
+	/* Allocate list. One extra to NULL terminate list */
+	if ((items = realloc(items, (n+1)*sizeof(cvec *))) == NULL) { 
+	    clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
+	    goto quit;
+	}
+	items[n] = cvv;
+	if (cvec_name_set(items[n], pairs[i].dp_key) == NULL) {
+	    clicon_err(OE_DB, 0, "%s: cvec_name_set", __FUNCTION__);
+	    goto quit;
+	}
+	n++;
+    }
+    /* Allocate list. One extra to NULL terminate list */
+    if ((items = realloc(items, (n+1)*sizeof(cvec *))) == NULL) { 
+	clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
+	goto quit;
+    }
+    items[n] = NULL;
+    n++;
+    *lenp = n;
+    retval = 0;
+quit:
+    unchunk_group(__FUNCTION__);
+    if (retval != 0) {
+	if (items) {
+	    for (i = 0; i < n; i++)
+		if (items[n])
+		    cvec_free(items[n]);
+	    free(items);
+	}
+    }
+    else
+	*cvvp = items;
     return retval;
 }
 

@@ -54,7 +54,7 @@ INCLUDES = -I. @INCLUDES@ -I$(top_srcdir)/lib/clicon -I$(top_srcdir)/include -I$
 SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
 	  clicon_lvalue.c clicon_chunk.c clicon_proc.c \
 	  clicon_string.c clicon_handle.c clicon_db.c \
-	  clicon_xml.c clicon_xml_map.c clicon_file.c clicon_dbutil.c clicon_dbmatch.c \
+	  clicon_xml.c clicon_xml_map.c clicon_file.c clicon_dbutil.c \
 	  clicon_dbspec_key.c clicon_yang.c clicon_yang_type.c clicon_yang2key.c \
 	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
 	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \

@@ -26,7 +26,7 @@ top_srcdir  	= @top_srcdir@
 prefix 		= @prefix@
 bindir 		= @bindir@
 includedir	= @includedir@
-datarootdir	= @datarootdir@
+datarootdir     = @datarootdir@
 
 APPNAME	        = routing
 CC		= @CC@
@@ -85,12 +85,10 @@ distclean: clean
 	rm -f Makefile *~ .depend
 
 install: $(YANGSPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $(APPNAME).conf
-	install -d $(DESTDIR)$(clicon_DBSPECDIR)
+	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
+	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
 	install $(YANGSPECS) $(DESTDIR)$(clicon_DBSPECDIR)/yang
-	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
-	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR)
-	install -d $(DESTDIR)$(clicon_LIBDIR)
 	install -d $(DESTDIR)$(clicon_LIBDIR)/cli
 	install $(CLI_PLUGIN) $(DESTDIR)$(clicon_LIBDIR)/cli; 
 	install -d $(DESTDIR)$(clicon_LIBDIR)/backend
@@ -99,7 +97,7 @@ install: $(YANGSPECS) $(CLISPECS) $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN) $
 	install $(NETCONF_PLUGIN) $(DESTDIR)$(clicon_LIBDIR)/netconf; 
 	install -d $(DESTDIR)$(clicon_LIBDIR)/clispec
 	install $(CLISPECS) $(DESTDIR)$(clicon_LIBDIR)/clispec; 
-	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)
+	install -d $(DESTDIR)$(clicon_LOCALSTATEDIR)
 
 uninstall: 
 	rm -rf $(DESTDIR)$(clicon_SYSCONFDIR)/$(APPNAME).conf

@@ -382,9 +382,7 @@ from_client_initdb(clicon_handle h,
     return retval;
 }
 
-/*
- * Remove file
- * XXX: restrict to app-dir, or even $appdir/DB?
+/*! Remove file
  */
 static int
 from_client_rm(clicon_handle h,

@@ -24,7 +24,7 @@ VPATH       	= @srcdir@
 srcdir  	= @srcdir@
 top_srcdir  	= @top_srcdir@
 prefix 		= @prefix@
-datadir 	= @datarootdir@
+datarootdir 	= @datarootdir@
 bindir 		= @bindir@
 includedir	= @includedir@
 localstatedir	= @localstatedir@
@@ -34,6 +34,7 @@ CFLAGS  	= @CFLAGS@ -rdynamic -fPIC
 
 INCLUDES 	= -I$(includedir) @INCLUDES@ 
 
+# Includes clicon dirs
 APPNAME		= datamodel
 
 FE_PLUGIN       = datamodel_cli.so
@@ -41,7 +42,7 @@ BE_PLUGIN       = datamodel_backend.so
 
 PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN)
 
--include $(datadir)/clicon/clicon.mk
+-include $(datarootdir)/clicon/clicon.mk
 
 all:	$(PLUGINS) $(APPNAME).conf
 
@@ -67,10 +68,9 @@ distclean: clean
 
 install:	$(APPNAME).conf datamodel.yang extmodel.yang datamodel_cli.cli $(FE_PLUGIN) $(BE_PLUGIN)
 	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
-	install $(APPNAME).conf $(clicon_SYSCONFDIR)/
+	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)/
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
 	install datamodel.yang extmodel.yang $(DESTDIR)$(clicon_DBSPECDIR)/yang
-	install -d $(DESTDIR)$(clicon_LIBDIR)
 	install -d $(DESTDIR)$(clicon_LIBDIR)/clispec
 	install datamodel_cli.cli $(clicon_LIBDIR)/clispec
 	install -d $(DESTDIR)$(clicon_LIBDIR)/cli

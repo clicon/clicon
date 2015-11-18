@@ -62,7 +62,7 @@
 #include "config_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define BACKEND_OPTS "hD:f:a:d:s:Fzu:P:1IRCc::rg:pt"
+#define BACKEND_OPTS "hD:f:d:s:Fzu:P:1IRCc::rg:pt"
 
 static int
 config_terminate(clicon_handle h)
@@ -110,7 +110,6 @@ static void
 usage(char *argv0, clicon_handle h)
 {
     char *conffile = clicon_configfile(h);
-    char *appdir   = clicon_appdir(h);
     char *plgdir   = clicon_backend_dir(h);
     char *dbspec   = clicon_dbspec_file(h);
     char *confsock = clicon_sock(h);
@@ -123,7 +122,6 @@ usage(char *argv0, clicon_handle h)
             "    -h\t\tHelp\n"
     	    "    -D <level>\tdebug\n"
     	    "    -f <file>\tCLICON config file (default: %s)\n"
-    	    "    -a <dir>\tSpecify application dir (default: %s)\n"
 	    "    -d <dir>\tSpecify backend plugin directory (default: %s)\n"
 	    "    -s <file>\tSpecify db spec file (default: %s)\n"
     	    "    -z\t\tKill other config daemon and exit\n"
@@ -142,7 +140,6 @@ usage(char *argv0, clicon_handle h)
 	    "    -g <group>\tClient membership required to this group (default: %s)\n",
 	    argv0,
 	    conffile ? conffile : "none",
-	    appdir ? appdir : "none",
 	    plgdir ? plgdir : "none",
 	    dbspec ? dbspec : "none",
 	    confsock ? confsock : "none",
@@ -345,7 +342,8 @@ main(int argc, char **argv)
     int           printalt = 0;
     int           pid;
     char         *pidfile;
-    char         *sockpath;
+    char         *sock;
+    int           sockfamily;
 
     /* In the startup, logs to stderr & syslog and debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR|CLICON_LOG_SYSLOG); 
@@ -363,7 +361,7 @@ main(int argc, char **argv)
     reset_state_candidate = 0;
 
     /*
-     * Command-line options for appdir, config-file, debug and help
+     * Command-line options for help, debug, and config-file
      */
     opterr = 0;
     optind = 1;
@@ -382,11 +380,6 @@ main(int argc, char **argv)
 	    if (sscanf(optarg, "%d", &debug) != 1)
 		usage(argv[0], h);
 	    break;
-	case 'a': /* Register command line app-dir if any */
-	    if (!strlen(optarg))
-		usage(argv[0], h);
-	    clicon_option_str_set(h, "CLICON_APPDIR", optarg);
-	    break;
 	case 'f': /* config file */
 	    if (!strlen(optarg))
 		usage(argv[0], h);
@@ -400,8 +393,8 @@ main(int argc, char **argv)
     clicon_log_init(__PROGRAM__, debug?LOG_DEBUG:LOG_INFO, CLICON_LOG_STDERR|CLICON_LOG_SYSLOG); 
     clicon_debug_init(debug, NULL);
 
-    /* Find appdir. Find and read configfile */
-    if (clicon_options_main(h, argc, argv) < 0){
+    /* Find and read configfile */
+    if (clicon_options_main(h) < 0){
 	if (help)
 	    usage(argv[0], h);
 	return -1;
@@ -413,7 +406,6 @@ main(int argc, char **argv)
     while ((c = getopt(argc, argv, BACKEND_OPTS)) != -1)
 	switch (c) {
 	case 'D' : /* debug */
-	case 'a' : /* appdir */
 	case 'f': /* config file */
 	    break; /* see above */
 	case 'd':  /* Plugin directory */
@@ -488,8 +480,9 @@ main(int argc, char **argv)
 	clicon_err(OE_FATAL, 0, "pidfile not set");
 	goto done;
     }
-    if ((sockpath = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "sockpath not set");
+    sockfamily = clicon_sock_family(h);
+    if ((sock = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "sock not set");
 	goto done;
     }
     if (pidfile_get(pidfile, &pid) < 0)
@@ -499,8 +492,8 @@ main(int argc, char **argv)
 	    return -1;
 	if (lstat(pidfile, &st) == 0)
 	    unlink(pidfile);   
-	if (lstat(sockpath, &st) == 0)
-	    unlink(sockpath);   
+	if (sockfamily==AF_UNIX && lstat(sock, &st) == 0)
+	    unlink(sock);   
 	exit(0);
     }
     else
@@ -510,13 +503,13 @@ main(int argc, char **argv)
 	    return -1; /* goto done deletes pidfile */
 	}
 
-
-    /* After thospoint we can goto done on error */
-    /* Here there is either no old process or we have killed it,.. */
+    /* After this point we can goto done on error 
+     * Here there is either no old process or we have killed it,.. 
+     */
     if (lstat(pidfile, &st) == 0)
 	unlink(pidfile);   
-    if (lstat(sockpath, &st) == 0)
-	unlink(sockpath);   
+    if (sockfamily==AF_UNIX && lstat(sock, &st) == 0)
+	unlink(sock);   
 
     /* Sanity check: config group exists */
     if ((config_group = clicon_sock_group(h)) == NULL){

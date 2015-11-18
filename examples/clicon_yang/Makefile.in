@@ -47,16 +47,14 @@ all:	$(PLUGINS)
 
 
 clean:
-	rm -f 
+	rm -f $(APPNAME).conf
 
 distclean: clean
-	rm -f $(APPNAME).conf Makefile *~ .depend
+	rm -f Makefile *~ .depend
 
 install: $(YANGSPECS) $(CLISPECS) $(APPNAME).conf
-	install -d $(DESTDIR)$(clicon_DBSPECDIR)
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
 	install $(YANGSPECS) $(DESTDIR)$(clicon_DBSPECDIR)/yang
-	install -d $(DESTDIR)$(clicon_LIBDIR)
 	install -d $(DESTDIR)$(clicon_LIBDIR)/clispec
 	install $(CLISPECS) $(DESTDIR)$(clicon_LIBDIR)/clispec; 
 	install -d $(DESTDIR)$(clicon_SYSCONFDIR)

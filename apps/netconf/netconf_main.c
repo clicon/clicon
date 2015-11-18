@@ -57,7 +57,7 @@
 #include "netconf_rpc.h"
 
 /* Command line options to be passed to getopt(3) */
-#define NETCONF_OPTS "hDa:qf:s:d:S"
+#define NETCONF_OPTS "hDqf:s:d:S"
 
 static int
 packet(clicon_handle h, cbuf *xf)
@@ -317,7 +317,6 @@ terminate(clicon_handle h)
 static void
 usage(char *argv0, clicon_handle h)
 {
-    char *appdir = clicon_appdir(h);
     char *conffile = clicon_configfile(h);
     char *netconfdir = clicon_netconf_dir(h);
 
@@ -325,14 +324,12 @@ usage(char *argv0, clicon_handle h)
 	    "where options are\n"
             "\t-h\t\tHelp\n"
             "\t-D\t\tDebug\n"
-    	    "\t-a <dir>\tApplication dir (default: %s)\n"
             "\t-q\t\tQuiet: dont send hello prompt\n"
     	    "\t-f <file>\tConfiguration file (default: %s)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
 	    "\t-d <dir>\tSpecify netconf plugin directory dir (default: %s)\n"
 	    "\t-S\t\tLog on syslog\n",
 	    argv0,
-	    appdir?appdir:"none",
 	    conffile?conffile:"none",
 	    netconfdir
 	    );
@@ -368,11 +365,6 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	    debug = 1;
 	    break;
-	case 'a': /* Register command line app-dir if any */
-	    if (!strlen(optarg))
-		usage(argv[0], h);
-	    clicon_option_str_set(h, "CLICON_APPDIR", optarg);
-	    break;
 	 case 'f': /* override config file */
 	    if (!strlen(optarg))
 		usage(argv[0], h);
@@ -390,8 +382,8 @@ main(int argc, char **argv)
 		    use_syslog?CLICON_LOG_SYSLOG:CLICON_LOG_STDERR); 
     clicon_debug_init(debug, NULL); 
 
-    /* Find appdir. Find and read configfile */
-    if (clicon_options_main(h, argc, argv) < 0)
+    /* Find and read configfile */
+    if (clicon_options_main(h) < 0)
 	return -1;
 
     /* Now rest of options */
@@ -401,7 +393,6 @@ main(int argc, char **argv)
 	switch (c) {
 	case 'h' : /* help */
 	case 'D' : /* debug */
-	case 'a' : /* appdir */
 	case 'f': /* config file */
 	case 'S': /* Log on syslog */
 	    break; /* see above */

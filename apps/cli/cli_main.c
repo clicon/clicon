@@ -56,7 +56,7 @@
 #include "cli_handle.h"
 
 /* Command line options to be passed to getopt(3) */
-#define CLI_OPTS "hD:f:F:1a:s:u:d:m:cP:qptGLl:"
+#define CLI_OPTS "hD:f:F:1s:u:d:m:cP:qptGLl:"
 
 static int
 cli_terminate(clicon_handle h)
@@ -155,7 +155,6 @@ dbspec_main_cli(clicon_handle h, int printspec, int printalt)
 static void
 usage(char *argv0, clicon_handle h)
 {
-    char *appdir = clicon_appdir(h);
     char *conffile = clicon_configfile(h);
     char *confsock = clicon_sock(h);
     char *plgdir = clicon_cli_dir(h);
@@ -168,7 +167,6 @@ usage(char *argv0, clicon_handle h)
 	    "\t-f <file> \tConfig-file (default: %s)\n"
     	    "\t-F <file> \tRead commands from file (default stdin)\n"
 	    "\t-1\t\tDont enter interactive mode\n"
-	    "\t-a <dir>\tApplication dir (default: %s)\n"
 	    "\t-s <file>\tDatabase spec file\n"
     	    "\t-u <sockpath>\tconfig UNIX domain path (default: %s)\n"
 	    "\t-d <dir>\tSpecify plugin directory (default: %s)\n"
@@ -182,7 +180,6 @@ usage(char *argv0, clicon_handle h)
 	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
 	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n",
 	    argv0,
-	    appdir ? appdir : "none",
 	    conffile ? conffile : "none",
 	    confsock ? confsock : "none",
 	    plgdir ? plgdir : "none"
@@ -227,7 +224,7 @@ main(int argc, char **argv)
     cli_set_comment(h, '#'); /* Default to handle #! clicon_cli scripts */
 
     /*
-     * Command-line options for appdir, config-file, debug and help
+     * First-step command-line options for help, debug, config-file and log, 
      */
     optind = 1;
     opterr = 0;
@@ -245,11 +242,6 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	    if (sscanf(optarg, "%d", &debug) != 1)
 		usage(argv[0], h);
-	    break;
-	case 'a': /* Register command line app-dir if any */
-	    if (!strlen(optarg))
-		usage(argv[0], h);
-	    clicon_option_str_set(h, "CLICON_APPDIR", optarg);
 	    break;
 	case 'f': /* config file */
 	    if (!strlen(optarg))
@@ -279,8 +271,8 @@ main(int argc, char **argv)
 
     clicon_debug_init(debug, NULL); 
 
-    /* Find appdir. Find and read configfile */
-    if (clicon_options_main(h, argc, argv) < 0){
+    /* Find and read configfile */
+    if (clicon_options_main(h) < 0){
         if (help)
 	  usage(argv[0], h);
 	return -1;
@@ -292,7 +284,6 @@ main(int argc, char **argv)
     while ((c = getopt(argc, argv, CLI_OPTS)) != -1){
 	switch (c) {
 	case 'D' : /* debug */
-	case 'a' : /* appdir */
 	case 'f': /* config file */
 	case 'l': /* Log destination */
 	    break; /* see above */
@@ -305,7 +296,7 @@ main(int argc, char **argv)
 	case '1' : /* Quit after reading database once - dont wait for events */
 	    once = 1;
 	    break;
-	case 'u': /* config unix domain path */
+	case 'u': /* config unix domain path/ ip host */
 	    if (!strlen(optarg))
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_SOCK", optarg);

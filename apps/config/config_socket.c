@@ -64,29 +64,58 @@
 #include "config_dbdep.h"
 #include "config_handle.h"
 
-/*! Open a unix-domain socket and bind it to a file.
+static int
+config_socket_init_ipv4(clicon_handle h, char *dst)
+{
+    int                s;
+    struct sockaddr_in addr;
+    uint16_t           port;
+
+    port = clicon_sock_port(h);
+
+    /* create inet socket */
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	clicon_err(OE_UNIX, errno, "%s: socket", __FUNCTION__);
+	return -1;
+    }
+//    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (void*)&one, sizeof(one));
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    if (inet_pton(addr.sin_family, dst, &addr.sin_addr) != 1)
+	goto err; /* Could check getaddrinfo */
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0){
+	clicon_err(OE_UNIX, errno, "%s: bind", __FUNCTION__);
+	goto err;
+    }
+    clicon_debug(1, "Listen on server socket at %s:%hu", dst, port);
+    if (listen(s, 5) < 0){
+	clicon_err(OE_UNIX, errno, "%s: listen", __FUNCTION__);
+	goto err;
+    }
+    return s;
+  err:
+    close(s);
+    return -1;
+}
+
+/*! Open a socket and bind it to a file descriptor
  *
  * The socket is accessed via CLICON_SOCK option, has 770 permissions
  * and group according to CLICON_SOCK_GROUP option.
  */
-int
-config_socket_init(clicon_handle h)
+static int
+config_socket_init_unix(clicon_handle h, char *sock)
 {
-    int s;
+    int                s;
     struct sockaddr_un addr;
     mode_t             old_mask;
-    char              *config_sock;
     char              *config_group;
     gid_t              gid;
     struct stat        st;
 
-    /* first find sockpath and remove it if it exists (it shouldn't) */
-    if ((config_sock = clicon_sock(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
-	return -1;
-    }
-    if (lstat(config_sock, &st) == 0 && unlink(config_sock) < 0){
-	clicon_err(OE_UNIX, errno, "%s: unlink(%s)", __FUNCTION__, config_sock);
+    if (lstat(sock, &st) == 0 && unlink(sock) < 0){
+	clicon_err(OE_UNIX, errno, "%s: unlink(%s)", __FUNCTION__, sock);
 	return -1;
     }
     /* then find configuration group (for clients) and find its groupid */
@@ -105,11 +134,10 @@ config_socket_init(clicon_handle h)
 	clicon_err(OE_UNIX, errno, "%s: socket", __FUNCTION__);
 	return -1;
     }
-
 //    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (void*)&one, sizeof(one));
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, config_sock, sizeof(addr.sun_path)-1);
+    strncpy(addr.sun_path, sock, sizeof(addr.sun_path)-1);
     old_mask = umask(S_IRWXO | S_IXGRP | S_IXUSR);
     if (bind(s, (struct sockaddr *)&addr, SUN_LEN(&addr)) < 0){
 	clicon_err(OE_UNIX, errno, "%s: bind", __FUNCTION__);
@@ -118,9 +146,9 @@ config_socket_init(clicon_handle h)
     }
     umask(old_mask); 
     /* change socket path file group */
-    if (lchown(config_sock, -1, gid) < 0){
+    if (lchown(sock, -1, gid) < 0){
 	clicon_err(OE_UNIX, errno, "%s: lchown(%s, %s)", __FUNCTION__, 
-		config_sock, config_group);
+		sock, config_group);
 	goto err;
     }
     clicon_debug(1, "Listen on server socket at %s", addr.sun_path);
@@ -132,6 +160,26 @@ config_socket_init(clicon_handle h)
   err:
     close(s);
     return -1;
+}
+
+int
+config_socket_init(clicon_handle h)
+{
+    char *sock;
+
+    if ((sock = clicon_sock(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "CLICON_SOCK option not set");
+	return -1;
+    }
+    switch (clicon_sock_family(h)){
+    case AF_UNIX:
+	return config_socket_init_unix(h, sock);
+	break;
+    case AF_INET:
+	return config_socket_init_ipv4(h, sock);
+	break;
+    }
+    return 0;
 }
 
 /*
@@ -159,6 +207,7 @@ config_accept_client(int fd, void *arg)
     char         *mem;
     int           i;
 
+    clicon_debug(1, "%s", __FUNCTION__);
     len = sizeof(from);
     if ((s = accept(fd, (struct sockaddr*)&from, &len)) < 0){
 	clicon_err(OE_UNIX, errno, "%s: accept", __FUNCTION__);

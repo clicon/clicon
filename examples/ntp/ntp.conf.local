@@ -1,13 +1,19 @@
+# Address family for communicating with clicon_backend (UNIX|IPv4|IPv6)
+CLICON_SOCK_FAMILY IPv4
+
+# Unix socket for communicating with clicon_backend
+CLICON_SOCK 127.0.0.1
+
+# Inet socket port for communicating with clicon_backend
+CLICON_SOCK_PORT 4535
+
 # Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
 # Only if CLICON_DBSPEC_TYPE is YANG
-CLICON_YANG_MODULE_MAIN hello
+CLICON_YANG_MODULE_MAIN ntp
 
 # Set if all configuration changes are committed directly, commit command unnecessary
 CLICON_AUTOCOMMIT       1
 
 # Startup CLI mode. This should match the CLICON_MODE in your startup clispec file
-CLICON_CLI_MODE hello
-
-# Generate code for CLI completion of existing db symbols
-CLICON_CLI_GENMODEL_COMPLETION 1
+CLICON_CLI_MODE ntp
 

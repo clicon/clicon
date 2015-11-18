@@ -365,7 +365,6 @@ netconf_edit_config(clicon_handle h,
     enum error_option   erropt = STOP_ON_ERROR;
     cxobj    *xc;       /* config */
     char               *target;  /* db */
-    char               *s;       /* config socket */
     char               *tmpfile;
     FILE               *f;
     char              *config_group;
@@ -392,13 +391,6 @@ netconf_edit_config(clicon_handle h,
     }
     if (get_edit_opts(xn, &operation, &testopt, &erropt, cb_err, xt) < 0)
 	goto done;
-    if ((s = clicon_sock(h)) == NULL){
-	netconf_create_rpc_error(cb_err, xt, 
-				 "operation-failed", 
-				 "protocol", "error", 
-				 NULL, "Internal error"); 
-	goto done;
-    }
     switch(operation){
     case OP_REPLACE: /* replace or create config-data */
     case OP_MERGE: /* merge config-data */

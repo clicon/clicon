@@ -57,7 +57,6 @@ AC_SUBST(SH_SUFFIX)
 AC_SUBST(EXE_SUFFIX)
 AC_SUBST(AR)
 AC_SUBST(RANLIB)
-AC_SUBST(APPDIR) # Clicon application director. Eg /hello. 
 AC_SUBST(CLICON__LIBDIR) # Clicon application director. Eg /hello. 
 
 # Some stuff installed in /usr/local/. Such as qdbm
@@ -86,23 +85,12 @@ if test "$YACC" != "bison -y"; then
 fi
 
 if test "$prefix" = "NONE"; then
-  APPDIR=${ac_default_prefix}/share/clicon
   CPPFLAGS="-I${ac_default_prefix}/include ${CPPFLAGS}"
   LDFLAGS="-L${ac_default_prefix}/lib ${LDFLAGS}"
 else
-  APPDIR=${prefix}/share/clicon
   CPPFLAGS="-I${prefix}/include ${CPPFLAGS}"
   LDFLAGS="-L${prefix}/lib ${LDFLAGS}"
 fi
-AC_ARG_WITH(appdir,
-[  --with-appdir=DIR       Set application dir (default:$datarootdir/clicon)],
-   APPDIR=$withval  
-)
-AH_TEMPLATE([APPDIR], 
-[In-compiled clicon application dir, overruled by -a or env-variable])
-AC_DEFINE_UNQUOTED(APPDIR, "$APPDIR")
-AC_MSG_RESULT(APPDIR is $APPDIR)	
-
 
 # Check Python
 HAVE_PYTHON=none
@@ -207,7 +195,6 @@ AC_OUTPUT(Makefile
 	  examples/Makefile
 	  examples/hello/Makefile
 	  examples/ntp/Makefile
-	  examples/ntp/clicon.conf
 	  examples/datamodel/Makefile
 	  examples/routing/Makefile
 	  examples/clicon_yang/Makefile

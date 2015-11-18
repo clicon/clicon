@@ -50,7 +50,7 @@
 #include <clicon/clicon.h>
 
 /* Command line options to be passed to getopt(3) */
-#define DBCTRL_OPTS "hDf:s:Zipbd:r:a:m:n:"
+#define DBCTRL_OPTS "hDf:s:Zipbd:r:m:n:"
 
 /*
  * dump_database
@@ -125,7 +125,6 @@ usage(char *argv0)
             "\t-h\t\tHelp\n"
             "\t-D\t\tDebug\n"
     	    "\t-f <file>\tCLICON config file\n"
-    	    "\t-a <dir>\tSpecify application dir\n"
             "\t-d <dbname>\tDatabase name (default: running_db)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
     	    "\t-p\t\tDump database on stdout\n"
@@ -186,11 +185,6 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	    debug = 1;	
 	    break;
-	case 'a': /* Register command line app-dir if any */
-	    if (!strlen(optarg))
-		usage(argv[0]);
-	    clicon_option_str_set(h, "CLICON_APPDIR", optarg);
-	    break;
 	 case 'f': /* config file */
 	    if (!strlen(optarg))
 		usage(argv[0]);
@@ -208,8 +202,8 @@ main(int argc, char **argv)
     clicon_debug_init(debug, NULL); 
 
 
-    /* Find appdir. Find and read configfile */
-    if (clicon_options_main(h, argc, argv) < 0)
+    /* Find and read configfile */
+    if (clicon_options_main(h) < 0)
 	return -1;
 
     /* Default use running-db */
@@ -260,7 +254,6 @@ main(int argc, char **argv)
 	    dumpdb++;
 	    break;
 	case 'D':  /* Processed earlier, ignore now. */
-	case 'a':
 	case 'f':
 	case 'S':
 	    break;
