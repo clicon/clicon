@@ -55,10 +55,10 @@ BE_OBJ   = $(BE_SRC:%.c=%.o)
 OBJS = $(FE_OBJ) $(BE_OBJ)
 
 $(FE_PLUGIN): $(FE_OBJ)
-	$(CC) -shared -o $(FE_PLUGIN) -lc $<
+	$(CC) $(INCLUDES) -shared -o $(FE_PLUGIN) -lc $<
 
 $(BE_PLUGIN): $(BE_OBJ)
-	$(CC) -shared -o $(BE_PLUGIN) -lc $<
+	$(CC) $(INCLUDES) -shared -o $(BE_PLUGIN) -lc $<
 
 clean:
 	rm -f $(OBJS) $(PLUGINS) $(APPNAME).conf
