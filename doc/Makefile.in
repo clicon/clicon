@@ -34,7 +34,12 @@ SUBDIRS =
 
 all:  $(SUBDIRS)
 
+# Regular doxygen documentation
 doc:
+	doxygen Doxyfile # generates html dir
+
+# doxygen documentation with callgraphs
+graphs:
 	doxygen Doxyfile # generates html dir
 
 $(SUBDIRS):

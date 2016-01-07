@@ -42,9 +42,9 @@ BE_PLUGIN       = datamodel_backend.so
 
 PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN)
 
--include $(datarootdir)/clicon/clicon.mk
-
 all:	$(PLUGINS) $(APPNAME).conf
+
+-include $(datarootdir)/clicon/clicon.mk
 
 FE_SRC   = datamodel_cli.c
 BE_SRC   = datamodel_backend.c

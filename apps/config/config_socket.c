@@ -75,15 +75,17 @@ config_socket_init_ipv4(clicon_handle h, char *dst)
 
     /* create inet socket */
     if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-	clicon_err(OE_UNIX, errno, "%s: socket", __FUNCTION__);
+	clicon_err(OE_UNIX, errno, "socket");
 	return -1;
     }
 //    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (void*)&one, sizeof(one));
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    if (inet_pton(addr.sin_family, dst, &addr.sin_addr) != 1)
+    if (inet_pton(addr.sin_family, dst, &addr.sin_addr) != 1){
+	clicon_err(OE_UNIX, errno, "inet_pton: %s (Expected IPv4 address. Check settings of CLICON_SOCK_FAMILY and CLICON_SOCK)", dst);
 	goto err; /* Could check getaddrinfo */
+    }
     if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0){
 	clicon_err(OE_UNIX, errno, "%s: bind", __FUNCTION__);
 	goto err;

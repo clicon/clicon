@@ -41,15 +41,17 @@ enum {
  * Prototypes
  */
 cxobj *db2xml_key(char *dbname, dbspec_key *dbspec, char *key_regex, char *toptag);
-int key2xml(char *key, char *dbname, dbspec_key *db_spec, cxobj *xtop);
-int xml2db(cxobj *, dbspec_key *dbspec, char *dbname);
-
+int cvec2xml(dbspec_key *key_dbspec, cvec *cvv, cxobj *xnt);
 int save_db_to_xml(char *filename, dbspec_key *dbspec, char *dbname, int prettyprint);
+
+int xml2db(cxobj *, dbspec_key *dbspec, char *dbname);
+int xml2cvec_key(cxobj *xt, dbspec_key *dbspec, char *dbname, cvec ***cvvs, size_t *cvvslen);
 int load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname);
 int xml2txt(FILE *f, cxobj *x, int level);
 int xml2cli(FILE *f, cxobj *x, char *prepend, enum genmodel_type gt, const char *label);
 int xml2json(FILE *f, cxobj *x, int level);
 int xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys) ;
 int xml2cvec(cxobj *xt, yang_stmt *ys, cvec **cvv0);
-int cvec2xml(cvec *cvv, char *toptag, cxobj **xt0);
+int cvec2xml_1(cvec *cvv, char *toptag, cxobj **xt0);
+
 #endif  /* _CLICON_XML_MAP_H_ */

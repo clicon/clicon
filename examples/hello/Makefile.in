@@ -35,10 +35,10 @@ INCLUDES 	= -I$(includedir) @INCLUDES@
 
 APPNAME		= hello
 
+all:	$(APPNAME).conf
+
 # Defines clicon_*DIR variables and $(APPNAME).conf
 -include $(datarootdir)/clicon/clicon.mk
-
-all:	$(APPNAME).conf
 
 clean:
 	rm -f $(APPNAME).conf

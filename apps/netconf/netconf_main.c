@@ -317,7 +317,6 @@ terminate(clicon_handle h)
 static void
 usage(char *argv0, clicon_handle h)
 {
-    char *conffile = clicon_configfile(h);
     char *netconfdir = clicon_netconf_dir(h);
 
     fprintf(stderr, "usage:%s\n"
@@ -325,12 +324,11 @@ usage(char *argv0, clicon_handle h)
             "\t-h\t\tHelp\n"
             "\t-D\t\tDebug\n"
             "\t-q\t\tQuiet: dont send hello prompt\n"
-    	    "\t-f <file>\tConfiguration file (default: %s)\n"
+    	    "\t-f <file>\tConfiguration file (mandatory)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
 	    "\t-d <dir>\tSpecify netconf plugin directory dir (default: %s)\n"
 	    "\t-S\t\tLog on syslog\n",
 	    argv0,
-	    conffile?conffile:"none",
 	    netconfdir
 	    );
     exit(0);

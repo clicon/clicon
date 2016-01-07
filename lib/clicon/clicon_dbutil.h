@@ -46,8 +46,6 @@ cg_var *dbvar2cv(char *dbname, char *key, char *variable);
 
 cvec *dbkey2cvec(char *dbname, char *key);
 
-int cvec2dbkey(char *dbname, char *key, cvec *cvec);
-
 cvec *lvec2cvec(char *lvec, size_t lveclen);
 
 char *cvec2lvec(cvec *vr, size_t *len);

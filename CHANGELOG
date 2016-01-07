@@ -16,12 +16,15 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-- Added INET (IPv4) communication between client and backend. Not only UNIX.
+- Cleaned up xml translation functions in clicon_xml_map.c	
+- Extended client/backend protocol with dumping a database config: CLICON_MSG_DBITEMS
+- Removed -a (appdir) config options. Use only -f <config-file>.
+- Added INET (IPv4) communication between client and backend. Not only UNIX. Experimental.
 - Removed clicon_dbmatch.[ch]. Replaced with clicon_dbitems_match().
 - Replaced internal clicon_proto_ messaging API with clicon_rpc_.
 - Extended tree-based access functions: clicon_dbget_parent/children/descendents/xpath.
 - clicon_dbctrl: Renamed brief option from -P to -b and made it work with -m 
-- Reference documentation using doxygen: make doc.
+- Reference documentation using doxygen: make doc, make graphs
 - When entering CLI commands, they appear in the same order in xml and reload.
 - yang parse error using '+' in strings
 - New example: clicon_yang for stateless yang experiments (no backend)

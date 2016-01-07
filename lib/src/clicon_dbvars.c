@@ -60,7 +60,7 @@ clicon_dbvars_next_seq(char *dbname, char *basekey, char *varname, int increment
     int retval = -1;
     char *key;
     cg_var *cv;
-    size_t nitems;
+    size_t nitems = 0;
     cvec *item;
     cvec **items = NULL;
     
@@ -78,7 +78,7 @@ clicon_dbvars_next_seq(char *dbname, char *basekey, char *varname, int increment
 	      seq = val;
 	}
     }
-    clicon_dbitems_free(items);
+    clicon_dbitems_free(items, nitems);
     items = NULL;
 
     retval = seq - (seq % increment) + increment;
@@ -86,11 +86,10 @@ clicon_dbvars_next_seq(char *dbname, char *basekey, char *varname, int increment
     /* Fall through */
  catch:
     if (items) 
-        clicon_dbitems_free(items);
+        clicon_dbitems_free(items, nitems);
     unchunk_group (__FUNCTION__);
     return retval;
 }
-
 
 /*
  * Assign the next sequence number for a vector variable.
@@ -186,4 +185,22 @@ err:
     unchunk_group(__FUNCTION__);
 
     return NULL;
+}
+
+/*! Parse a db modification string and return a resulting cvec
+ * containing the variables specified by the format.
+ * @see cli_set_parse which runs on cli client instead of backend.
+ */
+clicon_dbvars_t *
+clicon_set_parse(dbspec_key *dbspec, char *db, cvec *vars, const char *fmt)
+{
+    clicon_dbvars_t *dbvars;
+
+    dbvars = clicon_dbvars_parse(dbspec, db, vars, fmt, NULL, NULL);
+    if (dbvars == NULL) {
+	clicon_err(OE_CFG, EINVAL, "Failed to parse format: %s", fmt);
+	return NULL;
+    }
+    
+    return dbvars;
 }

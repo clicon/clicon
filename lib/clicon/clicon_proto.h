@@ -46,27 +46,37 @@ enum clicon_msg_type{
     CLICON_MSG_VALIDATE,	/* Validate settings in a database. Body is:
 			   1. string: name of database
 			*/
-    CLICON_MSG_CHANGE,   /* Change a database entry:
+    CLICON_MSG_CHANGE,   /* Change a (single) database entry:
 			  1. uint32: operation: LV_SET/LV_DEL
 			  2. uint32: length of lvec
 			  3. string: name of database to change (eg current)
-			  4. string: key.
+			  4. string: key or key format
 			  5. lvec (length given above).
 			 */
-    CLICON_MSG_SAVE,    /* Save config state from db to a file. Body is:
+    CLICON_MSG_DBITEMS,   /* Get database entries as cvecs given key and attribute patterns
+			     Request is:
+			     1. string: name of database
+			     2. string: key pattern
+			     3. string: attribute name (or NULL)
+			     4. string: attribute pattern (or NULL)
+			     Reply is:
+                             1. cveclen (# of cvecs +1)
+			     2. {cvec-name, lvec-len, lvec} *
+			   */
+    CLICON_MSG_SAVE,    /* Save config state from db to a file in backend. Body is:
 			  1. uint32: make snapshot (1), dont(0)
 			  2. string: name of database to save from (eg running)
 			  3. string: filename to write. If snapshot=1, then this
 			             is empty.
 		       */
-    CLICON_MSG_LOAD,    /* Load config state from file to db via XML. Body is:
+    CLICON_MSG_LOAD,    /* Load config state from file in backend to db via XML. Body is:
 			  1. uint32: whether to replace/initdb before load (1) or 
 			             merge (0).
 			  2. string: name of database to load into (eg running)
 			  3. string: filename to load from
 
 		       */
-    CLICON_MSG_COPY,    /* Copy from file to file. Body is:
+    CLICON_MSG_COPY,    /* Copy from file to file in backend. Body is:
 			  1. string: filename to copy from
 			  2. string: filename to copy to
 		       */
@@ -115,7 +125,7 @@ enum clicon_msg_type{
 
 /* Protocol message header */
 struct clicon_msg {
-    uint16_t    op_len;      /* length of message */
+    uint16_t    op_len;      /* length of message. */
     uint16_t    op_type;     /* message type, see enum clicon_msg_type */
     char        op_body[0];  /* rest of message, actual data */
 };
@@ -139,8 +149,6 @@ struct clicon_msg_call_req {
 #ifndef LIBCLICON_API
 int clicon_connect_unix(char *sockpath);
 
-int clicon_msg_send(int s, struct clicon_msg *msg);
-
 int clicon_rpc_connect_unix(struct clicon_msg *msg, 
 			    char *sockpath,
 			    char **data, 
@@ -160,6 +168,8 @@ int clicon_rpc(int s, struct clicon_msg *msg, char **data, uint16_t *datalen,
 	    const char *label);
 
 #endif
+int clicon_msg_send(int s, struct clicon_msg *msg);
+
 int clicon_msg_rcv(int s, struct clicon_msg **msg, 
 		  int *eof, const char *label);
 

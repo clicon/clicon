@@ -52,8 +52,9 @@
 #include "clicon_chunk.h"
 #include "clicon_qdb.h" 
 
-/*
- * db_init_mode
+/*! Initialize database
+ * @param[in]  file    database file
+ * @param[in]  omode   see man dpopen
  */
 static int 
 db_init_mode(char *file, int omode)
@@ -75,16 +76,22 @@ db_init_mode(char *file, int omode)
     return 0;
 }
 
-/*
- * db_init
- * Open database for reading and writing
+/*! Open database for reading and writing
+ * @param[in]  file    database file
  */
 int 
 db_init(char *file)
 {
     return db_init_mode(file, DP_OWRITER | DP_OCREAT ); /* DP_OTRUNC? */
 }
-
+/*! Write data to database 
+ * @param[in]  file    database file
+ * @param[in]  key     database key
+ * @param[out] data    Buffer containing content
+ * @param[out] datalen Length of buffer
+ * @retval  0 if OK: value returned. If not found, zero string returned
+ * @retval -1 on error   
+ */
 int 
 db_set(char *file, char *key, void *data, size_t datalen)
 {
@@ -115,11 +122,14 @@ db_set(char *file, char *key, void *data, size_t datalen)
     return 0;
 }
 
-/*
- * db_get
- * returns: 
- *   0 if OK: value returned. If not found, zero string returned
- *   -1 on error   
+/*! Get data from database 
+ * @param[in]  file    database file
+ * @param[in]  key     database key
+ * @param[out] data    Pre-allocated buffer where data corresponding key is placed
+ * @param[out] datalen Length of pre-allocated buffer
+ * @retval  0 if OK: value returned. If not found, zero string returned
+ * @retval -1 on error   
+ * @see db_get_alloc  Allocates memory
  */
 int 
 db_get(char *file, char *key, void *data, size_t *datalen)
@@ -159,20 +169,24 @@ db_get(char *file, char *key, void *data, size_t *datalen)
     return 0;
 }
 
-/*
- * db_get_alloc
+/*! Get data from database and allocates memory
  * Similar to db_get but returns a malloced pointer to the data instead 
  * of copying data to pre-allocated buffer. This is necessary if the 
  * length of the data is not known when calling the function.
- * returns: 
- *   0 if OK: value returned. If not found, zero string returned
- *   -1 on error   
- * Note: *data needs to be freed after use.
- * Example:
+ * @param[in]  file    database file
+ * @param[in]  key     database key
+ * @param[out] data    Allocated buffer where data corresponding key is placed
+ * @param[out] datalen Length of pre-allocated buffer
+ * @retval  0 if OK: value returned. If not found, zero string returned
+ * @retval -1 on error   
+ * @note: *data needs to be freed after use.
+ * @code
  *  char             *lvec = NULL;
  *  size_t            len = 0;
  *  if (db_get-alloc(dbname, "a.0", &val, &vlen) == NULL)
  *     return -1;
+ * @endcode
+ * @see db_get Pre-allocates memory
  */
 int 
 db_get_alloc(char *file, char *key, void **data, size_t *datalen)
@@ -210,9 +224,12 @@ db_get_alloc(char *file, char *key, void **data, size_t *datalen)
     return 0;
 }
 
-/*
- * Delete database entry
- * Returns -1 on failure, 0 if key did not exist and 1 if successful.
+/*! Delete database entry
+ * @param[in]  file    database file
+ * @param[in]  key     database key
+ * @retval  -1  on failure, 
+ * @retval   0  if key did not exist 
+ * @retval   1  if successful.
  */
 int 
 db_del(char *file, char *key)
@@ -238,10 +255,12 @@ db_del(char *file, char *key)
 }
 
 
-/*
- * db_exists
- * returns: 
- *   1 if key exists in database, 0 otherwise
+/*! Check if entry in database exists
+ * @param[in]  file    database file
+ * @param[in]  key     database key
+ * @retval  1  if key exists in database
+ * @retval  0  key does not exist in database
+ * @retval -1  error
  */
 int 
 db_exists(char *file, char *key)
@@ -269,12 +288,21 @@ db_exists(char *file, char *key)
     return (len < 0) ? 0 : 1;
 }
 
+/*! Return all entries in database that match a regular expression.
+ * @param[in]  file    database file
+ * @param[in]  regexp  regular expression for database keys
+ * @param[in]  label   for memory/chunk allocation
+ * @param[out] pairs   Vector of database keys and values
+ * @param[in]  noval   If set don't retreive values, just keys
+ * @retval -1  on error   
+ * @retval  n  Number of pairs
+ */
 int
-db_regexp(char *file,
-	  char *regexp, 
-	  const char *label, 
+db_regexp(char            *file,
+	  char            *regexp, 
+	  const char      *label, 
 	  struct db_pair **pairs,
-	  int noval)
+	  int              noval)
 {
     int npairs;
     int status;
@@ -385,8 +413,7 @@ quit:
     return retval;
 }
 
-/*
- * Sanitize regexp string. Escape '\' etc.
+/*! Sanitize regexp string. Escape '\' etc.
  */
 char *
 db_sanitize(char *rx, const char *label)

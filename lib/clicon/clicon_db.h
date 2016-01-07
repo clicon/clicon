@@ -39,7 +39,7 @@ int     clicon_dbmerge(char *db, char *key, cvec *vec);
 int     clicon_dbkeys(char *db, char *rx, char ***keysv, size_t *len);
 int     clicon_dbitems(char *db, char *rx, cvec ***cvv, size_t *len);
 int     clicon_dbitems_match(char *db, char *rx, char *attr, char *pattern, cvec ***cvvp, size_t *lenp);
-void    clicon_dbitems_free(cvec **vecs);
+void    clicon_dbitems_free(cvec **vecs, size_t len);
 int     clicon_dbget_parent(char *db, char *key, cvec **cvv);
 int     clicon_dbget_children(char *db, char *key, cvec ***cvv, size_t *len);
 int     clicon_dbget_descendants(char *db, char *key, cvec ***cvv, size_t *len);

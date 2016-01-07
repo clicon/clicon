@@ -40,6 +40,8 @@ NETCONF_PLUGIN  = $(APPNAME)_netconf.so
 
 PLUGINS = $(BE_PLUGIN) $(CLI_PLUGIN) $(NETCONF_PLUGIN)
 
+all:	$(PLUGINS) $(APPNAME).conf
+
 # Note: clicon.mk has a rule for:
 # $(APPNAME.conf)
 -include $(DESTDIR)$(datarootdir)/clicon/clicon.mk
@@ -54,8 +56,6 @@ YANGSPECS	+= ietf-ip@2014-06-16.yang
 YANGSPECS	+= ietf-routing@2014-10-26.yang
 YANGSPECS	+= ietf-ipv4-unicast-routing@2014-10-26.yang
 YANGSPECS	+= ietf-ipv6-unicast-routing@2014-10-26.yang
-
-all:	$(PLUGINS) $(APPNAME).conf
 
 # Backend plugin
 BE_SRC   = routing_backend.c

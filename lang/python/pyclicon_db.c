@@ -345,7 +345,7 @@ quit:
     if (Retval == NULL)
 	Py_XDECREF(Items);
     if (items)
-	clicon_dbitems_free(items);
+	clicon_dbitems_free(items, len);
     Py_XDECREF(Item);
     Py_XDECREF(Key);
     Py_XDECREF(Val);

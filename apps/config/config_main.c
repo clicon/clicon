@@ -64,6 +64,7 @@
 /* Command line options to be passed to getopt(3) */
 #define BACKEND_OPTS "hD:f:d:s:Fzu:P:1IRCc::rg:pt"
 
+/* Cannot use h after this */
 static int
 config_terminate(clicon_handle h)
 {
@@ -82,8 +83,9 @@ config_terminate(clicon_handle h)
 	unlink(pidfile);   
     if (sockpath)
 	unlink(sockpath);   
-    backend_handle_exit(h);
-    clicon_debug(1, "%s done", __FUNCTION__);
+    backend_handle_exit(h); /* Cannot use h after this */
+    clicon_log_register_callback(NULL, NULL);
+    clicon_debug(1, "%s done", __FUNCTION__); 
     if (debug)
 	chunk_check(stderr, NULL);
     return 0;
@@ -109,7 +111,6 @@ config_sig_term(int arg)
 static void
 usage(char *argv0, clicon_handle h)
 {
-    char *conffile = clicon_configfile(h);
     char *plgdir   = clicon_backend_dir(h);
     char *dbspec   = clicon_dbspec_file(h);
     char *confsock = clicon_sock(h);
@@ -121,13 +122,13 @@ usage(char *argv0, clicon_handle h)
 	    "where options are\n"
             "    -h\t\tHelp\n"
     	    "    -D <level>\tdebug\n"
-    	    "    -f <file>\tCLICON config file (default: %s)\n"
+    	    "    -f <file>\tCLICON config file (mandatory)\n"
 	    "    -d <dir>\tSpecify backend plugin directory (default: %s)\n"
 	    "    -s <file>\tSpecify db spec file (default: %s)\n"
     	    "    -z\t\tKill other config daemon and exit\n"
     	    "    -F\t\tforeground\n"
     	    "    -1\t\tonce (dont wait for events)\n"
-    	    "    -u <path>\tconfig UNIX domain path (default: %s)\n"
+    	    "    -u <path>\tconfig UNIX domain path / ip address (default: %s)\n"
     	    "    -P <file>\tPid filename (default: %s)\n"
     	    "    -I\t\tInitialize running state database\n"
     	    "    -R\t\tCall plugin_reset() in plugins to reset system state in running db (use with -I)\n"
@@ -139,7 +140,6 @@ usage(char *argv0, clicon_handle h)
 	    "    -t \t\tPrint alternate spec translation (eg if YANG print KEY, if KEY print YANG)\n"
 	    "    -g <group>\tClient membership required to this group (default: %s)\n",
 	    argv0,
-	    conffile ? conffile : "none",
 	    plgdir ? plgdir : "none",
 	    dbspec ? dbspec : "none",
 	    confsock ? confsock : "none",
@@ -427,7 +427,7 @@ main(int argc, char **argv)
 	case 'z': /* Zap other process */
 	    zap++;
 	    break;
-	 case 'u': /* config unix domain path */
+	 case 'u': /* config unix domain path / ip address */
 	    if (!strlen(optarg))
 		usage(argv[0], h);
 	    clicon_option_str_set(h, "CLICON_SOCK", optarg);

@@ -31,9 +31,10 @@ int clicon_rpc_commit(clicon_handle h, char *running_db, char *db,
 		     int snapshot, int startup);
 int clicon_rpc_validate(clicon_handle h, char *db);
 int clicon_rpc_change(clicon_handle h, char *db, lv_op_t op,
-		     char *key, char *lvec, int lvec_len);
-int clicon_rpc_change_cvec(clicon_handle h, char *db, lv_op_t op,
-			   char *key, cvec *cvv);
+		      char *key, cvec *cvv);
+int clicon_rpc_dbitems(clicon_handle h, char *db, char *rx, 
+		       char *attr, char *val, 
+		       cvec ***cvv, size_t *cvvlen);
 int clicon_rpc_save(clicon_handle h, char *dbname, int snapshot, char *filename);
 int clicon_rpc_load(clicon_handle h, int replace, char *db, char *filename);
 int clicon_rpc_copy(clicon_handle h, char *filename1, char *filename2);

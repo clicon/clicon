@@ -12,7 +12,8 @@ module datamodel{
 		type string;
 	    }
 	}
-	container c{
+	list c{
+	    key "z";
 	    leaf z{
 		type string;
 	    }

@@ -65,8 +65,9 @@
  * @param   db     Name of database to search in (filename including dir path)
  * @param   key    String containing key to look for.
  *
- * @retval cv  A cligen vector containing all variables found. This vector contains no 
- *             variables (length == 0) if key is not found.
+ * @retval cvv  A cligen variable vector containing all variables found. This vector
+ *              contains no variables (length == 0) if key is not found.
+ *              The cvec needs to be freed by cvec_free() by caller.
  */
 cvec *
 clicon_dbget(char *db, char *key)
@@ -119,8 +120,6 @@ catch:
 	cvec_free(cvec);
     return cv;
 }
-
-
 
 /*! Check if key exists database 
  *
@@ -412,16 +411,13 @@ quit:
     return retval;
 }
 
-
-
-/*! Get list of db items
+/*! Get database entries given key pattern
  *
  * Get list of items in database, excluding special vector keys. The list
- * is a NULL terminated array of cvec* where each cvec is named with the 
- * database key.
+ * is an array of cvec* where each cvec is named with the database key.
  *
  * @param[in]  db    Name of database to search in (filename including dir path)
- * @param[in]  rx    Regular expression for key matching
+ * @param[in]  rx    Regular expression for key matching. NULL or "^.*$" match all
  * @param[out] cvv   Vector of database items
  * @param[out] len   Pointer where length of returned vector is stored.
  * @retval  items  Vector of cvecs. Free with clicon_dbitems_free()
@@ -430,89 +426,33 @@ quit:
  *  if (clicon_dbitems(resultdb, keypattern, &items, &nkeys) < 0)
  *    goto err;
  *  for (i=0; i<nkeys; i++){
- *    item = items[i];
+ *    if ((item = items[i]) != NULL)
  *    ... do stuff ...
  *  }
- *  clicon_dbitems_free(items);
+ *  clicon_dbitems_free(items, nkeys);
  * @endcode
  */
 int
-clicon_dbitems(char *db, char *rx, cvec ***cvv, size_t *len)
+clicon_dbitems(char   *db, 
+	       char   *rx, 
+	       cvec ***cvv, 
+	       size_t *len)
 {
-    int i;
-    int n;
-    int npairs;
-    int nkeys;
-    int retval = -1;
-    cvec **items = NULL;
-    struct db_pair *pairs;
-    
-    *len = 0;
-
-    if ((npairs = db_regexp(db, rx, __FUNCTION__, &pairs, 0)) < 0)
-	goto quit;
-    
-    nkeys = 0;
-    for (i = 0; i < npairs; i++) {
-	
-	if(key_isvector_n(pairs[i].dp_key) || key_iskeycontent(pairs[i].dp_key))
-	    continue;
-	
-	nkeys++;
-    }
-
-    /* Allocate list. One extra to NULL terminate list */
-    if ((items = calloc(nkeys+1, sizeof(cvec *))) == NULL) { 
-	clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
-	goto quit;
-    }
-    memset(items, 0, (nkeys+1) * sizeof(cvec *));
-
-    n = 0;
-    for (i = 0; i < npairs; i++) {
-	
-	if(key_isvector_n(pairs[i].dp_key) || key_iskeycontent(pairs[i].dp_key))
-	    continue;
-
-	if ((items[n] = lvec2cvec(pairs[i].dp_val, pairs[i].dp_vlen)) == NULL)
-	    goto quit;
-	if (cvec_name_set(items[n], pairs[i].dp_key) == NULL) {
-	    clicon_err(OE_DB, 0, "%s: cvec_name_set", __FUNCTION__);
-	    goto quit;
-	}
-	
-	n++;
-    }
-    
-    *len = nkeys;
-    retval = 0;
-quit:
-    unchunk_group(__FUNCTION__);
-    if (retval != 0) {
-	if (items) {
-	    for (i = 0; i < nkeys; i++)
-		if (items[n])
-		    cvec_free(items[n]);
-	    free(items);
-	}
-    }
-    else
-	*cvv = items;
-    return retval;
+    return clicon_dbitems_match(db, rx, NULL, NULL, cvv, len);
 }
 
-/*! Return matching database entries using an attribute and string pattern
+/*! Get database entries given key and attribute patterns
  *
  * More specific variant of clicon_dbitems where a single attribute value is
  * matched as well.
  *
  * @param[in]  db    Name of database to search in (filename including dir path)
- * @param[in]  rx    Regular expression for key matching
+ * @param[in]  rx    Regular expression for key matching. NULL or "^.*$" match all
  * @param[in]  attr  Name of attribute whose values should match
  * @param[in]  val   Attribute value match pattern
  * @param[out] cvv   Vector of database items
  * @param[out] len   Pointer where length of returned vector is stored.
- * @retval  items  Vector of cvecs. Free with clicon_dbitems_free()
+ * @retval     items  Vector of cvecs. Free with clicon_dbitems_free()
  * @code
     int          i=0, len;
     cvec       **cvecv;
@@ -520,11 +460,10 @@ quit:
     if (clicon_dbitems_match(dbname, "^Sender.*$", "name", "my*", 
                              &cvecv, &len) < 0)
 	goto done;
-    while ((cvv=cvecv[i]) != NULL){
-       do something with cvv;
-       i++;
+    for (i=0; i<len; i++){
+       do something with cvecv[i];
     }
-    clicon_dbitems_free(cvecv);
+    clicon_dbitems_free(cvecv, len);
  * @endcode
  * @see clicon_dbitems
  */
@@ -580,7 +519,7 @@ clicon_dbitems_match(char   *db,
 	    free(str);
 	    str = NULL;
 	}
-	/* Allocate list. One extra to NULL terminate list */
+	/* Allocate list. */
 	if ((items = realloc(items, (n+1)*sizeof(cvec *))) == NULL) { 
 	    clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
 	    goto quit;
@@ -592,13 +531,6 @@ clicon_dbitems_match(char   *db,
 	}
 	n++;
     }
-    /* Allocate list. One extra to NULL terminate list */
-    if ((items = realloc(items, (n+1)*sizeof(cvec *))) == NULL) { 
-	clicon_err(OE_UNIX, errno, "%s: calloc", __FUNCTION__);
-	goto quit;
-    }
-    items[n] = NULL;
-    n++;
     *lenp = n;
     retval = 0;
 quit:
@@ -606,8 +538,7 @@ quit:
     if (retval != 0) {
 	if (items) {
 	    for (i = 0; i < n; i++)
-		if (items[n])
-		    cvec_free(items[n]);
+		cvec_free(items[i]);
 	    free(items);
 	}
     }
@@ -771,7 +702,7 @@ key2xpath(char *key, char **xpath)
  *
  * @code
  * clicon_dbget_xpath(h, db, cn, "//c[z=73]", &cn_list, &cn_len);
- * clicon_dbitems_free(cn_list)
+ * clicon_dbitems_free(cn_list, cn_len)
  * @endcode
  * @see xpath_vec
  * @see yang_xpath
@@ -838,7 +769,7 @@ clicon_dbget_xpath(clicon_handle h,
 	*cn_list0 = cn_list;
     }
     else
-	clicon_dbitems_free(cn_list);
+	clicon_dbitems_free(cn_list, cn_len);
     return retval;
 }
 
@@ -849,13 +780,14 @@ clicon_dbget_xpath(clicon_handle h,
  * This is really 'free vector of cvec:s'
  *
  * @param   vecs     List of cvec pointers
+ * @param   len      Length of vector
  */
 void
-clicon_dbitems_free(cvec **items)
+clicon_dbitems_free(cvec **items, size_t len)
 {
     int i;
 
-    for (i = 0; items[i]; i++)
+    for (i = 0; i<len; i++)
 	cvec_free(items[i]);
     free(items);
 }

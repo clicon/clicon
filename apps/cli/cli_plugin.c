@@ -1148,9 +1148,7 @@ clicon_valcb(void *arg, cvec *vars, cg_var *cgv, char *fname, cg_var *funcarg)
     return 0;
 }
 
-/*
- * cli_set_parse
- * Parse a db modification string and return a resulting cvec
+/*! Parse a db modification string and return a resulting cvec
  * containing the variables specified by the format.
  */
 clicon_dbvars_t *

@@ -137,8 +137,8 @@ slogtime(void)
  * This is the _only_ place the actual syslog (or stderr) logging is made in clicon,..
  * See also clicon_log()
  *
- * @param[in]   level    log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
- * @param[in]   format   Message to print as argv.
+ * @param[in]   level log level, eg LOG_DEBUG,LOG_INFO,...,LOG_EMERG. Thisis OR:d with facility == LOG_USER
+ * @param[in]   msg   Message to print as argv.
  */
 int
 clicon_log_str(int level, char *msg)

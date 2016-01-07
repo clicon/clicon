@@ -30,3 +30,11 @@
 /* at least for openbsd 4.5 i cannot get a hdr file */
 int strverscmp (__const char *__s1, __const char *__s2);
 #endif
+
+/* Redefine semantics of cli_dbop and the clicon protocol "change" message so
+   that the client need not access the database.
+   Drawback is that keyfmt of type "$a=fn()" cannot be used.
+*/
+#undef CLICON_MSG_CHANGE_KEYFMT
+
+

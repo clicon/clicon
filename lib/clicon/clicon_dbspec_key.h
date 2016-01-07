@@ -30,7 +30,9 @@
 /*
  * Macros
  */
-/* Returns var-list of dbspec entry. Note, ds can be single entry and whole list */
+/* Returns var-list of dbspec entry. Note, ds can be single entry and whole list.
+ * XXX: consider renaming, nothing to do with actual database.
+ */
 #define db_spec2cvec(ds) (cvec*)((ds)->ds_vec)
 
 /*
@@ -41,7 +43,7 @@ struct dbspec_key{
     char              *ds_key;    /* Keyword. eg foo[].bar */
     cvec              *ds_vec;    /* List of variables */
     int                ds_vector; /* allow list of variables to have same names, but
-				not same values XXX but $a[] should be in ds_vec?*/
+				     not same values. Only set in yang2key_leaf_list() */
     /* Record keeping for head of list */
     struct dbspec_key *ds_tail;   /* Tail of linked list */
     clicon_hash_t     *ds_index;  /* Hashed index of keys in whole list */

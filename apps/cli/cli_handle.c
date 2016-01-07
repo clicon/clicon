@@ -70,7 +70,7 @@ struct cli_handle {
     /* ------ end of common handle ------ */
     cligen_handle            cl_cligen;   /* cligen handle */
 
-    int                      cl_usedaemon;     /* Send changes to configuration daemon */
+    int                      cl_send2backend; /* Send changes to configuration daemon */
     enum candidate_db_type   cl_candidate_type;
     cli_syntax_t *cl_stx;	           /* syntax structure */
 
@@ -120,21 +120,23 @@ cli_handle_exit(clicon_handle h)
 /*----------------------------------------------------------
  * cli-specific handle access functions
  *----------------------------------------------------------*/
+/*! Send changes to configuration daemon or let client handle it itself. Default is 1 */
 int 
-cli_set_usedaemon(clicon_handle h, int usedaemon)
+cli_set_send2backend(clicon_handle h, int send2backend)
 {
     struct cli_handle *cl = handle(h);
 
-    cl->cl_usedaemon = usedaemon;
+    cl->cl_send2backend = send2backend;
     return 0;
 }
 
+/*! Get status of whether to send changes to configuration daemon. */
 int 
-cli_usedaemon(clicon_handle h)
+cli_send2backend(clicon_handle h)
 {
     struct cli_handle *cl = handle(h);
 
-    return cl->cl_usedaemon;
+    return cl->cl_send2backend;
 }
 
 enum candidate_db_type

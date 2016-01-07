@@ -60,7 +60,6 @@ datamodel_validate(clicon_handle h, commit_op op, commit_data d)
     return 0;
 }
 
-
 /*
  * Plugin initialization
  */
@@ -70,7 +69,7 @@ plugin_init(clicon_handle h)
     int retval = -1;
 
     if (dbdep_tree(h, 0, datamodel_commit, 
-			 (void *)NULL, "a[].b[]") == NULL) {
+			 (void *)NULL, "a[]*") == NULL) {
 	clicon_debug(1, "Failed to create dependency");
 	goto done;
     }

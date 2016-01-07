@@ -177,7 +177,7 @@ generic_validate_yang(clicon_handle        h,
 			goto done;
 		    }
 		    /* Write to database */
-		    if (cvec2dbkey(dbname, dbkey, cvec) < 0)
+		    if (clicon_dbput(dbname, dbkey, cvec) < 0)
 			goto done;
 		}
 		else

@@ -1,11 +1,10 @@
 # Address family for communicating with clicon_backend (UNIX|IPv4|IPv6)
-CLICON_SOCK_FAMILY IPv4
+CLICON_SOCK_FAMILY UNIX
+#CLICON_SOCK_FAMILY IPv4
 
-# Unix socket for communicating with clicon_backend
-CLICON_SOCK 127.0.0.1
-
-# Inet socket port for communicating with clicon_backend
-CLICON_SOCK_PORT 4535
+# If family above is AF_UNIX: Unix socket for communicating with clicon_backend
+# If family above is AF_INET: IPv4 address
+CLICON_SOCK /usr/local/var/ntp/ntp.sock # for UNIX
 
 # Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
 # Only if CLICON_DBSPEC_TYPE is YANG

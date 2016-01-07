@@ -75,9 +75,7 @@ struct backend_handle {
     struct handle_subscription *cb_subscription; /* Event subscription list */
 };
 
-/*
- * backend_handle_init
- * returns a clicon config handle for other CLICON API calls
+/*! Creates and returns a clicon config handle for other CLICON API calls
  */
 clicon_handle
 backend_handle_init(void)
@@ -85,9 +83,8 @@ backend_handle_init(void)
     return clicon_handle_init0(sizeof(struct backend_handle));
 }
 
-/*
- * clicon_backend_handle_exit
- * returns a clicon handle for other CLICON API calls
+/*! Deallocates a backend handle, including all client structs
+ * @Note: handle 'h' cannot be used in calls after this
  */
 int
 backend_handle_exit(clicon_handle h)

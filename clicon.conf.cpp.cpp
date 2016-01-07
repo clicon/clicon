@@ -74,7 +74,7 @@ CLICON_SOCK_FAMILY  UNIX
 # If family above is AF_INET: IPv4 address
 CLICON_SOCK         localstatedir/APPNAME/APPNAME.sock
 
-# Inet socket port for communicating with clicon_backend
+# Inet socket port for communicating with clicon_backend (only IPv4|IPv6)
 CLICON_SOCK_PORT    4535
 
 # Process-id file

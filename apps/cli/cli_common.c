@@ -109,7 +109,7 @@ init_candidate_db(clicon_handle h, enum candidate_db_type type)
 	    goto err;
 	}
 	if (lstat(candidate_db, &sb) < 0){
-	    if (cli_usedaemon(h)) {
+	    if (cli_send2backend(h)) {
 		clicon_rpc_copy(h, running_db, candidate_db);
 	    }
 	    else
@@ -405,7 +405,7 @@ cli_debug(clicon_handle h, cvec *vars, cg_var *arg)
     /* cli */
     clicon_debug_init(level, NULL); /* 0: dont debug, 1:debug */
     /* config daemon */
-    if (cli_usedaemon(h)) {
+    if (cli_send2backend(h)) {
 	if (clicon_rpc_debug(h, level) < 0)
 	    goto done;
     }
@@ -637,7 +637,7 @@ cli_validate(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "candidate db not set");
 	return -1;
     }
-    if (cli_usedaemon(h)) {
+    if (cli_send2backend(h)) {
 	if ((retval = clicon_rpc_validate(h, candidate_db)) < 0)
 	    cli_output(stderr, "Validate failed. Edit and try again or discard changes\n");
     }
@@ -819,9 +819,9 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
 
     /* Parse the arg(rest). Get back a key (eg a.0.b[]) and vec (eg !x=5) */
     if ((dbv = cli_set_parse(h, 
-			spec, 
-			dbname, 
-			cvec,
+			     spec, 
+			     dbname, 
+			     cvec,
 			     rest)) == NULL)
 	goto done;
     cv = cvec_i(cvec, cvec_len(cvec)-1);
@@ -865,13 +865,12 @@ expand_db_variable(clicon_handle h,
     int             i;
     int             j;
     int             retval = -1;
-    int             npairs;
-    struct db_pair *pairs;
-    cvec           *cvec;
+    cvec           *cvv;
     cg_var         *cv = NULL;
     char          **tmp;
     char           *val = NULL;
-    char           *k;
+    cvec          **cvvp = NULL;
+    size_t          len = 0;
 
     /* adhoc to detect regexp keys. If so, dont call db_gen_rxkey */
     if (index(basekey, '^') == NULL){
@@ -881,18 +880,12 @@ expand_db_variable(clicon_handle h,
     else
 	key = chunkdup(basekey, strlen(basekey)+1, __FUNCTION__);
     
-    npairs = db_regexp(dbname, key, __FUNCTION__, &pairs, 1);
-    if (npairs < 0)
+    if (clicon_dbitems(dbname, key, &cvvp, &len) < 0)
 	goto quit;
-    *nr = 0;
-    for (i = 0; i < npairs; i++) {
-	k = pairs[i].dp_key;
-	if(key_isvector_n(k) || key_iskeycontent(k))
-	    continue;
-	if ((cvec = dbkey2cvec(dbname, pairs[i].dp_key)) == NULL)
-	    goto quit;
+    for (i = 0; i < len; i++) {
+	cvv = cvvp[i];
 	cv = NULL;
-	while ((cv = cvec_each(cvec, cv)) != NULL) {
+	while ((cv = cvec_each(cvv, cv)) != NULL) {
 	    if (strcmp(cv_name_get(cv), variable) != 0)
 		continue;
 	    if ((val = cv2str_dup(cv)) == NULL)
@@ -916,18 +909,16 @@ expand_db_variable(clicon_handle h,
 	    (*nr)++;
 	    break;
 	}
-	cvec_free(cvec);
     }
     retval = 0;
 quit:
+    if (cvvp)
+	clicon_dbitems_free(cvvp, len);
     unchunk_group(__FUNCTION__);
     return retval;
 }
 
-
-/*
- * expand_db_symbol
- * pattern match in candidate_db
+/*! Pattern match in candidate_db
  */
 int
 expand_db_symbol(clicon_handle h, 
@@ -936,25 +927,30 @@ expand_db_symbol(clicon_handle h,
 		 int *nr, 
 		 char ***commands)
 {
+    int             retval = -1;
     char          **tmp;
-    struct db_pair *pairs;
-    int             npairs;
-    int             p;
+    cvec          **cvvp = NULL;
+    cvec           *cvv;
+    size_t          len = 0;
+    int             i;
+    char           *key;
     int             nvec;
     int             n;
     char          **vec = NULL;
     char            str[128];
     char           *dbname;
-    
+
     if ((dbname = clicon_running_db(h)) == NULL){
 	clicon_err(OE_FATAL, 0, "running db not set");
 	goto done;
     }
     snprintf(str, sizeof(str), "^%s\\..", symbol);
-    if ((npairs = db_regexp(dbname, str, __FUNCTION__, &pairs, 0)) < 0)
-	return -1;
-    for (p=0; p<npairs; p++){
-	if ((vec = clicon_strsplit(pairs[p].dp_key, ".", &nvec, __FUNCTION__)) == NULL){
+    if (clicon_rpc_dbitems(h, dbname, str, NULL, NULL, &cvvp, &len) < 0)
+	goto done;
+    for (i = 0; i < len; i++) {
+	cvv = cvvp[i];
+	key = cvec_name_get(cvv);
+	if ((vec = clicon_strsplit(key, ".", &nvec, __FUNCTION__)) == NULL){
 	    clicon_err(OE_UNDEF, errno, "clicon_strsplit");	
 	    goto done;
 	}
@@ -977,14 +973,17 @@ expand_db_symbol(clicon_handle h,
 	}
 	(*nr)++;
     }
-    unchunk_group(__FUNCTION__) ;
-    return 0;
+    retval = 0;
  done:
-  unchunk_group(__FUNCTION__) ;
-  while ((*nr) >= 0)
-    free((*commands)[(*nr)--]);
-  free (*commands);
-  return -1;
+    unchunk_group(__FUNCTION__) ;
+    if (cvvp)
+	clicon_dbitems_free(cvvp, len);
+    if (retval < 0 && *commands){
+	while ((*nr) >= 0)
+	    free((*commands)[(*nr)--]);
+	free (*commands);
+    }
+  return retval;
 }
 
 /*
@@ -1297,14 +1296,19 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	clicon_err(OE_FATAL, 0, "running db not set");
 	goto quit;
     }
-    spec = clicon_dbspec_key(h);
-    
-    if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
-	goto quit;
 
-    if (cli_usedaemon(h)) {
-	if (clicon_rpc_change_cvec(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
+    if (cli_send2backend(h)) {
+#ifdef CLICON_MSG_CHANGE_KEYFMT
+	/* Experimental code where all db access is made at backend */
+	if (clicon_rpc_change(h, candidate, op, str?str:"", vars) < 0)
 	    goto quit;
+#else /* CLICON_MSG_CHANGE_KEYFMT */
+	spec = clicon_dbspec_key(h);
+	if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
+	    goto quit;
+	if (clicon_rpc_change(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
+	    goto quit;
+#endif /* CLICON_MSG_CHANGE_KEYFMT */
 	if (clicon_autocommit(h)) {
 	    if (clicon_rpc_commit(h, running, candidate, 0, 0) < 0) {
 		if (clicon_rpc_copy(h, running, candidate) < 0)
@@ -1314,6 +1318,9 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	    }
 	}
     } else {
+	spec = clicon_dbspec_key(h);
+	if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
+	    goto quit;
 	if (db_lv_op_exec(spec, candidate, dbv->dbv_key, op, dbv->dbv_vec) < 0)
 	    goto quit;
     }
@@ -1344,17 +1351,19 @@ cli_del(clicon_handle h, cvec *vars, cg_var *arg)
     return cli_dbop(h, vars, arg, LV_DELETE);
 }
 
-
 /*! Load a configuration file to candidate database
+ * Utility function used by cligen spec file
  * @param[in] h     CLICON handle
- * @param[in] vars  Vector of variables (not needed) 
- * @param[in] arg   A string: "<varname> <op>" 
- *   <varname> is name of a variable occuring in the cligen command string.
- *   <op> is either "merge" or "replace"
+ * @param[in] vars  Vector of variables (where <varname> is found)
+ * @param[in] arg   A string: "<varname> (merge|replace)" 
+ *   <varname> is name of a variable occuring in "vars" containing filename
+ * @note that "filename" is local on client filesystem not backend. However, a local database 
+ * must exist for this function to work.
  * @code
  *   # cligen spec
  *   load file <name2:string>, load_config_file("name2 merge");
  * @endcode
+ * @see save_config_file
  */
 int 
 load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1371,6 +1380,9 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     int         nvec;
     char       *opstr;
     char       *varstr;
+    int         fd = -1;
+    cxobj      *xt = NULL;
+    //    yang_spec  *yspec;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1413,9 +1425,37 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  		filename, strerror(errno));
 	goto done;
     }
-    if (cli_usedaemon(h)) {
-	if (clicon_rpc_load(h, replace, dbname, filename) < 0)
+    if (cli_send2backend(h)) {
+	cvec **cvvs = NULL;
+	size_t cvvslen = 0;
+	cvec  *cvv;
+	int    i;
+	cxobj *xn;
+
+	/* Open and parse local file into xml */
+	if ((fd = open(filename, O_RDONLY)) < 0){
+	    clicon_err(OE_UNIX, errno, "%s: open(%s)", __FUNCTION__, filename);
 	    goto done;
+	}
+	if (clicon_xml_parse_file(fd, &xt, "</clicon>") < 0)
+	    goto done;
+	if ((xn = xml_child_i(xt, 0)) != NULL){
+	    /* Translate xml to cvecs */
+	    if (xml2cvec_key(xn, clicon_dbspec_key(h), dbname, &cvvs, &cvvslen) < 0)
+		goto done;
+	    /* Push cvecs to remote backend database */
+	    for (i=0; i<cvvslen; i++){
+		cvv = cvvs[i];
+		if (clicon_rpc_change(h, 
+				      dbname, 
+				      LV_SET, 
+				      cvec_name_get(cvv), 
+				      cvv) < 0)
+		    goto done;
+	    }
+	    if (cvvs)
+		clicon_dbitems_free(cvvs, cvvslen);
+	}
     }
     else{
 	if (replace){
@@ -1431,17 +1471,27 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     }
     ret = 0;
   done:
+    if (xt)
+	xml_free(xt);
+    if (fd != -1)
+	close(fd);
     return ret;
 }
 
-/*
- * save_config_file
- * Copy db to file Argument is database
- * arg is a string: "<dbname> <varname>" 
+
+/*! Copy database to file 
+ * Utility function used by cligen spec file
+ * @param[in] h     CLICON handle
+ * @param[in] vars  variable vector (containing <varname>)
+ * @param[in] arg   a string: "<dbname> <varname>" 
  *   <dbname>  is running or candidate
- *   <varname> is name of cligen variable in the cligen string.
- * Example (cligen spec): 
+ *   <varname> is name of cligen variable in the "vars" vector containing file name
+ * Note that "filename" is local on client filesystem not backend.
+ * The function can run without a local database
+ * @code
  *   save file <name:string>, save_config_file("running name");
+ * @endcode
+ * @see load_config_file
  */
 int
 save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1456,6 +1506,11 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char      *str;
     char      *dbstr;
     char      *varstr;
+    cvec     **cvecv = NULL;    
+    size_t     clen = 0;
+    cxobj     *xt = NULL;
+    FILE      *f = NULL;
+    int        i;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1494,11 +1549,26 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     filename = vecp[0];
-    if (cli_usedaemon(h)) {
-	if (clicon_rpc_save(h, dbname, 0, filename) < 0) /*  */
+    if (cli_send2backend(h)) {
+	/* Open local file */
+	if ((f = fopen(filename, "wb")) == NULL){
+	    clicon_err(OE_CFG, errno, "Creating file %s", filename);
+	    return -1;
+	} 
+	/* Get database contents remotely as cvec */
+	if (clicon_rpc_dbitems(h, dbname, NULL, NULL, NULL, &cvecv, &clen) < 0) /*  */
+	    goto done;
+	/* Transform cvecs to xml */
+	if ((xt = xml_new("clicon", NULL)) == NULL)
+	    goto done;
+	for (i=0; i<clen; i++)
+	    if (cvec2xml(clicon_dbspec_key(h), cvecv[i], xt) < 0)
+		goto done;
+	/* Print xml to local file*/
+	if (clicon_xml2file(f, xt, 0, 0) < 0)
 	    goto done;
     }
-    else{
+    else{ 	/* Get database contents locally and save locally */
 	if (save_db_to_xml(filename, clicon_dbspec_key(h), dbname, 1) < 0)
 	    goto done;
     }
@@ -1506,9 +1576,18 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     /* Fall through */
   done:
     unchunk_group(__FUNCTION__);
+    if (xt)
+	xml_free(xt);
+    if (cvecv)
+	clicon_dbitems_free(cvecv, clen);
+    if (f != NULL)
+	fclose(f);
     return retval;
 }
 
+/*! Delete all elements in a database 
+ * Utility function used by cligen spec file
+ */
 int
 delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 {
@@ -1533,7 +1612,7 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
 	clicon_err(OE_FATAL, 0, "dbname not set");
 	goto done;
     }
-    if (cli_usedaemon(h)) {
+    if (cli_send2backend(h)) {
 	clicon_rpc_rm(h, dbname);
 	clicon_rpc_initdb(h, dbname);
     }
@@ -1550,6 +1629,9 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
     return retval;
 }
 
+/*! Discard all changes in candidate and replace with running
+ * Utility function used by cligen spec file
+ */
 int
 discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 {
@@ -1569,20 +1651,6 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
     retval = 0;
   done:
     return retval;
-}
-
-
-/*! callback used by show_conf_* just to merge xml 
- * XXX: uses key, rewrite to use vr?
- */
-static int
-add2xml_cb(void *handle, char *dbname, char *dummy, cvec *cvv, cxobj *xt)
-{
-    char *key;
-
-    /* XXX: cant we use cvv directly? */
-    key = cvec_name_get(cvv); 
-    return key2xml(key, dbname, clicon_dbspec_key(handle), xt);
 }
 
 
@@ -1618,12 +1686,9 @@ show_conf_as(clicon_handle h,
     char           **vec = NULL;
     int              nvec;
     char            *str;
-    size_t           len;
     int              i;
-#if 0
-    char           **keyv;
-#endif
-    cvec           **cvecv;
+    cvec           **cvecv = NULL;    
+    size_t           clen = 0;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1659,15 +1724,22 @@ show_conf_as(clicon_handle h,
 	goto done;
     }
     regex = vec[1];
-    if (clicon_dbitems_match(dbname, regex, attr, val, &cvecv, &len) < 0)
-	goto done;
-    i = 0;
-    while (cvecv[i] != NULL)
-	if (add2xml_cb(h, dbname, NULL, cvecv[i++], xt) < 0)
+    if (cli_send2backend(h)){
+	if (clicon_rpc_dbitems(h, dbname, regex, attr, val, &cvecv, &clen) < 0)
 	    goto done;
-    clicon_dbitems_free(cvecv);
+    }
+    else
+	if (clicon_dbitems_match(dbname, regex, attr, val, &cvecv, &clen) < 0)
+	    goto done;
+    /* Here we have retrieved a vector of cvecs, ie the database contents. */
+    /* Now translate that to XML. */
+    for (i=0; i<clen; i++)
+	if (cvec2xml(clicon_dbspec_key(h), cvecv[i], xt) < 0)
+	    goto done;
     retval = 0;
 done:
+    if (cvecv)
+	clicon_dbitems_free(cvecv, clen);
     unchunk_group(__FUNCTION__);
     if (x0)
 	xml_free(x0);
@@ -1677,15 +1749,15 @@ done:
 }
 
 
-/*
- * Show a configuration database on stdout using XML format
+/*! Show a configuration database on stdout using XML format
+ * Utility function used by cligen spec file
  */
 static int
 show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
 {
     cxobj *xt = NULL;
     cxobj *xc;
-    int              retval = -1;
+    int    retval = -1;
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto done;
@@ -1706,7 +1778,8 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
 
 }
 
-/* Show configuration as prettyprinted xml 
+/*! Show configuration as prettyprinted xml 
+ * Utility function used by cligen spec file
  */
 int
 show_conf_as_xml(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1714,7 +1787,8 @@ show_conf_as_xml(clicon_handle h, cvec *vars, cg_var *arg)
     return show_conf_as_xml1(h, vars, arg, 0);
 }
 
-/* Show configuration as prettyprinted xml with netconf hdr/tail
+/*! Show configuration as prettyprinted xml with netconf hdr/tail
+ * Utility function used by cligen spec file
  */
 int
 show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1722,7 +1796,8 @@ show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg)
     return show_conf_as_xml1(h, vars, arg, 1);
 }
 
-/* Show configuration as JSON
+/*! Show configuration as JSON
+ * Utility function used by cligen spec file
  */
 int
 show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1745,8 +1820,8 @@ show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg)
     return retval;
 }
 
-/*
- * @param as_cmd  Show as command, ie not tree format but as one-line commands
+/*! Show configuration as text
+ * Utility function used by cligen spec file
  */
 static int
 show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg)
@@ -1843,6 +1918,7 @@ static int
 cli_notification_cb(int s, void *arg)
 {
     struct clicon_msg *reply;
+    enum clicon_msg_type type;
     int                eof;
     int                retval = -1;
     char              *eventstr = NULL;
@@ -1863,7 +1939,8 @@ cli_notification_cb(int s, void *arg)
     }
     if (format == NULL)
 	goto done;
-    switch (reply->op_type){
+    type = ntohs(reply->op_type);
+    switch (type){
     case CLICON_MSG_NOTIFY:
 	if (clicon_msg_notify_decode(reply, &level, &eventstr, __FUNCTION__) < 0) 
 	    goto done;
@@ -1898,7 +1975,7 @@ cli_notification_cb(int s, void *arg)
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
-		__FUNCTION__, reply->op_type);
+		__FUNCTION__, type);
 	goto done;
 	break;
     }

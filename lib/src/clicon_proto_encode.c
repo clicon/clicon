@@ -57,6 +57,7 @@
 #include "clicon_handle.h"
 #include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
+#include "clicon_dbutil.h"
 #include "clicon_proto.h"
 #include "clicon_proto_encode.h"
 
@@ -66,9 +67,9 @@ static struct clicon_msg *
 clicon_msg_1str_encode(char *str, enum clicon_msg_type op, const char *label)
 {
     struct clicon_msg *msg;
-    int hdrlen = sizeof(*msg);
-    int len;
-    int p;
+    int                hdrlen = sizeof(*msg);
+    uint16_t           len;
+    int                p;
 
     assert(str);
     p = 0;
@@ -79,8 +80,8 @@ clicon_msg_1str_encode(char *str, enum clicon_msg_type op, const char *label)
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = op;
-    msg->op_len = len;
+    msg->op_type = htons(op);
+    msg->op_len = htons(len);
     /* body */
     strncpy(msg->op_body+p, str, len-p-hdrlen);
     p += strlen(str)+1;
@@ -112,10 +113,10 @@ clicon_msg_commit_encode(char *dbsrc, char *dbdst,
 			const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
-    int p;
-    uint32_t tmp;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    uint32_t           tmp;
 
     clicon_debug(2, "%s: snapshot: %d startup: %d dbsrc: %s dbdst: %s", 
 	    __FUNCTION__, 
@@ -129,8 +130,8 @@ clicon_msg_commit_encode(char *dbsrc, char *dbdst,
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_COMMIT;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_COMMIT);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(snapshot);
     memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));
@@ -184,8 +185,8 @@ struct clicon_msg *
 clicon_msg_validate_encode(char *db, const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
 
     clicon_debug(2, "%s: db: %s", __FUNCTION__, db);
     len = sizeof(*msg) + strlen(db) + 1;
@@ -195,8 +196,8 @@ clicon_msg_validate_encode(char *db, const char *label)
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_VALIDATE;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_VALIDATE);
+    msg->op_len = htons(len);
     /* body */
     strncpy(msg->op_body, db, len-hdrlen);
     return msg;
@@ -221,10 +222,10 @@ clicon_msg_change_encode(char *db, uint32_t op,	char *key,
 			const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
-    int p;
-    uint32_t tmp;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    uint32_t           tmp;
 
     clicon_debug(2, "%s: op: %d lvec_len: %d db: %s key: '%s'", 
 	    __FUNCTION__, 
@@ -242,8 +243,8 @@ clicon_msg_change_encode(char *db, uint32_t op,	char *key,
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_CHANGE;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_CHANGE);
+    msg->op_len = htons(len);
 
     /* body */
     tmp = htonl(op);
@@ -311,15 +312,259 @@ clicon_msg_change_decode(struct clicon_msg *msg,
     return 0;
 }
 
+/*!
+ * @param[in]  rx    Regular expression for key matching. NULL or "^.*$" match all
+ */
+struct clicon_msg *
+clicon_msg_dbitems_get_encode(char       *db, 
+			      char       *rx,
+			      char       *attr,
+			      char       *val,
+			      const char *label)
+{
+    struct clicon_msg *msg;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+
+    clicon_debug(1, "%s: db: %s rx: %s attr: %s val: '%s'", 
+	    __FUNCTION__, 
+		 db, rx, attr, val);
+    p = 0;
+    len = sizeof(*msg) + strlen(db) + 1 + (rx?strlen(rx):0) + 1;
+    if (attr)
+	len += strlen(attr) + 1 + strlen(val) + 1;
+    else
+	len += 1 + 1;
+    if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk", __FUNCTION__);
+	return NULL;
+    }
+    memset(msg, 0, len);
+    /* hdr */
+    msg->op_type = htons(CLICON_MSG_DBITEMS);
+    msg->op_len = htons(len);
+
+    /* body */
+    strncpy(msg->op_body+p, db, len-p-hdrlen);
+    p += strlen(db)+1;
+    if (rx){
+	strncpy(msg->op_body+p, rx, len-p-hdrlen);
+	p += strlen(rx)+1;
+    }
+    else{
+	*(msg->op_body+p) = '\0';
+	p++;
+    }
+    if (attr){
+	strncpy(msg->op_body+p, attr, len-p-hdrlen);
+	p += strlen(attr)+1;
+	strncpy(msg->op_body+p, val, len-p-hdrlen);
+	p += strlen(val)+1;
+    }
+    else{
+	*(msg->op_body+p) = '\0';
+	p++;
+	*(msg->op_body+p) = '\0';
+	p++;
+    }
+    return msg;
+}
+
+int
+clicon_msg_dbitems_get_decode(struct clicon_msg *msg, 
+			      char             **db, 
+			      char             **rx, 
+			      char             **attr, 
+			      char             **val, 
+			      const char        *label)
+{
+    int      p;
+
+    p = 0;
+    /* body */
+    if ((*db = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		__FUNCTION__);
+	return -1;
+    }
+    p += strlen(*db)+1;
+    if (strlen(msg->op_body+p)){
+	if ((*rx = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	    clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		       __FUNCTION__);
+	    return -1;
+	}
+	p += strlen(*rx)+1;
+    }
+    else{
+	*rx = NULL;
+	p++;
+    }
+    if ((*attr = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		__FUNCTION__);
+	return -1;
+    }
+    p += strlen(*attr)+1;
+    if ((*val = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		__FUNCTION__);
+	return -1;
+    }
+    p += strlen(*val)+1;
+
+    clicon_debug(1, "%s: db: %s rx: %s attr: %s val: '%s'", 
+	    __FUNCTION__, 
+	    *db, *rx, *attr, *val);
+    return 0;
+}
+
+/*! Encode a dbitems reply message
+ * @param[in]  cvecv   Vector of cvecs
+ * @param[in]  cveclen Number of cvecs in vector
+ * @param[in]  label   For allocating memory with chunks
+ * message format:
+ *   type, len, [4]
+ *   cveclen[4]
+ *   { cvec-name, lvec-len, lvec }*
+ */
+struct clicon_msg *
+clicon_msg_dbitems_get_reply_encode(cvec          **cvecv,
+				int             cveclen,
+				const char     *label)
+{
+    struct clicon_msg *msg;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    uint32_t           tmp;
+    char             **lvecv = NULL;
+    size_t            *lvecl = NULL;
+    int                i;
+    cvec              *cvv;
+
+    clicon_debug(1, "%s", __FUNCTION__);
+    p = 0;
+    len = 0;
+    len = sizeof(*msg) + sizeof(cveclen);
+    /* Allocate two vectors: one for lvecs and one for length of lvecs */
+    clicon_debug(1, "%s cveclen: %d", __FUNCTION__, cveclen);
+    if (cveclen){
+	if ((lvecv = calloc(cveclen, sizeof(char*))) == NULL){
+	    clicon_err(OE_PROTO, errno, "calloc");
+	    return NULL;
+	}
+	if ((lvecl = calloc(cveclen, sizeof(int))) == NULL){
+	    clicon_err(OE_PROTO, errno, "calloc");
+	    return NULL;
+	}
+	
+	for (i=0; i<cveclen; i++){
+	    if ((cvv = cvecv[i]) == NULL)
+		break;
+	    len += strlen(cvec_name_get(cvv)) + 1;
+
+	    lvecv[i] = cvec2lvec(cvv, &lvecl[i]);
+	    clicon_debug(1, "%s: %d", __FUNCTION__, lvecl[i]);
+	    len += sizeof(int) +lvecl[i];
+	}
+    }
+    if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk", __FUNCTION__);
+	return NULL;
+    }
+    memset(msg, 0, len);
+    /* hdr */
+    msg->op_type = htons(CLICON_MSG_OK);
+    msg->op_len = htons(len);
+
+    /* body */
+    tmp = htonl(cveclen);
+    /* cveclen */
+    memcpy(msg->op_body+p, &tmp, sizeof(int));
+    clicon_debug(1, "%s %d", __FUNCTION__, cveclen);
+    p += sizeof(int);
+    for (i=0; i<cveclen; i++){
+	/* cvec-name */
+	strncpy(msg->op_body+p, cvec_name_get(cvecv[i]), len-p-hdrlen);
+	p += strlen(cvec_name_get(cvecv[i])) + 1;
+
+	/* lvec-len */
+	tmp = htonl(lvecl[i]);
+	memcpy(msg->op_body+p, &tmp, sizeof(int));
+	p += sizeof(uint32_t);
+
+	/* lvec */
+	memcpy(msg->op_body+p, lvecv[i], lvecl[i]);
+	p += lvecl[i];
+    }
+    for (i=0; i<cveclen; i++)
+	free(lvecv[i]);
+    if (lvecv != NULL)
+	free(lvecv);
+    if (lvecl != NULL)
+	free(lvecl);
+    return msg;
+}
+
+/*! Decode database items reply 
+ */
+int
+clicon_msg_dbitems_get_reply_decode(char              *data,
+				uint16_t           datalen,
+				cvec            ***cvecv,
+				size_t            *cveclen,
+				const char        *label)
+{
+    int      p;
+    uint32_t tmp;
+    int      i;
+    char    *key;
+    int      lveclen;
+    cvec    *cvv;
+
+    p = 0;
+    memcpy(&tmp, data+p, sizeof(int));
+    /* cveclen */
+    *cveclen = ntohl(tmp);
+    clicon_debug(1, "%s cveclen: %d", __FUNCTION__, *cveclen);
+    if ((*cvecv = calloc(*cveclen + 1, sizeof(cvec *))) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: calloc", __FUNCTION__);
+	return -1;
+    }
+    p += sizeof(int);
+    for (i=0; i<*cveclen; i++){
+	/* cvec-name */
+	key = data + p;
+	p += strlen(key)+1;
+	/* lvec-len */
+	memcpy(&tmp, data+p, sizeof(int));
+	lveclen = ntohl(tmp);
+	p += sizeof(int);
+	/* lvec */
+	if ((cvv = lvec2cvec(data+p, lveclen)) == NULL)
+	    return -1;
+	cvec_name_set(cvv, key);
+	if (debug){ /* XXX */
+	    cvec_print(stderr, cvv);
+	}
+	(*cvecv)[i] = cvv;
+	p += lveclen;
+    }
+    return 0;
+}
+
+
 struct clicon_msg *
 clicon_msg_save_encode(char *db, uint32_t snapshot, char *filename, 
 		      const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
-    int p;
-    uint32_t tmp;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    uint32_t           tmp;
 
     clicon_debug(2, "%s: snapshot: %d db: %s filename: %s", 
 	    __FUNCTION__, 
@@ -335,8 +580,8 @@ clicon_msg_save_encode(char *db, uint32_t snapshot, char *filename,
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_SAVE;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_SAVE);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(snapshot);
     memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));
@@ -389,10 +634,10 @@ struct clicon_msg *
 clicon_msg_load_encode(int replace, char *db, char *filename, const char *label)
 {
     struct clicon_msg *msg;
-    int hdrlen = sizeof(*msg);
-    int len;
-    uint32_t tmp;
-    int p;
+    int                hdrlen = sizeof(*msg);
+    uint16_t           len;
+    uint32_t           tmp;
+    int                p;
 
     clicon_debug(2, "%s: replace: %d db: %s filename: %s", 
 	    __FUNCTION__, 
@@ -405,8 +650,8 @@ clicon_msg_load_encode(int replace, char *db, char *filename, const char *label)
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_LOAD;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_LOAD);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(replace);
     memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));
@@ -447,9 +692,9 @@ clicon_msg_load_decode(struct clicon_msg *msg,
     }
     p += strlen(*filename)+1;
     clicon_debug(2, "%s: %d db: %s filename: %s", 
-	    __FUNCTION__, 
-	    msg->op_type,
-	    *db, *filename);
+		 __FUNCTION__, 
+		 ntohs(msg->op_type),
+		 *db, *filename);
     return 0;
 }
 
@@ -497,9 +742,9 @@ clicon_msg_copy_encode(char *filename_src, char *filename_dst,
 		      const char *label)
 {
     struct clicon_msg *msg;
-    int hdrlen = sizeof(*msg);
-    int len;
-    int p;
+    int                hdrlen = sizeof(*msg);
+    uint16_t           len;
+    int                p;
 
     clicon_debug(2, "%s: filename_src: %s filename_dst: %s", 
 	    __FUNCTION__, 
@@ -512,8 +757,8 @@ clicon_msg_copy_encode(char *filename_src, char *filename_dst,
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_COPY;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_COPY);
+    msg->op_len = htons(len);
     /* body */
     strncpy(msg->op_body+p, filename_src, len-p-hdrlen);
     p += strlen(filename_src)+1;
@@ -592,9 +837,9 @@ struct clicon_msg *
 clicon_msg_kill_encode(uint32_t session_id, const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int p;
-    uint32_t tmp;
+    uint16_t           len;
+    int                p;
+    uint32_t           tmp;
 
     clicon_debug(2, "%s: %d", __FUNCTION__, session_id);
     p = 0;
@@ -605,8 +850,8 @@ clicon_msg_kill_encode(uint32_t session_id, const char *label)
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_KILL;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_KILL);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(session_id);
     memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));
@@ -636,9 +881,9 @@ struct clicon_msg *
 clicon_msg_debug_encode(uint32_t level, const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int p;
-    uint32_t tmp;
+    uint16_t           len;
+    int                p;
+    uint32_t           tmp;
 
     clicon_debug(2, "%s: %d", __FUNCTION__, label);
     p = 0;
@@ -649,8 +894,8 @@ clicon_msg_debug_encode(uint32_t level, const char *label)
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_DEBUG;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_DEBUG);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(level);
     memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));
@@ -685,10 +930,10 @@ clicon_msg_call_encode(uint16_t op,
 		       void *arg,
 		       const char *label)
 {
-    struct clicon_msg *msg;
+    struct clicon_msg          *msg;
     struct clicon_msg_call_req *req;
-    int hdrlen = sizeof(*msg);
-    int len;
+    int                         hdrlen = sizeof(*msg);
+    int                         len;
     
     clicon_debug(2, "%s: %d plugin: %s func: %s arglen: %d", 
 	    __FUNCTION__, op, plugin, func, arglen);
@@ -704,8 +949,8 @@ clicon_msg_call_encode(uint16_t op,
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_CALL;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_CALL);
+    msg->op_len = htons(len);
     /* req */
     req = (struct clicon_msg_call_req *)msg->op_body;
     req->cr_len = htons(len - hdrlen);
@@ -755,10 +1000,10 @@ clicon_msg_subscription_encode(int status,
 			       const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
-    int p;
-    int tmp;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    int                tmp;
 
     clicon_debug(2, "%s: %d %d %s %s", __FUNCTION__, status, format, stream, filter);
     p = 0;
@@ -770,8 +1015,8 @@ clicon_msg_subscription_encode(int status,
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_SUBSCRIPTION;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_SUBSCRIPTION);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(status);
     memcpy(msg->op_body+p, &tmp, sizeof(int));
@@ -832,10 +1077,10 @@ struct clicon_msg *
 clicon_msg_notify_encode(int level, char *event, const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
-    int p;
-    int tmp;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    int                tmp;
 
     clicon_debug(2, "%s: %d %s", __FUNCTION__, level, event);
     p = 0;
@@ -847,8 +1092,8 @@ clicon_msg_notify_encode(int level, char *event, const char *label)
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_NOTIFY;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_NOTIFY);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(level);
     memcpy(msg->op_body+p, &tmp, sizeof(int));
@@ -886,10 +1131,10 @@ struct clicon_msg *
 clicon_msg_err_encode(uint32_t err, uint32_t suberr, char *reason, const char *label)
 {
     struct clicon_msg *msg;
-    int len;
-    int hdrlen = sizeof(*msg);
-    int p;
-    uint32_t tmp;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    uint32_t           tmp;
 
     clicon_debug(2, "%s: %d %d %s", __FUNCTION__, err, suberr, reason);
     p = 0;
@@ -901,8 +1146,8 @@ clicon_msg_err_encode(uint32_t err, uint32_t suberr, char *reason, const char *l
     }
     memset(msg, 0, len);
     /* hdr */
-    msg->op_type = CLICON_MSG_ERR;
-    msg->op_len = len;
+    msg->op_type = htons(CLICON_MSG_ERR);
+    msg->op_len = htons(len);
     /* body */
     tmp = htonl(err);
     memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));

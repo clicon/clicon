@@ -13,7 +13,8 @@
  * @retval TRUE            This is a description of the return value
  * @retval FALSE           This is a description of another return value
  * @see anotherfn()
- */
+ * @note This is just an example
+  */
 
 /*! This is a documentation of a typedef or struct
  *

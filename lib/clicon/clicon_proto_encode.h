@@ -61,6 +61,32 @@ clicon_msg_change_decode(struct clicon_msg *msg,
 			const char *label);
 
 struct clicon_msg *
+clicon_msg_dbitems_get_encode(char       *db, 
+			  char       *rx,
+			  char       *attr,
+			  char       *val,
+			  const char *label);
+
+int
+clicon_msg_dbitems_get_decode(struct clicon_msg *msg, 
+			  char             **db, 
+			  char             **rx, 
+			  char             **attr, 
+			  char             **val, 
+			  const char        *label);
+
+struct clicon_msg *
+clicon_msg_dbitems_get_reply_encode(cvec          **cvecv,
+				int             cveclen,
+				const char     *label);
+int 
+clicon_msg_dbitems_get_reply_decode(char              *data,
+				uint16_t           datalen,
+				cvec            ***cvecv,
+				size_t            *cveclen,
+				const char        *label);
+
+struct clicon_msg *
 clicon_msg_save_encode(char *db, uint32_t snapshot, char *filename, 
 		      const char *label);
 

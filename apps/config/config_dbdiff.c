@@ -178,24 +178,27 @@ dbdiff_single(char *db1, char *db2,
     return retval;
 }	    
 
-/*
- * dbdiff_vector
- * XXX: optimize as follows: find the unique vars of the dbspec (pass it)
- * get their value of the first list in the outer loop using cv_name_get().
- * compare these with the inner loop (we should know the type) using cv_cmp.
- * That is, cache the unique variables per 
+/*! Detect differences between two databases and return in dbdiff structure
  * 
+ * @param[in]     db1         database 1, typically running
+ * @param[in]     db2         database 2, typically candidate
+ * @param[in]     key         Database key pattern
+ * @param[in,out] df          dbdiff struct containing list of database changes
+ * @param[in]     label       label for chunk memory handling
+ * 
+ * @see dbdiff_vector_1 optimized version
  */
 static int
-dbdiff_vector(char *db1, char *db2, 
-	      char *key,
+dbdiff_vector(char          *db1,
+	      char          *db2, 
+	      char          *key,
 	      struct dbdiff *df,
-	      const char *label)
+	      const char    *label)
 {
     int                   i1;
     int                   i2;
-    size_t                nitems1;
-    size_t                nitems2;
+    size_t                nitems1 = 0;
+    size_t                nitems2 = 0;
     cvec                **items1 = NULL;
     cvec                **items2 = NULL;
     int                   retval = -1;
@@ -245,9 +248,9 @@ dbdiff_vector(char *db1, char *db2,
     retval = 0;
   quit:
     if (items1)
-        clicon_dbitems_free(items1);
+        clicon_dbitems_free(items1, nitems1);
     if (items2)
-        clicon_dbitems_free(items2);
+        clicon_dbitems_free(items2, nitems2);
 
     return retval;
 }	    
@@ -271,16 +274,24 @@ dbcmp(const void* arg1, const void* arg2)
     return cv_cmp(d1->cv, d2->cv);
 }
 
-/* 
- * dbdiff_vector_1
- * Optimized variant of dbdiff_vector() for keys with one unique variable
+/*! Optimized variant of dbdiff_vector() for keys with one unique variable
+ *
+ * @param[in]     db1         database 1, typically running
+ * @param[in]     db2         database 2, typically candidate
+ * @param[in]     key         Database key pattern
+ * @param[in,out] df          dbdiff struct containing list of database changes
+ * @param[in]     label       label for chunk memory handling
+ *
  * Optimized using two sorted string arrays with linear complexity.
  * We could generalize with more than one unique variable to get rid of 
  * dbdiff_vector() bit it is still needed as fallback for the general case.
  * Now, dbregexp is the one eating most cycles 
+ *
+ * @see dbdiff_vector non-optimized version
 */
 static int
-dbdiff_vector_1(char *db1, char *db2, 
+dbdiff_vector_1(char          *db1,
+		char          *db2,
 		char          *key,
 		struct dbdiff *df,
 		char          *name, /* unique cv */
@@ -294,8 +305,8 @@ dbdiff_vector_1(char *db1, char *db2,
     cvec                 *vars;
     cg_var               *cv;
     int                   res;
-    size_t                nitems1;
-    size_t                nitems2;
+    size_t                nitems1 = 0;
+    size_t                nitems2 = 0;
     cvec                **items1 = NULL;
     cvec                **items2 = NULL;
 
@@ -369,9 +380,9 @@ dbdiff_vector_1(char *db1, char *db2,
     retval = 0;
   quit:
     if (items1)
-        clicon_dbitems_free(items1);
+        clicon_dbitems_free(items1, nitems1);
     if (items2)
-        clicon_dbitems_free(items2);
+        clicon_dbitems_free(items2, nitems2);
     if (v1)
         free(v1);
     if (v2)

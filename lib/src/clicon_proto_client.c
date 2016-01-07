@@ -60,7 +60,8 @@
  * @param[in]    msg    Encoded message
  * @param[out]   ret    Return value from backend server (reply)
  * @param[out]   retlen Length of return value
- * @param[inout] sock0  If pointer exists, do not close socket to backend on success and return it here.
+ * @param[inout] sock0  If pointer exists, do not close socket to backend on success 
+ *                      and return it here. For keeping a notify socket open
  * @param[in]    label  Chunk label for deallocating return values
  * Deallocate with unchunk_group(label)
  * Note: sock0 is if connection should be persistent, like a notification/subscribe api
@@ -164,64 +165,77 @@ clicon_rpc_validate(clicon_handle h,
 }
 
 /*! Send database change request to backend daemon
- * @param[in] h          CLICON handle
- * @param[in] db         Name of database
- * @param[in] op         Operation on database item: set, delete, (merge?)
- * @param[in] key        Database key
- * @param[in] lvec       value of key as lvalue vector        
- * @param[in] lvec_len   Length of lvalue vector        
- *
- * @see clicon_rpc_change_cvec
- */
-int
-clicon_rpc_change(clicon_handle h, 
-		  char         *db, 
-		  lv_op_t       op,
-		  char         *key, 
-		  char         *lvec, 
-		  int           lvec_len)
-{
-    int                retval = -1;
-    struct clicon_msg *msg;
-
-    if ((msg = clicon_msg_change_encode(db, op, key, lvec, lvec_len,
-				       __FUNCTION__)) == NULL)
-	goto done;
-    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
-	goto done;
-    retval = 0;
- done:
-    unchunk_group(__FUNCTION__);
-    return retval;
-}
-
-/*! Send database change request to backend daemon
  * Same as clicon_proto_change just with a cvec instead of lvec
  * @param[in] h          CLICON handle
  * @param[in] db         Name of database
  * @param[in] op         Operation on database item: set, delete, (merge?)
  * @param[in] key        Database key
  * @param[in] cvv        value of key as cvec
- *
- * @see clicon_rpc_change_cvec
+ * @retval    0          OK
+ * @retval   -1          Error
  */
 int
-clicon_rpc_change_cvec(clicon_handle h, 
-		       char         *db, 
-		       lv_op_t       op,
-		       char         *key, 
-		       cvec         *cvv)
+clicon_rpc_change(clicon_handle h, 
+		  char         *db, 
+		  lv_op_t       op,
+		  char         *key, 
+		  cvec         *cvv)
 {
+    int              retval = -1;
     char            *lvec = NULL;
     size_t           lvec_len;
-    int              retval = -1;
+    struct clicon_msg *msg;
 
     if ((lvec = cvec2lvec(cvv, &lvec_len)) == NULL)
 	goto done;
-    retval = clicon_rpc_change(h, db, op, key, lvec, lvec_len);
+    if ((msg = clicon_msg_change_encode(db, op, key, lvec, lvec_len,
+				       __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
+    retval = 0;
   done:
+    unchunk_group(__FUNCTION__);
     if (lvec)
 	free(lvec);
+    return retval;
+}
+
+
+/*! Get database entries given key and attribute patterns from backend
+ * @param[in]  h     CLICON handle
+ * @param[in]  db    Name of database
+ * @param[in]  rx    Regular expression for key matching. "^.*$" matches everything
+ * @param[in]  attr  Name of attribute whose values should match
+ * @param[in]  val   Attribute value match pattern
+ * @param[out] cvv   Vector of database items
+ * @param[out] cvvlen Pointer where length of returned vector is stored.
+ */
+int
+clicon_rpc_dbitems(clicon_handle h, 
+		   char         *db, 
+		   char         *rx,
+		   char         *attr,
+		   char         *val,
+		   cvec       ***cvv, 
+		   size_t       *cvvlen)
+{
+    int                retval = -1;
+    struct clicon_msg *msg;
+    uint16_t           retlen;
+    char              *ret = NULL;
+
+    if ((msg=clicon_msg_dbitems_get_encode(db, rx, attr, val,
+				       __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, &ret, &retlen, NULL, __FUNCTION__) < 0)
+	goto done;
+    if (clicon_msg_dbitems_get_reply_decode(ret, retlen, 
+					cvv, cvvlen, __FUNCTION__) < 0)
+	goto done;
+    retval = 0;
+ done:
+    unchunk_group(__FUNCTION__);
     return retval;
 }
 

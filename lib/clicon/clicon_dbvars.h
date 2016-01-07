@@ -69,5 +69,6 @@ int clicon_dbvarslex(void *);
 int clicon_dbvarsparse(void *);
 void clicon_dbvarserror(void *_ya, char *);
 int clicon_dbvars_debug(int d);
+clicon_dbvars_t *clicon_set_parse(dbspec_key *spec, char *db, cvec *vars, const char *fmt);
 
 #endif /* __CLICON_DBVARS_H__ */

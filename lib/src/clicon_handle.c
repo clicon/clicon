@@ -102,9 +102,8 @@ clicon_handle_init(void)
     return clicon_handle_init0(sizeof(struct clicon_handle));
 }
 
-/* 
- * Deallocate handle.
- * Includes freeing options.
+/*! Deallocate clicon handle, including freeing handle data.
+ * @Note: handle 'h' cannot be used in calls after this
  */
 int
 clicon_handle_exit(clicon_handle h)
@@ -120,7 +119,6 @@ clicon_handle_exit(clicon_handle h)
     free(ch);
     return 0;
 }
-
 
 /*
  * Check struct magic number for sanity checks

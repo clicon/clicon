@@ -78,7 +78,7 @@ ntp_commit(clicon_handle h,
 	   commit_op op, 
 	   commit_data d)
 {
-    fprintf(stderr, "%s\n", __FUNCTION__);    
+    //    fprintf(stderr, "%s\n", __FUNCTION__);    
     ntp_reload = 1; /* Mark NTP config as changed */
     return 0;
 }

@@ -33,7 +33,7 @@ struct db_pair {
     char *dp_key;  /* database key */
     char *dp_matched; /* Matched component of key */
     char *dp_val;  /* pointer to vector of lvalues */
-    int dp_vlen;   /* length of vector of lvalues */
+    int   dp_vlen; /* length of vector of lvalues */
 };
 
 /*

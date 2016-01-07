@@ -43,10 +43,10 @@ BE_PLUGIN       = ntp_backend.so
 
 PLUGINS = $(FE_PLUGIN) $(BE_PLUGIN) $(NC_PLUGIN) 
 
+all:	$(PLUGINS) $(APPNAME).conf
+
 # Includes clicon dirs
 -include $(datarootdir)/clicon/clicon.mk
-
-all:	$(PLUGINS)
 
 # You can add more .c:s for every SRC.
 FE_SRC   = ntp_cli.c

@@ -909,6 +909,7 @@ netconf_notification_cb(int s, void *arg)
     int                retval = -1;
     cbuf              *cb;
     cxobj             *xe = NULL; /* event xml */
+    enum clicon_msg_type type;
 
     if (0){
 	fprintf(stderr, "%s\n", __FUNCTION__); /* debug */
@@ -928,7 +929,8 @@ netconf_notification_cb(int s, void *arg)
 	goto done;
     }
     /* multiplex on message type: we only expect notify */
-    switch (reply->op_type){
+    type = ntohs(reply->op_type);
+    switch (type){
     case CLICON_MSG_NOTIFY:
 	if (clicon_msg_notify_decode(reply, &level, &event, __FUNCTION__) < 0) 
 	    goto done;
@@ -965,7 +967,7 @@ netconf_notification_cb(int s, void *arg)
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
-		__FUNCTION__, reply->op_type);
+		__FUNCTION__, type);
 	goto done;
 	break;
     }

@@ -111,7 +111,7 @@ dump_database(char *dbname, char *rxkey, int brief, dbspec_key *dbspec)
 static int
 remove_entry(char *dbname, char *key)
 {
-  return db_del(dbname, key);
+  return clicon_dbdel(dbname, key);
 }
 
 /*
@@ -124,7 +124,7 @@ usage(char *argv0)
 	    "where options are\n"
             "\t-h\t\tHelp\n"
             "\t-D\t\tDebug\n"
-    	    "\t-f <file>\tCLICON config file\n"
+    	    "\t-f <file>\tCLICON config file (mandatory)\n"
             "\t-d <dbname>\tDatabase name (default: running_db)\n"
 	    "\t-s <file>\tSpecify db spec file\n"
     	    "\t-p\t\tDump database on stdout\n"

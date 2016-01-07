@@ -270,30 +270,6 @@ catch:
     return cvec;
 }
 
-/*
- * cvec2dbkey
- * Write a key+cvec to database.
- */
-int 
-cvec2dbkey(char *dbname, char *key, cvec *cvec)
-{
-    int              retval = -1;
-    char            *lvec = NULL;
-    size_t           lvlen;
-
-    /* Transform variable list to contiguous char vector */
-    if ((lvec = cvec2lvec(cvec, &lvlen)) == NULL)
-	goto done;
-    /* Write to database, key and a vector of variables */
-    if (db_set(dbname, key, lvec, lvlen) < 0)
-	goto done;
-    retval = 0;
- done:
-    if (lvec)
-	free(lvec);
-    return retval;
-}
-
 /*! Translate from lvec to CLIgen vector
  * @param[in] lvec  Lvec
  * @param[in] len   Length of lvec

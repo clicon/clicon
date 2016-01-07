@@ -170,13 +170,13 @@ atomicio(ssize_t (*fn) (int, void *, size_t), int fd, void *_s, size_t n)
 static int
 msg_dump(struct clicon_msg *msg)
 {
-    int i;
+    int  i;
     char buf[9*8];
     char buf2[9*8];
     
     memset(buf2, 0, sizeof(buf2));
     snprintf(buf2, sizeof(buf2), "%s:", __FUNCTION__);
-    for (i=0; i<msg->op_len; i++){
+    for (i=0; i<ntohs(msg->op_len); i++){
 	snprintf(buf, sizeof(buf), "%s%02x", buf2, ((char*)msg)[i]&0xff);
 	if ((i+1)%32==0){
 	    clicon_debug(2, buf);
@@ -198,11 +198,11 @@ clicon_msg_send(int s, struct clicon_msg *msg)
     int retval = -1;
 
     clicon_debug(2, "%s: send msg seq=%d len=%d", 
-	    __FUNCTION__, msg->op_type, msg->op_len);
+		 __FUNCTION__, ntohs(msg->op_type), ntohs(msg->op_len));
     if (debug > 2)
 	msg_dump(msg);
     if (atomicio((ssize_t (*)(int, void *, size_t))write, 
-		 s, msg, msg->op_len) < 0){
+		 s, msg, ntohs(msg->op_len)) < 0){
 	clicon_err(OE_CFG, errno, "%s", __FUNCTION__);
 	goto done;
     }
@@ -230,45 +230,48 @@ clicon_msg_send(int s, struct clicon_msg *msg)
  * Note: caller must ensure that s is closed if eof is set after call.
  */
 int
-clicon_msg_rcv(int s,
+clicon_msg_rcv(int                s,
 	      struct clicon_msg **msg,
-	      int *eof,
-	      const char *label)
+	      int                *eof,
+	      const char         *label)
 { 
-    int retval = -1;
+    int       retval = -1;
     struct clicon_msg hdr;
-    int len, len2;
+    int       hlen;
+    int       len2;
     sigfn_t   oldhandler;
+    uint16_t  mlen;
 
     *eof = 0;
     if (0)
 	set_signal(SIGINT, atomicio_sig_handler, &oldhandler);
 
-    if ((len = atomicio(read, s, &hdr, sizeof(hdr))) < 0){ 
+    if ((hlen = atomicio(read, s, &hdr, sizeof(hdr))) < 0){ 
 	clicon_err(OE_CFG, errno, "%s", __FUNCTION__);
 	goto done;
     }
-    if (len == 0){
+    if (hlen == 0){
 	retval = 0;
 	*eof = 1;
 	goto done;
     }
-    if (len != sizeof(hdr)){
-	clicon_err(OE_CFG, errno, "%s: header too short (%d)", __FUNCTION__, len);
+    if (hlen != sizeof(hdr)){
+	clicon_err(OE_CFG, errno, "%s: header too short (%d)", __FUNCTION__, hlen);
 	goto done;
     }
+    mlen = ntohs(hdr.op_len);
     clicon_debug(2, "%s: rcv msg seq=%d, len=%d",  
-	    __FUNCTION__, hdr.op_type, hdr.op_len);
-    if ((*msg = (struct clicon_msg *)chunk(hdr.op_len, label)) == NULL){
+		 __FUNCTION__, ntohs(hdr.op_type), mlen);
+    if ((*msg = (struct clicon_msg *)chunk(mlen, label)) == NULL){
 	clicon_err(OE_CFG, errno, "%s: chunk", __FUNCTION__);
 	goto done;
     }
-    memcpy(*msg, &hdr, len);
-    if ((len2 = read(s, (*msg)->op_body, hdr.op_len - sizeof(hdr))) < 0){
+    memcpy(*msg, &hdr, hlen);
+    if ((len2 = read(s, (*msg)->op_body, mlen - sizeof(hdr))) < 0){
 	clicon_err(OE_CFG, errno, "%s: read", __FUNCTION__);
 	goto done;
     }
-    if (len2!= hdr.op_len - sizeof(hdr)){
+    if (len2 != mlen - sizeof(hdr)){
 	clicon_err(OE_CFG, errno, "%s: body too short", __FUNCTION__);
 	goto done;
     }
@@ -298,7 +301,8 @@ clicon_rpc_connect_unix(struct clicon_msg *msg,
     int s = -1;
     struct stat sb;
 
-    clicon_debug(1, "Send %s msg on %s", msg_type2str(msg->op_type), sockpath);
+    clicon_debug(1, "Send %s msg on %s", 
+		 msg_type2str(ntohs(msg->op_type)), sockpath);
     /* special error handling to get understandable messages (otherwise ENOENT) */
     if (stat(sockpath, &sb) < 0){
 	clicon_err(OE_PROTO, errno, "%s: config daemon not running?", sockpath);
@@ -337,7 +341,8 @@ clicon_rpc_connect_inet(struct clicon_msg *msg,
     int s = -1;
     struct sockaddr_in addr;
 
-    clicon_debug(1, "Send %s msg to %s:%hu", msg_type2str(msg->op_type), dst, port);
+    clicon_debug(1, "Send %s msg to %s:%hu", 
+		 msg_type2str(ntohs(msg->op_type)), dst, port);
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -375,20 +380,25 @@ clicon_rpc_connect_inet(struct clicon_msg *msg,
  *
  * @param[in]  s       Socket to communicate with backend
  * @param[in]  msg     CLICON msg data structure. It has fixed header and variable body.
- * @param[out] data    Returned data as byte-string. Deallocate w unchunk...(..., label)
- * @param[out] datalen Length of returedn data
+ * @param[out] data    Returned data as byte-strin exclusing header. 
+ *                      Deallocate w unchunk...(..., label)
+ * @param[out] datalen Length of returned data
  * @param[in]  label   Label used in chunk allocation.
  */
 int
-clicon_rpc(int s, struct clicon_msg *msg, 
-	   char **data, uint16_t *datalen,
-	   const char *label)
+clicon_rpc(int                s, 
+	   struct clicon_msg *msg, 
+	   char             **data, 
+	   uint16_t          *datalen,
+	   const char        *label)
 {
-    int retval = -1;
+    int                retval = -1;
     struct clicon_msg *reply;
-    int eof;
-    uint32_t err, suberr;
-    char *reason;
+    int                eof;
+    uint32_t           err;
+    uint32_t           suberr;
+    char              *reason;
+    enum clicon_msg_type type;
 
     if (clicon_msg_send(s, msg) < 0)
 	goto done;
@@ -400,11 +410,12 @@ clicon_rpc(int s, struct clicon_msg *msg,
 	errno = ESHUTDOWN;
 	goto done;
     }
-    switch (reply->op_type){
+    type = ntohs(reply->op_type);
+    switch (type){
     case CLICON_MSG_OK:
         if (data != NULL) {
 	    *data = reply->op_body;
-	    *datalen = reply->op_len - sizeof(*reply);
+	    *datalen = ntohs(reply->op_len) - sizeof(*reply);
 	}
 	break;
     case CLICON_MSG_ERR:
@@ -415,7 +426,7 @@ clicon_rpc(int s, struct clicon_msg *msg,
 	break;
     default:
 	clicon_err(OE_PROTO, 0, "%s: unexpected reply: %d", 
-		__FUNCTION__, reply->op_type);
+		__FUNCTION__, type);
 	goto done;
 	break;
     }
@@ -425,21 +436,23 @@ clicon_rpc(int s, struct clicon_msg *msg,
 }
 
 int 
-send_msg_reply(int s, uint16_t type, char *data, uint16_t datalen)
+send_msg_reply(int      s, 
+	       uint16_t type, 
+	       char    *data, 
+	       uint16_t datalen)
 {
+    int                retval = -1;
     struct clicon_msg *reply;
-    int retval = -1;
-    int len;
+    uint16_t           len;
 
     len = sizeof(*reply) + datalen;
     if ((reply = (struct clicon_msg *)chunk(len, __FUNCTION__)) == NULL)
 	goto done;
     memset(reply, 0, len);
-    reply->op_type = type;
-    reply->op_len = len;
+    reply->op_type = htons(type);
+    reply->op_len = htons(len);
     if (datalen > 0)
       memcpy(reply->op_body, data, datalen);
-
     if (clicon_msg_send(s, reply) < 0)
 	goto done;
     retval = 0;

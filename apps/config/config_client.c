@@ -178,19 +178,25 @@ from_client_change(clicon_handle h,
     int         retval = -1;
     uint32_t    lvec_len;
     char       *lvec;
-    char       *basekey;
+    char       *keyfmt;
     char       *dbname;
     lv_op_t     op;
-    cvec       *vr = NULL;
+    cvec       *cvv = NULL;
     char       *str = NULL;
     dbspec_key *dbspec;
     char       *candidate_db;
+#ifdef CLICON_MSG_CHANGE_KEYFMT
+    clicon_dbvars_t *dbv = NULL;
+#endif /* CLICON_MSG_CHANGE_KEYFMT */
 
     dbspec = clicon_dbspec_key(h);
-    if (clicon_msg_change_decode(msg, &dbname, &op,
-				&basekey, 
-				&lvec, &lvec_len, 
-				label) < 0){
+    if (clicon_msg_change_decode(msg, 
+				 &dbname, 
+				 &op,
+				 &keyfmt, 
+				 &lvec, 
+				 &lvec_len, 
+				 label) < 0){
 	send_msg_err(s, clicon_errno, clicon_suberrno,
 		     clicon_err_reason);
 	goto done;
@@ -207,26 +213,99 @@ from_client_change(clicon_handle h,
 		     "lock failed: locked by %d", db_islocked(h));
 	goto done;
     }
-
-    /* Update database */
-    if((vr = lvec2cvec (lvec, lvec_len)) == NULL)
+    /* Convert lvec->cvec */
+    if((cvv = lvec2cvec (lvec, lvec_len)) == NULL)
 	goto done;
-    if (db_lv_op_exec(dbspec, dbname, basekey, op, vr) < 0){
+#ifdef CLICON_MSG_CHANGE_KEYFMT
+	/* Experimental code where all db access is made at backend */
+    /* Parse keyfmt and variable args */
+    if ((dbv = clicon_set_parse(dbspec, dbname, cvv, keyfmt)) == NULL)
+	goto done;
+    /* Update database */
+    if (db_lv_op_exec(dbspec, dbname, dbv->dbv_key, op, dbv->dbv_vec) < 0){
 	send_msg_err(s, clicon_errno, clicon_suberrno,
 		     clicon_err_reason);
-//	send_msg_err(s, OE_DB, 0, "Executing operation on %s", dbname);
 	goto done;
     }
+#else /* CLICON_MSG_CHANGE_KEYFMT */
+    /* Update database */
+    if (db_lv_op_exec(dbspec, dbname, keyfmt, op, cvv) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+#endif /* CLICON_MSG_CHANGE_KEYFMT */
     if (send_msg_ok(s) < 0)
 	goto done;
     retval = 0;
   done:
     if (str)
 	free(str);
-    if (vr)
-	cvec_free (vr);
+    if (cvv)
+	cvec_free (cvv);
     return retval;
 }
+
+/*! Get database entries given key and attribute patterns
+ */
+static int
+from_client_dbitems(clicon_handle      h,
+		    int                s, 
+		    int                pid, 
+		    struct clicon_msg *msg, 
+		    const char        *label)
+{
+    int             retval = -1;
+    char           *db;
+    char           *rx;
+    char           *attr;
+    char           *attrval;
+    char           *str = NULL;
+    char           *candidate_db;
+    cvec          **cvecv = NULL;
+    size_t          len = 0;
+    struct clicon_msg *rmsg;
+
+    if (clicon_msg_dbitems_get_decode(msg, 
+				  &db,
+				  &rx,
+				  &attr,
+				  &attrval,
+				  label) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+    /* candidate is locked by other client */
+    if (strcmp(db, candidate_db) == 0 &&
+	db_islocked(h) &&
+	pid != db_islocked(h)){
+	send_msg_err(s, OE_DB, 0,
+		     "lock failed: locked by %d", db_islocked(h));
+	goto done;
+    }
+    if (attr && strlen(attr)==0)
+	attr = NULL;
+    if (clicon_dbitems_match(db, rx, attr, attrval, &cvecv, &len) < 0)
+	goto done;
+    if ((rmsg = clicon_msg_dbitems_get_reply_encode(cvecv, len, __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_msg_send(s, rmsg) < 0)
+	goto done;
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    if (cvecv)
+	clicon_dbitems_free(cvecv, len);
+    if (str)
+	free(str);
+    return retval;
+}
+
 
 /*
  * Dump database to file
@@ -266,8 +345,8 @@ from_client_save(clicon_handle h,
     }
     else
 	if (save_db_to_xml(filename, clicon_dbspec_key(h), db, 0) < 0){
-	send_msg_err(s, clicon_errno, clicon_suberrno,
-		     clicon_err_reason);
+	    send_msg_err(s, clicon_errno, clicon_suberrno,
+			 clicon_err_reason);
 	    goto done;
 	}
     if (send_msg_ok(s) < 0)
@@ -741,10 +820,10 @@ int
 from_client(int s, void* arg)
 {
     struct client_entry *ce = (struct client_entry *)arg;
-    clicon_handle h = ce->ce_handle;
-    struct clicon_msg *msg;
-//    int retval = -1;
-    int eof;
+    clicon_handle        h = ce->ce_handle;
+    struct clicon_msg   *msg;
+    enum clicon_msg_type type;
+    int                  eof;
 
     assert(s == ce->ce_s);
     if (clicon_msg_rcv(ce->ce_s, &msg, &eof, __FUNCTION__) < 0)
@@ -753,7 +832,8 @@ from_client(int s, void* arg)
 	backend_client_rm(h, ce); 
 	goto done;
     }
-    switch (msg->op_type){
+    type = ntohs(msg->op_type);
+    switch (type){
     case CLICON_MSG_COMMIT:
 	if (from_client_commit(h, ce->ce_s, msg, __FUNCTION__) < 0)
 	    goto done;
@@ -765,6 +845,11 @@ from_client(int s, void* arg)
     case CLICON_MSG_CHANGE:
 	if (from_client_change(h, ce->ce_s, ce->ce_pid, msg, 
 			    (char *)__FUNCTION__) < 0)
+	    goto done;
+	break;
+    case CLICON_MSG_DBITEMS:
+	if (from_client_dbitems(h, ce->ce_s, ce->ce_pid, msg, 
+				(char *)__FUNCTION__) < 0)
 	    goto done;
 	break;
     case CLICON_MSG_SAVE:
@@ -812,7 +897,7 @@ from_client(int s, void* arg)
 	    goto done;
 	break;
     default:
-	send_msg_err(s, OE_PROTO, 0, "Unexpected message: %d", msg->op_type);
+	send_msg_err(s, OE_PROTO, 0, "Unexpected message: %d", type);
 	goto done;
     }
 //    retval = 0;

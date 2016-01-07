@@ -59,14 +59,16 @@ int
 test(clicon_handle h, cvec *vars, cg_var *arg)
 {
     char        *dbname = clicon_candidate_db(h); /* name of database */
-    cvec        *cvv; /* variable vector */
+    cvec        **cvv; /* variable vector */
     char        *xpath;
+    int          len;
 
     if ((xpath = cvec_find_str(vars, "xpath")) == NULL)
 	goto done;
-    if ((cvv = clicon_dbget_xpath(h, dbname, NULL, xpath)) == NULL)
+    if (clicon_dbget_xpath(h, dbname, NULL, xpath, &cvv, &len) < 0)
 	goto done;
-    cvec_print(stdout, cvv);
+    if (len > 0)
+	cvec_print(stdout, cvv[0]);
  done:
     return 0;
 

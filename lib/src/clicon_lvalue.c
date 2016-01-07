@@ -56,6 +56,7 @@
 #include "clicon_dbspec_key.h"
 #include "clicon_lvalue.h"
 #include "clicon_dbutil.h"
+#include "clicon_db.h"
 #include "clicon_lvalue.h"
 #include "clicon_dbvars.h"
 
@@ -620,21 +621,18 @@ quit:
 #endif /* DB_KEYCONTENT */
 
 
-/*
- * db_lv_set
- * Set key in database. 
- * IN:
- *   spec    Specification of key below
- *   dbname  Database
- *   key     Key
- *   vec     variable, value vector
- *   op      DELETE, SET, MERGE
+/*! Set key in database. 
+ * @param[in] spec    Specification of key below
+ * @param[in] dbname  Database
+ * @param[in] key     Key
+ * @param[in] vec     variable, value vector
+ * @param[in] op      DELETE, SET, MERGE
  */
 int 
 db_lv_set(dbspec_key     *spec, 
 	  char           *dbname,  
 	  char           *key,  
-	  cvec           *vec, 
+	  cvec           *cvv, 
 	  lv_op_t         op)
 {
     int              retval = -1;
@@ -655,22 +653,22 @@ db_lv_set(dbspec_key     *spec,
 		 * vec:[x=42;y=99] old:[x=42;y=100] => vec:[x=42;y=99;y=100] ??
 		 * vec:[x=42;y=99] old:[x=42;y=99]  => vec:[x=42;y=99]
 		 */
-		if (cvec_merge2(orig, vec) < 0)
+		if (cvec_merge2(orig, cvv) < 0)
 		    goto quit;
 	    }
 	    else{ /* Wrong to append old values should be prepended */
-		if (cvec_merge(orig, vec) < 0)
+		if (cvec_merge(orig, cvv) < 0)
 		    goto quit;
 	    }
 	    vec2 = orig;
 	}
     }
     else
-	vec2 = cvec_dup(vec);
+	vec2 = cvec_dup(cvv);
 #if 0
     /* removed because sanity checks for duplicates, and they are OK */
     /* Check sanity */
-    if (sanity_check_cvec(key, spec, vec) < 0)     /* sanity check */
+    if (sanity_check_cvec(key, spec, cvv) < 0)     /* sanity check */
 	goto quit;
 #endif
     /* 
@@ -688,7 +686,7 @@ db_lv_set(dbspec_key     *spec,
 	goto quit;
 
     /* write to database, key and a vector of variables */
-    if (cvec2dbkey(dbname, key, vec2) < 0)
+    if (clicon_dbput(dbname, key, vec2) < 0)
 	goto quit;
     
     retval = 0;

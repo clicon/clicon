@@ -34,6 +34,8 @@ CFLAGS  	= @CFLAGS@ -rdynamic -fPIC
 
 INCLUDES 	= -I$(includedir) @INCLUDES@ 
 
+all:	$(PLUGINS)
+
 # Note: clicon.mk has a rule for:
 # $(APPNAME).conf
 -include $(DESTDIR)$(datarootdir)/clicon/clicon.mk
@@ -43,7 +45,6 @@ CLISPECS = $(APPNAME)_cli.cli
 YANGSPECS	 = $(APPNAME).yang
 YANGSPECS	+= ietf-inet-types.yang
 
-all:	$(PLUGINS)
 
 
 clean:

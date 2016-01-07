@@ -268,6 +268,7 @@ clicon_options_main(clicon_handle h)
     int            retval = -1;
     char          *configfile;
     clicon_hash_t *copt = clicon_options(h);
+
     /*
      * Set configure file if not set by command-line above
      */

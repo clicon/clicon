@@ -155,7 +155,6 @@ dbspec_main_cli(clicon_handle h, int printspec, int printalt)
 static void
 usage(char *argv0, clicon_handle h)
 {
-    char *conffile = clicon_configfile(h);
     char *confsock = clicon_sock(h);
     char *plgdir = clicon_cli_dir(h);
 
@@ -164,7 +163,7 @@ usage(char *argv0, clicon_handle h)
 	    "where options are\n"
             "\t-h \t\tHelp\n"
     	    "\t-D <level> \tDebug\n"
-	    "\t-f <file> \tConfig-file (default: %s)\n"
+	    "\t-f <file> \tConfig-file (mandatory)\n"
     	    "\t-F <file> \tRead commands from file (default stdin)\n"
 	    "\t-1\t\tDont enter interactive mode\n"
 	    "\t-s <file>\tDatabase spec file\n"
@@ -180,7 +179,6 @@ usage(char *argv0, clicon_handle h)
 	    "\t-L \t\tDebug print dynamic CLI syntax including completions and expansions\n"
 	    "\t-l <s|e|o> \tLog on (s)yslog, std(e)rr or std(o)ut (stderr is default)\n",
 	    argv0,
-	    conffile ? conffile : "none",
 	    confsock ? confsock : "none",
 	    plgdir ? plgdir : "none"
 	);
@@ -220,7 +218,7 @@ main(int argc, char **argv)
     dbtype = CANDIDATE_DB_SHARED;
     once = 0;
     private_db[0] = '\0';
-    cli_set_usedaemon(h, 1); /* send changes to config daemon */
+    cli_set_send2backend(h, 1); /* send changes to config daemon */
     cli_set_comment(h, '#'); /* Default to handle #! clicon_cli scripts */
 
     /*
@@ -317,7 +315,7 @@ main(int argc, char **argv)
 	    clicon_option_str_set(h, "CLICON_CLI_MODE", optarg);
 	    break;
 	case 'c' : /* No config daemon (used in bootstrapping and file load) */
-	    cli_set_usedaemon(h, 0);
+	    cli_set_send2backend(h, 0);
 	    break;
 	case 'P' : /* load to private database with given name */
 	    dbtype = CANDIDATE_DB_PRIVATE;
@@ -435,7 +433,7 @@ main(int argc, char **argv)
     if (strlen(private_db))
 	clicon_option_str_set(h, "CLICON_CANDIDATE_DB", private_db);
 
-    if (!cli_usedaemon(h)) 
+    if (!cli_send2backend(h)) 
       if (db_init(running_db) < 0){
 	fprintf (stderr, "FATAL: Could not init running_db. (Run as root?)\n");
 	  goto done;
