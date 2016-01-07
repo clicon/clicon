@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 
 /* cligen */
 #include <cligen/cligen.h>

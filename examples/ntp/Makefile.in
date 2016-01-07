@@ -81,6 +81,7 @@ distclean: clean
 
 install:	$(APPNAME).conf ntp.yang ntp_cli.cli $(FE_PLUGIN) $(NC_PLUGIN) $(BE_PLUGIN)
 	install -d $(DESTDIR)$(clicon_SYSCONFDIR)
+	install -d $(DESTDIR)$(clicon_SYSCONFDIR)/yang
 	install $(APPNAME).conf $(DESTDIR)$(clicon_SYSCONFDIR)/
 	install -d $(DESTDIR)$(clicon_DBSPECDIR)/yang
 	install ntp.yang $(DESTDIR)$(clicon_DBSPECDIR)/yang
