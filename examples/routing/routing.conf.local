@@ -3,11 +3,15 @@
 # Startup CLI mode. This should match the CLICON_MODE in your startup clispec file
 CLICON_CLI_MODE         routing
 
-# Only if CLICON_DBSPEC_TYPE is YANG
-# CLICON_YANG_MODULE_MAIN clicon
-#CLICON_YANG_MODULE_MAIN ietf-routing@2014-10-26
-#CLICON_YANG_MODULE_MAIN ietf-ipv4-unicast-routing@2014-10-26
-CLICON_YANG_MODULE_MAIN junos-14.2
+# Option used to construct initial yang file:
+#     <module>[@<revision>]
+# This option is only relevant if CLICON_DBSPEC_TYPE is YANG
+CLICON_YANG_MODULE_MAIN ietf-ipv4-unicast-routing
+
+# Option used to construct initial yang file:
+#     <module>[@<revision>]
+# This option is only relevant if CLICON_DBSPEC_TYPE is YANG
+CLICON_YANG_MODULE_REVISION 2014-10-26
 
 # Generate code for CLI completion of existing db symbols
 # CLICON_CLI_GENMODEL_COMPLETION 0

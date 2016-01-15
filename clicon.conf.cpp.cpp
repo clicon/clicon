@@ -38,9 +38,15 @@ CLICON_DBSPEC_FILE     prefix/share/APPNAME/datamodel.spec
 # Location of YANG module and submodule files. Only if CLICON_DBSPEC_TYPE is YANG
 CLICON_YANG_DIR        prefix/share/APPNAME/yang
 
-# Main YANG module first parsed by parser (in CLICON_YANG_DIR). eg clicon.yang.
-# Only if CLICON_DBSPEC_TYPE is YANG
+# Option used to construct initial yang file:
+#     <module>[@<revision>]
+# This option is only relevant if CLICON_DBSPEC_TYPE is YANG
 # CLICON_YANG_MODULE_MAIN clicon                
+
+# Option used to construct initial yang file:
+#     <module>[@<revision>]
+# This option is only relevant if CLICON_DBSPEC_TYPE is YANG
+CLICON_YANG_MODULE_REVISION
 
 # Candidate qdbm database
 CLICON_CANDIDATE_DB    localstatedir/APPNAME/candidate_db

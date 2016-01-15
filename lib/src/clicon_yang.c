@@ -1839,6 +1839,7 @@ yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
     yang_spec      *yspec;
     char           *yang_dir;
     char           *yang_module;
+    char           *yang_revision;
     int             retval = -1;
     dbspec_key     *db_spec;
 
@@ -1852,7 +1853,8 @@ yang_spec_main(clicon_handle h, FILE *f, int printspec, int printalt)
 	clicon_err(OE_FATAL, 0, "CLICON_YANG_MODULE_MAIN option not set");
 	goto done;
     }
-    if (yang_parse(h, yang_dir, yang_module, NULL, yspec) < 0)
+    yang_revision = clicon_yang_module_revision(h);
+    if (yang_parse(h, yang_dir, yang_module, yang_revision, yspec) < 0)
 	goto done;
     clicon_dbspec_yang_set(h, yspec);	
     if (printspec)

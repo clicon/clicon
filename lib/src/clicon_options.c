@@ -422,6 +422,13 @@ clicon_yang_module_main(clicon_handle h)
     return clicon_option_str(h, "CLICON_YANG_MODULE_MAIN");
 }
 
+/*! YANG revision */
+char *
+clicon_yang_module_revision(clicon_handle h)
+{
+    return clicon_option_str(h, "CLICON_YANG_MODULE_REVISION");
+}
+
 /* candidate database: get name */
 char *
 clicon_candidate_db(clicon_handle h)

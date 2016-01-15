@@ -77,6 +77,7 @@ char *clicon_dbspec_type(clicon_handle h);
 char *clicon_dbspec_file(clicon_handle h);
 char *clicon_yang_dir(clicon_handle h);
 char *clicon_yang_module_main(clicon_handle h);
+char *clicon_yang_module_revision(clicon_handle h);
 char *clicon_running_db(clicon_handle h);
 char *clicon_candidate_db(clicon_handle h);
 char *clicon_backend_dir(clicon_handle h);
