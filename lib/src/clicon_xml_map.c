@@ -452,7 +452,7 @@ save_db_to_xml(char       *filename,
 	clicon_err(OE_CFG, errno, "Creating file %s", filename);
 	return -1;
     } 
-    if ((xn = db2xml_key(dbname, dbspec, " .*$", "clicon")) == NULL) {
+    if ((xn = db2xml_key(dbname, dbspec, ".*$", "clicon")) == NULL) {
 	fclose(f);
 	clicon_err(OE_CFG, errno, "Formatting config XML %s", filename);
 	return -1;
