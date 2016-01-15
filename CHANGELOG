@@ -16,6 +16,7 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+- Added option:  CLICON_YANG_MODULE_REVISION
 - Cleaned up xml translation functions in clicon_xml_map.c	
 - Extended client/backend protocol with dumping a database config: CLICON_MSG_DBITEMS
 - Removed -a (appdir) config options. Use only -f <config-file>.
