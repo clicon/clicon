@@ -438,9 +438,14 @@ main(int argc, char **argv)
 	fprintf (stderr, "FATAL: Could not init running_db. (Run as root?)\n");
 	  goto done;
       }
-
-    if (init_candidate_db(h, dbtype) < 0)
-	return -1;
+    /* A client does not have access to the candidate (and running) 
+       databases if both these conditions are true:
+         1. clicon_sock_family(h) == AF_INET[6]
+         2. cli_send2backend(h) == 1
+    */
+    if (clicon_sock_family(h) == AF_UNIX || cli_send2backend(h)==0)
+	if (init_candidate_db(h, dbtype) < 0)
+	    return -1;
     
     if (logclisyntax)
 	cli_logsyntax_set(h, logclisyntax);

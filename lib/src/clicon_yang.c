@@ -979,7 +979,7 @@ ys_grouping_resolve(yang_stmt  *ys,
   The target node MUST be either a container, list, choice, case, input,
   output, or notification node.
   If the "augment" statement is on the top level the absolute form MUST be used.
-  XXX: Destructuvely changing a datamodel may affect outlying loop?
+  XXX: Destructively changing a datamodel may affect outlying loop?
  */
 static int
 yang_augment_node(yang_stmt *ys, yang_spec *ysp)

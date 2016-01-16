@@ -64,13 +64,9 @@
 static int xml2csv(FILE *f, cxobj *x, cvec *cvv);
 //static int xml2csv_raw(FILE *f, cxobj *x);
 
-/*
- * init_candidate_db
- * There are several variants in Junos. We have implemented these:
- * private - every user has an own candidate db (last one commit wins)
+/*! Initialize candidate database
+ * We have implemented these:
  * shared - all users share a common candidate db
- * current - use current as candidate
- * exclusive - only one user can have a candidate (not implemented)
  */
 int 
 init_candidate_db(clicon_handle h, enum candidate_db_type type)
@@ -1304,7 +1300,11 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	    goto quit;
 #else /* CLICON_MSG_CHANGE_KEYFMT */
 	spec = clicon_dbspec_key(h);
-	if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
+	if ((dbv = cli_set_parse(h, 
+	                         spec, 
+				 candidate, 
+				 vars, 
+				 str?str:"")) == NULL)
 	    goto quit;
 	if (clicon_rpc_change(h, candidate, op, dbv->dbv_key, dbv->dbv_vec) < 0)
 	    goto quit;
@@ -1319,7 +1319,11 @@ cli_dbop(clicon_handle h, cvec *vars, cg_var *arg, lv_op_t op)
 	}
     } else {
 	spec = clicon_dbspec_key(h);
-	if ((dbv = cli_set_parse(h, spec, candidate, vars, str?str:"")) == NULL)
+	if ((dbv = cli_set_parse(h, 
+				 spec, 
+				 candidate, 
+				 vars, 
+				 str?str:"")) == NULL)
 	    goto quit;
 	if (db_lv_op_exec(spec, candidate, dbv->dbv_key, op, dbv->dbv_vec) < 0)
 	    goto quit;

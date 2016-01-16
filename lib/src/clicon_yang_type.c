@@ -609,12 +609,16 @@ resolve_restrictions(yang_stmt   *yrange,
  * @param [in]  ytype    yang-stmt object containing currently resolving type
  * @param [out] yrestype    resolved type. return built-in type or NULL. mandatory
  * @param [out] options  pointer to flags field of optional values. optional
- * @param [out] mincv    pointer to cv woth min range or length. optional
- * @param [out] maxcv    pointer to cv with max range or length. optional
+ * @param [out] mincv    pointer to cv with min range or length. If options&YANG_OPTIONS_RANGE
+ * @param [out] maxcv    pointer to cv with max range or length. If options&YANG_OPTIONS_RANGE
  * @param [out] pattern  pointer to static string of yang string pattern. optional
  * @param [out] fraction for decimal64, how many digits after period
  * @retval      0        OK. Note yrestype may still be NULL.
  * @retval     -1        Error, clicon_err handles errors
+ * The setting of the options argument has the following semantics:
+ *   options&YANG_OPTIONS_RANGE or YANG_OPTIONS_LENGTH --> mincv and max _can_ be set
+ *   options&YANG_OPTIONS_PATTERN --> pattern is set
+ *   options&YANG_OPTIONS_FRACTION_DIGITS --> fraction is set
  * Note that the static output strings (type, pattern) should be copied if used asap.
  * Note also that for all pointer arguments, if NULL is given, no value is assigned.
  */
@@ -738,9 +742,13 @@ yang_type_resolve(yang_stmt   *ys,
  * @param [out] fraction for decimal64, how many digits after period
  * @retval      0        OK, but note that restype==NULL means not resolved.
  * @retval     -1        Error, clicon_err handles errors
+ * The setting of the options argument has the following semantics:
+ *   options&YANG_OPTIONS_RANGE or YANG_OPTIONS_LENGTH --> mincv and max _can_ be set
+ *   options&YANG_OPTIONS_PATTERN --> pattern is set
+ *   options&YANG_OPTIONS_FRACTION_DIGITS --> fraction is set
  * Note that the static output strings (type, pattern) should be copied if used asap.
  * Note also that for all pointer arguments, if NULL is given, no value is assigned.
- * See also yang_type_resolve(). This function is really just a frontend to that.
+ * @See yang_type_resolve(). This function is really just a frontend to that.
  */
 int 
 yang_type_get(yang_stmt    *ys, 

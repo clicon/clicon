@@ -74,6 +74,85 @@ WITH COMPLETION:
 
 #endif
 
+#ifndef HAVE_CLIGEN_MAX2STR /* XXX cligen 3.6 feature */
+
+/*! Print max value of a CLIgen variable type as string
+ * @param[in]   type  CLIgen variable type
+ * @param[out]  str   Max value printed in this string
+ * @param[in]   size  Length of 'str'
+ * @retval len  How many bytes printed
+ * @see cvtype_max2str_dup
+ * You can use str=NULL to get the expected length.
+ * The number of (potentially if str=NULL) written bytes is returned.
+ */
+static int
+cvtype_max2str(enum cv_type type, char *str, size_t size)
+{
+    int  len = 0;
+
+    switch (type){
+    case CGV_INT8:
+	len = snprintf(str, size, "%" PRId8, SCHAR_MAX);
+	break;
+    case CGV_INT16:
+	len = snprintf(str, size, "%" PRId16, SHRT_MAX);
+	break;
+    case CGV_INT32:
+	len = snprintf(str, size, "%" PRId32, INT_MAX);
+	break;
+    case CGV_INT64:
+	len = snprintf(str, size, "%" PRId64, LLONG_MAX);
+	break;
+    case CGV_UINT8:
+	len = snprintf(str, size, "%" PRIu8, UCHAR_MAX);
+	break;
+    case CGV_UINT16:
+	len = snprintf(str, size, "%" PRIu16, USHRT_MAX);
+	break;
+    case CGV_UINT32:
+	len = snprintf(str, size, "%" PRIu32, UINT_MAX);
+	break;
+    case CGV_UINT64:
+	len = snprintf(str, size, "%" PRIu64, ULLONG_MAX);
+	break;
+    case CGV_DEC64:
+	len = snprintf(str, size, "%" PRId64 ".0", LLONG_MAX);
+	break;
+    case CGV_BOOL:
+	len = snprintf(str, size, "true");
+	break;
+    default:
+	break;
+    }
+    return len;
+}
+
+/*! Print max value of a CLIgen variable type as string
+ *
+ * The string should be freed after use.
+ * @param[in]   type  CLIgen variable type
+ * @retval      str   Malloced string containing value. Should be freed after use.
+ * @see cvtype_max2str
+ */
+static char *
+cvtype_max2str_dup(enum cv_type type)
+{
+    int   len;
+    char *str;
+
+    if ((len = cvtype_max2str(type, NULL, 0)) < 0)
+	return NULL;
+    if ((str = (char *)malloc (len+1)) == NULL)
+	return NULL;
+    memset (str, '\0', len+1);
+    if ((cvtype_max2str(type, str, len+1)) < 0){
+	free(str);
+	return NULL;
+    }
+    return str;
+}
+#endif /* HAVE_CLIGEN_MAX2STR */
+
 static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys, 
 			 cbuf         *cbuf,    
 			 enum genmodel_type gt,
@@ -85,16 +164,16 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
  */
 static int
 yang2cli_var_sub(clicon_handle h,
-		 yang_stmt   *ys, 
-		 cbuf        *cbuf,    
-		 char        *description,
-		 enum cv_type cvtype,
-		 yang_stmt   *ytype,  /* resolved type */
-		 int          options,
-		 cg_var      *mincv,
-		 cg_var      *maxcv,
-		 char        *pattern,
-		 uint8_t      fraction_digits
+		 yang_stmt    *ys, 
+		 cbuf         *cbuf,    
+		 char         *description,
+		 enum cv_type  cvtype,
+		 yang_stmt    *ytype,  /* resolved type */
+		 int           options,
+		 cg_var       *mincv,
+		 cg_var       *maxcv,
+		 char         *pattern,
+		 uint8_t       fraction_digits
     )
 {
     int           retval = -1;
@@ -165,10 +244,19 @@ yang2cli_var_sub(clicon_handle h,
 	    cprintf(cbuf, "%s:", r);
 	    free(r);
 	}
-	assert(maxcv);
-	if ((r = cv2str_dup(maxcv)) == NULL){
-	    clicon_err(OE_UNIX, errno, "cv2str_dup");
-	    goto done;
+	if (maxcv != NULL){
+	    if ((r = cv2str_dup(maxcv)) == NULL){
+		clicon_err(OE_UNIX, errno, "cv2str_dup");
+		goto done;
+	    }
+
+	}
+	else{ /* Cligen does not have 'max' keyword in range so need to find actual
+		 max value of type if yang range expression is 0..max */
+	    if ((r = cvtype_max2str_dup(cvtype)) == NULL){
+		clicon_err(OE_UNIX, errno, "cvtype_max2str");
+		goto done;
+	    }
 	}
 	cprintf(cbuf, "%s]", r);
 	free(r);
