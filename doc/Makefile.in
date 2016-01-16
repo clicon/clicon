@@ -40,7 +40,7 @@ doc:
 
 # doxygen documentation with callgraphs
 graphs:
-	doxygen Doxyfile # generates html dir
+	doxygen Doxyfile.graphs # generates html dir + call graphs (takes time)
 
 $(SUBDIRS):
 	(cd $@; $(MAKE) $(MFLAGS) all)

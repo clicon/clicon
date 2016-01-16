@@ -812,6 +812,8 @@ xml2cvec_key(cxobj      *xt,
     cxobj *x = NULL;
     cvec  *uv;
 
+    *cvvslen = 0;
+    *cvvs = NULL;
     /* skip top level (which is 'clicon' or something */
     if ((uv = cvec_new(0)) == NULL) {
 	clicon_err(OE_UNIX, errno, "%s: cvec_new", __FUNCTION__);
