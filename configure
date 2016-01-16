@@ -673,6 +673,7 @@ build
 CLIGEN_VERSION
 CLICON_VERSION_MINOR
 CLICON_VERSION_MAJOR
+CLICON_VERSION_STRING
 CLICON_VERSION
 target_alias
 host_alias
@@ -2160,7 +2161,7 @@ ac_config_headers="$ac_config_headers include/clicon_config.h lib/clicon/clicon.
 
 
 cat >>confdefs.h <<_ACEOF
-#define CLICON_VERSION $CLICON_VERSION
+#define CLICON_VERSION_STRING $CLICON_VERSION
 _ACEOF
 
 cat >>confdefs.h <<_ACEOF
@@ -2177,6 +2178,7 @@ _ACEOF
 
 
 # clicon versions spread to Makefile's (.so files) and variable in build.c
+
 
 
 
