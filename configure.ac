@@ -23,7 +23,7 @@
 #
 #
 
-AC_INIT(lib/clicon/clicon.h)
+AC_INIT(lib/clicon/clicon.h.in)
 
 # Default CFLAGS unless set by environment.
 : ${CFLAGS="-O2"}

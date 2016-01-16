@@ -582,7 +582,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 PACKAGE_URL=
 
-ac_unique_file="lib/clicon/clicon.h"
+ac_unique_file="lib/clicon/clicon.h.in"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
