@@ -40,5 +40,5 @@ uninstall:
 clean:
 
 distclean:
-	rm -f Makefile
+	rm -f Makefile clicon.h
 

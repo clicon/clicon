@@ -170,7 +170,6 @@ distclean: clean
 .PHONY: build.c
 build.c:	
 	date +"const char CLICON_BUILDSTR[64]=\"%Y.%m.%d %H:%M by `whoami` on `hostname`"\"\; > build.c;
-	echo "const char CLICON_VERSION[64]=\"$(CLICON_VERSION)\""\; >> build.c;
 
 $(MYLIB) : $(GENOBJS) $(OBJS) 
 	$(CC) -shared -Wl,-soname,$(MYLIBSO) -o $@ $(GENOBJS) $(OBJS) $(LIBS) -Wl,-soname=$(MYLIBSO) 

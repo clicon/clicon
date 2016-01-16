@@ -647,7 +647,6 @@ OBJEXT
 EXEEXT
 ac_ct_CC
 CLICON__LIBDIR
-APPDIR
 RANLIB
 AR
 EXE_SUFFIX
@@ -716,7 +715,6 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-with_appdir
 enable_python
 enable_keycontent
 '
@@ -1347,11 +1345,6 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-python         build the python plugin support
   --disable-keycontent    Disable reverse lookup content keys
-
-Optional Packages:
-  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
-  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-  --with-appdir=DIR       Set application dir (default:$datarootdir/clicon)
 
 Some influential environment variables:
   CC          C compiler command
@@ -2156,7 +2149,32 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 # Default CFLAGS unless set by environment.
 : ${CFLAGS="-O2"}
 
-ac_config_headers="$ac_config_headers include/clicon_config.h"
+CLICON_VERSION_MAJOR="3"
+CLICON_VERSION_MINOR="0"
+CLICON_VERSION_PATCH="1"
+CLICON_VERSION="\"${CLICON_VERSION_MAJOR}.${CLICON_VERSION_MINOR}.${CLICON_VERSION_PATCH}\""
+# Fix to specific version (eg 3.5) or head (3)
+CLIGEN_VERSION="3.5"
+
+ac_config_headers="$ac_config_headers include/clicon_config.h lib/clicon/clicon.h"
+
+
+cat >>confdefs.h <<_ACEOF
+#define CLICON_VERSION $CLICON_VERSION
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define CLICON_VERSION_MAJOR $CLICON_VERSION_MAJOR
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define CLICON_VERSION_MINOR $CLICON_VERSION_MINOR
+_ACEOF
+
+cat >>confdefs.h <<_ACEOF
+#define CLICON_VERSION_PATCH $CLICON_VERSION_PATCH
+_ACEOF
+
 
 # clicon versions spread to Makefile's (.so files) and variable in build.c
 
@@ -2164,12 +2182,6 @@ ac_config_headers="$ac_config_headers include/clicon_config.h"
 
  # Bind to specific CLIgen version
 
-CLICON_VERSION_MAJOR="3"
-CLICON_VERSION_MINOR="0"
-CLICON_VERSION_PATCH="1"
-CLICON_VERSION="${CLICON_VERSION_MAJOR}.${CLICON_VERSION_MINOR}.${CLICON_VERSION_PATCH}"
-# Fix to specific version (eg 3.5) or head (3)
-CLIGEN_VERSION="3.5"
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: CLICON version is ${CLICON_VERSION}_PRE1" >&5
 $as_echo "CLICON version is ${CLICON_VERSION}_PRE1" >&6; }
@@ -2325,7 +2337,6 @@ test -n "$target_alias" &&
 
 
 
- # Clicon application director. Eg /hello.
  # Clicon application director. Eg /hello.
 
 # Some stuff installed in /usr/local/. Such as qdbm
@@ -3482,29 +3493,12 @@ if test "$YACC" != "bison -y"; then
 fi
 
 if test "$prefix" = "NONE"; then
-  APPDIR=${ac_default_prefix}/share/clicon
   CPPFLAGS="-I${ac_default_prefix}/include ${CPPFLAGS}"
   LDFLAGS="-L${ac_default_prefix}/lib ${LDFLAGS}"
 else
-  APPDIR=${prefix}/share/clicon
   CPPFLAGS="-I${prefix}/include ${CPPFLAGS}"
   LDFLAGS="-L${prefix}/lib ${LDFLAGS}"
 fi
-
-# Check whether --with-appdir was given.
-if test "${with_appdir+set}" = set; then :
-  withval=$with_appdir; APPDIR=$withval
-
-fi
-
-
-cat >>confdefs.h <<_ACEOF
-#define APPDIR "$APPDIR"
-_ACEOF
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: APPDIR is $APPDIR" >&5
-$as_echo "APPDIR is $APPDIR" >&6; }
-
 
 # Check Python
 HAVE_PYTHON=none
@@ -5218,6 +5212,7 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "include/clicon_config.h") CONFIG_HEADERS="$CONFIG_HEADERS include/clicon_config.h" ;;
+    "lib/clicon/clicon.h") CONFIG_HEADERS="$CONFIG_HEADERS lib/clicon/clicon.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "lib/Makefile") CONFIG_FILES="$CONFIG_FILES lib/Makefile" ;;
     "lib/src/Makefile") CONFIG_FILES="$CONFIG_FILES lib/src/Makefile" ;;
