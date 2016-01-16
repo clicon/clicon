@@ -34,6 +34,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <regex.h>
+#include <dirent.h>
 #include <syslog.h>
 #include <assert.h>
 #include <sys/stat.h>
@@ -49,7 +50,9 @@
 #include "clicon_queue.h"
 #include "clicon_hash.h"
 #include "clicon_handle.h"
+#include "clicon_file.h"
 #include "clicon_dbspec_key.h"
+
 #include "clicon_yang.h"
 #include "clicon_hash.h"
 #include "clicon_lvalue.h"
@@ -1262,6 +1265,53 @@ yang_parse_file(clicon_handle h,
     return ymodule;
 }
 
+/*! No specific revision give. Match a yang file given dir and module 
+ * @param[in]  h        CLICON handle
+ * @param[in]  yang_dir Directory where all YANG module files reside
+ * @param[in]  module   Name of main YANG module. 
+ * @param[out] fbuf     Buffer containing filename
+ *
+ * @retval 1            Match founbd, Most recent entry returned in fbuf
+ * @retval 0            No matching entry found
+ * @retval -1           Error 
+*/static int
+yang_parse_find_match(clicon_handle h, 
+		      const char   *yang_dir, 
+		      const char   *module, 
+		      cbuf         *fbuf)    
+{
+    int retval = -1;
+    struct dirent *dp;
+    int            ndp;
+    cbuf          *regex = NULL;
+    char          *regexstr;
+
+    if ((regex = cbuf_new()) == NULL){
+	clicon_err(OE_YANG, errno, "%s: cbuf_new", __FUNCTION__);
+	goto done;
+    }
+    cprintf(regex, "^%s.*(.yang)$", module);
+    regexstr = cbuf_get(regex);
+    if ((ndp = clicon_file_dirent(yang_dir, 
+				  &dp, 
+				  regexstr, 
+				  S_IFREG, 
+				  __FUNCTION__)) < 0)
+	goto done;
+    /* Entries are sorted, last entry should be most recent date */
+    if (ndp != 0){
+	cprintf(fbuf, "%s/%s", yang_dir, dp[ndp-1].d_name);
+	retval = 1;
+    }
+    else
+	retval = 0;
+ done:
+    if (regex)
+	cbuf_free(regex);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
 /*! Find and open yang file and then parse it
  * 
  * @param h        CLICON handle
@@ -1288,20 +1338,28 @@ yang_parse2(clicon_handle h,
 	    yang_spec    *ysp)
 {
     FILE       *f = NULL;
-    cbuf       *b;
+    cbuf       *fbuf = NULL;
     char       *filename;
     yang_stmt  *ys = NULL;
     struct stat st;
+    int         nr;
 
-    if ((b = cbuf_new()) == NULL){
+    if ((fbuf = cbuf_new()) == NULL){
 	clicon_err(OE_YANG, errno, "%s: cbuf_new", __FUNCTION__);
 	goto done;
     }
     if (revision)
-	cprintf(b, "%s/%s@%s.yang", yang_dir, module, revision);
-    else
-	cprintf(b, "%s/%s.yang", yang_dir, module);
-    filename = cbuf_get(b);
+	cprintf(fbuf, "%s/%s@%s.yang", yang_dir, module, revision);
+    else{
+	/* No specific revision, Match a yang file */
+	if ((nr = yang_parse_find_match(h, yang_dir, module, fbuf)) < 0)
+	    goto done;
+	if (nr == 0){
+	    clicon_err(OE_YANG, errno, "No matching %s yang files found", module);
+	    goto done;
+	}
+    }
+    filename = cbuf_get(fbuf);
     if (stat(filename, &st) < 0){
 	clicon_err(OE_YANG, errno, "%s not found", filename);
        goto done;
@@ -1313,8 +1371,8 @@ yang_parse2(clicon_handle h,
     if ((ys = yang_parse_file(h, f, filename, ysp)) == NULL)
 	goto done;
   done:
-    if (b)
-	cbuf_free(b);
+    if (fbuf)
+	cbuf_free(fbuf);
     if (f)
 	fclose(f);
     return ys;

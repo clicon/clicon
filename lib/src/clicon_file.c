@@ -159,16 +159,26 @@ clicon_file_dirent_sort(const void* arg1, const void* arg2)
 }
 
 
-/*! Return number of matched entries from a directory or -1 on failure.
+/*! Return sorted matching files from a directory
  * @param[in]  dir     Directory path 
  * @param[out] ent     Entries pointer, will be filled in with dir entries
  * @param[in]  regexp  Regexp filename matching 
  * @param[in]  type    File type matching, see stat(2) 
- * @param[in]  label   Clicon Chunk label for memory handling
+ * @param[in]  label   Clicon Chunk label for memory handling, unchunk after use
  *
  * @retval  n  Number of matching files in directory
  * @retval -1  Error
- */
+ *
+ * @code
+ *   char          *dir = "/root/fs";
+ *   struct dirent *dp;
+ *   if ((ndp = clicon_file_dirent(dir, &dp, "(.so)$", S_IFREG, __FUNCTION__)) < 0)
+ *       return -1;
+ *   for (i = 0; i < ndp; i++) 
+ *       do something with dp[i].d_name;
+ *   unchunk_group(__FUNCTION__);
+ * @endcode
+*/
 int
 clicon_file_dirent(const char     *dir,
 		   struct dirent **ent,
