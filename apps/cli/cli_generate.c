@@ -92,31 +92,31 @@ cvtype_max2str(enum cv_type type, char *str, size_t size)
 
     switch (type){
     case CGV_INT8:
-	len = snprintf(str, size, "%" PRId8, SCHAR_MAX);
+	len = snprintf(str, size, "%" PRId8, INT8_MAX);
 	break;
     case CGV_INT16:
-	len = snprintf(str, size, "%" PRId16, SHRT_MAX);
+	len = snprintf(str, size, "%" PRId16, INT16_MAX);
 	break;
     case CGV_INT32:
-	len = snprintf(str, size, "%" PRId32, INT_MAX);
+	len = snprintf(str, size, "%" PRId32, INT32_MAX);
 	break;
     case CGV_INT64:
-	len = snprintf(str, size, "%" PRId64, LLONG_MAX);
+	len = snprintf(str, size, "%" PRId64, INT64_MAX);
 	break;
     case CGV_UINT8:
-	len = snprintf(str, size, "%" PRIu8, UCHAR_MAX);
+	len = snprintf(str, size, "%" PRIu8, UINT8_MAX);
 	break;
     case CGV_UINT16:
-	len = snprintf(str, size, "%" PRIu16, USHRT_MAX);
+	len = snprintf(str, size, "%" PRIu16, UINT16_MAX);
 	break;
     case CGV_UINT32:
-	len = snprintf(str, size, "%" PRIu32, UINT_MAX);
+	len = snprintf(str, size, "%" PRIu32, UINT32_MAX);
 	break;
     case CGV_UINT64:
-	len = snprintf(str, size, "%" PRIu64, ULLONG_MAX);
-	break;
+        len = snprintf(str, size, "%" PRIu64, UINT64_MAX);
+        break;
     case CGV_DEC64:
-	len = snprintf(str, size, "%" PRId64 ".0", LLONG_MAX);
+	len = snprintf(str, size, "%" PRId64 ".0", INT64_MAX);
 	break;
     case CGV_BOOL:
 	len = snprintf(str, size, "true");
