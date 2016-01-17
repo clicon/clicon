@@ -197,10 +197,17 @@ clicon_dbvars_add_var(clicon_dbvarsparse_t *dvp, char *name, char *var)
     int n;
     cg_var *cgv;
     int unique = 0;
+    int optional = 0;
 
-    if (name[0]=='!') {
-	unique = 1;
-	name++;
+    switch (name[0]) {
+    case '!':
+      unique = 1;
+      name++;
+      break;
+    case '|':
+      optional = 1;
+      name++;
+      break;
     }
 
     /* A cvec index specified? */
@@ -218,6 +225,8 @@ clicon_dbvars_add_var(clicon_dbvarsparse_t *dvp, char *name, char *var)
     }
     else {
 	if ((cgv = cvec_find(dvp->dvp_vars, var)) == NULL) {
+	    if (optional)
+	        return 0;
 	    clicon_err(OE_CFG, 0, "Variable not found in cvec: %s", var);
 	    return -1;
 	}
