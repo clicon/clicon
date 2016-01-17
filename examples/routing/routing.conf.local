@@ -6,12 +6,12 @@ CLICON_CLI_MODE         routing
 # Option used to construct initial yang file:
 #     <module>[@<revision>]
 # This option is only relevant if CLICON_DBSPEC_TYPE is YANG
-CLICON_YANG_MODULE_MAIN ietf-ipv4-unicast-routing
+CLICON_YANG_MODULE_MAIN ietf-ip
 
 # Option used to construct initial yang file:
 #     <module>[@<revision>]
 # This option is only relevant if CLICON_DBSPEC_TYPE is YANG
-CLICON_YANG_MODULE_REVISION 2014-10-26
+CLICON_YANG_MODULE_REVISION 2014-06-16
 
 # Generate code for CLI completion of existing db symbols
 # CLICON_CLI_GENMODEL_COMPLETION 0

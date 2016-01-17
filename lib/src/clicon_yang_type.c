@@ -98,6 +98,128 @@ static const struct map_str2int ytmap[] = {
     {NULL, -1}
 };
 
+int
+yang_type_cache_set(yang_type_cache **ycache0,
+		    yang_stmt        *resolved,
+		    int               options, 
+		    cg_var           *mincv, 
+		    cg_var           *maxcv, 
+		    char             *pattern,
+		    uint8_t           fraction)
+{
+    int              retval = -1;
+    yang_type_cache *ycache = *ycache0;
+
+    assert (ycache == NULL);
+    if ((ycache = (yang_type_cache *)malloc(sizeof(*ycache))) == NULL){
+	clicon_err(OE_UNIX, errno, "malloc");
+	goto done;
+    }
+    memset(ycache, 0, sizeof(*ycache));
+    *ycache0 = ycache;
+    ycache->yc_resolved  = resolved;
+    ycache->yc_options  = options;
+    if (mincv && (ycache->yc_mincv  = cv_dup(mincv)) == NULL){
+	clicon_err(OE_UNIX, errno, "cv_dup");
+	goto done;
+    }
+    if (maxcv && (ycache->yc_maxcv  = cv_dup(maxcv)) == NULL){
+	clicon_err(OE_UNIX, errno, "cv_dup");
+	goto done;
+    }
+    if (pattern && (ycache->yc_pattern  = strdup(pattern)) == NULL){
+	clicon_err(OE_UNIX, errno, "strdup");
+	goto done;
+    }
+    ycache->yc_fraction  = fraction;
+    retval = 0;
+
+ done:
+    return retval;
+}
+
+/*! Get individual fields (direct/destrucively) from yang type cache. */
+int
+yang_type_cache_get(yang_type_cache *ycache,
+		    yang_stmt      **resolved,
+		    int             *options, 
+		    cg_var         **mincv, 
+		    cg_var         **maxcv, 
+		    char           **pattern,
+		    uint8_t         *fraction)
+{
+    if (resolved)
+	*resolved = ycache->yc_resolved;
+    if (options)
+	*options  = ycache->yc_options;
+    if (mincv)
+	*mincv    = ycache->yc_mincv;
+    if (maxcv)
+	*maxcv    = ycache->yc_maxcv;
+    if (pattern)
+	*pattern  = ycache->yc_pattern;
+    if (fraction)
+	*fraction = ycache->yc_fraction;
+    return 0;
+}
+
+int
+yang_type_cache_cp(yang_type_cache **ycnew, yang_type_cache *ycold)
+{
+    int        retval = -1;
+    int        options;
+    cg_var    *mincv;
+    cg_var    *maxcv;
+    char      *pattern;
+    uint8_t    fraction;
+    yang_stmt *resolved;
+
+    yang_type_cache_get(ycold, &resolved, &options, &mincv, &maxcv, &pattern, &fraction);
+    if (yang_type_cache_set(ycnew, resolved, options, mincv, maxcv, pattern, fraction) < 0)
+	goto done;
+    retval = 0;
+ done:
+    return retval;
+}
+
+int
+yang_type_cache_free(yang_type_cache *ycache)
+{
+    if (ycache->yc_mincv)
+	cv_free(ycache->yc_mincv);
+    if (ycache->yc_maxcv)
+	cv_free(ycache->yc_maxcv);
+    if (ycache->yc_pattern)
+	free(ycache->yc_pattern);
+    free(ycache);
+    return 0;
+}
+
+/*! Resolve types: populate type caches */
+int
+ys_resolve_type(yang_stmt *ys, void *arg)
+{
+    int               retval = -1;
+    int               options = 0x0;
+    cg_var           *mincv = NULL;
+    cg_var           *maxcv = NULL;
+    char             *pattern = NULL;
+    uint8_t           fraction = 0;
+    yang_stmt        *resolved = NULL;
+ 
+    if (ys->ys_keyword != Y_TYPE)
+        return 0;
+    yang_type_resolve((yang_stmt*)ys->ys_parent, ys, &resolved,
+		      &options, &mincv, &maxcv, &pattern, &fraction);
+    if (yang_type_cache_set(&ys->ys_typecache, 
+			    resolved, options, mincv, maxcv, pattern, fraction) < 0)
+	goto done;
+    retval = 0;
+ done:
+    return retval;
+}
+
+
 /* return 1 if built-in, 0 if not */
 static int
 yang_builtin(char *type)
@@ -568,8 +690,6 @@ yang_find_identity(yang_stmt *ys, char *identity)
     return yid;
 }
 
-
-
 /*
  */
 static int
@@ -651,7 +771,12 @@ yang_type_resolve(yang_stmt   *ys,
     *yrestype    = NULL; /* Initialization of resolved type that may not be necessary */
     type      = ytype_id(ytype);     /* This is the type to resolve */
     prefix    = ytype_prefix(ytype); /* And this its prefix */
-
+    if (ytype->ys_typecache != NULL){
+	if (yang_type_cache_get(ytype->ys_typecache, 
+				yrestype, options, mincv, maxcv, pattern, fraction) < 0)
+	    goto done;
+	goto ok;
+    }
     yrange    = yang_find((yang_node*)ytype, Y_RANGE, NULL);
     ylength   = yang_find((yang_node*)ytype, Y_LENGTH, NULL);
     ypattern  = yang_find((yang_node*)ytype, Y_PATTERN, NULL);
@@ -663,6 +788,7 @@ yang_type_resolve(yang_stmt   *ys,
 			     mincv, maxcv, pattern, fraction);
 	goto ok;
     }
+
     /* Not basic type. Now check if prefix which means we look in other module */
     if (prefix){ /* Go to top and find import that matches */
 	ymod = ys_module(ys);
@@ -706,6 +832,7 @@ yang_type_resolve(yang_stmt   *ys,
 	resolve_restrictions(yrange, ylength, ypattern, yfraction, 
 			     options, mincv, maxcv, pattern, fraction);
     }
+
   ok:
     retval = 0;
   done:

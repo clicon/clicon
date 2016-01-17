@@ -106,6 +106,20 @@ enum rfc_6020{
 
 #define YANG_FLAG_MARK 0x01  /* Marker for dynamic algorithms, eg expand */
 
+typedef struct yang_stmt yang_stmt; /* forward */
+
+/*! Yang type cache. Yang type statements can cache all typedef info here
+*/
+struct yang_type_cache{
+    int        yc_options;
+    cg_var    *yc_mincv;
+    cg_var    *yc_maxcv;
+    char      *yc_pattern;
+    uint8_t    yc_fraction;
+    yang_stmt *yc_resolved; /* Resolved type object, can be NULL - note direct ptr */
+};
+typedef struct yang_type_cache yang_type_cache;
+
 /*! yang statement 
  */
 struct yang_stmt{
@@ -113,6 +127,7 @@ struct yang_stmt{
     struct yang_stmt **ys_stmt;      /* Vector of children statement pointers */
     struct yang_node  *ys_parent;    /* Backpointer to parent: yang-stmt or yang-spec */
     enum rfc_6020      ys_keyword;   /* See clicon_yang_parse.tab.h */
+
     char              *ys_argument;  /* String / argument depending on keyword */   
     int                ys_flags;     /* Flags according to YANG_FLAG_* above */
     char              *ys_dbkey;     /* dbspec key corresponding to this yang node, see above */
@@ -120,8 +135,9 @@ struct yang_stmt{
 				        leaf, leaf-list, mandatory, fraction-digits */
     cvec              *ys_cvec;      /* List of stmt-specific variables 
 					Y_RANGE: range_min, range_max */
+    yang_type_cache   *ys_typecache; /* If ys_keyword==Y_TYPE, cache all typedef data */
 };
-typedef struct yang_stmt yang_stmt;
+
 
 /*! top-level yang parse-tree */
 struct yang_spec{

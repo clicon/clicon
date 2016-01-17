@@ -16,6 +16,8 @@
 # along with CLICON; see the file COPYING.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+- Changed yang type lookup to be lexically instead of dynamically scoped (as
+  they should) by using a cache (yang_type_cache).
 - Added support for yang 'max' range keyword
 - Added option:  CLICON_YANG_MODULE_REVISION
 - Cleaned up xml translation functions in clicon_xml_map.c	

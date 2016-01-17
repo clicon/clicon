@@ -64,6 +64,10 @@
 #include "clicon_yang_parse.h"
 #include "clicon_yang2key.h"
 
+/* Instead of using dynamic type lookup, use a cache that is evaluated early 
+   for static scope type binding */
+#define YANG_TYPE_CACHE 1
+
 /*
  * Private data types
  */
@@ -195,6 +199,8 @@ ys_free1(yang_stmt *ys)
 	cv_free(ys->ys_cv);
     if (ys->ys_cvec)
 	cvec_free(ys->ys_cvec);
+    if (ys->ys_typecache)
+	yang_type_cache_free(ys->ys_typecache);
     free(ys);
     return 0;
 }
@@ -284,6 +290,11 @@ ys_cp(yang_stmt *ynew, yang_stmt *yold)
 	    clicon_err(OE_YANG, errno, "%s: cvec_dup", __FUNCTION__);
 	    goto done;
 	}
+    if (yold->ys_typecache){
+	ynew->ys_typecache = NULL;
+	if (yang_type_cache_cp(&ynew->ys_typecache, yold->ys_typecache) < 0)
+	    goto done;
+    }
     for (i=0; i<ynew->ys_len; i++){
 	yco = yold->ys_stmt[i];
 	if ((ycn = ys_dup(yco)) == NULL)
@@ -1465,6 +1476,10 @@ yang_parse(clicon_handle h,
     /* Add top module name as dbspec-name */
     clicon_dbspec_name_set(h, ys->ys_argument);
 
+#ifdef YANG_TYPE_CACHE
+    /* Resolve all types */
+    yang_apply((yang_node*)ys, ys_resolve_type, NULL);
+#endif
     /* Step 2: Macro expansion of all grouping/uses pairs. Expansion needs marking */
     if (yang_expand((yang_node*)ysp) < 0)
 	goto done;
@@ -1673,7 +1688,6 @@ clicon_strsplit_malloc(char *string, char *delim, int *nvec0)
  err:
     return vec;
 }
-
 
 /*! Given an absolute xpath (eg /a/b/c) find matching yang specification  */
 yang_node *
