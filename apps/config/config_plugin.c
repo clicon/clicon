@@ -360,7 +360,6 @@ plugin_initiate(clicon_handle h)
     return 0;
 }
 
-
 void
 plugin_finish(clicon_handle h)
 {
@@ -374,14 +373,11 @@ plugin_finish(clicon_handle h)
     nplugins = 0;
 }
     
-
-/*
- * plugin_begin_hooks
- * Call plugin pre-commit hooks in plugins before a commit.
- * XXX We should only call plugins which have commit dependencies?
+/*! Call transaction_begin() in all plugins before a validate/commit.
+ * @note Call plugins which have commit dependencies?
  */
 int
-plugin_begin_hooks(clicon_handle h, char *candidate)
+transaction_begin_hooks(clicon_handle h, char *candidate)
 {
     int i;
     int retval = 0;
@@ -393,13 +389,14 @@ plugin_begin_hooks(clicon_handle h, char *candidate)
     return retval;
 }
 
-/*
- * Call transaction_complete() in all plugins after validation (and before commit)
- * Return -1 if validation fails. 
- * XXX We should only call plugins which have commit dependencies?
+/*! Call transaction_complete() in all plugins after validation (before commit)
+ * @retval   0   validation OK
+ * @retval  -1   validation fail
+ * @note Call plugins which have commit dependencies?
+ * @note Rename to transaction_complete?
  */
 int
-plugin_complete_hooks(clicon_handle h, char *dbname)
+transaction_complete_hooks(clicon_handle h, char *dbname)
 {
     int i;
     int retval = 0;
@@ -411,14 +408,11 @@ plugin_complete_hooks(clicon_handle h, char *dbname)
     return retval;
 }
 
-
-/*
- * Call plugin_post_commit() in all plugins after a successful commit.
- * transaction_end
- * XXX We should only call plugins which have commit dependencies?
+/*! Call transaction_end() in all plugins after a successful commit.
+ * @note Call plugins which have commit dependencies?
  */
 int
-plugin_end_hooks(clicon_handle h, char *candidate)
+transaction_end_hooks(clicon_handle h, char *candidate)
 {
     int i;
     int retval = 0;
@@ -430,12 +424,10 @@ plugin_end_hooks(clicon_handle h, char *candidate)
     return retval;
 }
 
-/*
- * Call plugin commit failed hooks in plugins
- * XXX We should only call plugins which have commit dependencies?
+/*! Call transaction_aboort() in all plugins after a failed validation/commit.
  */
 int
-plugin_abort_hooks(clicon_handle h, char *candidate)
+transaction_abort_hooks(clicon_handle h, char *candidate)
 {
     int i;
     int retval = 0;
@@ -446,11 +438,9 @@ plugin_abort_hooks(clicon_handle h, char *candidate)
     return retval;
 }
 
-/*
- * Call from frontend to function 'func' in plugin 'plugin'. 
+/*! Call from frontend to function 'func' in plugin 'plugin'. 
  * Plugin function is supposed to populate 'retlen' and 'retarg' where
  * 'retarg' is malloc:ed data if non-NULL.
- * 
  */
 int
 plugin_downcall(clicon_handle h, struct clicon_msg_call_req *req,

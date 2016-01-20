@@ -46,22 +46,39 @@ routing_commit(clicon_handle h,
 	       commit_op op, 
 	       commit_data d)
 {
-    if (op == CO_ADD)
-        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_target_key(d));
+    fprintf(stderr, "%s op:%s skey:%s tkey:%s\n", 
+	    __FUNCTION__, 
+	    commitop2txt(op),
+	    commit_source_key(d),
+	    commit_target_key(d));
     return 0;
 }
 
+int
+routing_tree_commit(clicon_handle h, 
+		    commit_op op, 
+		    commit_data d)
+{
+    fprintf(stderr, "%s op:%s skey:%s tkey:%s\n", 
+	    __FUNCTION__, 
+	    commitop2txt(op),
+	    commit_source_key(d),
+	    commit_target_key(d));
+    return 0;
+}
 
 int
 routing_validate(clicon_handle h, 
 		 commit_op op, 
 		 commit_data d)
 {
-    if (op == CO_ADD)
-        fprintf(stderr, "%s key:%s\n", __FUNCTION__, commit_target_key(d));
+    fprintf(stderr, "%s op:%s skey:%s tkey:%s\n", 
+	    __FUNCTION__, 
+	    commitop2txt(op),
+	    commit_source_key(d),
+	    commit_target_key(d));
     return 0;
 }
-
 
 /*
  * Plugin initialization
@@ -71,13 +88,15 @@ plugin_init(clicon_handle h)
 {
     int retval = -1;
 
-    if (dbdep_tree(h, 0, routing_commit, 
-			 (void *)NULL, "a[]*") == NULL) {
+    /* register all keys under 'interface' for commit callbacks*/
+    if (dbdep(h, 0, routing_commit, 
+			 (void *)NULL, "interfaces.*") == NULL) {
 	clicon_debug(1, "Failed to create dependency");
 	goto done;
     }
-    if (dbdep_tree_validate(h, 0, routing_validate, 
-			 (void *)NULL, "a[]*") == NULL) {
+    /* register all keys under 'interface' for validate callbacks*/
+    if (dbdep_validate(h, 0, routing_validate, 
+			 (void *)NULL, "interfaces.*") == NULL) {
 	clicon_debug(1, "Failed to create dependency");
 	goto done;
     }

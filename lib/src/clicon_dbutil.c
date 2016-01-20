@@ -129,16 +129,31 @@ cvec_add_name(cvec *vec, enum cv_type type, char *name)
     return cv;
 }
 
-/*! Merge two cvec's, append
+/*
+ * Cvec merge functions. This brief text outlines the different variants
+ * in  orig  [A=0;B=1]
+ * in  add   [B=2;C=3]
  *
- * @param orig		Original variable vector
- * @param add		New variable vector
+ * out orig  [A=0;B=1;C=3]     # append
+ * out orig  [A=0;B=2;C=3]     # overwrite and append
+ * out orig  [A=0;B=1;B=2;C=3] # overlap
+ */
+
+/*! Merge two cvec's. Append values from second that does not exist in first
  *
- * @retval              Number of added/overwritten keys to 'orig'
- * append add to orig (not prepend)
+ * @param[in,out] orig	  Original variable vector
+ * @param[in]     add	  New variable vector
+ *
+ * @retval        nr      Number of added/overwritten keys to 'orig'
+ * append 'add' to 'orig' (not prepend)
+ * Example:
+ * in  orig : A=0; B=1
+ *     add  : B=2; C=3
+ * out orig : A=0; B=1; C=3
+ * @see cvec_merge_overwrite
  */
 int
-cvec_merge(cvec *orig, cvec *add)
+cvec_merge_append(cvec *base, cvec *add)
 {
     int            retval = 0;
     cg_var        *cv;
@@ -147,18 +162,56 @@ cvec_merge(cvec *orig, cvec *add)
     while ((cv = cvec_each (add, cv))) {
 	if (cv_flag(cv, V_UNSET))  /* Allow for empty values as in db_spec */
 	    continue;
-	if (cvec_find_var(orig, cv_name_get(cv)) != NULL) 
+	if (cvec_find_var(base, cv_name_get(cv)) != NULL) 
 	    continue; /* If already there, leave it */
-	if (cvec_add_cv(orig, cv) == NULL)
+	if (cvec_add_cv(base, cv) == NULL) /* append from add to base */
 	    return -1;
 	retval++;
     }
     return retval;
 }
 
+/*! Merge two cvec's. Append values from second that does not exist in first
+ *
+ * @param[in,out] orig	  Original variable vector
+ * @param[in]     add	  New variable vector
+ *
+ * @retval        nr      Number of added/overwritten keys to 'orig'
+ * append 'add' to 'orig' (not prepend)
+ * Example:
+ * in  orig : A=0; B=1
+ *     add  : B=2; C=3
+ * out orig : A=0; B=2; C=3
+ * @see cvec_merge_append
+ */
+int
+cvec_merge_overwrite(cvec *base, cvec *add)
+{
+    int            retval = 0;
+    cg_var        *cv;
+    cg_var        *cv1;
+
+    cv = NULL;
+    while ((cv = cvec_each (add, cv))) {
+	if (cv_flag(cv, V_UNSET))  /* Allow for empty values as in db_spec */
+	    continue;
+	if ((cv1 = cvec_find_var(base, cv_name_get(cv))) != NULL) {
+	    cv_reset(cv1);
+	    if (cv_cp(cv1, cv) < 0) /* If already there, replace it */
+		return -1;
+	}
+	else
+	    if (cvec_add_cv(base, cv) == NULL) /* append to base */
+		return -1;
+	retval++;
+    }
+    return retval;
+}
+
+
 /*! Merge two cvec's, accept overlap
  *
- * Same as cvec_merge but same variable name may occur several times.
+ * Same as cvec_merge_append but same variable name may occur several times.
  * Example: assume variables eg x, y below 
  * The values in a leaf-list MUST be unique.
  *
@@ -167,7 +220,7 @@ cvec_merge(cvec *orig, cvec *add)
  * vec:[x=42;y=99] old:[x=42;y=99]  => vec:[x=42;y=99]
  */
 int
-cvec_merge2(cvec *orig, cvec *add)
+cvec_merge_overlap(cvec *base, cvec *add)
 {
     int             retval = 0;
     cg_var         *cv;
@@ -180,18 +233,18 @@ cvec_merge2(cvec *orig, cvec *add)
 	    continue;
 	cvo = NULL;
 	found = 0;
-	while ((cvo = cvec_each (orig, cvo))) {
+	while ((cvo = cvec_each (base, cvo))) {
 	    if (strcmp(cv_name_get(cv), cv_name_get(cvo)))
 		continue;
 	    /* same name: let it be, dont overwrite */
-	    if (cv_cmp(cv, cvo) == 0){ /* same name,val exists in orig, dont add */
+	    if (cv_cmp(cv, cvo) == 0){ /* same name,val exists in base, dont add */
 		found++;
 		break;
 	    }
 	    /* same name but different value */
 	}
-	if (!found){ /* If name,val not found in orig, add it to orig. */
-	    if (cvec_add_cv(orig, cv) == NULL)
+	if (!found){ /* If name,val not found in base, add it to base. */
+	    if (cvec_add_cv(base, cv) == NULL)
 		goto err;
 	    retval++;
 	}

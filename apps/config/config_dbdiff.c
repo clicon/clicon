@@ -90,11 +90,13 @@ dbdiff_add(cvec            *vr1,
 
 /*! Check if regular key 'key' exists in first, second or both databases.
  *
- * @param   db1    First database
- * @param   db2    Second database
- * @param   key    db key
- * @param   df     database diff result struct
- * @param   label  chunk label
+ * @param[in]   db1    First database
+ * @param[in]   db2    Second database
+ * @param[in]   key    db key
+ * @param[out]  df     database diff result struct
+ * @param[in]   label  chunk label
+ * @retval      0      ok
+ * @retval      -1     error
  */
 static int
 dbdiff_single(char *db1, char *db2,
@@ -412,10 +414,10 @@ dbdiff_vector_1(char          *db1,
  * @param[out]    df          dbdiff struct containing list of database changes
  */
 int
-db_diff(char *db1,     
-	char *db2, 
-	const char *label,
-	dbspec_key *dbspec,
+db_diff(char          *db1,     
+	char          *db2, 
+	const char    *label,
+	dbspec_key    *dbspec,
 	struct dbdiff *df
     )
 {

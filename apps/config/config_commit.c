@@ -264,25 +264,8 @@ generic_validate(clicon_handle h, char *dbname, const struct dbdiff *dd)
     return retval;
 }
 
-char *
-commitop2txt(commit_op op)
-{
-    switch (op){
-    case CO_DELETE:
-	return "DELETE";
-	break;
-    case CO_CHANGE:
-	return "CHANGE";
-	break;
-    case CO_ADD:
-	return "ADD";
-	break;
-    } 
-    return NULL;
-}
-
-/*! Transalte from dbdiff operation to commit operation
- * XXX: Maybe they arecan be the same?
+/*! Translate from dbdiff operation to commit operation
+ * XXX: Maybe they can be the same?
  */
 static commit_op
 dbdiff2commit_op(enum dbdiff_op dop)
@@ -306,6 +289,7 @@ dbdiff2commit_op(enum dbdiff_op dop)
 
 /*! Make user-defined callbacks on each changed keys
  * The order is: deleted keys, changed keys, added keys.
+ * @see dbdep_validate, dbdep_tree_validate
  */
 static int
 validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
@@ -372,7 +356,6 @@ validate_db(clicon_handle h, int nvec, dbdep_dd_t *ddvec,
  (df_) from dbdiff(),   (dfe_)
 
 */
-
 int
 candidate_commit(clicon_handle h, char *candidate, char *running)
 {
@@ -407,6 +390,16 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 		&df
 		) < 0)
 	goto done;
+    if (1){
+	struct dbdiff_ent *dfe;
+	for (i=0; i<df.df_nr; i++) {
+	    dfe = &df.df_ents[i];
+	    clicon_debug(0, "%s op:%d key:%s",
+			 __FUNCTION__,
+			 dfe->dfe_op,
+			 cvec_name_get(dfe->dfe_vec1?dfe->dfe_vec1:dfe->dfe_vec2));
+	}
+    }
     /* 1. Get commit processing to dbdiff vector: one entry per key that changed.
        changes are registered as if they exist in the 1st(candidate) or
        2nd(running) dbs.
@@ -414,20 +407,20 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     if (dbdep_commitvec(h, &df, &nvec, &ddvec) < 0)
 	goto done;
 
-    /* 2. Call plugin pre-commit hooks */
-    if (plugin_begin_hooks(h, candidate) < 0)
+    /* 2. Call transaction_begin hooks */
+    if (transaction_begin_hooks(h, candidate) < 0)
 	goto done;
 
     /* call generic cv_validate() on all new or changed keys. */
     if (generic_validate(h, candidate, &df) < 0)
 	goto done;
 
-    /* user-defined callbacks */
+    /* user-defined validate callbacks registered in dbdep_validate */
     if (validate_db(h, nvec, ddvec, running, candidate) < 0)
 	goto done;
 
     /* Call plugin post-commit hooks */
-    if (plugin_complete_hooks(h, candidate) < 0)
+    if (transaction_complete_hooks(h, candidate) < 0)
 	goto done;
 
     if (clicon_commit_order(h) == 0){
@@ -665,12 +658,12 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
     } 
     
 	/* Call plugin post-commit hooks */
-    plugin_end_hooks(h, candidate);
+    transaction_end_hooks(h, candidate);
     
     retval = 0;
  done:
     if (retval < 0) /* Call plugin fail-commit hooks */
-	plugin_abort_hooks(h, candidate);
+	transaction_abort_hooks(h, candidate);
     if (ddvec)
 	dbdep_commitvec_free(ddvec, nvec);
     db_diff_free(&df);
@@ -716,7 +709,7 @@ candidate_validate(clicon_handle h, char *candidate, char *running)
 	 goto done;
 
      /* 2. Call plugin pre-commit hooks */
-     if (plugin_begin_hooks(h, candidate) < 0)
+     if (transaction_begin_hooks(h, candidate) < 0)
 	 goto done;
 
      /* call generic cv_validate() on all new or changed keys. */
@@ -728,13 +721,13 @@ candidate_validate(clicon_handle h, char *candidate, char *running)
 	 goto done;
 
      /* Call plugin post-commit hooks */
-     if (plugin_complete_hooks(h, candidate) < 0)
+     if (transaction_complete_hooks(h, candidate) < 0)
 	 goto done;
 
      retval = 0;
    done:
      if (retval < 0) /* Call plugin fail-commit hooks */
-	 plugin_abort_hooks(h, candidate);
+	 transaction_abort_hooks(h, candidate);
      if (ddvec)
 	 free(ddvec);
      db_diff_free(&df);
@@ -745,9 +738,7 @@ candidate_validate(clicon_handle h, char *candidate, char *running)
  }
 
 
-/*
- * from_client_commit
- * Handle an incoming commit message from a client.
+/*! Handle an incoming commit message from a client.
  * XXX: If commit succeeds and snapshot/startup fails, we have strange state:
  *   the commit has succeeded but an error message is returned.
  */

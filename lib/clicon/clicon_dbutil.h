@@ -38,9 +38,11 @@ cg_var *cvec_add_cv(cvec *vec, cg_var *cv);
 
 cg_var *cvec_add_name(cvec *vec, enum cv_type type, char *name);
 
-int cvec_merge(cvec *orig, cvec *add);
+int cvec_merge_append(cvec *orig, cvec *add);
 
-int cvec_merge2(cvec *orig, cvec *add);
+int cvec_merge_overwrite(cvec *orig, cvec *add);
+
+int cvec_merge_overlap(cvec *orig, cvec *add);
 
 cg_var *dbvar2cv(char *dbname, char *key, char *variable);
 

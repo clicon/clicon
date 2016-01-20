@@ -547,7 +547,7 @@ xml2cvec_transform(cxobj       *xn,
 	    break; /* one body */
 	} /* for body */
     }
-    if (cvec_merge(cvv, spec_cvv) < 0)
+    if (cvec_merge_append(cvv, spec_cvv) < 0)
 	goto catch;
     if (isvector){
 	if ((index = db_lv_vec_find(dbspec, dbname, *key, cvv, &matched)) < 0)

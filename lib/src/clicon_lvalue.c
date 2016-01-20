@@ -372,13 +372,14 @@ keyindex_max_set(char *dbname, char *basekey, int index)
  * XXX: There is something seriously wring with this function. 
  * v1 and v2 are not used in the loop but are set two times.
  * A try to rewrite the function (below) made something else break.
+ * 2016-01: yes, but what is it that breaks???
  *
  *
  * Return values:
  * 0: No match
  * 1: Match
  */
-#if 1
+#if 0
 /*
  */
 int
@@ -438,14 +439,14 @@ lv_matchvar (cvec *vec1, cvec *vec2, int cmpall)
 	    if (!cmpall && !cv_flag(cv1, V_UNIQUE))
 		continue;
       
-	    cv2 = cvec_find (vhb, cv_name_get(v1));
+	    cv2 = cvec_find (vhb, cv_name_get(cv1));
 	    if (cv2 == NULL)	 /* Not found: mismatch! */
 		return 0;
       
 	    if (cv_flag(cv2, V_WILDCARD))
 		continue;
       
-	    if (cv_type_get(cv1) != cv_type_get(v2)) /* Type mismatch */
+	    if (cv_type_get(cv1) != cv_type_get(cv2)) /* Type mismatch */
 		return 0;
       
 	    /* Data mismatch */
@@ -653,11 +654,11 @@ db_lv_set(dbspec_key     *spec,
 		 * vec:[x=42;y=99] old:[x=42;y=100] => vec:[x=42;y=99;y=100] ??
 		 * vec:[x=42;y=99] old:[x=42;y=99]  => vec:[x=42;y=99]
 		 */
-		if (cvec_merge2(orig, cvv) < 0)
+		if (cvec_merge_overlap(orig, cvv) < 0)
 		    goto quit;
 	    }
-	    else{ /* Wrong to append old values should be prepended */
-		if (cvec_merge(orig, cvv) < 0)
+	    else{ /* Replace existing, append new values */
+		if (cvec_merge_overwrite(orig, cvv) < 0)
 		    goto quit;
 	    }
 	    vec2 = orig;
@@ -682,7 +683,8 @@ db_lv_set(dbspec_key     *spec,
     /* Mark them as default values */
     while ((v = cvec_each(def, v))) 
 	cv_flag_set(v, V_DEFAULT);
-    if (cvec_merge(vec2, def) < 0)
+    /* Append new values, not if they exists */
+    if (cvec_merge_append(vec2, def) < 0)
 	goto quit;
 
     /* write to database, key and a vector of variables */
@@ -734,8 +736,8 @@ db_lv_vec_set(dbspec_key *dbspec,
 	    if ((dbvars = lvec2cvec(lvec, lvlen)) == NULL)
 		goto quit;
 	    free(lvec);
-	    /* Append setvars to dbvars */
-	    cvec_merge(setvars, dbvars); /* XXX Here is where two same variables dont work */
+	    /* Append setvars to dbvars. XXX: this could change order,..*/
+	    cvec_merge_append(setvars, dbvars); /* XXX Here is where two same variables dont work */
 	    cvec_free (dbvars);
 	}
     }
@@ -1154,9 +1156,7 @@ catch:
     return key;
 }
 
-/*
- * db_lv_op_exec
- * Perform actual operation of db value
+/*! Perform actual operation of db value
  */
 int
 db_lv_op_exec(dbspec_key *dbspec, 

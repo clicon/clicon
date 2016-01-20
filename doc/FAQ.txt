@@ -4,11 +4,107 @@ A: CLICON uses a key-value database.
 To understand how configuration trees are stored in a KV-database, see
 clicon-datamodel.pdf.
 It may also be useful to play around with clicon_dbctrl, for example:
->clicon_dbctrl -pbd /usr/local/var/clicon_yang/candidate_db
-x.0
-x.n
-x.0.x.0
-x.0.x.n
+  >clicon_dbctrl -pbd /usr/local/var/clicon_yang/candidate_db
+  x.0
+  x.n
+  x.0.x.0
+  x.0.x.n
+
+Q: How do you register a commit callback?
+
+A: A clicon backend plugin registers a callback in its
+plugin_init() function, which is called when the plugin is loaded.  A commit
+callback is registered using dbdep() or dbdep_tree().  The most
+important arguments to these functions are a callback function(mycommit) and a
+key pattern. Example:
+    dbdep(h, prio, mycommit, arg, "a[].b*");
+
+If something happens to a key matching "keypattern", the callback is
+called.  For example, if key "a[].b*" is registered, then the callback
+will be called if "a.0.b.8" or "a.0.b.10.c" are changed (added,
+removed or changed value)..
+
+The dbdep_tree function is similar, but a single callback will be made
+for any change in the subtree.
+
+Q: How do you write a commit callback?
+
+If you have registered a commit callback, it will be called when keys
+matching the call has been added removed or changed value.
+
+An example of a commit callback signature is the following
+   int 
+   mycommit(clicon_handle h, commit_op op, commit_data data)
+   {
+     char *db = commit_target_db(data);    
+     cvec  *cvv = commit_target_vec(data); # This is the changed node
+     cvec **cvvv;
+     int    len;
+
+     switch (op){
+     case CO_ADD:      /* Get cnt/list sub-trees of changed node */
+        clicon_dbget_xpath(h, cvv, NULL, "cnt/lst", &cvvv, &len); 
+     default:
+        break;
+     }  
+   }
+
+The 'op' parameter defines if the key has been added, being removed or is changed.
+
+The 'data' parameter contains information about the commit and have the following access macros:
+- commit_source_db(data)    Name of source database, typically 'running-db'
+- commit_target_db(data)    Name of target database, typically 'candidate-db'
+- commit_source_key(data)   Name of matched key in source database
+- commit_target_key(data)   Name of matched key in target database
+- commit_source_vec(data)   Values (leaf values) of source database, if any
+- commit_target_vec(data)   Values (leaf values) of target database, if any
+
+Using the macros, data can be retrieved from the transaction and used
+for application semantics.  Getting data is made using
+commit_source_vec/commit_target_vec access functions, in combination
+with clicon_dbget_xpath, or other access functions in clicon_db.c.
+
+
+Q: What is the difference between a commit callback and a validate callback?
+
+A: They are similar, but are called at different times in the transaction lifetime. 
+They are also registered using the functions dbdep_validate() or dbdep_tree_validate().
+
+Q: How does a transaction work?
+
+When a client commits a change, or validates a change, the CLICON
+backend computes the differences between the running and candidate
+databases. These changes are grouped into: add, change or delete
+operations. Each change operation has one or two key values and a set of values
+(cvecs), ie the contents of a database entry, before and after.
+
+The transaction callbacks (to a backend plugin) are as follows:
+  - transaction_begin
+  - validate_cb   # one for each key
+    ...           # application validates configuration changes
+  - validate_cb
+  - transaction_complete
+  - commit_cb     # one for each key
+    ...           # application makes changes permanent
+  - commit_cb     
+  - transaction_end
+
+After the transaction, the running database is equivalent to the candidate database.
+
+If a validation is performed, the transaction looks like this:
+  - transaction_begin
+  - validate_cb   # one for each key
+  - transaction_end
+
+If something goes wrong, the transaction is aborted after trying to restore the original state.
+Example:
+  - transaction_begin
+  - validate_cb   # one for each key
+  - transaction_complete
+  - commit_cb     # one for each key
+   ERROR
+  - commit_cb     # reverse commits
+  - transaction_abort
 
 Q: How to access leaf database values in C?
 
@@ -56,4 +152,16 @@ Output:
 0 : id = 2
 1 : desc = "DescB"
 
+Note that this example gets values from the root of the tree. If you
+wish to get values from a relative node in the tree, you set the third argument of 
+clicon_dbget_xpath() to a cvec of that node.
+That cvec is retrieved in different ways, one being a commit callback, as shown in the following example:
+
+static int 
+mycommit(clicon_handle h, commit_op op, commit_data data)
+{
+   cvec  *cvv = commit_target_vec(data); # This is the changed node
+
+   clicon_dbget_xpath(h, cvv, NULL, "cnt/lst", &cvecv, &len);
+}
 

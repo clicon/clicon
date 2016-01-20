@@ -42,10 +42,10 @@ int  config_plugin_init(clicon_handle h);
 int  plugin_initiate(clicon_handle h); 
 void plugin_finish(clicon_handle h);
 
-int  plugin_begin_hooks(clicon_handle h, char *candidate);
-int  plugin_complete_hooks(clicon_handle h, char *candidate);
-int  plugin_end_hooks(clicon_handle h, char *candidate);
-int  plugin_abort_hooks(clicon_handle h, char *candidate);
+int  transaction_begin_hooks(clicon_handle h, char *candidate);
+int  transaction_complete_hooks(clicon_handle h, char *candidate);
+int  transaction_end_hooks(clicon_handle h, char *candidate);
+int  transaction_abort_hooks(clicon_handle h, char *candidate);
 
 int  plugin_reset_state(clicon_handle h, char *dbname);
 int  plugin_start_hooks(clicon_handle h, int argc, char **argv);

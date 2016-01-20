@@ -603,6 +603,11 @@ clicon_autocommit_set(clicon_handle h, int val)
     return clicon_option_int_set(h, "CLICON_AUTOCOMMIT", val);
 }
 
+/*! Get backend callback order.
+ * 0: all callbacks in (rising) priority order
+ * 1: first delete operations in declining prio order; then add/change in prio order
+ * 2: like (1) but CHANGE is replaced by (DEL;ADD)
+ */
 int
 clicon_commit_order(clicon_handle h)
 {

@@ -48,6 +48,24 @@
 #include "config_handle.h"
 #include "config_commit.h"
 
+/* Should be in config_commit but not in lib */
+char *
+commitop2txt(commit_op op)
+{
+    switch (op){
+    case CO_DELETE:
+	return "DELETE";
+	break;
+    case CO_CHANGE:
+	return "CHANGE";
+	break;
+    case CO_ADD:
+	return "ADD";
+	break;
+    } 
+    return NULL;
+}
+
 /*
  * Free database depencency
  */
@@ -288,7 +306,6 @@ catch:
  * @endcode
  * @see dbdep, dbdep_validate
  */
-
 dbdep_handle_t
 dbdep_tree(clicon_handle h, /* Config handle */
 	   uint16_t      prio, 
@@ -519,10 +536,10 @@ dbdep_commitvec_sort(const void *arg1, const void *arg2)
  * Return 0  on OK, on error return -1
  */
 int
-dbdep_commitvec(clicon_handle h, 
+dbdep_commitvec(clicon_handle        h, 
 		const struct dbdiff *dd, 
-		int *nvecp, 
-		dbdep_dd_t **ddvec0)
+		int                 *nvecp, 
+		dbdep_dd_t         **ddvec0)
 {
     int         i, j;
     int         nvec;
