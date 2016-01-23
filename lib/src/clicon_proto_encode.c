@@ -431,8 +431,8 @@ clicon_msg_dbitems_get_decode(struct clicon_msg *msg,
  */
 struct clicon_msg *
 clicon_msg_dbitems_get_reply_encode(cvec          **cvecv,
-				int             cveclen,
-				const char     *label)
+				    int             cveclen,
+				    const char     *label)
 {
     struct clicon_msg *msg;
     uint16_t           len;
@@ -455,7 +455,7 @@ clicon_msg_dbitems_get_reply_encode(cvec          **cvecv,
 	    clicon_err(OE_PROTO, errno, "calloc");
 	    return NULL;
 	}
-	if ((lvecl = calloc(cveclen, sizeof(int))) == NULL){
+	if ((lvecl = calloc(cveclen, sizeof(size_t))) == NULL){
 	    clicon_err(OE_PROTO, errno, "calloc");
 	    return NULL;
 	}
@@ -512,10 +512,10 @@ clicon_msg_dbitems_get_reply_encode(cvec          **cvecv,
  */
 int
 clicon_msg_dbitems_get_reply_decode(char              *data,
-				uint16_t           datalen,
-				cvec            ***cvecv,
-				size_t            *cveclen,
-				const char        *label)
+				    uint16_t           datalen,
+				    cvec            ***cvecv,
+				    size_t            *cveclen,
+				    const char        *label)
 {
     int      p;
     uint32_t tmp;
