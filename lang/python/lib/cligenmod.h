@@ -18,12 +18,9 @@
  *  <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __LIBPYCLICON_H__
-#define __LIBPYCLICON_H__
+#ifndef __CLIGENMOD_H__
+#define __CLIGENMOD_H__
 
-#include "py23.h"
-#include "handle.h"
-#include "syspath.h"
-#include "cligenmod.h"
+PyObject *__cligen_module();
 
-#endif /* __LIBPYCLICON_H__ */
+#endif /* __CLIGENMOD_H__ */
