@@ -986,10 +986,11 @@ xml2txt(FILE *f, cxobj *x, int level)
  * Howto: join strings and pass them down. 
  * Identify unique/index keywords for correct set syntax.
  * Args:
- *  f:        where to print cli commands
- *  x:        xml parse-tree (to translate)
- *  prepend0: Print this text in front of all commands.
- *  label:    memory chunk allocation label
+ *  @param[in] f        Where to print cli commands
+ *  @param[in] x        XML Parse-tree (to translate)
+ *  @param[in] prepend0 Print this text in front of all commands.
+ *  @param[in] gt       option to steer cli syntax
+ *  @param[in] label    Memory chunk allocation label
  */
 int 
 xml2cli(FILE              *f, 
@@ -998,13 +999,16 @@ xml2cli(FILE              *f,
 	enum genmodel_type gt,
 	const char        *label)
 {
-    cxobj *xe = NULL;
+    int              retval = -1;
+    cxobj           *xe = NULL;
     char            *term;
     char            *prepend;
-    int              retval = -1;
     int              bool;
+    int              nr;
+    int              i;
 
-    if (!xml_child_nr(x)){
+    nr = xml_child_nr(x);
+    if (!nr){
 	if (xml_type(x) == CX_BODY)
 	    term = xml_value(x);
 	else
@@ -1038,10 +1042,14 @@ xml2cli(FILE              *f,
 	goto done;
     xe = NULL;
     /* First child is unique, then add that, before looping. */
-
+    i = 0;
     while ((xe = xml_child_each(x, xe, -1)) != NULL){
-	if (xml2cli(f, xe, prepend, gt, label) < 0)
-	    goto done;
+	/* Dont call this if it is index and there are other following */
+	if (xml_index(xe) && i < nr-1) 
+	    ;
+	else
+	    if (xml2cli(f, xe, prepend, gt, label) < 0)
+		goto done;
 	if (xml_index(xe)){ /* assume index is first, otherwise need one more while */
 	    if (gt ==GT_ALL && (prepend = chunk_sprintf(label, "%s %s", 
 							prepend, 
@@ -1053,6 +1061,7 @@ xml2cli(FILE              *f,
 					 xml_value(xml_child_i(xe, 0)))) == NULL)
 		goto done;
 	}
+	i++;
     }
     retval = 0;
   done:
