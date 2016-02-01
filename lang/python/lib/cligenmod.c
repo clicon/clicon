@@ -18,12 +18,22 @@
  *  <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __LIBPYCLICON_H__
-#define __LIBPYCLICON_H__
+
+#include <Python.h>
+
+/* clicon */
+#include <cligen/cligen.h>
+#include <clicon/clicon.h>
 
 #include "py23.h"
-#include "handle.h"
-#include "syspath.h"
-#include "cligenmod.h"
 
-#endif /* __LIBPYCLICON_H__ */
+PyObject *
+__cligen_module()
+{
+  static PyObject *cligen = NULL;
+
+  if (!cligen)
+    cligen = PyImport_ImportModule("cligen");
+
+  return cligen;  
+}
