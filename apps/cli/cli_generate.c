@@ -485,41 +485,15 @@ yang2cli_list(clicon_handle h,
 	cvec_free(cvk);
     return retval;
 }
-/*
+/*! Generate cli code for yang choice statement
 
-  container food {
-       choice snack {
-           case sports-arena {
-               leaf pretzel {
-                   type empty;
-               }
-               leaf beer {
-                   type empty;
-               }
-           }
-           case late-night {
-               leaf chocolate {
-                   type enumeration {
-                       enum dark;
-                       enum milk;
-                       enum first-available;
-                   }
-               }
-           }
-       }
-    }
-
-set food {
-    snack{
-     sports-arena{
-       pretzel;
-       beer;
-     }
-     late-night{
-      chocolate;
-    }
+  Example:
+  choice interface-type {
+         container ethernet { ... }
+         container fddi { ... }
   }
-}
+  @Note Removes 'meta-syntax' from cli syntax. They are not shown when xml is 
+  translated to cli. and therefore input-syntax != output syntax. Which is bad
  */
 static int
 yang2cli_choice(clicon_handle h, 
@@ -532,15 +506,21 @@ yang2cli_choice(clicon_handle h,
     yang_stmt    *yc;
     int           i;
 
+#if 0
     cprintf(cbuf, "%*s%s{\n", level*3, "", ys->ys_argument);
+#endif
     for (i=0; i<ys->ys_len; i++)
 	if ((yc = ys->ys_stmt[i]) != NULL){
 	    switch (yc->ys_keyword){
 	    case Y_CASE:
+#if 0
 		cprintf(cbuf, "%*s%s{\n", 3*(level+1), "", yc->ys_argument);
+#endif
 		if (yang2cli_stmt(h, yc, cbuf, gt, level+2) < 0)
 		    goto done;
+#if 0
 		cprintf(cbuf, "}");
+#endif
 		break;
 	    case Y_CONTAINER:
 	    case Y_LEAF:
@@ -552,7 +532,9 @@ yang2cli_choice(clicon_handle h,
 		break;
 	    }
 	}
+#if 0
     cprintf(cbuf, "%*s}\n", level*3, "");
+#endif
     retval = 0;
   done:
     return retval;
