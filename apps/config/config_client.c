@@ -134,13 +134,15 @@ client_subscription_find(struct client_entry *ce, char *stream)
 
     return su;
 }
+
 /*! Remove client entry state
  * Close down everything wrt clients (eg sockets, subscriptions)
  * Finally actually remove client struct in handle
- * See also backend_client_delete()
+ * @see backend_client_delete
  */
 int
-backend_client_rm(clicon_handle h, struct client_entry *ce)
+backend_client_rm(clicon_handle        h, 
+		  struct client_entry *ce)
 {
     struct client_entry   *c;
     struct client_entry   *c0;
@@ -165,15 +167,21 @@ backend_client_rm(clicon_handle h, struct client_entry *ce)
     return backend_client_delete(h, ce); /* actually purge it */
 }
 
-/*
- * Change entry set/delete in database
+/*! Internal message: Change entry set/delete in database
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_change(clicon_handle h,
-		   int s, 
-		   int pid, 
+from_client_change(clicon_handle      h,
+		   int                s, 
+		   int                pid, 
 		   struct clicon_msg *msg, 
-		   const char *label)
+		   const char        *label)
 {
     int         retval = -1;
     uint32_t    lvec_len;
@@ -246,7 +254,156 @@ from_client_change(clicon_handle h,
     return retval;
 }
 
-/*! Get database entries given key and attribute patterns
+/*! Internal message: Change entry set/delete in database xmldb variant
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
+ */
+static int
+from_client_change_xmldb(clicon_handle      h,
+			 int                s, 
+			 int                pid, 
+			 struct clicon_msg *msg, 
+			 const char        *label)
+{
+    int         retval = -1;
+    uint32_t    len;
+    char       *xk;
+    char       *dbname;
+    lv_op_t     op;
+    char       *str = NULL;
+    char       *candidate_db;
+    char       *val=NULL;
+    yang_spec  *yspec;
+
+    if (clicon_msg_change_decode(msg, 
+				 &dbname, 
+				 &op,
+				 &xk, 
+				 &val, 
+				 &len, 
+				 label) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+    /* candidate is locked by other client */
+    if (strcmp(dbname, candidate_db) == 0 &&
+	db_islocked(h) &&
+	pid != db_islocked(h)){
+	send_msg_err(s, OE_DB, 0,
+		     "lock failed: locked by %d", db_islocked(h));
+	goto done;
+    }
+
+    /* Update database */
+    if ((yspec = clicon_dbspec_yang(h)) == NULL){
+	clicon_err(OE_XML, 0, "yang spec not found");
+	goto done;
+    }
+    if (xmldb_put_xkey(dbname, xk, val, yspec, op) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    if (send_msg_ok(s) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (str)
+	free(str);
+    return retval;
+}
+
+
+
+/*! Internal message: Change entries as XML 
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
+ */
+static int
+from_client_xmlput(clicon_handle      h,
+		   int                s, 
+		   int                pid, 
+		   struct clicon_msg *msg, 
+		   const char        *label)
+{
+    int         retval = -1;
+    char       *dbname;
+    enum operation_type op;
+    cvec       *cvv = NULL;
+    char       *str = NULL;
+    char       *xml = NULL;
+    yang_spec  *ys;
+    char       *candidate_db;
+    cxobj      *xt;
+
+    if ((ys = clicon_dbspec_yang(h)) == NULL)
+	goto done;
+    if (clicon_msg_xmlput_decode(msg, 
+				 &dbname, 
+				 &op,
+				 &xml, 
+				 label) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    if ((candidate_db = clicon_candidate_db(h)) == NULL){
+	send_msg_err(s, 0, 0, "candidate db not set");
+	goto done;
+    }
+    /* candidate is locked by other client */
+    if (strcmp(dbname, candidate_db) == 0 &&
+	db_islocked(h) &&
+	pid != db_islocked(h)){
+	send_msg_err(s, OE_DB, 0,
+		     "lock failed: locked by %d", db_islocked(h));
+	goto done;
+    }
+    if (clicon_xml_parse_string(&xml, &xt) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    if (xmldb_put(dbname, xt, ys, op) < 0){
+	send_msg_err(s, clicon_errno, clicon_suberrno,
+		     clicon_err_reason);
+	goto done;
+    }
+    if (send_msg_ok(s) < 0)
+	goto done;
+    retval = 0;
+  done:
+    if (str)
+	free(str);
+    if (cvv)
+	cvec_free (cvv);
+    return retval;
+}
+
+
+/*! Internal message: Get database entries given key and attribute patterns
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
 from_client_dbitems(clicon_handle      h,
@@ -306,15 +463,19 @@ from_client_dbitems(clicon_handle      h,
     return retval;
 }
 
-
-/*
- * Dump database to file
+/*! Internal message: Dump/print database to file
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_save(clicon_handle h,
-		 int s, 
+from_client_save(clicon_handle      h,
+		 int                s, 
 		 struct clicon_msg *msg, 
-		 const char *label)
+		 const char        *label)
 {
     int      retval = -1;
     char    *filename;
@@ -356,15 +517,21 @@ from_client_save(clicon_handle h,
     return retval;
 }
 
-/*
- * Load file into database
+/*! Internal message: Load file into database
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_load(clicon_handle h,
-		 int s, 
-		 int pid, 
+from_client_load(clicon_handle      h,
+		 int                s, 
+		 int                pid, 
 		 struct clicon_msg *msg,
-		 const char *label)
+		 const char        *label)
 
 {
     char *filename = NULL;
@@ -415,15 +582,21 @@ from_client_load(clicon_handle h,
     return retval;
 }
 
-/*
- * Initialize database 
+/*! Internal message: Initialize database
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_initdb(clicon_handle h,
-		   int s, 
-		   int pid, 
+from_client_initdb(clicon_handle      h,
+		   int                s, 
+		   int                pid, 
 		   struct clicon_msg *msg, 
-		   const char *label)
+		   const char        *label)
 {
     char  *filename1;
     int    retval = -1;
@@ -461,14 +634,21 @@ from_client_initdb(clicon_handle h,
     return retval;
 }
 
-/*! Remove file
+/*! Internal message: Remove file
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_rm(clicon_handle h,
-	       int s, 
-	       int pid, 
+from_client_rm(clicon_handle      h,
+	       int                s, 
+	       int                pid, 
 	       struct clicon_msg *msg, 
-	       const char *label)
+	       const char        *label)
 {
     char *filename1;
     int   retval = -1;
@@ -504,15 +684,21 @@ from_client_rm(clicon_handle h,
     return retval;
 }
 
-/*
- * Copy file from file1 to file2
+/*! Internal message: Copy file from file1 to file2
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Socket where request arrived, and where replies are sent
+ * @param[in]   pid   Unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_copy(clicon_handle h,
-		 int s, 
-		 int pid, 
+from_client_copy(clicon_handle      h,
+		 int                s, 
+		 int                pid, 
 		 struct clicon_msg *msg, 
-		 const char *label)
+		 const char        *label)
 {
     char *filename1;
     char *filename2;
@@ -554,15 +740,21 @@ from_client_copy(clicon_handle h,
     return retval;
 }
 
-/*
- * Lock db
+/*! Internal message: Lock database
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Client socket where request arrived, and where replies are sent
+ * @param[in]   pid   Client unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_lock(clicon_handle h,
-		 int s, 
-		 int pid, 
+from_client_lock(clicon_handle      h,
+		 int                s, 
+		 int                pid, 
 		 struct clicon_msg *msg, 
-		 const char *label)
+		 const char        *label)
 {
     char *db;
     int   retval = -1;
@@ -602,20 +794,25 @@ from_client_lock(clicon_handle h,
     return retval;
 }
 
-/*
- * unlock db
+/*! Internal message: Unlock database
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Client socket where request arrived, and where replies are sent
+ * @param[in]   pid   Client unix process id
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_unlock(clicon_handle h,
-		   int s, 
-		   int pid, 
+from_client_unlock(clicon_handle      h,
+		   int                s, 
+		   int                pid, 
 		   struct clicon_msg *msg, 
-		   const char *label)
+		   const char        *label)
 {
     char *db;
     int   retval = -1;
     char *candidate_db;
-
 
     if (clicon_msg_unlock_decode(msg, 
 			      &db,
@@ -649,15 +846,19 @@ from_client_unlock(clicon_handle h,
     return retval;
 }
 
-/*
- * Kill session
- * Kill the process
+/*! Internal message:  Kill session (Kill the process)
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Client socket where request arrived, and where replies are sent
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_kill(clicon_handle h,
-		 int s, 
+from_client_kill(clicon_handle      h,
+		 int                s, 
 		 struct clicon_msg *msg, 
-		 const char *label)
+		 const char        *label)
 {
     uint32_t pid; /* other pid */
     int retval = -1;
@@ -698,15 +899,19 @@ from_client_kill(clicon_handle h,
     return retval;
 }
 
-/*
- * from_client_debug
- * Set debug level. This is global, not just for the session.
+/*! Internal message: Set debug level. This is global, not just for the session.
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Client socket where request arrived, and where replies are sent
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0     OK
+ * @retval      -1    Error. Send error message back to client.
  */
 static int
-from_client_debug(clicon_handle h,
-		 int s, 
-		 struct clicon_msg *msg, 
-		 const char *label)
+from_client_debug(clicon_handle      h,
+		  int                s, 
+		  struct clicon_msg *msg, 
+		  const char        *label)
 {
     int retval = -1;
     uint32_t level;
@@ -727,14 +932,19 @@ from_client_debug(clicon_handle h,
     return retval;
 }
 
-/*
- * Call backend plugin
+/*! Internal message: downcall backend plugin
+ * @param[in]   h     Clicon handle
+ * @param[in]   s     Client socket where request arrived, and where replies are sent
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0    OK
+ * @retval      -1   Error. Send error message back to client.
  */
 static int
-from_client_call(clicon_handle h,
-		 int s, 
+from_client_call(clicon_handle      h,
+		 int                s, 
 		 struct clicon_msg *msg, 
-		 const char *label)
+		 const char        *label)
 {
     int retval = -1;
     void *reply_data = NULL;
@@ -764,14 +974,19 @@ from_client_call(clicon_handle h,
     return retval;
 }
 
-
-/*! Create subscription for notifications
+/*! Internal message: Create subscription for notifications
+ * @param[in]   h     Clicon handle
+ * @param[in]   ce    Client entry (from).
+ * @param[in]   msg   Message
+ * @param[in]   label Memory chunk
+ * @retval      0    OK
+ * @retval      -1   Error. Send error message back to client.
  */
 static int
-from_client_subscription(clicon_handle h,
+from_client_subscription(clicon_handle        h,
 			 struct client_entry *ce,
-			 struct clicon_msg *msg, 
-			 const char *label)
+			 struct clicon_msg   *msg, 
+			 const char          *label)
 {
     int                  status;
     enum format_enum     format;
@@ -813,8 +1028,12 @@ from_client_subscription(clicon_handle h,
     return retval;
 }
 
-
-/*! A message has arrived from a client
+/*! An internal clicon message has arrived from a client. Receive and dispatch.
+ * @param[in]   s    Socket where message arrived. read from this.
+ * @param[in]   arg  Client entry (from).
+ * @retval      0    OK
+ * @retval      -1   Error Terminates backend and is never called). Instead errors are
+ *                   propagated back to client.
  */
 int
 from_client(int s, void* arg)
@@ -843,7 +1062,18 @@ from_client(int s, void* arg)
 	    goto done;
 	break;
     case CLICON_MSG_CHANGE:
+	if (clicon_db_xml(h)){
+	    if (from_client_change_xmldb(h, ce->ce_s, ce->ce_pid, msg, 
+					 (char *)__FUNCTION__) < 0)
+		goto done;
+	}
+	else
 	if (from_client_change(h, ce->ce_s, ce->ce_pid, msg, 
+			    (char *)__FUNCTION__) < 0)
+	    goto done;
+	break;
+    case CLICON_MSG_XMLPUT:
+	if (from_client_xmlput(h, ce->ce_s, ce->ce_pid, msg, 
 			    (char *)__FUNCTION__) < 0)
 	    goto done;
 	break;

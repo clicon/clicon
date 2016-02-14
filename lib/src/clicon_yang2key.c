@@ -511,7 +511,7 @@ key2yang(dbspec_key *db_spec)
 	    }
 	    if (!isvec){
 		/* Create container node */
-		if ((ys = yang_find_specnode(yp, key)) == NULL){
+		if ((ys = yang_find_syntax(yp, key)) == NULL){
 		    if ((ys = ys_new(Y_CONTAINER)) == NULL)
 			goto err;
 		    ys->ys_argument = strdup(key);
@@ -531,7 +531,7 @@ key2yang(dbspec_key *db_spec)
 		    goto err;
 		}
 		/* Create list node */
-		if ((ys = yang_find_specnode(yp, key)) == NULL){
+		if ((ys = yang_find_syntax(yp, key)) == NULL){
 		    if ((ys = ys_new(Y_LIST)) == NULL)
 			goto err;
 		    ys->ys_argument = strdup(key);

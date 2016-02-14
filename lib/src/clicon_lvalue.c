@@ -698,10 +698,7 @@ quit:
     return retval;
 }
 
-/*
- * db_lv_vec_set
- * Find a subkey which matches the lvalue vector lvec.
- * set the value of that subkey to lvec.
+/*! Find subkey matching lvalue vector lvec, set value of that subkey to lvec.
  */
 static int
 db_lv_vec_set(dbspec_key *dbspec,
@@ -1160,10 +1157,10 @@ catch:
  */
 int
 db_lv_op_exec(dbspec_key *dbspec, 
-	      char *dbname, 
-	      char *basekey, 
-	      lv_op_t op, 
-	      cvec *vh)
+	      char       *dbname, 
+	      char       *basekey, 
+	      lv_op_t     op, 
+	      cvec       *vh)
 {
     dbspec_key *spec;
     int             len;

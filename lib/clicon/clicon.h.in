@@ -64,13 +64,14 @@
 #include <clicon/clicon_event.h>
 #include <clicon/clicon_string.h>
 #include <clicon/clicon_file.h>
+#include <clicon/clicon_xml.h>
 #include <clicon/clicon_proto.h>
 #include <clicon/clicon_proto_encode.h>
 #include <clicon/clicon_proto_client.h>
 #include <clicon/clicon_proc.h>
 #include <clicon/clicon_options.h>
-#include <clicon/clicon_xml.h>
 #include <clicon/clicon_xml_map.h>
+#include <clicon/clicon_xml_db.h>
 #include <clicon/clicon_xsl.h>
 #include <clicon/clicon_plugin.h>
 #include <clicon/clicon_dbvars.h>

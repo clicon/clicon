@@ -50,6 +50,12 @@
 #include "cli_plugin.h"
 #include "cli_generate.h"
 
+/* This is the default callback function. But this is typically overwritten */
+#define GENERATE_CALLBACK "cli_set"
+
+/* variable expand function */
+#define GENERATE_EXPAND_LVEC "expand_dbvar_auto"
+#define GENERATE_EXPAND_XMLDB "expand_dbvar_dbxml"
 
 /*=====================================================================
  * YANG generate CLI
@@ -153,8 +159,79 @@ cvtype_max2str_dup(enum cv_type type)
 }
 #endif /* HAVE_CLIGEN_MAX2STR */
 
+/*! Create cligen variable expand entry with xmlkey format string as argument
+ * @param[in]  h      clicon handle
+ * @param[in]  ys     yang_stmt of the node at hand
+ * @param[in]  cvtype Type of the cligen variable
+ * @param[in]  cb0    The string where the result format string is inserted.
+ * @see expand_dbvar_dbxml  This is where the expand string is used
+ */
+static int
+cli_expand_var_generate(clicon_handle h, 
+			yang_stmt    *ys, 
+			enum cv_type  cvtype,
+			cbuf         *cb0)
+{
+    int   retval = -1;
+    char *xkfmt = NULL;
+
+    if (clicon_db_xml(h)){
+	if (yang2xmlkeyfmt(ys, &xkfmt) < 0)
+	    goto done;
+	cprintf(cb0, "|<%s:%s %s(\"candidate %s\")>",
+		ys->ys_argument, 
+		cv_type2str(cvtype),
+		GENERATE_EXPAND_XMLDB,
+		xkfmt);
+
+    }
+    else{
+	cprintf(cb0, "|<%s:%s %s(\"candidate %s\")>",
+		ys->ys_argument, 
+		cv_type2str(cvtype),
+		GENERATE_EXPAND_LVEC,
+		yang_dbkey_get(ys));
+    }
+    retval = 0;
+ done:
+    if (xkfmt)
+	free(xkfmt);
+    return retval;
+}
+
+/*! Create callback with xmlkey format string as argument
+ * @param[in]  h   clicon handle
+ * @param[in]  ys  yang_stmt of the node at hand
+ * @param[in]  cb0 The string where the result format string is inserted.
+ * @see cli_dbxml  This is where the xmlkeyfmt string is used
+ */
+static int
+cli_callback_generate(clicon_handle h, 
+		      yang_stmt    *ys, 
+		      cbuf         *cb0)
+{
+    int        retval = -1;
+    char      *dbspec;
+    char      *xkfmt = NULL;
+
+    if (!clicon_db_xml(h)){
+	dbspec = yang_dbkey_get(ys);
+	cprintf(cb0, ",%s(\"%s\")", GENERATE_CALLBACK, dbspec);
+	retval = 0;
+	goto done;
+    }
+    if (yang2xmlkeyfmt(ys, &xkfmt) < 0)
+	goto done;
+    cprintf(cb0, ",%s(\"%s\")", GENERATE_CALLBACK, xkfmt);
+    retval = 0;
+ done:
+    if (xkfmt)
+	free(xkfmt);
+    return retval;
+}
+
 static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys, 
-			 cbuf         *cbuf,    
+			 cbuf         *cb0,    
 			 enum genmodel_type gt,
 			 int           level);
 
@@ -165,7 +242,7 @@ static int yang2cli_stmt(clicon_handle h, yang_stmt    *ys,
 static int
 yang2cli_var_sub(clicon_handle h,
 		 yang_stmt    *ys, 
-		 cbuf         *cbuf,    
+		 cbuf         *cb0,    
 		 char         *description,
 		 enum cv_type  cvtype,
 		 yang_stmt    *ytype,  /* resolved type */
@@ -198,22 +275,22 @@ yang2cli_var_sub(clicon_handle h,
 	completion = clicon_cli_genmodel_completion(h);
 
     if (completion)
-	cprintf(cbuf, "(");
+	cprintf(cb0, "(");
     cvtypestr = cv_type2str(cvtype);
-    cprintf(cbuf, "<%s:%s", ys->ys_argument, cvtypestr);
+    cprintf(cb0, "<%s:%s", ys->ys_argument, cvtypestr);
 #if 0
     if (type && (strcmp(type, "identityref") == 0)){
 	yang_stmt      *ybase;
 	if ((ybase = yang_find((yang_node*)ytype, Y_BASE, NULL)) != NULL){
-	    cprintf(cbuf, " choice:"); 
+	    cprintf(cb0, " choice:"); 
 	    i = 0;
 	    /* for every found identity derived from base-type , do: */
 	    {
 		if (yi->ys_keyword != Y_ENUM && yi->ys_keyword != Y_BIT)
 		    continue;
 		if (i)
-		    cprintf(cbuf, "|"); 
-		cprintf(cbuf, "%s", yi->ys_argument); 
+		    cprintf(cb0, "|"); 
+		cprintf(cb0, "%s", yi->ys_argument); 
 		i++;
 	    }
 	}
@@ -221,27 +298,27 @@ yang2cli_var_sub(clicon_handle h,
     }
 #endif
     if (type && (strcmp(type, "enumeration") == 0 || strcmp(type, "bits") == 0)){
-	cprintf(cbuf, " choice:"); 
+	cprintf(cb0, " choice:"); 
 	i = 0;
 	while ((yi = yn_each((yang_node*)ytype, yi)) != NULL){
 	    if (yi->ys_keyword != Y_ENUM && yi->ys_keyword != Y_BIT)
 		continue;
 	    if (i)
-		cprintf(cbuf, "|"); 
-	    cprintf(cbuf, "%s", yi->ys_argument); 
+		cprintf(cb0, "|"); 
+	    cprintf(cb0, "%s", yi->ys_argument); 
 	    i++;
 	}
     }
     if (options & YANG_OPTIONS_FRACTION_DIGITS)
-	cprintf(cbuf, " fraction-digits:%u", fraction_digits);
+	cprintf(cb0, " fraction-digits:%u", fraction_digits);
     if (options & (YANG_OPTIONS_RANGE|YANG_OPTIONS_LENGTH)){
-	cprintf(cbuf, " %s[", (options&YANG_OPTIONS_RANGE)?"range":"length");
+	cprintf(cb0, " %s[", (options&YANG_OPTIONS_RANGE)?"range":"length");
 	if (mincv){
 	    if ((r = cv2str_dup(mincv)) == NULL){
 		clicon_err(OE_UNIX, errno, "cv2str_dup");
 		goto done;
 	    }
-	    cprintf(cbuf, "%s:", r);
+	    cprintf(cb0, "%s:", r);
 	    free(r);
 	}
 	if (maxcv != NULL){
@@ -258,23 +335,21 @@ yang2cli_var_sub(clicon_handle h,
 		goto done;
 	    }
 	}
-	cprintf(cbuf, "%s]", r);
+	cprintf(cb0, "%s]", r);
 	free(r);
     }
     if (options & YANG_OPTIONS_PATTERN)
-	cprintf(cbuf, " regexp:\"%s\"", pattern);
+	cprintf(cb0, " regexp:\"%s\"", pattern);
 
-    cprintf(cbuf, ">");
+    cprintf(cb0, ">");
     if (description)
-	cprintf(cbuf, "(\"%s\")", description);
+	cprintf(cb0, "(\"%s\")", description);
     if (completion){
-	cprintf(cbuf, "|<%s:%s expand_dbvar_auto(\"candidate %s\")>",
-		ys->ys_argument, 
-		cv_type2str(cvtype),
-		yang_dbkey_get(ys));
+	if (cli_expand_var_generate(h, ys, cvtype, cb0) < 0)
+	    goto done;
 	if (description)
-	    cprintf(cbuf, "(\"%s\")", description);
-	cprintf(cbuf, ")");
+	    cprintf(cb0, "(\"%s\")", description);
+	cprintf(cb0, ")");
     }
     retval = 0;
   done:
@@ -289,7 +364,7 @@ yang2cli_var_sub(clicon_handle h,
 static int
 yang2cli_var(clicon_handle h,
 	     yang_stmt    *ys, 
-	     cbuf         *cbuf,    
+	     cbuf         *cb0,    
 	     char         *description)
 {
     int retval = -1;
@@ -315,30 +390,30 @@ yang2cli_var(clicon_handle h,
     /* Note restype can be NULL here for example with unresolved hardcoded uuid */
     if (restype && strcmp(restype, "union") == 0){ 
 	/* Union: loop over resolved type's sub-types */
-	cprintf(cbuf, "(");
+	cprintf(cb0, "(");
 	yt = NULL;
 	i = 0;
 	while ((yt = yn_each((yang_node*)yrestype, yt)) != NULL){
 	    if (yt->ys_keyword != Y_TYPE)
 		continue;
 	    if (i++)
-		cprintf(cbuf, "|");
+		cprintf(cb0, "|");
 	    if (yang_type_resolve(ys, yt, &yrt, 
 				  &options, &mincv, &maxcv, &pattern, &fraction_digits) < 0)
 		goto done;
 	    restype = yrt?yrt->ys_argument:NULL;
 	    if (clicon_type2cv(type, restype, &cvtype) < 0)
 		goto done;
-	    if ((retval = yang2cli_var_sub(h, ys, cbuf, description, cvtype, yrt,
+	    if ((retval = yang2cli_var_sub(h, ys, cb0, description, cvtype, yrt,
 					   options, mincv, maxcv, pattern, fraction_digits)) < 0)
 
 		goto done;
 
 	}
-	cprintf(cbuf, ")");
+	cprintf(cb0, ")");
     }
     else
-	if ((retval = yang2cli_var_sub(h, ys, cbuf, description, cvtype, yrestype,
+	if ((retval = yang2cli_var_sub(h, ys, cb0, description, cvtype, yrestype,
 				    options, mincv, maxcv, pattern, fraction_digits)) < 0)
 	    goto done;
 
@@ -361,7 +436,6 @@ yang2cli_leaf(clicon_handle h,
 {
     yang_stmt    *yd;  /* description */
     int           retval = -1;
-    char         *keyspec;
     char         *description = NULL;
 
     /* description */
@@ -378,13 +452,13 @@ yang2cli_leaf(clicon_handle h,
     else
 	yang2cli_var(h, ys, cbuf, description);
     if (callback){
-	if ((keyspec = yang_dbkey_get(ys)) != NULL)
-	    cprintf(cbuf, ",cli_set(\"%s\")", keyspec);
+	if (cli_callback_generate(h, ys, cbuf) < 0)
+	    goto done;
 	cprintf(cbuf, ";\n");
     }
 
     retval = 0;
-//  done:
+  done:
     return retval;
 }
 
@@ -398,16 +472,15 @@ yang2cli_container(clicon_handle h,
 {
     yang_stmt    *yc;
     yang_stmt    *yd;
-    char         *keyspec;
     int           i;
     int           retval = -1;
 
     cprintf(cbuf, "%*s%s", level*3, "", ys->ys_argument);
     if ((yd = yang_find((yang_node*)ys, Y_DESCRIPTION, NULL)) != NULL)
 	cprintf(cbuf, "(\"%s\")", yd->ys_argument);
-    if ((keyspec = yang_dbkey_get(ys)) != NULL)
-	cprintf(cbuf, ",cli_set(\"%s\");", keyspec);
-   cprintf(cbuf, "{\n");
+    if (cli_callback_generate(h, ys, cbuf) < 0)
+	goto done;
+    cprintf(cbuf, ";{\n");
     for (i=0; i<ys->ys_len; i++)
 	if ((yc = ys->ys_stmt[i]) != NULL)
 	    if (yang2cli_stmt(h, yc, cbuf, gt, level+1) < 0)
@@ -443,9 +516,11 @@ yang2cli_list(clicon_handle h,
 	clicon_err(OE_XML, 0, "List statement \"%s\" has no key", ys->ys_argument);
 	goto done;
     }
+    /* The value is a list of keys: <key>[ <key>]*  */
     if ((cvk = yang_arg2cvec(ykey, " ")) == NULL)
 	goto done;
     cvi = NULL;
+    /* Iterate over individual keys  */
     while ((cvi = cvec_each(cvk, cvi)) != NULL) {
 	keyname = cv_string_get(cvi);
 	if ((yleaf = yang_find((yang_node*)ys, Y_LEAF, keyname)) == NULL){
@@ -454,7 +529,7 @@ yang2cli_list(clicon_handle h,
 	    goto done;
 	}
 	/* Print key variable now, and skip it in loop below 
-	   Note, only print callbcak on last statement
+	   Note, only print callback on last statement
 	 */
 	if (yang2cli_leaf(h, yleaf, cbuf, gt==GT_VARS?GT_NONE:gt, level+1, 
 			  cvec_next(cvk, cvi)?0:1) < 0)
@@ -506,21 +581,12 @@ yang2cli_choice(clicon_handle h,
     yang_stmt    *yc;
     int           i;
 
-#if 0
-    cprintf(cbuf, "%*s%s{\n", level*3, "", ys->ys_argument);
-#endif
     for (i=0; i<ys->ys_len; i++)
 	if ((yc = ys->ys_stmt[i]) != NULL){
 	    switch (yc->ys_keyword){
 	    case Y_CASE:
-#if 0
-		cprintf(cbuf, "%*s%s{\n", 3*(level+1), "", yc->ys_argument);
-#endif
 		if (yang2cli_stmt(h, yc, cbuf, gt, level+2) < 0)
 		    goto done;
-#if 0
-		cprintf(cbuf, "}");
-#endif
 		break;
 	    case Y_CONTAINER:
 	    case Y_LEAF:
@@ -532,9 +598,6 @@ yang2cli_choice(clicon_handle h,
 		break;
 	    }
 	}
-#if 0
-    cprintf(cbuf, "%*s}\n", level*3, "");
-#endif
     retval = 0;
   done:
     return retval;
@@ -631,7 +694,7 @@ yang2cli(clicon_handle h,
     if (cligen_parse_str(cli_cligen(h), cbuf_get(cbuf), 
 			 "yang2cli", ptnew, globals) < 0)
 	goto done;
-
+    cligen_print(stderr, *ptnew, 0);
     cvec_free(globals);
     /* handle=NULL for global namespace, this means expand callbacks must be in
        CLICON namespace, not in a cli frontend plugin. */

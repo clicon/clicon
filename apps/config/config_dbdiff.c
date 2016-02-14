@@ -421,10 +421,10 @@ db_diff(char          *db1,
 	struct dbdiff *df
     )
 {
-    char *basekey; 
-    int retval = -1;
+    char       *basekey; 
+    int         retval = -1;
     dbspec_key *ds;
-    char *key;
+    char       *key;
     
     /* Loop through database spec */
     for (ds=dbspec; ds; ds=ds->ds_next){

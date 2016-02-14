@@ -199,11 +199,12 @@ lock_target(enum target_type target)
     return 0;
 }
 
-/*
+/*! Get "target" attribute, return actual database given candidate or running
  * Caller must do error handling
+ * @retval  dbname   Actual database file name
  */
 char *
-get_target(clicon_handle h, cxobj *xn, char *path)
+netconf_get_target(clicon_handle h, cxobj *xn, char *path)
 {
     cxobj *x;    
     char  *target = NULL;
@@ -215,10 +216,10 @@ get_target(clicon_handle h, cxobj *xn, char *path)
     if ((candidate_db = clicon_candidate_db(h)) == NULL)
 	goto done;
     if ((x = xpath_first(xn, path)) != NULL){
-	if (xpath_first(x, "/candidate") != NULL)
+	if (xpath_first(x, "candidate") != NULL)
 	    target = candidate_db;
 	else
-	if (xpath_first(x, "/running") != NULL)
+	if (xpath_first(x, "running") != NULL)
 	    target = running_db;
     }
   done:

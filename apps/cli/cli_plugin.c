@@ -927,11 +927,12 @@ static int
 prompt_fmt (char *prompt, size_t plen, char *fmt, ...)
 {
   va_list ap;
-  char *s = fmt;
-  char hname[1024];
-  char tty[32];
-  char *new, *tmp;
-  int ret = -1;
+  char   *s = fmt;
+  char    hname[1024];
+  char    tty[32];
+  char   *new;
+  char   *tmp;
+  int     ret = -1;
   
   /* Start with empty string */
   if((new = chunk_sprintf(__FUNCTION__, "%s", ""))==NULL)

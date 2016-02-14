@@ -185,6 +185,8 @@ db_get(char *file, char *key, void *data, size_t *datalen)
  *  size_t            len = 0;
  *  if (db_get-alloc(dbname, "a.0", &val, &vlen) == NULL)
  *     return -1;
+ *  ..do stuff..
+ *  if (val) free(val);
  * @endcode
  * @see db_get Pre-allocates memory
  */
@@ -296,6 +298,14 @@ db_exists(char *file, char *key)
  * @param[in]  noval   If set don't retreive values, just keys
  * @retval -1  on error   
  * @retval  n  Number of pairs
+ * @code
+ * struct db_pair *pairs;
+ * int             npairs;
+ * if ((npairs = db_regexp(dbname, "^/test/kalle$", __FUNCTION__, 
+ *                         &pairs, 0)) < 0)
+ *    err;
+ * 
+ * @endcode
  */
 int
 db_regexp(char            *file,

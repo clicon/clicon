@@ -750,8 +750,13 @@ expand_dbvar(void   *h,
  * @param[out]  helptxt  vector of pointers to helptexts
  */
 int
-expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg, 
-		  int *nr, char ***commands, char ***helptexts)
+expand_dbvar_auto(void   *h, 
+		  char   *name, 
+		  cvec   *cvv, 
+		  cg_var *arg, 
+		  int    *nr, 
+		  char ***commands, 
+		  char ***helptexts)
 {
     char            *dbname;
     int              nvec;
@@ -804,10 +809,10 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
 	last++;
 
     /* For the cli_se_parse() function to work, we need to add the 'last' variable
-       Eg: cvec [0]:"a 5 b"; [1]: x=5; [2]: y=0;
+       Eg: cvv [0]:"a 5 b"; [1]: x=5; [2]: y=0;
        (Not significant the type and value of last.
      */
-    if ((cv = cvec_add(cvec, CGV_INT32)) == NULL) /* type not significant */
+    if ((cv = cvec_add(cvv, CGV_INT32)) == NULL) /* type not significant */
 	goto done;
     cv_name_set(cv, last);
     cv_const_set(cv, 0);
@@ -817,12 +822,12 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
     if ((dbv = cli_set_parse(h, 
 			     spec, 
 			     dbname, 
-			     cvec,
+			     cvv,
 			     rest)) == NULL)
 	goto done;
-    cv = cvec_i(cvec, cvec_len(cvec)-1);
+    cv = cvec_i(cvv, cvec_len(cvv)-1);
     cv_reset(cv);
-    cvec_del(cvec, cv);
+    cvec_del(cvv, cv);
     if (debug > 1){
 	fprintf(stderr, "%s: dbv_key: %s\n", __FUNCTION__, dbv->dbv_key);
 	fprintf(stderr, "dbv_vec:");
@@ -840,6 +845,112 @@ expand_dbvar_auto(void *h, char *name, cvec *cvec, cg_var *arg,
     if (dbv)
 	clicon_dbvars_free(dbv);
 
+    return retval;
+
+}
+
+/*! Completion callback primarily intended for automatically generated data model
+ *
+ * Returns an expand-type list of commands as used by cligen 'expand' 
+ * functionality.
+ * arg is a string: "<dbname> <keypattern> <variable>". 
+ *   <dbname> is either running or candidate
+ *   <pattern> matches a set of database keys following clicon_dbspec. 
+ *             Eg a[].b[] $!x $!y
+ *             the last being the variable to expand for.
+ * Example:
+ * dbspec is a[].b[] $!x $!y
+ * clispec is a <x> b (<y>|<y expand_dbvar_auto()>;
+ * db contains entries:
+ * a.0 $x=5
+ * a.1 $x=10
+ * a.0.b.0 $x=5 $y=12
+ * a.0.b.1 $x=5 $y=20
+ * a.1.b.0 $x=10 $y=99
+ *
+ * The user types a 5 b <?> which produces the following output:
+ *   <int>
+ *   12
+ *   20
+ *
+ * Assume callback given in a cligen spec: a <x:int expand_dbvar_auto("arg")
+ * @param[in]   h        clicon handle 
+ * @param[in]   name     Name of this function (eg "expand_dbvar-auto")
+ * @param[in]   cvec     The command so far. Eg: cvec [0]:"a 5 b"; [1]: x=5;
+ * @param[in]   arg      Argument given at the callback "<db> <xmlkeyfmt>"
+ * @param[out]  len      len of return commands & helptxt 
+ * @param[out]  commands vector of function pointers to callback functions
+ * @param[out]  helptxt  vector of pointers to helptexts
+ * @see cli_expand_var_generate  This is where arg is generated
+ */
+int
+expand_dbvar_dbxml(void   *h, 
+		   char   *name, 
+		   cvec   *cvv, 
+		   cg_var *arg, 
+		   int    *nr, 
+		   char ***commands, 
+		   char ***helptexts)
+{
+    char            *dbname;
+    int              nvec;
+    char           **vec = NULL;
+    int              retval = -1;
+    char            *xkfmt;
+    char            *str;
+    char            *dbstr;    
+    cxobj           *xt = NULL;
+    char            *xk = NULL;
+    int              i;
+    int              i0;
+    struct db_pair *pairs;
+    int             npairs;
+
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    /* In the example, str = "candidate a[].b[] $!x $!y" */
+    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
+	goto done;
+    }
+    dbstr  = vec[0];
+    if (strcmp(dbstr, "running") == 0) 
+	dbname = clicon_running_db(h);
+    else
+    if (strcmp(dbstr, "candidate") == 0) 
+	dbname = clicon_candidate_db(h);
+    else{
+	clicon_err(OE_PLUGIN, 0, "No such db name: %s", dbstr);	
+	goto done;
+    }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "db not set");
+	goto done;
+    }
+    xkfmt = vec[1];
+    /* xkfmt = "/test/kalle/%s/lasse" --> "^/test/kalle/.* /lasse$" */
+    if (xmlkeyfmt2key2(xkfmt, cvv, &xk) < 0)
+	goto done;  
+    if ((npairs = db_regexp(dbname, xk, __FUNCTION__, &pairs, 0)) < 0)
+	goto done;
+    i0 = *nr;
+    *nr += npairs;
+    if ((*commands = realloc(*commands, sizeof(char *) * (*nr))) == NULL) {
+	clicon_err(OE_UNDEF, errno, "realloc: %s", strerror (errno));	
+	goto done;
+    }
+    for (i = 0; i < npairs; i++) 
+	(*commands)[i0+i] = strdup(pairs[i].dp_val);
+
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    if (xt)
+	xml_free(xt);
+    if (xk)
+	free(xk);
     return retval;
 
 }
@@ -1334,25 +1445,141 @@ quit:
     if (dbv)
 	clicon_dbvars_free(dbv);
 
-    return retval;}
+    return retval;
+}
 
-
-int 
-cli_set(clicon_handle h, cvec *vars, cg_var *arg)
+/*! Modify xml database frm a callback using xml key format strings
+ * @param[in]  h    Clicon handle
+ * @param[in]  cvv  Vector of cli string and instantiated variables 
+ * @param[in]  arg  An xml key format string, eg /aaa/%s 
+ * @param[in]  op   Operation to perform on database
+ * Cvv will contain forst the complete cli string, and then a set of optional
+ * instantiated variables.
+ * Example:
+ * cvv[0] = "set interfaces interface eth0 type bgp"
+ * cvv[1] = "eth0"
+ * cvv[2] = "bgp"
+ * arg = "/interfaces/interface/%s/type"
+ * op: OP_MERGE
+ * @see cli_callback_xmlkeyfmt_generate where arg is generated
+ */
+static int
+cli_dbxml(clicon_handle       h, 
+	  cvec               *cvv, 
+	  cg_var             *arg, 
+	  enum operation_type op)
 {
-    return cli_dbop(h, vars, arg, LV_SET);
+    int        retval = -1;
+    char      *str = NULL;
+    char      *candidate;
+    char      *running;
+    char      *xkfmt;  /* xml key format */
+    char      *xk = NULL; /* xml key */
+    cg_var    *cval;
+    char      *val = NULL;
+    yang_spec *yspec;
+
+    /* 
+     * clicon_rpc_xmlput(h, db, MERGE,"<interfaces><interface><name>eth0</name><type>hej</type></interface><interfaces>");
+     * Wanted database content:
+     * /interfaces 
+     * /interfaces/interface/eth0
+     * /interfaces/interface/eth0/name eth0
+     * /interfaces/interface/eth0/type hej
+     * Algorithm alt1:
+     * arg = "<interfaces><interface><name>$1</name><type>$2</type></interface><interfaces>"
+     * Where is arg computed? In eg yang2cli_leaf, otherwise in yang_parse,..
+     * Create string using cbuf and save that. 
+     */
+    if ((candidate = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "candidate db not set");
+	return -1;
+    }
+    if ((running = clicon_candidate_db(h)) == NULL){
+	clicon_err(OE_FATAL, 0, "running db not set");
+	return -1;
+    }
+    xkfmt = cv_string_get(arg);
+    if (xmlkeyfmt2key(xkfmt, cvv, &xk) < 0)
+	goto done;
+    cval = cvec_i(cvv, cvec_len(cvv)-1);
+    if ((val = cv2str_dup(cval)) == NULL){
+	clicon_err(OE_UNIX, errno, "cv2str_dup");
+	goto done;
+    }
+    if (cli_send2backend(h)) {
+	if (clicon_rpc_change_dbxml(h, candidate, op, xk, val) < 0)
+	    goto done;
+	if (clicon_autocommit(h)) {
+	    if (clicon_rpc_commit(h, running, candidate, 0, 0) < 0) 
+		goto done;
+	}
+    }
+    else{
+	yspec = clicon_dbspec_yang(h);
+	if (xmldb_put_xkey(candidate, xk, val, yspec, op) < 0)
+	    goto done;
+	if (clicon_autocommit(h)) 
+	    clicon_log(LOG_WARNING, "Cant combine no backend and autocommit");
+    }
+    retval = 0;
+ done:
+    if (str)
+	free(str);
+    if (xk)
+	free(xk);
+    return retval;
 }
 
 int 
-cli_merge(clicon_handle h, cvec *vars, cg_var *arg)
+cli_set(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return cli_dbop(h, vars, arg, LV_MERGE);
+    int retval = 1;
+
+    if (clicon_db_xml(h)){ /* Make change to xml then send to backend */
+	if (cli_dbxml(h, cvv, arg, OP_REPLACE) < 0)
+	    goto done;
+    }
+    else
+	if (cli_dbop(h, cvv, arg, LV_SET) < 0)
+	    goto done;
+    retval = 0;
+ done:
+    return retval;
 }
 
 int 
-cli_del(clicon_handle h, cvec *vars, cg_var *arg)
+cli_merge(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return cli_dbop(h, vars, arg, LV_DELETE);
+    int retval = -1;
+
+    if (clicon_db_xml(h)){ /* Make change to xml then send to backend */
+	if (cli_dbxml(h, cvv, arg, OP_MERGE) < 0)
+	    goto done;
+    }
+    else
+	if (cli_dbop(h, cvv, arg, LV_MERGE) < 0)
+	    goto done;
+    retval = 0;
+ done:
+    return retval;
+}
+
+int 
+cli_del(clicon_handle h, cvec *cvv, cg_var *arg)
+{
+    int   retval = -1;
+
+    if (clicon_db_xml(h)){ /* Make change to xml then send to backend */
+	if (cli_dbxml(h, cvv, arg, OP_REMOVE) < 0)
+	    goto done;
+    }
+    else
+	if (cli_dbop(h, cvv, arg, LV_DELETE) < 0)
+	    goto done;
+    retval = 0;
+ done:
+    return retval;
 }
 
 /*! Load a configuration file to candidate database
@@ -1386,7 +1613,6 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char       *varstr;
     int         fd = -1;
     cxobj      *xt = NULL;
-    //    yang_spec  *yspec;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1486,10 +1712,10 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 /*! Copy database to file 
  * Utility function used by cligen spec file
  * @param[in] h     CLICON handle
- * @param[in] vars  variable vector (containing <varname>)
+ * @param[in] cvv  variable vector (containing <varname>)
  * @param[in] arg   a string: "<dbname> <varname>" 
  *   <dbname>  is running or candidate
- *   <varname> is name of cligen variable in the "vars" vector containing file name
+ *   <varname> is name of cligen variable in the "cvv" vector containing file name
  * Note that "filename" is local on client filesystem not backend.
  * The function can run without a local database
  * @code
@@ -1498,7 +1724,7 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  * @see load_config_file
  */
 int
-save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
+save_config_file(clicon_handle h, cvec *cvv, cg_var *arg)
 {
     int        retval = -1;
     char     **vec;
@@ -1544,7 +1770,7 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
 
-    if ((cv = cvec_find_var(vars, varstr)) == NULL){
+    if ((cv = cvec_find_var(cvv, varstr)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "No such var name: %s", varstr);	
 	goto done;
     }
@@ -1593,7 +1819,7 @@ save_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  * Utility function used by cligen spec file
  */
 int
-delete_all(clicon_handle h, cvec *vars, cg_var *arg)
+delete_all(clicon_handle h, cvec *cvv, cg_var *arg)
 {
     char            *dbname;
     char            *dbstr;
@@ -1637,7 +1863,7 @@ delete_all(clicon_handle h, cvec *vars, cg_var *arg)
  * Utility function used by cligen spec file
  */
 int
-discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
+discard_changes(clicon_handle h, cvec *cvv, cg_var *arg)
 {
     char *running_db;
     char *candidate_db;
@@ -1661,7 +1887,7 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
 /*! Generic function for showing configurations.
  * the callback differs.
  * @param[in] h     CLICON handle
- * @param[in] vars  Vector of variables (not needed) 
+ * @param[in] cvv  Vector of variables (not needed) 
  * @param[in] arg   A string: <dbname> <key> [<variable> <varname>]. 
  *   <dbname> is either running or candidate
  *   <key> is a database key or ~.*$ for all
@@ -1675,7 +1901,7 @@ discard_changes(clicon_handle h, cvec *vars, cg_var *arg)
  */
 static int
 show_conf_as(clicon_handle h, 
-	     cvec         *vars, 
+	     cvec         *cvv, 
 	     cg_var       *arg, 
 	     cxobj        *xt) /* top xml */
 {
@@ -1709,7 +1935,7 @@ show_conf_as(clicon_handle h,
     if (nvec > 2){
 	attr = vec[2];
 	valname = vec[3];
-	cv = cvec_find_var(vars, valname);
+	cv = cvec_find_var(cvv, valname);
 	if (cv && (val = cv2str_dup(cv)) == NULL)
 	    goto done;
     }
@@ -1752,21 +1978,91 @@ done:
     return retval;
 }
 
+/*! Generic function for showing configurations.
+ * the callback differs.
+ * @param[in] h     CLICON handle
+ * @param[in] cvv  Vector of variables (not needed) 
+ * @param[in] arg   A string: <dbname> <xpath>
+ *   <dbname> is either running or candidate
+ *   <xpath>  xpath expression as in nertconf get-config
+ * @param fn
+ * @param fnarg
+ * @code
+ *    # cligen spec
+ *   show config id <n:string>, show_conf_as("running interfaces/interface[name=eth*]");
+ * @endcode
+ */
+static int
+show_conf_xmldb_as(clicon_handle h, 
+		   cvec         *cvv, 
+		   cg_var       *arg, 
+		   cxobj       **xt) /* top xml */
+{
+    int              retval = -1;
+    char            *dbname;
+    char           **vec = NULL;
+    int              nvec;
+    char            *str;
+    char            *xpath;
+    yang_spec       *yspec;
+
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    if ((vec = clicon_strsplit(str, " ", &nvec, __FUNCTION__)) == NULL){
+	clicon_err(OE_PLUGIN, errno, "clicon_strsplit");	
+	goto done;
+    }
+    if (nvec != 2){
+	clicon_err(OE_PLUGIN, 0, "format error \"%s\" - expected <dbname> <xpath>", str);	
+	goto done;
+    }
+    /* Dont get attr here, take it from arg instead */
+    if (strcmp(vec[0], "running") == 0) /* XXX: hardcoded */
+	dbname = clicon_running_db(h);
+    else
+    if (strcmp(vec[0], "candidate") == 0) /* XXX: hardcoded */
+	dbname = clicon_candidate_db(h);
+    else{
+	clicon_err(OE_PLUGIN, 0, "No such db name: %s", vec[0]);	
+	goto done;
+    }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "dbname not set");
+	goto done;
+    }
+    xpath = vec[1];
+    yspec = clicon_dbspec_yang(h);
+    if (xmldb_get(dbname, xpath, yspec, xt) < 0)
+	goto done;
+    retval = 0;
+done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
 
 /*! Show a configuration database on stdout using XML format
  * Utility function used by cligen spec file
  */
 static int
-show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
+show_conf_as_xml1(clicon_handle h, cvec *cvv, cg_var *arg, int netconf)
 {
     cxobj *xt = NULL;
     cxobj *xc;
     int    retval = -1;
 
-    if ((xt = xml_new("tmp", NULL)) == NULL)
-	goto done;
-    if (show_conf_as(h, vars, arg, xt) < 0)
-	goto done;
+    if (clicon_db_xml(h)){
+	if (show_conf_xmldb_as(h, cvv, arg, &xt) < 0)
+	    goto done;
+    }
+    else{
+	if ((xt = xml_new("tmp", NULL)) == NULL)
+	    goto done;
+	if (show_conf_as(h, cvv, arg, xt) < 0)
+	    goto done;
+    }
     if (netconf) /* netconf prefix */
 	fprintf(stdout, "<rpc><edit-config><target><candidate/></target><config>\n");
     xc = NULL; /* Dont print xt itself */
@@ -1786,34 +2082,40 @@ show_conf_as_xml1(clicon_handle h, cvec *vars, cg_var *arg, int netconf)
  * Utility function used by cligen spec file
  */
 int
-show_conf_as_xml(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_xml(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return show_conf_as_xml1(h, vars, arg, 0);
+    return show_conf_as_xml1(h, cvv, arg, 0);
 }
 
 /*! Show configuration as prettyprinted xml with netconf hdr/tail
  * Utility function used by cligen spec file
  */
 int
-show_conf_as_netconf(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_netconf(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return show_conf_as_xml1(h, vars, arg, 1);
+    return show_conf_as_xml1(h, cvv, arg, 1);
 }
 
 /*! Show configuration as JSON
  * Utility function used by cligen spec file
  */
 int
-show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_json(clicon_handle h, cvec *cvv, cg_var *arg)
 {
     cxobj *xt = NULL;
     cxobj *xc;
-    int              retval = -1;
+    int    retval = -1;
 
-    if ((xt = xml_new("tmp", NULL)) == NULL)
-	goto done;
-    if (show_conf_as(h, vars, arg, xt) < 0)
-	goto done;
+    if (clicon_db_xml(h)){
+	if (show_conf_xmldb_as(h, cvv, arg, &xt) < 0)
+	    goto done;
+    }
+    else{
+	if ((xt = xml_new("tmp", NULL)) == NULL)
+	    goto done;
+	if (show_conf_as(h, cvv, arg, xt) < 0)
+	    goto done;
+    }
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
 	xml2json(stdout, xc, 1);
@@ -1824,20 +2126,79 @@ show_conf_as_json(clicon_handle h, cvec *vars, cg_var *arg)
     return retval;
 }
 
+int
+show_conf_xpath(clicon_handle h, cvec *cvv, cg_var *arg)
+{
+    int              retval = -1;
+    char            *dbname;
+    char           **vec = NULL;
+    char            *str;
+    char            *xpath;
+    yang_spec       *yspec;
+    cg_var          *cv;
+    cxobj           *xt = NULL;
+    cxobj          **xv = NULL;
+    int              xlen;
+    int              i;
+
+    if (arg == NULL || (str = cv_string_get(arg)) == NULL){
+	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
+	goto done;
+    }
+    /* Dont get attr here, take it from arg instead */
+    if (strcmp(str, "running") == 0) /* XXX: hardcoded */
+	dbname = clicon_running_db(h);
+    else
+    if (strcmp(str, "candidate") == 0) /* XXX: hardcoded */
+	dbname = clicon_candidate_db(h);
+    else{
+	clicon_err(OE_PLUGIN, 0, "No such db name: %s", vec[0]);	
+	goto done;
+    }
+    if (dbname == NULL){
+	clicon_err(OE_FATAL, 0, "dbname not set");
+	goto done;
+    }
+    cv = cvec_find_var(cvv, "xpath");
+    xpath = cv_string_get(cv);
+    yspec = clicon_dbspec_yang(h);
+    if (xmldb_get_xpath(dbname, xpath, yspec, &xt, &xv, &xlen) < 0)
+	goto done;
+    for (i=0; i<xlen; i++)
+	clicon_xml2file(stdout, xv[i], 0, 1);
+
+    retval = 0;
+done:
+    if (xv)
+	free(xv);
+    if (xt)
+	xml_free(xt);
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+
+
 /*! Show configuration as text
  * Utility function used by cligen spec file
  */
 static int
-show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_text1(clicon_handle h, cvec *cvv, cg_var *arg)
 {
     cxobj       *xt = NULL;
     cxobj       *xc;
     int          retval = -1;
 
-    if ((xt = xml_new("tmp", NULL)) == NULL)
-	goto done;
-    if (show_conf_as(h, vars, arg, xt) < 0)
-	goto done;
+    if (clicon_db_xml(h)){
+	if (show_conf_xmldb_as(h, cvv, arg, &xt) < 0)
+	    goto done;
+    }
+    else{
+	if ((xt = xml_new("tmp", NULL)) == NULL)
+	    goto done;
+	if (show_conf_as(h, cvv, arg, xt) < 0)
+	    goto done;
+    }
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL)
 	xml2txt(stdout, xc, 0); /* tree-formed text */
@@ -1853,7 +2214,7 @@ show_conf_as_text1(clicon_handle h, cvec *vars, cg_var *arg)
 /* Show configuration as commands, ie not tree format but as one-line commands
  */
 static int
-show_conf_as_command(clicon_handle h, cvec *vars, cg_var *arg, char *prepend)
+show_conf_as_command(clicon_handle h, cvec *cvv, cg_var *arg, char *prepend)
 {
     cxobj             *xt = NULL;
     cxobj             *xc;
@@ -1862,8 +2223,16 @@ show_conf_as_command(clicon_handle h, cvec *vars, cg_var *arg, char *prepend)
 
     if ((xt = xml_new("tmp", NULL)) == NULL)
 	goto done;
-    if (show_conf_as(h, vars, arg, xt) < 0)
-	goto done;
+    if (clicon_db_xml(h)){
+	if (show_conf_xmldb_as(h, cvv, arg, &xt) < 0)
+	    goto done;
+    }
+    else{
+	if ((xt = xml_new("tmp", NULL)) == NULL)
+	    goto done;
+	if (show_conf_as(h, cvv, arg, xt) < 0)
+	    goto done;
+    }
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL){
 	if ((gt = clicon_cli_genmodel_type(h)) == GT_ERR)
@@ -1879,19 +2248,19 @@ show_conf_as_command(clicon_handle h, cvec *vars, cg_var *arg, char *prepend)
 }
 
 int
-show_conf_as_text(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_text(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return show_conf_as_text1(h, vars, arg);
+    return show_conf_as_text1(h, cvv, arg);
 }
 
 int
-show_conf_as_cli(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_cli(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return show_conf_as_command(h, vars, arg, NULL); /* XXX: how to set prepend? */
+    return show_conf_as_command(h, cvv, arg, NULL); /* XXX: how to set prepend? */
 }
 
 int
-show_yang(clicon_handle h, cvec *vars, cg_var *arg)
+show_yang(clicon_handle h, cvec *cvv, cg_var *arg)
 {
   yang_spec *yspec;
   yang_node *yn;
@@ -1996,7 +2365,7 @@ cli_notification_cb(int s, void *arg)
 /*! Make a notify subscription to backend and un/register callback for return messages.
  * 
  * @param[in] h      Clicon handle
- * @param[in] vars   Not used
+ * @param[in] cvv   Not used
  * @param[in] arg    A string with <log stream name> <stream status> [<format>]
  * where <status> is "0" or "1"
  * and   <format> is XXX
@@ -2007,7 +2376,7 @@ cli_notification_cb(int s, void *arg)
  * XXX: format is a memory leak
  */
 int
-cli_notify(clicon_handle h, cvec *vars, cg_var *arg)
+cli_notify(clicon_handle h, cvec *cvv, cg_var *arg)
 {
     char            *stream = NULL;
     int              retval = -1;
@@ -2179,21 +2548,27 @@ xml2csv(FILE *f, cxobj *x, cvec *cvv)
 
 
 static int
-show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_csv1(clicon_handle h, cvec *cvv0, cg_var *arg)
 {
-    cxobj *xt = NULL;
-    cxobj *xc;
-    int              retval = -1;
-    dbspec_key  *dbspec, *ds=NULL; 
-    cg_var          *vs;
-    cvec            *cvv=NULL;
-    char            *str;
+    cxobj      *xt = NULL;
+    cxobj      *xc;
+    int         retval = -1;
+    dbspec_key *dbspec, *ds=NULL; 
+    cg_var     *vs;
+    cvec       *cvv=NULL;
+    char       *str;
 
     dbspec = clicon_dbspec_key(h);
-    if ((xt = xml_new("metrio", NULL)) == NULL)
-	goto done;
-    if (show_conf_as(h, vars, arg, xt) < 0)
-	goto done;
+    if (clicon_db_xml(h)){
+	if (show_conf_xmldb_as(h, cvv0, arg, &xt) < 0)
+	    goto done;
+    }
+    else{
+	if ((xt = xml_new("metrio", NULL)) == NULL)
+	    goto done;
+	if (show_conf_as(h, cvv0, arg, xt) < 0)
+	    goto done;
+    }
 
     xc = NULL; /* Dont print xt itself */
     while ((xc = xml_child_each(xt, xc, -1)) != NULL){
@@ -2221,7 +2596,7 @@ show_conf_as_csv1(clicon_handle h, cvec *vars, cg_var *arg)
 }
 
 int
-show_conf_as_csv(clicon_handle h, cvec *vars, cg_var *arg)
+show_conf_as_csv(clicon_handle h, cvec *cvv, cg_var *arg)
 {
-    return show_conf_as_csv1(h, vars, arg);
+    return show_conf_as_csv1(h, cvv, arg);
 }

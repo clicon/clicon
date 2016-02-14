@@ -521,9 +521,7 @@ dbdep_commitvec_sort(const void *arg1, const void *arg2)
 }
 
 
-/*
- * dbdep_commitvec
- * Create commit vector based of dbdiff result.
+/*! Create commit vector based of dbdiff result.
  * return pointer to (malloced) vector in vec with lengtrh nvecp (needs to be
  * freed after use)
  * Input:

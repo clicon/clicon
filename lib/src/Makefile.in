@@ -58,7 +58,7 @@ SRC     = clicon_sig.c clicon_qdb.c clicon_log.c clicon_err.c clicon_event.c \
 	  clicon_dbspec_key.c clicon_yang.c clicon_yang_type.c clicon_yang2key.c \
 	  clicon_hash.c clicon_options.c clicon_dbvars.c clicon_plugin.c \
 	  clicon_proto.c clicon_proto_encode.c clicon_proto_client.c \
-	  clicon_xsl.c clicon_sha1.c
+	  clicon_xsl.c clicon_sha1.c clicon_xml_db.c
 
 YACCOBJS := lex.clicon_xml_parse.o clicon_xml_parse.tab.o \
 	     clicon_dbvars.yy.o clicon_dbvars.tab.o \

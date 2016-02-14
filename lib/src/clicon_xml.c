@@ -50,6 +50,7 @@
 /*
  * Types
  */
+
 /*! xml tree node, with name, type, parent, children, etc 
  * Note that this is a private type not visible from externally, use
  * access functions.
@@ -57,7 +58,7 @@
 struct xml{
     char             *x_name;       /* name of node */
     char             *x_namespace;  /* namespace, if any */
-    struct xml       *x_up;     /* parent node in hierarchy if any */
+    struct xml       *x_up;         /* parent node in hierarchy if any */
     struct xml      **x_childvec;   /* vector of children nodes */
     int               x_childvec_len; /* length of vector */
     enum cxobj_type   x_type;       /* type of node: element, attribute, body */
@@ -65,7 +66,7 @@ struct xml{
     int               x_index;      /* key node, cf sql index */
     char             *x_dbkey;      /* optional database key if translated */
     int              _x_vector_i;   /* internal use: xml_child_each */
-
+    int               x_flags;      /* Flags according to XML_FLAG_* above */
 };
 
 /*
@@ -157,6 +158,37 @@ xml_parent_set(cxobj *xn, cxobj *parent)
     return 0;
 }
 
+/*! Get xml node flags, used for internal algorithms
+ * @param[in]  xn    xml node
+ * @retval     flag  Flags value, see XML_FLAG_*
+ */
+uint16_t
+xml_flag(cxobj *xn, uint16_t flag)
+{
+    return xn->x_flags&flag;
+}
+
+/*! Set xml node flags, used for internal algorithms
+ * @param[in]  xn      xml node
+ * @param[in]  flag    Flags value to set, see XML_FLAG_*
+ */
+int
+xml_flag_set(cxobj *xn, uint16_t flag)
+{
+    xn->x_flags |= flag;
+    return 0;
+}
+
+/*! Reset xml node flags, used for internal algorithms
+ * @param[in]  xn      xml node
+ * @param[in]  flag    Flags value to reset, see XML_FLAG_*
+ */
+int
+xml_flag_reset(cxobj *xn, uint16_t flag)
+{
+    xn->x_flags &= ~flag;
+    return 0;
+}
 
 /*! Get value of xnode
  * @param[in]  xn    xml node
@@ -434,11 +466,11 @@ xml_new(char *name, cxobj *xp)
  * Get first XML node directly under x_up in the xml hierarchy with
  * name "name".
  *
- * @param[in]  x_up  Base XML object
- * @param[in]  name       shell wildcard pattern to match with node name
+ * @param[in]  x_up   Base XML object
+ * @param[in]  name   shell wildcard pattern to match with node name
  *
- * @retval xmlobj        if found.
- * @retval NULL          if no such node found.
+ * @retval xmlobj     if found.
+ * @retval NULL       if no such node found.
  */
 cxobj *
 xml_find(cxobj *x_up, char *name)
@@ -560,12 +592,13 @@ xml_find_body(cxobj *xn, char *name)
  * @param[in]   purge       if 1, free the child node, not just remove from parent
  * @retval      0           OK
  * @retval      -1
+ * @note you cannot remove xchild in the loop (unless yoy keep track of xprev)
  *
  * @see xml_free
  * Differs from xml_free in two ways:
  *  1. It is removed from parent.
- *  2. If you set the freeit flag to 0, the child tree will not be freed 
- *     (otherwise it will)
+ *  2. If you set the purge flag to 1, the child tree will be freed 
+ *     (otherwise it will not)
  */
 int
 xml_prune(cxobj *xparent, cxobj *xchild, int purge)
@@ -860,7 +893,8 @@ clicon_xml_parse_file(int fd, cxobj **cx, char *endtag)
  * Update: with yacc parser I dont think it changes,....
  */
 int 
-clicon_xml_parse_string(char **str, cxobj **cxtop)
+clicon_xml_parse_string(char  **str, 
+			cxobj **cxtop)
 {
   if ((*cxtop = xml_new("top", NULL)) == NULL)
     return -1;

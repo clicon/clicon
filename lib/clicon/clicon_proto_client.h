@@ -32,6 +32,10 @@ int clicon_rpc_commit(clicon_handle h, char *running_db, char *db,
 int clicon_rpc_validate(clicon_handle h, char *db);
 int clicon_rpc_change(clicon_handle h, char *db, lv_op_t op,
 		      char *key, cvec *cvv);
+int clicon_rpc_change_dbxml(clicon_handle h, char *db, 
+			    enum operation_type op, char *key, char *val);
+
+int clicon_rpc_xmlput(clicon_handle h, char *db, enum operation_type op, char *xml);
 int clicon_rpc_dbitems(clicon_handle h, char *db, char *rx, 
 		       char *attr, char *val, 
 		       cvec ***cvv, size_t *cvvlen);

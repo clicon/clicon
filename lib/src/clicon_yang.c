@@ -381,7 +381,7 @@ yn_each(yang_node *yn, yang_stmt *ys)
  * @param[in]  argument   if NULL, match any argument.
  * This however means that if you actually want to match only a yang-stmt with 
  * argument==NULL you cannot, but I have not seen any such examples.
- * @see yang_find_specnode
+ * @see yang_find_syntax
  */
 yang_stmt *
 yang_find(yang_node *yn, int keyword, char *argument)
@@ -406,37 +406,59 @@ yang_find(yang_node *yn, int keyword, char *argument)
     return match ? ys : NULL;
 }
 
-/*! Find a child spec-node yang_stmt with matching argument (container, leaf, etc)
+/*! Find a child syntax-node yang_stmt with matching argument (container, leaf, etc)
  *
  * @param[in]  yn         Yang node, current context node.
- * @param[in]  argument   if NULL, match any argument.
+ * @param[in]  argument   if NULL, match any(first) argument.
  *
- * See also yang_find() 
  * @see yang_find   But this looks only for the yang specification nodes with
  *                  the following keyword: container, leaf, list, leaf-list
  *                  That is, basic syntax nodes.
+ * @note check if argument==NULL really required?
  */
+/*! Is this yang-stmt a container, list, leaf or leaf-list? */
+#define yang_is_syntax(y) ((y)->ys_keyword == Y_CONTAINER || (y)->ys_keyword == Y_LEAF || (y)->ys_keyword == Y_LIST || (y)->ys_keyword == Y_LEAF_LIST)
+
 yang_stmt *
-yang_find_specnode(yang_node *yn, char *argument)
+yang_find_syntax(yang_node *yn, char *argument)
 {
     yang_stmt *ys = NULL;
-    int i;
-    int match = 0;
+    yang_stmt *yc = NULL;
+    yang_stmt *ysmatch = NULL;
+    int        i, j;
 
     for (i=0; i<yn->yn_len; i++){
 	ys = yn->yn_stmt[i];
-	if (ys->ys_keyword == Y_CONTAINER || ys->ys_keyword == Y_LEAF || 
-	    ys->ys_keyword == Y_LIST || ys->ys_keyword == Y_LEAF_LIST){
-	    if (argument == NULL)
-		match++;
-	    else
-		if (ys->ys_argument && strcmp(argument, ys->ys_argument) == 0)
-		    match++;
-	    if (match)
-		break;
+	if (ys->ys_keyword == Y_CHOICE){ /* Look for its children */
+	    for (j=0; j<ys->ys_len; j++){
+		yc = ys->ys_stmt[j];
+		if (yc->ys_keyword == Y_CASE) /* Look for its children */
+		    ysmatch = yang_find_syntax((yang_node*)yc, argument);
+		else
+		    if (yang_is_syntax(yc)){
+			if (argument == NULL)
+			    ysmatch = yc;
+			else
+			    if (yc->ys_argument && strcmp(argument, yc->ys_argument) == 0)
+				ysmatch = yc;
+		    }
+		if (ysmatch)
+		    goto match;
+	    }
+	}
+	else
+	    if (yang_is_syntax(ys)){
+		if (argument == NULL)
+		    ysmatch = ys;
+		else
+		    if (ys->ys_argument && strcmp(argument, ys->ys_argument) == 0)
+			ysmatch = ys;
+		if (ysmatch)
+		    goto match;
 	    }
     }
-    return match ? ys : NULL;
+ match:
+    return ysmatch;
 }
 
 /*! Find a child spec-node yang_stmt with matching argument for xpath
@@ -444,7 +466,7 @@ yang_find_specnode(yang_node *yn, char *argument)
  * See also yang_find() but this looks only for the yang specification nodes with
  * the following keyword: container, leaf, list, leaf-list
  * That is, basic syntax nodes.
- * @see yang_find_specnode # Maybe this is the same as specnode?
+ * @see yang_find_syntax # Maybe this is the same as specnode?
  * @see clicon_dbget_xpath
  * @see xpath_vec
  */
@@ -1484,7 +1506,6 @@ yang_parse(clicon_handle h,
     if (yang_expand((yang_node*)ysp) < 0)
 	goto done;
     yang_apply((yang_node*)ys, ys_flag_reset, (void*)YANG_FLAG_MARK);
-
     /* Step 4: Go through parse tree and populate it with cv types */
     if (yang_apply((yang_node*)ysp, ys_populate, NULL) < 0)
 	goto done;
@@ -1506,7 +1527,7 @@ yang_parse(clicon_handle h,
  * code
  * @param[in]   ys    yang statement (container, leaf, leaf-list, list)
  * @retval      key   string as dbkey, eg "x[] $!y $z"
- * See also dbkey2yang
+ * @see dbkey2yang
  */
 char *
 yang_dbkey_get(yang_stmt *ys)
@@ -1528,7 +1549,6 @@ yang_dbkey_get(yang_stmt *ys)
 int 
 yang_dbkey_set(yang_stmt *ys, char *val)
 {
-    assert(ys->ys_dbkey==NULL);
     if (ys->ys_dbkey != NULL)
 	free(ys->ys_dbkey);
     if ((ys->ys_dbkey = strdup(val)) == NULL){
@@ -1587,7 +1607,7 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
 	nvec--;
 	key = vec[0];
     }
-    if ((ys = yang_find_specnode(yn, key)) == NULL)
+    if ((ys = yang_find_syntax(yn, key)) == NULL)
 	goto done;
     if (nvec == 1)
 	return ys;
@@ -1602,7 +1622,7 @@ yang_dbkey_vec(yang_node *yn, char **vec, int nvec)
  * Input args:
  * @param[in] yn     top-of yang tree where to start finding
  * @param[in] dbkey  database key to match in yang spec tree
- * See also yang_dbkey_get
+ * @see yang_dbkey_get
  */
 yang_stmt *
 dbkey2yang(yang_node *yn, char *dbkey)

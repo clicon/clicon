@@ -50,20 +50,20 @@
 #include <clicon/clicon.h>
 
 /* Command line options to be passed to getopt(3) */
-#define DBCTRL_OPTS "hDf:s:Zipbd:r:m:n:"
+#define DBCTRL_OPTS "hDd:pbn:r:m:Zxi"
 
-/*
- * dump_database
- * Read registry, set machine state
+/*! Write database contents to file, lvec database variant
+ * @param[in]  dbspec  If set make a sanity check if key dont match (just)
  */
 static int
-dump_database(char *dbname, char *rxkey, int brief, dbspec_key *dbspec)
+dump_database_lvec(FILE       *f, 
+		   char       *dbname, 
+		   char       *rxkey, 
+		   int         brief)
 {
-    int   retval = 0;
-    int   npairs;
+    int             retval = 0;
+    int             npairs;
     struct db_pair *pairs;
-    cvec *vr = NULL;
-    dbspec_key *ds;
     
     /* Default is match all */
     if (rxkey == NULL)
@@ -75,31 +75,52 @@ dump_database(char *dbname, char *rxkey, int brief, dbspec_key *dbspec)
     
     for (npairs--; npairs >= 0; npairs--) {
 
-	fprintf(stdout, "%s\n", pairs[npairs].dp_key);
+	fprintf(f, "%s\n", pairs[npairs].dp_key);
 	if (!brief)
-	    fprintf(stdout, "--------------------\n");
+	    fprintf(f, "--------------------\n");
 	if (brief)
 	    continue;
 	if(key_isvector_n(pairs[npairs].dp_key) ||
 	   key_iskeycontent(pairs[npairs].dp_key)) {
-	    printf("\ttype: number\tlen: %d\tdata: %d\n",
+	    fprintf(f, "\ttype: number\tlen: %d\tdata: %d\n",
 		   (int)sizeof(int),
 		   *(int *)pairs[npairs].dp_val);
 	}
 	else{ 
-	    if((vr = lvec2cvec(pairs[npairs].dp_val, pairs[npairs].dp_vlen)) == NULL){
-		if ((ds = key2spec_key(dbspec, pairs[npairs].dp_key)) == NULL){
-		    sanity_check_cvec(pairs[npairs].dp_key, ds, vr);
-		    cvec_free (vr);
-		}
-	    }
-	    if(lv_dump(stdout, pairs[npairs].dp_val, pairs[npairs].dp_vlen) < 0){
+	    if(lv_dump(f, pairs[npairs].dp_val, pairs[npairs].dp_vlen) < 0){
 		retval = -1;
 		break;
 	    }
 	}
-	fprintf(stdout, "\n");
+	fprintf(f, "\n");
     }
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+/*! Write database contents to file, xml database variant
+ * @param[in]  dbspec  If set make a sanity check if key dont match (just)
+ */
+static int
+dump_database_xml(FILE       *f,
+		  char       *dbname, 
+		  char       *rxkey)
+{
+    int             retval = 0;
+    int             npairs;
+    struct db_pair *pairs;
+
+    /* Default is match all */
+    if (rxkey == NULL)
+	rxkey = "^.*$";
+
+    /* Get all keys/values for vector */
+    if ((npairs = db_regexp(dbname, rxkey, __FUNCTION__, &pairs, 0)) < 0)
+        return -1;
+    
+    for (npairs--; npairs >= 0; npairs--) 
+	fprintf(f, "%s %s\n", pairs[npairs].dp_key,
+		pairs[npairs].dp_val?pairs[npairs].dp_val:"");
     unchunk_group(__FUNCTION__);
     return retval;
 }
@@ -124,15 +145,14 @@ usage(char *argv0)
 	    "where options are\n"
             "\t-h\t\tHelp\n"
             "\t-D\t\tDebug\n"
-    	    "\t-f <file>\tCLICON config file (mandatory)\n"
             "\t-d <dbname>\tDatabase name (default: running_db)\n"
-	    "\t-s <file>\tSpecify db spec file\n"
     	    "\t-p\t\tDump database on stdout\n"
     	    "\t-b\t\tBrief output, just print keys. Combine with -p or -m\n"
 	    "\t-n \"<key> <var=%%T{value}> <var=...>\"\tAdd database entry\n"
             "\t-r <key>\tRemove database entry\n"
 	    "\t-m <regexp key>\tMatch regexp key in database\n"
     	    "\t-Z\t\tDelete database\n"
+    	    "\t-x\t\tXML database, not lvec (some options dont work eg '-n')\n"
     	    "\t-i\t\tInit database\n",
 	    argv0
 	    );
@@ -153,16 +173,12 @@ main(int argc, char **argv)
     char             rmkey[MAXPATHLEN];
     int              brief;
     char             dbname[MAXPATHLEN] = {0,};
-    clicon_handle    h;
     int              use_syslog;
-    char            *dbspec_type;
     dbspec_key      *dbspec = NULL;
+    int              xmldb;
 
     /* In the startup, logs to stderr & debug flag set later */
     clicon_log_init(__PROGRAM__, LOG_INFO, CLICON_LOG_STDERR); 
-    /* Create handle */
-    if ((h = clicon_handle_init()) == NULL)
-	return -1;
 
     /* Defaults */
     zapdb      = 0;
@@ -173,6 +189,7 @@ main(int argc, char **argv)
     brief      = 0;
     use_syslog = 0;
     addstr     = NULL;
+    xmldb      = 0;
     memset(rmkey, '\0', sizeof(rmkey));
 
     /* getopt in two steps, first find config-file before over-riding options. */
@@ -185,11 +202,6 @@ main(int argc, char **argv)
 	case 'D' : /* debug */
 	    debug = 1;	
 	    break;
-	 case 'f': /* config file */
-	    if (!strlen(optarg))
-		usage(argv[0]);
-	    clicon_option_str_set(h, "CLICON_CONFIGFILE", optarg);
-	    break;
 	 case 'S': /* Log on syslog */
 	     use_syslog = 1;
 	     break;
@@ -201,27 +213,10 @@ main(int argc, char **argv)
 		    use_syslog?CLICON_LOG_SYSLOG:CLICON_LOG_STDERR); 
     clicon_debug_init(debug, NULL); 
 
-
-    /* Find and read configfile */
-    if (clicon_options_main(h) < 0)
-	return -1;
-
-    /* Default use running-db */
-    if (clicon_running_db(h) == NULL){
-	clicon_err(OE_FATAL, 0, "running_db not set");
-	goto quit;
-    }
-    strncpy(dbname, clicon_running_db(h), sizeof(dbname)-1);
-
     /* Now rest of options */   
     optind = 1;
     while ((c = getopt(argc, argv, DBCTRL_OPTS)) != -1)
 	switch (c) {
-	case 's':  /* db spec file */
-	    if (!strlen(optarg))
-		usage(argv[0]);
-	    clicon_option_str_set(h, "CLICON_DBSPEC_FILE", optarg);
-	    break;
 	case 'Z': /* Zap database */
 	    zapdb++;
 	    break;
@@ -253,8 +248,10 @@ main(int argc, char **argv)
 	        usage(argv[0]);
 	    dumpdb++;
 	    break;
+	case 'x' : /* xml database */
+	    xmldb++;	
+	    break;
 	case 'D':  /* Processed earlier, ignore now. */
-	case 'f':
 	case 'S':
 	    break;
 	default:
@@ -264,28 +261,23 @@ main(int argc, char **argv)
     argc -= optind;
     argv += optind;
 
-    if ((dbspec_type = clicon_dbspec_type(h)) == NULL){
-	clicon_err(OE_FATAL, 0, "Dbspec type not set");
+    if (*dbname == '\0'){
+	clicon_err(OE_FATAL, 0, "database not specified (with -d <db>): %s");
 	goto quit;
     }
-    if (strcmp(dbspec_type, "YANG") == 0){ /* Parse YANG syntax */
-	if (yang_spec_main(h, stdout, 0, 0) < 0)
-	    goto quit;
+    if (dumpdb){
+	if (xmldb){
+	    if (dump_database_xml(stdout, dbname, matchkey)) {
+		fprintf(stderr, "Match error\n");
+		goto quit;
+	    }
+	}
+	else
+	    if (dump_database_lvec(stdout, dbname, matchkey, brief)) {
+		fprintf(stderr, "Match error\n");
+		goto quit;
+	    }
     }
-    else
-	if (strcmp(dbspec_type, "KEY") == 0){ /* Parse KEY syntax */
-	    if (dbspec_key_main(h, stdout, 0, 0) < 0)
-		goto quit;	    
-	}
-	else{
-	    clicon_err(OE_FATAL, 0, "Unknown dbspec format: %s", dbspec_type);
-	    goto quit;
-	}
-    if (dumpdb)
-        if (dump_database(dbname, matchkey, brief, dbspec)) {
-	    fprintf(stderr, "Match error\n");
-	    goto quit;
-	}
     if (addent) /* add entry */
 	if (db_lv_op(dbspec, dbname, LV_SET, addstr, NULL) < 0){
 	    fprintf(stderr, "Failed to add entry\n");
@@ -302,6 +294,5 @@ main(int argc, char **argv)
 
   quit:
     db_spec_free(dbspec);
-    clicon_handle_exit(h);
     return 0;
 }

@@ -75,6 +75,7 @@ int clicon_option_del(clicon_handle h, const char *name);
 char *clicon_configfile(clicon_handle h);
 char *clicon_dbspec_type(clicon_handle h);
 char *clicon_dbspec_file(clicon_handle h);
+int   clicon_db_xml(clicon_handle h);
 char *clicon_yang_dir(clicon_handle h);
 char *clicon_yang_module_main(clicon_handle h);
 char *clicon_yang_module_revision(clicon_handle h);

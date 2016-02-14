@@ -217,9 +217,12 @@ clicon_msg_validate_decode(struct clicon_msg *msg, char **db, const char *label)
 
 
 struct clicon_msg *
-clicon_msg_change_encode(char *db, uint32_t op,	char *key, 
-			char *lvec, uint32_t lvec_len, 
-			const char *label)
+clicon_msg_change_encode(char       *db, 
+			 uint32_t    op,	
+			 char       *key, 
+			 char       *lvec, 
+			 uint32_t    lvec_len, 
+			 const char *label)
 {
     struct clicon_msg *msg;
     uint16_t           len;
@@ -265,9 +268,12 @@ clicon_msg_change_encode(char *db, uint32_t op,	char *key,
 
 int
 clicon_msg_change_decode(struct clicon_msg *msg, 
-			char **db, uint32_t *op, char **key, 
-			char **lvec, uint32_t *lvec_len, 
-			const char *label)
+			 char **db, 
+			 uint32_t *op, 
+			 char **key, 
+			 char **lvec, 
+			 uint32_t *lvec_len, 
+			 const char *label)
 {
     int p;
     uint32_t tmp;
@@ -311,6 +317,96 @@ clicon_msg_change_decode(struct clicon_msg *msg,
 	    *op, *lvec_len, *db, *key);
     return 0;
 }
+
+/*! Encode xmlput / edit of database content
+ * @param[in]  db    Name of database
+ * @param[in]  op    set|merge|delete. See lv_op_t
+ * @param[in]  xml   XML data string
+ * @param[in]  label Memory chunk label
+ * @retval     msg   Encoded message
+ * @retval     NULL  Error
+ */
+struct clicon_msg *
+clicon_msg_xmlput_encode(char       *db, 
+			 uint32_t    op, 
+			 char       *xml, 
+			 const char *label)
+{
+    struct clicon_msg *msg;
+    uint16_t           len;
+    int                hdrlen = sizeof(*msg);
+    int                p;
+    uint32_t           tmp;
+
+    clicon_debug(2, "%s: op: %d db: %s xml: %s", 
+	    __FUNCTION__, 
+	    op, db, xml);
+    p = 0;
+    hdrlen = sizeof(*msg);
+    len = sizeof(*msg) + sizeof(uint32_t) + strlen(db) + 1 + strlen(xml) + 1;
+    if ((msg = (struct clicon_msg *)chunk(len, label)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk", __FUNCTION__);
+	return NULL;
+    }
+    memset(msg, 0, len);
+    /* hdr */
+    msg->op_type = htons(CLICON_MSG_XMLPUT);
+    msg->op_len = htons(len);
+    /* body */
+    tmp = htonl(op);
+    memcpy(msg->op_body+p, &tmp, sizeof(uint32_t));
+    p += sizeof(uint32_t);
+
+    strncpy(msg->op_body+p, db, len-p-hdrlen);
+    p += strlen(db)+1;
+    strncpy(msg->op_body+p, xml, len-p-hdrlen);
+    p += strlen(xml)+1;
+    return msg;
+}
+
+/*! Decode xmlput / edit of database content
+ * @param[in]  msg   Incoming message to be decoded
+ * @param[out] db    Name of database
+ * @param[out] op    set|merge|delete. See lv_op_t
+ * @param[out] xml   XML data string
+ * @param[in]  label Memory chunk label
+ * @retval     0     OK
+ * @retval     -1    Error
+ */
+int
+clicon_msg_xmlput_decode(struct clicon_msg *msg, 
+			 char             **db, 
+			 uint32_t          *op, 
+			 char             **xml, 
+			 const char        *label)
+{
+    int      p;
+    uint32_t tmp;
+
+    p = 0;
+    /* body */
+    memcpy(&tmp, msg->op_body+p, sizeof(uint32_t));
+    *op = ntohl(tmp);
+    p += sizeof(uint32_t);
+
+    if ((*db = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		__FUNCTION__);
+	return -1;
+    }
+    p += strlen(*db)+1;
+    if ((*xml = chunk_sprintf(label, "%s", msg->op_body+p)) == NULL){
+	clicon_err(OE_PROTO, errno, "%s: chunk_sprintf", 
+		   __FUNCTION__);
+	return -1;
+    }
+    p += strlen(*xml)+1;
+    clicon_debug(2, "%s: op: %d db: %s xml: %s", 
+	    __FUNCTION__, 
+	    *op, *db, *xml);
+    return 0;
+}
+
 
 /*!
  * @param[in]  rx    Regular expression for key matching. NULL or "^.*$" match all

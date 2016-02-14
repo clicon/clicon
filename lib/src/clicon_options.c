@@ -148,6 +148,10 @@ clicon_option_default(clicon_hash_t  *copt)
 	if (hash_add(copt, "CLICON_DBSPEC_TYPE", "YANG", strlen("YANG")+1) < 0)
 	    goto catch;
     }
+    if (!hash_lookup(copt, "CLICON_DB_XML")){
+	if (hash_add(copt, "CLICON_DB_XML", "0", strlen("0")+1) < 0)
+	    goto catch;
+    }
     if (!hash_lookup(copt, "CLICON_YANG_MODULE_MAIN")){
 	if (hash_add(copt, "CLICON_YANG_MODULE_MAIN", "clicon", strlen("clicon")+1) < 0)
 	    goto catch;
@@ -406,6 +410,18 @@ char *
 clicon_dbspec_file(clicon_handle h)
 {
     return clicon_option_str(h, "CLICON_DBSPEC_FILE");
+}
+
+/*! Save values as XML in database instead of lvec:s. */
+int   
+clicon_db_xml(clicon_handle h)
+{
+    char const *opt = "CLICON_DB_XML";
+
+    if (clicon_option_exists(h, opt))
+	return clicon_option_int(h, opt);
+    else
+	return 0;
 }
 
 /*! YANG database specification directory */

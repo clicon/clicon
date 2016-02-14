@@ -32,8 +32,8 @@
  *   |  cvec   |  <---------------------> | xml cxobj |<--------->| xmlfile |
  *   +---------+   cvec2xml->             +-----------+           +---------+
  *                 cvec2xml_1(yang)->  xml2json->|
- *                                       xml2txt-> |
- *                                       xml2cli-> v
+ *                                     xml2txt-> |
+ *                                     xml2cli-> v
  *                                        +---------+
  *                                        |  file   |
  *                                        +---------+
@@ -1167,9 +1167,9 @@ xml2json(FILE *f, cxobj *x, int level)
     return retval;
 }
 
-
 /*! Validate an XML tree with yang specification
- * @retval 
+ * @retval  0 OK
+ * @note NYI
  */
 int
 xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
@@ -1201,9 +1201,9 @@ xml_yang_validate(clicon_handle h, cxobj *xt, yang_spec *ys)
  * @see cvec2xml
  */
 int
-xml2cvec(cxobj     *xt, 
-	 yang_stmt *yt, 
-	 cvec     **cvv0)
+xml2cvec(cxobj      *xt, 
+	 yang_stmt  *yt, 
+	 cvec      **cvv0)
 {
     int               retval = -1;
     cvec             *cvv = NULL;
@@ -1227,7 +1227,7 @@ xml2cvec(cxobj     *xt,
     xc = NULL;
     /* Go through all children of the xml tree */
     while ((xc = xml_child_each(xt, xc, CX_ELMNT)) != NULL){
-	if ((ys = yang_find_specnode((yang_node*)yt, xml_name(xc))) == NULL){
+	if ((ys = yang_find_syntax((yang_node*)yt, xml_name(xc))) == NULL){
 	    clicon_debug(1, "%s: yang sanity problem: %s in xml but not present in yang under %s",
 			 __FUNCTION__, xml_name(xc), yt->ys_argument);
 	    continue;

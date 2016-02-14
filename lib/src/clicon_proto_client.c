@@ -53,6 +53,7 @@
 #include "clicon_dbutil.h"
 #include "clicon_proto.h"
 #include "clicon_err.h"
+#include "clicon_xml.h"
 #include "clicon_proto_encode.h"
 #include "clicon_proto_client.h"
 
@@ -199,6 +200,73 @@ clicon_rpc_change(clicon_handle h,
     unchunk_group(__FUNCTION__);
     if (lvec)
 	free(lvec);
+    return retval;
+}
+
+/*! Send database change request to backend daemon, variant for xmldb
+ * Same as clicon_proto_change just with a string
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ * @param[in] op         Operation on database item: set, delete, (merge?)
+ * @param[in] key        Database key
+ * @param[in] value      value as string
+ * @retval    0          OK
+ * @retval   -1          Error
+ */
+int
+clicon_rpc_change_dbxml(clicon_handle h, 
+			char         *db, 
+			enum operation_type op,
+			char         *key, 
+			char         *val)
+{
+    int               retval = -1;
+    struct clicon_msg *msg;
+
+    if ((msg = clicon_msg_change_encode(db, 
+					op, 
+					key, 
+					val, 
+					strlen(val)+1,
+				       __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
+    return retval;
+}
+
+
+/*! Send database entries as XML to backend daemon
+ * Same as clicon_proto_change just with a cvec instead of lvec
+ * @param[in] h          CLICON handle
+ * @param[in] db         Name of database
+ * @param[in] op         Operation on database item: set, delete, (merge?)
+ * @param[in] xml        XML string. Ex: <a>..</a><b>...</b>
+ * @retval    0          OK
+ * @retval   -1          Error
+ */
+int
+clicon_rpc_xmlput(clicon_handle       h, 
+		  char               *db, 
+		  enum operation_type op,
+		  char               *xml)
+{
+    int                retval = -1;
+    struct clicon_msg *msg;
+
+    if ((msg = clicon_msg_xmlput_encode(db, 
+					(uint32_t)op, 
+					xml,
+				       __FUNCTION__)) == NULL)
+	goto done;
+    if (clicon_rpc_msg(h, msg, NULL, NULL, NULL, __FUNCTION__) < 0)
+	goto done;
+    retval = 0;
+  done:
+    unchunk_group(__FUNCTION__);
     return retval;
 }
 

@@ -59,8 +59,13 @@
 /* Command line options to be passed to getopt(3) */
 #define NETCONF_OPTS "hDqf:s:d:S"
 
+/*! Process incoming packet 
+ * @param[in]   h    Clicon handle
+ * @param[in]   xf   Packet buffer
+ */
 static int
-packet(clicon_handle h, cbuf *xf)
+process_incoming_packet(clicon_handle h, 
+			cbuf         *xf)
 {
     char  *str;
     char  *str0;
@@ -164,10 +169,13 @@ ed");
     return 0;
 }
 
-
-/*! Get netconf message: detect end-of-msg */
+/*! Get netconf message: detect end-of-msg 
+ * @param[in]   s    Socket where input arrived. read from this.
+ * @param[in]   arg  Clicon handle.
+ */
 static int
-netconf_input_cb(int s, void *arg)
+netconf_input_cb(int   s, 
+		 void *arg)
 {
     clicon_handle h = arg;
     unsigned char buf[BUFSIZ];
@@ -206,7 +214,7 @@ netconf_input_cb(int s, void *arg)
 			  buf[i],
 			  &xml_state)) {
 	    /* OK, we have an xml string from a client */
-	    if (packet(h, xf) < 0){
+	    if (process_incoming_packet(h, xf) < 0){
 		goto done;
 	    }
 	    if (cc_closed)

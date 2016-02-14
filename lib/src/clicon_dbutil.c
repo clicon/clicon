@@ -90,6 +90,7 @@
 #include "clicon_lvalue.h"
 #include "clicon_yang.h"
 #include "clicon_options.h"
+#include "clicon_xml.h"
 #include "clicon_proto.h"
 #include "clicon_proto_client.h"
 #include "clicon_dbutil.h"
@@ -438,6 +439,13 @@ cvval2lv(cg_var *cv, struct lvalue *lv)
  * @retval     NULL    Error with cligen_err set
  * @retval     lvec    Note must bee free():d after use
  * An lvec is a vector of lvalue pairs.
+ * @code
+ *  char  *lvec;
+ *  size_t len;
+ *  if ((lvec = cvec2lvec(cvv, &len)) == NULL)
+ *    err;
+ *  if (lvec) free(lvec);
+ * @endcode
  */
 char *
 cvec2lvec(cvec *vr, size_t *lveclen)

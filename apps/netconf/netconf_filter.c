@@ -52,15 +52,6 @@
 #include "netconf_lib.h"
 #include "netconf_filter.h"
 
-/* forward */
-static int
-xml_edit(cxobj *filter, 
-	 cxobj *parent, 
-	 enum operation_type op,
-	 cbuf *xf_err, 
-	 cxobj *xt);
-
-
 /*
  * xml_filter
  * xf specifices a filter, and xn is an xml tree.
@@ -94,33 +85,40 @@ leafstring(cxobj *x)
     return xml_value(c);
 }
 
-/*
- * Select siblings of xp
+/*! Internal recursive part where configuration xml tree is pruned frim filter
  * assume parent has been selected and filter match (same name) as parent
- * Return values: 0 OK, -1 error
  * parent is pruned according to selection.
+ * @param[in]  xfilter  Filter xml
+ * @param[out] xconf    Configuration xml
+ * @retval  0  OK
+ * @retval -1  Error
  */
 static int
-select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
+xml_filter2(cxobj *xfilter, 
+	    cxobj *xparent, 
+	    int   *remove_me)
 {
     cxobj *s;
     cxobj *sprev;
     cxobj *f;
     cxobj *attr;
-    char *an, *af;
-    char *fstr, *sstr;
-    int containments;
+    char *an;
+    char *af;
+    char *fstr;
+    char *sstr;
+    int   containments;
+    int   remove_s;
 
     *remove_me = 0;
-    assert(filter && parent && strcmp(xml_name(filter), xml_name(parent))==0);
+    assert(xfilter && xparent && strcmp(xml_name(xfilter), xml_name(xparent))==0);
     /* 1. Check selection */
-    if (xml_child_nr(filter) == 0) 
+    if (xml_child_nr(xfilter) == 0) 
 	goto match;
 
     /* Count containment/selection nodes in filter */
     f = NULL;
     containments = 0;
-    while ((f = xml_child_each(filter, f, CX_ELMNT)) != NULL) {
+    while ((f = xml_child_each(xfilter, f, CX_ELMNT)) != NULL) {
 	if (leafstring(f))
 	    continue;
 	containments++;
@@ -128,9 +126,9 @@ select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
 
     /* 2. Check attribute match */
     attr = NULL;
-    while ((attr = xml_child_each(filter, attr, CX_ATTR)) != NULL) {
+    while ((attr = xml_child_each(xfilter, attr, CX_ATTR)) != NULL) {
 	af = xml_value(attr);
-	an = xml_find_value(filter, xml_name(attr));
+	an = xml_find_value(xfilter, xml_name(attr));
 	if (af && an && strcmp(af, an)==0)
 	    ; // match
 	else
@@ -138,10 +136,10 @@ select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
     }
     /* 3. Check content match */
     f = NULL;
-    while ((f = xml_child_each(filter, f, CX_ELMNT)) != NULL) {
+    while ((f = xml_child_each(xfilter, f, CX_ELMNT)) != NULL) {
 	if ((fstr = leafstring(f)) == NULL)
 	    continue;
-	if ((s = xml_find(parent, xml_name(f))) == NULL)
+	if ((s = xml_find(xparent, xml_name(f))) == NULL)
 	    goto nomatch;
 	if ((sstr = leafstring(s)) == NULL)
 	    continue;
@@ -153,9 +151,9 @@ select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
 	goto match;
     /* Check recursively the rest of the siblings */
     sprev = s = NULL;
-    while ((s = xml_child_each(parent, s, CX_ELMNT)) != NULL) {
-	if ((f = xml_find(filter, xml_name(s))) == NULL){
-	    xml_prune(parent, s, 1);
+    while ((s = xml_child_each(xparent, s, CX_ELMNT)) != NULL) {
+	if ((f = xml_find(xfilter, xml_name(s))) == NULL){
+	    xml_prune(xparent, s, 1);
 	    s = sprev;
 	    continue;
 	}
@@ -163,14 +161,13 @@ select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
 	    sprev = s;
 	    continue; // unsure?sk=lf
 	}
-	{ 	// XXX: s can be removed itself in the recursive call !
-	    int remove_s = 0;
-	    if (select_siblings(f, s, &remove_s) < 0)
-		return -1;
-	    if (remove_s){
-		xml_prune(parent, s, 1);
-		s = sprev;
-	    }
+	// XXX: s can be removed itself in the recursive call !
+	remove_s = 0;
+	if (xml_filter2(f, s, &remove_s) < 0)
+	    return -1;
+	if (remove_s){
+	    xml_prune(xparent, s, 1);
+	    s = sprev;
 	}
 	sprev = s;
     }
@@ -182,55 +179,90 @@ select_siblings(cxobj *filter, cxobj *parent, int *remove_me)
     return 0;
 }
 
+/*! Remove parts of configuration xml tree that does not match filter xml tree
+ * @param[in]  xfilter  Filter xml
+ * @param[out] xconf    Configuration xml
+ * @retval  0  OK
+ * @retval -1  Error
+ * This is the top-level function, calls a recursive variant.
+ */
 int
-xml_filter(cxobj *xf, cxobj *xn)
+xml_filter(cxobj *xfilter, 
+	   cxobj *xconfig)
 {
     int retval;
     int remove_s;
 
-    retval = select_siblings(xf, xn, &remove_s);
+    /* Call recursive variant */
+    retval = xml_filter2(xfilter, 
+			 xconfig, 
+			 &remove_s);
     return retval;
 }
 
 /*
- * get_operation
- * get the value of the "operation" attribute and change op if given
+ * netconf_xpath
+ * @param[in] xsearch where you search for xpath, grouped by a single top node which 
+ *                    is not significant and will not be returned in any result. 
+ * @param[in] xfilter the xml sub-tree, eg: 
+ *                    <filter type="xpath" select="/t:top/t:users/t:user[t:name='fred']"/>
+ * @param[out] cb     Output xml stream. For reply
+ * @param[out] cb_err Error xml stream. For error reply
+ * @param[in] xorig   Original tree
+ *  
  */
-static int
-get_operation(cxobj *xn, enum operation_type *op,
-	      cbuf *xf_err, cxobj *xt)
+int 
+netconf_xpath(cxobj *xsearch,
+	      cxobj *xfilter, 
+	      cbuf  *cb, 
+	      cbuf  *cb_err, 
+	      cxobj *xorig)
 {
-    char *opstr;
+    cxobj  *x;
+    int               retval = -1;
+    char             *selector;
+    cxobj **xv;
+    int               xlen;
+    int               i;
 
-    if ((opstr = xml_find_value(xn, "operation")) != NULL){
-	if (strcmp("merge", opstr) == 0)
-	    *op = OP_MERGE;
-	else
-	if (strcmp("replace", opstr) == 0)
-	    *op = OP_REPLACE;
-	else
-	if (strcmp("create", opstr) == 0)
-	    *op = OP_CREATE;
-	else
-	if (strcmp("delete", opstr) == 0)
-	    *op = OP_DELETE;
-	else
-	if (strcmp("remove", opstr) == 0)
-	    *op = OP_REMOVE;
-	else{
-	    netconf_create_rpc_error(xf_err, xt, 
-				     "bad-attribute", 
-				     "protocol", 
-				     "error", 
-				     NULL,
-				     "<bad-attribute>operation</bad-attribute>");
-	    return -1;
-	}
+    if ((selector = xml_find_value(xfilter, "select")) == NULL){
+	netconf_create_rpc_error(cb_err, xorig, 
+				 "operation-failed", 
+				 "application", 
+				 "error", 
+				 NULL,
+				 "select");
+	goto done;
     }
-    return 0;
+
+    x = NULL;
+
+    clicon_errno = 0;
+    if ((xv = xpath_vec(xsearch, selector, &xlen)) != NULL) {
+	for (i=0; i<xlen; i++){
+	    x = xv[i];
+	    clicon_xml2cbuf(cb, x, 0, 1);
+	}
+	free(xv);
+    }
+    /* XXX: NULL means error sometimes */
+    if (clicon_errno){
+	netconf_create_rpc_error(cb_err, xorig, 
+				 "operation-failed", 
+				 "application", 
+				 "error", 
+				 clicon_err_reason,
+				 "select");
+	goto done;
+    }
+
+    retval = 0;
+  done:
+    return retval;
 }
 
 
+#ifdef NOTUSED 
 /*
  * in edit_config, we copy a tree to the config. But some wthings shouldbe 
  * cleaned:
@@ -252,19 +284,66 @@ netconf_clean(cxobj *xn)
 }
 
 /*
- * xml_edit
- * Merge two XML trees according to RFC4741/Junos
+ * get_operation
+ * get the value of the "operation" attribute and change op if given
+ */
+static int
+get_operation(cxobj               *xn, 
+	      enum operation_type *op,
+	      cbuf                *xf_err, 
+	      cxobj               *xorig)
+{
+    char *opstr;
+
+    if ((opstr = xml_find_value(xn, "operation")) != NULL){
+	if (strcmp("merge", opstr) == 0)
+	    *op = OP_MERGE;
+	else
+	if (strcmp("replace", opstr) == 0)
+	    *op = OP_REPLACE;
+	else
+	if (strcmp("create", opstr) == 0)
+	    *op = OP_CREATE;
+	else
+	if (strcmp("delete", opstr) == 0)
+	    *op = OP_DELETE;
+	else
+	if (strcmp("remove", opstr) == 0)
+	    *op = OP_REMOVE;
+	else{
+	    netconf_create_rpc_error(xf_err, xorig, 
+				     "bad-attribute", 
+				     "protocol", 
+				     "error", 
+				     NULL,
+				     "<bad-attribute>operation</bad-attribute>");
+	    return -1;
+	}
+    }
+    return 0;
+}
+
+/* forward */
+static int
+xml_edit(cxobj              *filter, 
+	 cxobj              *parent, 
+	 enum operation_type op,
+	 cbuf               *xf_err, 
+	 cxobj              *xorig);
+
+
+/*! Merge two XML trees according to RFC4741/Junos
  * 1. in configuration(parent) but not in new(filter) -> remain in configuration
  * 2. not in configuration but in new -> add to configuration
  * 3. Both in configuration and new: Do 1.2.3 with children.
  * A key is: the configuration data identified by the element
  */
 static int
-edit_selection(cxobj *filter, 
-	       cxobj *parent, 
+edit_selection(cxobj              *filter, 
+	       cxobj              *parent, 
 	       enum operation_type op,
-	       cbuf *xf_err, 
-	       cxobj *xt)
+	       cbuf               *xf_err, 
+	       cxobj              *xorig)
 {
     int retval = -1;
 
@@ -277,7 +356,7 @@ edit_selection(cxobj *filter,
 	xml_prune(xml_parent(parent), parent, 1);
 	break;
     case OP_CREATE:
-	    netconf_create_rpc_error(xf_err, xt, 
+	    netconf_create_rpc_error(xf_err, xorig, 
 				     NULL,
 				     "protocol", 
 				     "error", 
@@ -289,7 +368,7 @@ edit_selection(cxobj *filter,
 	fprintf(stderr, "%s: %s DELETE\n", __FUNCTION__, xml_name(filter));
 	if (xml_child_nr(parent) == 0){
 	    fprintf(stderr, "%s: %s ERROR\n", __FUNCTION__, xml_name(filter));
-	    netconf_create_rpc_error(xf_err, xt, 
+	    netconf_create_rpc_error(xf_err, xorig, 
 				     NULL,
 				     "protocol", 
 				     "error", 
@@ -315,12 +394,12 @@ edit_selection(cxobj *filter,
  * XXX: not called from external?
  */
 static int
-edit_match(cxobj *filter, 
-	   cxobj *parent, 
+edit_match(cxobj              *filter, 
+	   cxobj              *parent, 
 	   enum operation_type op,
-	   cbuf *xf_err, 
-	   cxobj *xt,
-	   int match
+	   cbuf               *xf_err, 
+	   cxobj              *xorig,
+	   int                 match
     )
 {
     cxobj *f;
@@ -377,7 +456,7 @@ edit_match(cxobj *filter,
 		while ((s = xml_child_each(parent, s, CX_ELMNT)) != NULL) {
 		    if (strcmp(xml_name(f), xml_name(s)))
 			continue;
-		    if ((retval = xml_edit(f, s, op, xf_err, xt)) < 0)
+		    if ((retval = xml_edit(f, s, op, xf_err, xorig)) < 0)
 			goto done;
 		}
 	    }
@@ -408,7 +487,7 @@ edit_match(cxobj *filter,
 	    if (!match)
 		break;
 	    if (s != NULL){
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(xf_err, xorig, 
 					 NULL,
 					 "protocol", 
 					 "error", 
@@ -432,7 +511,7 @@ edit_match(cxobj *filter,
 	    if (!match)
 		break;
 	    if (s == NULL){
-		netconf_create_rpc_error(xf_err, xt, 
+		netconf_create_rpc_error(xf_err, xorig, 
 					 NULL,
 					 "protocol", 
 					 "error", 
@@ -458,7 +537,7 @@ edit_match(cxobj *filter,
 	    while ((s = xml_child_each(parent, s, CX_ELMNT)) != NULL) {
 		if (strcmp(xml_name(f), xml_name(s)))
 		    continue;
-		if ((retval = xml_edit(f, s, op, xf_err, xt)) < 0)
+		if ((retval = xml_edit(f, s, op, xf_err, xorig)) < 0)
 		    goto done;
 	    }
 	    break;
@@ -477,11 +556,11 @@ edit_match(cxobj *filter,
  * XXX: not called from external?
  */
 static int
-xml_edit(cxobj *filter, 
-	 cxobj *parent, 
+xml_edit(cxobj              *filter, 
+	 cxobj              *parent, 
 	 enum operation_type op,
-	 cbuf *xf_err, 
-	 cxobj *xt)
+	 cbuf               *xf_err, 
+	 cxobj              *xorig)
 {
     cxobj *attr;
     cxobj *f;
@@ -491,15 +570,15 @@ xml_edit(cxobj *filter,
     char *fstr, *sstr;
     int keymatch = 0;
 
-    get_operation(filter, &op, xf_err, xt);
+    get_operation(filter, &op, xf_err, xorig);
     /* 1. First try selection: filter is empty */
     if (xml_child_nr(filter) == 0){  /* no elements? */
-	retval = edit_selection(filter, parent, op, xf_err, xt);
+	retval = edit_selection(filter, parent, op, xf_err, xorig);
 	goto done;
     }
     if (xml_child_nr(filter) == 1 && /* same as above */
 	xpath_first(filter, "/[@operation]")){
-	retval = edit_selection(filter, parent, op, xf_err, xt);
+	retval = edit_selection(filter, parent, op, xf_err, xorig);
 	goto done;
     }
     /* 2. Check attribute match */
@@ -542,7 +621,7 @@ xml_edit(cxobj *filter,
 	clicon_xml2file(stdout, parent, 0, 1);
     }
 
-    retval = edit_match(filter, parent, op, xf_err, xt, keymatch);
+    retval = edit_match(filter, parent, op, xf_err, xorig, keymatch);
     /* match */
     netconf_ok_set(1);
     retval = 0;
@@ -551,65 +630,4 @@ xml_edit(cxobj *filter,
   nomatch:
     return 0;
 }
-
-/*
- * netconf_xpath
- * Arguments:
- *  xsearch is where you search for xpath, grouped by a single top node which is
- *          not significant and will not be returned in any result. 
- *  xfilter is the xml sub-tree, eg: 
- *             <filter type="xpath" select="/t:top/t:users/t:user[t:name='fred']"/>
- *  xt is original tree
- *  
- */
-int 
-netconf_xpath(cxobj *xsearch,
-	      cxobj *xfilter, 
-	      cbuf *xf, 
-	      cbuf *xf_err, 
-	      cxobj *xt)
-{
-    cxobj  *x;
-    int               retval = -1;
-    char             *selector;
-    cxobj **xv;
-    int               xlen;
-    int               i;
-
-    if ((selector = xml_find_value(xfilter, "select")) == NULL){
-	netconf_create_rpc_error(xf_err, xt, 
-				 "operation-failed", 
-				 "application", 
-				 "error", 
-				 NULL,
-				 "select");
-	goto done;
-    }
-
-    x = NULL;
-
-    clicon_errno = 0;
-    if ((xv = xpath_vec(xsearch, selector, &xlen)) != NULL) {
-	for (i=0; i<xlen; i++){
-	    x = xv[i];
-	    clicon_xml2cbuf(xf, x, 0, 1);
-	}
-	free(xv);
-    }
-    /* XXX: NULL means error sometimes */
-    if (clicon_errno){
-	netconf_create_rpc_error(xf_err, xt, 
-				 "operation-failed", 
-				 "application", 
-				 "error", 
-				 clicon_err_reason,
-				 "select");
-	goto done;
-    }
-
-    retval = 0;
-  done:
-    return retval;
-}
-
-
+#endif /* NOTUSED */

@@ -52,7 +52,18 @@ enum clicon_msg_type{
 			  3. string: name of database to change (eg current)
 			  4. string: key or key format
 			  5. lvec (length given above).
+			  OR (if CLICON_DB_XML is set)
+			  1. uint32: operation: OP_MERGE/OP_REPLACE/OP_REMOVE
+			  2. uint32: length of value string
+			  3. string: name of database to change (eg current)
+			  4. string: key
+			  5. string: value
 			 */
+    CLICON_MSG_XMLPUT, /* Send database entries as XML to backend daemon
+			  1. uint32: operation: LV_SET/LV_DELETE
+			  2. string: name of database to change (eg current)
+			  3. string: XML data
+			*/
     CLICON_MSG_DBITEMS,   /* Get database entries as cvecs given key and attribute patterns
 			     Request is:
 			     1. string: name of database
@@ -63,6 +74,7 @@ enum clicon_msg_type{
                              1. cveclen (# of cvecs +1)
 			     2. {cvec-name, lvec-len, lvec} *
 			   */
+
     CLICON_MSG_SAVE,    /* Save config state from db to a file in backend. Body is:
 			  1. uint32: make snapshot (1), dont(0)
 			  2. string: name of database to save from (eg running)

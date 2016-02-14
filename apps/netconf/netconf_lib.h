@@ -36,15 +36,6 @@ enum transport_type{
     NETCONF_SOAP,  /* RFC 4743 */
 };
 
-enum operation_type{ /* edit-config */
-    OP_MERGE,  /* merge config-data */
-    OP_REPLACE,/* replace or create config-data */
-    OP_CREATE, /* create config data, error if exist */
-    OP_DELETE, /* delete config data, error if it does not exist */
-    OP_REMOVE, /* delete config data */
-    OP_NONE
-};
-
 enum test_option{ /* edit-config */
     SET,
     TEST_THEN_SET,
@@ -54,6 +45,11 @@ enum test_option{ /* edit-config */
 enum error_option{ /* edit-config */
     STOP_ON_ERROR,
     CONTINUE_ON_ERROR
+};
+
+enum filter_option{ /* get-config/filter */
+    FILTER_SUBTREE,
+    FILTER_XPATH
 };
 
 /*
@@ -72,7 +68,7 @@ int add_preamble(cbuf *xf);
 int add_postamble(cbuf *xf);
 int add_error_preamble(cbuf *xf, char *reason);
 int detect_endtag(char *tag, char ch, int *state);
-char *get_target(clicon_handle h, cxobj *xn, char *path);
+char *netconf_get_target(clicon_handle h, cxobj *xn, char *path);
 int add_error_postamble(cbuf *xf);
 int netconf_output(int s, cbuf *xf, char *msg);
 

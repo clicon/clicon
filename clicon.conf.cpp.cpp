@@ -35,6 +35,11 @@ CLICON_CONFIGFILE      sysconfdir/APPNAME.conf
 # Database specification file. Syntax either CLI or KEY given by CLICON_DBSPEC_TYPE
 CLICON_DBSPEC_FILE     prefix/share/APPNAME/datamodel.spec
 
+# Save values as XML in database instead of lvec:s.
+# This is optimized for yang specified applications 
+# But not compatible with key-based application (eg Rost)
+# CLICON_DB_XML            0
+
 # Location of YANG module and submodule files. Only if CLICON_DBSPEC_TYPE is YANG
 CLICON_YANG_DIR        prefix/share/APPNAME/yang
 
@@ -121,5 +126,6 @@ CLICON_BACKEND_PIDFILE  localstatedir/APPNAME/APPNAME.pidfile
 
 # Dont include keys in cvec in cli vars callbacks, ie a & k in 'a <b> k <c>' ignored
 # CLICON_CLI_VARONLY      1
+
 
 

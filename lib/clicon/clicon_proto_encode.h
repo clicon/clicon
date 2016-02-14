@@ -61,6 +61,19 @@ clicon_msg_change_decode(struct clicon_msg *msg,
 			const char *label);
 
 struct clicon_msg *
+clicon_msg_xmlput_encode(char       *db, 
+			 uint32_t    op, 
+			 char       *xml, 
+			 const char *label);
+
+int
+clicon_msg_xmlput_decode(struct clicon_msg *msg, 
+			 char             **db, 
+			 uint32_t          *op, 
+			 char             **filename, 
+			 const char        *label);
+
+struct clicon_msg *
 clicon_msg_dbitems_get_encode(char       *db, 
 			  char       *rx,
 			  char       *attr,

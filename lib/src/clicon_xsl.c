@@ -445,10 +445,10 @@ xpath_expr(char     *e,
 }
 
 /*! Given vec0, add matches to vec1
- * @param[in]  xe 
- * @param[in]  descendants0
- * @param[in]  vec0
- * @param[in]  vec0len
+ * @param[in]   xe 
+ * @param[in]   descendants0
+ * @param[in]   vec0
+ * @param[in]   vec0len
  * @param[out]  vec1
  * @param[out]  vec1len
  * XXX: Kommer in i funktionen med vec0, resultatet appendas i vec1
@@ -771,17 +771,18 @@ xpath_each(cxobj *cxtop, char *xpath, cxobj *xprev)
     return xn;
 }
 
-/*! A restricted xpath that returns a vector of macthes
+/*! A restricted xpath that returns a vector of matches
  *
  * See xpath1() on details for subset.
  * @param[in]  cxtop  xml-tree where to search
  * @param[in]  xpath   string with XPATH syntax
  * @param[out] xv_len  returns length of vector in return value
- * @retval   vector of xml-trees, or NULL on error. Vector must be free():d after use
+ * @retval     vec     vector of xml-trees. Vector must be free():d after use
+ * @retval     NULL     NULL on error.
  *
  * @code
  *   cxobj **xv;
- *   int               xlen;
+ *   int     xlen;
  *   if ((xv = xpath_vec(cxtop, "//symbol/foo", &xlen)) != NULL) {
  *      for (i=0; i<xlen; i++){
  *         xn = xv[i];

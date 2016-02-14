@@ -193,7 +193,7 @@ generic_validate_yang(clicon_handle        h,
 	/* Loop over all actual db/cv:s and check their validity, eg ranges and regexp */	
 	cv = NULL;
 	while ((cv = cvec_each(cvec, cv))) {
-	    if ((yleaf = yang_find_specnode((yang_node*)ys, cv_name_get(cv))) == NULL)
+	    if ((yleaf = yang_find_syntax((yang_node*)ys, cv_name_get(cv))) == NULL)
 		continue;
 	    if (yleaf->ys_keyword != Y_LEAF && yleaf->ys_keyword != Y_LEAF_LIST)
 		continue;
@@ -390,11 +390,11 @@ candidate_commit(clicon_handle h, char *candidate, char *running)
 		&df
 		) < 0)
 	goto done;
-    if (1){
+    if (debug){
 	struct dbdiff_ent *dfe;
 	for (i=0; i<df.df_nr; i++) {
 	    dfe = &df.df_ents[i];
-	    clicon_debug(0, "%s op:%d key:%s",
+	    clicon_debug(1, "%s op:%d key:%s",
 			 __FUNCTION__,
 			 dfe->dfe_op,
 			 cvec_name_get(dfe->dfe_vec1?dfe->dfe_vec1:dfe->dfe_vec2));
