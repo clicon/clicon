@@ -93,7 +93,6 @@ struct searchvec{
 };
 typedef struct searchvec searchvec;
 
-#if 1 /* New xpath code */
 /* Local types 
  */
 enum axis_type{
@@ -286,8 +285,6 @@ xpath_parse(char *xpath, struct xpath_element **xplist0)
 	*xplist0 = xplist;
     return retval;
 }
-
-#endif /* New xpath code */
 
 /* Copy from vec0 to vec1 */
 static int
@@ -524,7 +521,7 @@ xpath_find(struct xpath_element *xe,
 		xv = vec0[i];
 		x = NULL;
 		while ((x = xml_child_each(xv, x, -1)) != NULL) {
-		    if (fnmatch(xe->xe_str, xml_name(x), 0) == 0){
+		    if (fnmatch(xe->xe_str, xml_name(x), 0) == 0){ 
 			if (vec_append(x, &vec1, &vec1len) < 0)
 			    goto done;
 		    }
@@ -567,25 +564,29 @@ xpath_find(struct xpath_element *xe,
 static int
 xpath_split(char *xpathstr, char **pathexpr)
 {
-    int retval = -1;
-    int len;
-    int i;
-
+    int   retval = -1;
+    int   last;
+    int   i;
     char *pe = NULL;
-    len = strlen(xpathstr) - 1;
-    if (xpathstr[len] == ']'){
-	xpathstr[len] = '\0';
-	len = strlen(xpathstr) - 1; /* recompute due to null */
-	for (i=len; i>=0; i--){
-	    if (xpathstr[i] == '['){
-		xpathstr[i] = '\0';
-		pe = &xpathstr[i+1];
-		break;
+
+    if (strlen(xpathstr)){
+	last = strlen(xpathstr) - 1; /* XXX: this could be -1.. */
+	if (xpathstr[last] == ']'){
+	    xpathstr[last] = '\0';
+	    if (strlen(xpathstr)){
+		last = strlen(xpathstr) - 1; /* recompute due to null */
+		for (i=last; i>=0; i--){
+		    if (xpathstr[i] == '['){
+			xpathstr[i] = '\0';
+			pe = &xpathstr[i+1];
+			break;
+		    }
+		}
+		if (pe==NULL){
+		    clicon_err(OE_XML, errno, "%s: mismatched []: %s", __FUNCTION__, xpathstr);
+		    goto done;
+		}
 	    }
-	}
-	if (pe==NULL){
-	    clicon_err(OE_XML, errno, "%s: mismatched []: %s", __FUNCTION__, xpathstr);
-	    goto done;
 	}
     }
     retval = 0;

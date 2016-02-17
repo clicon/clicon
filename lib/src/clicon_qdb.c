@@ -84,6 +84,7 @@ db_init(char *file)
 {
     return db_init_mode(file, DP_OWRITER | DP_OCREAT ); /* DP_OTRUNC? */
 }
+
 /*! Write data to database 
  * @param[in]  file    database file
  * @param[in]  key     database key
@@ -132,7 +133,10 @@ db_set(char *file, char *key, void *data, size_t datalen)
  * @see db_get_alloc  Allocates memory
  */
 int 
-db_get(char *file, char *key, void *data, size_t *datalen)
+db_get(char   *file, 
+       char   *key, 
+       void   *data, 
+       size_t *datalen)
 {
     DEPOT *dp;
     int len;
@@ -191,7 +195,10 @@ db_get(char *file, char *key, void *data, size_t *datalen)
  * @see db_get Pre-allocates memory
  */
 int 
-db_get_alloc(char *file, char *key, void **data, size_t *datalen)
+db_get_alloc(char   *file, 
+	     char   *key, 
+	     void  **data, 
+	     size_t *datalen)
 {
     DEPOT *dp;
     int len;

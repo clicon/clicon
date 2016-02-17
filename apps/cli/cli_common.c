@@ -1588,8 +1588,8 @@ cli_del(clicon_handle h, cvec *cvv, cg_var *arg)
  * @param[in] vars  Vector of variables (where <varname> is found)
  * @param[in] arg   A string: "<varname> (merge|replace)" 
  *   <varname> is name of a variable occuring in "vars" containing filename
- * @note that "filename" is local on client filesystem not backend. However, a local database 
- * must exist for this function to work.
+ * @note that "filename" is local on client filesystem not backend. 
+ * @note file is assumed to have a dummy top-tag, eg <clicon></clicon>
  * @code
  *   # cligen spec
  *   load file <name2:string>, load_config_file("name2 merge");
@@ -1613,6 +1613,14 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     char       *varstr;
     int         fd = -1;
     cxobj      *xt = NULL;
+    cvec      **cvvs = NULL;
+    size_t      cvvslen = 0;
+    cvec       *cvv;
+    int         i;
+    cxobj      *xn;
+    cxobj      *x;
+    cbuf       *cbxml;
+    yang_spec  *yspec;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1656,12 +1664,6 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	goto done;
     }
     if (cli_send2backend(h)) {
-	cvec **cvvs = NULL;
-	size_t cvvslen = 0;
-	cvec  *cvv;
-	int    i;
-	cxobj *xn;
-
 	/* Open and parse local file into xml */
 	if ((fd = open(filename, O_RDONLY)) < 0){
 	    clicon_err(OE_UNIX, errno, "%s: open(%s)", __FUNCTION__, filename);
@@ -1669,22 +1671,39 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	}
 	if (clicon_xml_parse_file(fd, &xt, "</clicon>") < 0)
 	    goto done;
-	if ((xn = xml_child_i(xt, 0)) != NULL){
-	    /* Translate xml to cvecs */
-	    if (xml2cvec_key(xn, clicon_dbspec_key(h), dbname, &cvvs, &cvvslen) < 0)
-		goto done;
-	    /* Push cvecs to remote backend database */
-	    for (i=0; i<cvvslen; i++){
-		cvv = cvvs[i];
-		if (clicon_rpc_change(h, 
-				      dbname, 
-				      LV_SET, 
-				      cvec_name_get(cvv), 
-				      cvv) < 0)
+	if (clicon_db_xml(h)){
+	    if ((xn = xml_child_i(xt, 0)) != NULL){
+		if ((cbxml = cbuf_new()) == NULL)
 		    goto done;
+		x = NULL;
+		while ((x = xml_child_each(xn, x, -1)) != NULL) 
+		    if (clicon_xml2cbuf(cbxml, x, 0, 0) < 0)
+			goto done;
+		if (clicon_rpc_xmlput(h, dbname, 
+				      replace?OP_REPLACE:OP_MERGE, 
+				      cbuf_get(cbxml)) < 0)
+		    goto done;
+		cbuf_free(cbxml);
 	    }
-	    if (cvvs)
-		clicon_dbitems_free(cvvs, cvvslen);
+	}
+	else{
+	    if ((xn = xml_child_i(xt, 0)) != NULL){
+		/* Translate xml to cvecs */
+		if (xml2cvec_key(xn, clicon_dbspec_key(h), dbname, &cvvs, &cvvslen) < 0)
+		    goto done;
+		/* Push cvecs to remote backend database */
+		for (i=0; i<cvvslen; i++){
+		    cvv = cvvs[i];
+		    if (clicon_rpc_change(h, 
+					  dbname, 
+					  LV_SET, 
+					  cvec_name_get(cvv), 
+					  cvv) < 0)
+			goto done;
+		}
+		if (cvvs)
+		    clicon_dbitems_free(cvvs, cvvslen);
+	    }
 	}
     }
     else{
@@ -1696,8 +1715,22 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
 	    if (db_init(dbname) < 0) 
 		goto done;
 	}
-	if (load_xml_to_db(filename, clicon_dbspec_key(h), dbname) < 0) 
-	    goto done;
+	if (clicon_db_xml(h)){
+	    if ((fd = open(filename, O_RDONLY)) < 0){
+		clicon_err(OE_UNIX, errno, "%s: open(%s)", __FUNCTION__, filename);
+		goto done;
+	    }
+	    if (clicon_xml_parse_file(fd, &xt, "</clicon>") < 0)
+		goto done;
+	    yspec = clicon_dbspec_yang(h);
+	    if ((xn = xml_child_i(xt, 0)) != NULL){
+		if (xmldb_put(dbname, xn, yspec, replace?OP_REPLACE:OP_MERGE) < 0)
+		    goto done;
+	    }
+	}
+	else
+	    if (load_xml_to_db(filename, clicon_dbspec_key(h), dbname) < 0) 
+		goto done;
     }
     ret = 0;
   done:
@@ -1708,8 +1741,7 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
     return ret;
 }
 
-
-/*! Copy database to file 
+/*! Copy database to local file 
  * Utility function used by cligen spec file
  * @param[in] h     CLICON handle
  * @param[in] cvv  variable vector (containing <varname>)
@@ -1718,13 +1750,16 @@ load_config_file(clicon_handle h, cvec *vars, cg_var *arg)
  *   <varname> is name of cligen variable in the "cvv" vector containing file name
  * Note that "filename" is local on client filesystem not backend.
  * The function can run without a local database
+ * @note The file is saved with dummy top-tag: clicon: <clicon></clicon>
  * @code
  *   save file <name:string>, save_config_file("running name");
  * @endcode
  * @see load_config_file
  */
 int
-save_config_file(clicon_handle h, cvec *cvv, cg_var *arg)
+save_config_file(clicon_handle h, 
+		 cvec         *cvv, 
+		 cg_var       *arg)
 {
     int        retval = -1;
     char     **vec;
@@ -1741,6 +1776,7 @@ save_config_file(clicon_handle h, cvec *cvv, cg_var *arg)
     cxobj     *xt = NULL;
     FILE      *f = NULL;
     int        i;
+    yang_spec  *yspec;
 
     if (arg == NULL || (str = cv_string_get(arg)) == NULL){
 	clicon_err(OE_PLUGIN, 0, "%s: requires string argument", __FUNCTION__);
@@ -1779,11 +1815,23 @@ save_config_file(clicon_handle h, cvec *cvv, cg_var *arg)
 	goto done;
     }
     filename = vecp[0];
+    if (clicon_db_xml(h)){
+	yspec = clicon_dbspec_yang(h);
+	if (xmldb_get(dbname, "/", yspec, &xt) < 0)
+	    goto done;
+	if ((f = fopen(filename, "wb")) == NULL){
+	    clicon_err(OE_CFG, errno, "Creating file %s", filename);
+	    goto done;
+	} 
+	if (clicon_xml2file(f, xt, 0, 1) < 0)
+	    goto done;
+    }
+    else
     if (cli_send2backend(h)) {
 	/* Open local file */
 	if ((f = fopen(filename, "wb")) == NULL){
 	    clicon_err(OE_CFG, errno, "Creating file %s", filename);
-	    return -1;
+	    goto done;
 	} 
 	/* Get database contents remotely as cvec */
 	if (clicon_rpc_dbitems(h, dbname, NULL, NULL, NULL, &cvecv, &clen) < 0) /*  */

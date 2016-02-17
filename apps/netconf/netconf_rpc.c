@@ -614,47 +614,40 @@ netconf_edit_config(clicon_handle h,
     }
     if (get_edit_opts(xn, &operation, &testopt, &erropt, cb_err, xorig) < 0)
 	goto done;
-    switch(operation){
-    case OP_REPLACE: /* replace or create config-data */
-    case OP_MERGE: /* merge config-data */
-	if ((xc  = xpath_first(xn, "config")) != NULL){
-	    /* application-specific code registers 'config' */
-	    if ((ret = netconf_plugin_callbacks(h, xc, cb, cb_err, xorig)) < 0){
+    /* operation is OP_REPLACE, OP_MERGE, or OP_NONE pass all to backend */
+    if ((xc  = xpath_first(xn, "config")) != NULL){
+	/* application-specific code registers 'config' */
+	if ((ret = netconf_plugin_callbacks(h, xc, cb, cb_err, xorig)) < 0){
+	    netconf_create_rpc_error(cb_err, xorig, 
+				     "operation-failed", 
+				     "protocol", "error", 
+				     NULL, "Validation"); 
+	    goto done;
+	}
+	if (clicon_db_xml(h)){ /* Write to string and then send to backend */
+	    if ((cbxml = cbuf_new()) == NULL)
+		goto done;
+	    if ((xcc = xml_child_i(xc, 0)) != NULL)
+		if (clicon_xml2cbuf(cbxml, xcc, 0, 0) < 0)
+		    goto done;
+	    xmlstr = cbuf_get(cbxml);
+	    if (clicon_rpc_xmlput(h, target, 
+				  operation,
+				  xmlstr) < 0){
 		netconf_create_rpc_error(cb_err, xorig, 
-					 "operation-failed", 
-					 "protocol", "error", 
-					 NULL, "Validation"); 
+					 "access-denied", 
+					 "protocol", 
+					 "error", 
+					 NULL,
+					 "edit_config");
 		goto done;
 	    }
-	    if (clicon_db_xml(h)){ /* Write to string and then send to backend */
-		if ((cbxml = cbuf_new()) == NULL)
-		    goto done;
-		if ((xcc = xml_child_i(xc, 0)) != NULL)
-		    if (clicon_xml2cbuf(cbxml, xcc, 0, 0) < 0)
-			goto done;
-		xmlstr = cbuf_get(cbxml);
-		if (clicon_rpc_xmlput(h, target, 
-				      operation,
-				      xmlstr) < 0){
-		    netconf_create_rpc_error(cb_err, xorig, 
-					     "access-denied", 
-					     "protocol", 
-					     "error", 
-					     NULL,
-					     "edit_config");
-		    goto done;
-		}
-	    }
-	    else{ /* write to file, send 'load' rpc to backend */
-		if (edit_config_file_rpc(h, xc, xn, target, operation, 
-					 cb_err, xorig) < 0)
-		    goto done;
-	    }
 	}
-	break;
-    case OP_NONE: /* combine with operations attribute */
-    default:
-	break;
+	else{ /* write to file, send 'load' rpc to backend */
+	    if (edit_config_file_rpc(h, xc, xn, target, operation, 
+				     cb_err, xorig) < 0)
+		goto done;
+	}
     }
     netconf_ok_set(1);
     retval = 0;

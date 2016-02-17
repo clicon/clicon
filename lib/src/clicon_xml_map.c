@@ -862,7 +862,9 @@ xml2db(cxobj      *xt,
 /*! Load a saved XML file into a db
  */
 int
-load_xml_to_db(char *xmlfile, dbspec_key *dbspec, char *dbname)
+load_xml_to_db(char       *xmlfile, 
+	       dbspec_key *dbspec, 
+	       char       *dbname)
 {
     int fd = -1;
     int retval = -1;

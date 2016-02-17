@@ -243,7 +243,7 @@ clicon_rpc_change_dbxml(clicon_handle h,
  * Same as clicon_proto_change just with a cvec instead of lvec
  * @param[in] h          CLICON handle
  * @param[in] db         Name of database
- * @param[in] op         Operation on database item: set, delete, (merge?)
+ * @param[in] op         Operation on database item: OP_MERGE, OP_REPLACE
  * @param[in] xml        XML string. Ex: <a>..</a><b>...</b>
  * @retval    0          OK
  * @retval   -1          Error

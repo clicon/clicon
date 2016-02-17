@@ -694,7 +694,6 @@ yang2cli(clicon_handle h,
     if (cligen_parse_str(cli_cligen(h), cbuf_get(cbuf), 
 			 "yang2cli", ptnew, globals) < 0)
 	goto done;
-    cligen_print(stderr, *ptnew, 0);
     cvec_free(globals);
     /* handle=NULL for global namespace, this means expand callbacks must be in
        CLICON namespace, not in a cli frontend plugin. */
